@@ -1,0 +1,1107 @@
+<title>클로드 오피스</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
+<style>
+/* Layout: 회사 건물. 맨 위 층 안내(총괄 → 1층·2층·3층 팀 → 입주 예정), 그 아래에는 고른 층 하나의 사무실만.
+   사무실 왼쪽은 책상(팀장·개발자·디자이너·기획), 오른쪽은 회의실과 업무판, 아래는 활동 기록과 보고서.
+   고른 층은 주소 끝(#<팀 id>)과 브라우저에 기억한다.
+   모든 상태는 팀 사무실 폴더(.office)의 파일에서 몇 초마다 다시 읽는다. */
+:root{
+  --floor:#E2E7EE; --floor-2:#DBE1E9;
+  --surface:#FFFFFF; --surface-2:#F0F3F7;
+  --ink:#172030; --ink-2:#4F5D72; --ink-3:#8591A3; --line:#D0D8E2; --line-2:#A9B4C3;
+  --focus:#2563EB; --scrim:rgba(12,16,24,.42);
+  --plate:#1C2330; --plate-ink:#F3F5F8; --plate-rim:#3A4456; --gold:#D4A23A;
+  --desk-top:#D9B88F; --desk-edge:#B98F60; --chair:#3A4150;
+  --monitor:#1D232E; --screen:#101820; --screen-mid:#12243A; --screen-on:#133554;
+  --screen-ink:#D6EAF8; --screen-dim:rgba(214,234,248,.4); --screen-call:#FFC861;
+  --glow:#FFD27A; --table:#C9A57A; --table-edge:#A9825A; --room:#EEF1F5;
+  --rack:#20252D; --rack-2:#2B313B; --rack-ink:#E4E8EE; --rack-ink-2:#98A2B0;
+  --work:#F0A00C; --ok:#22B36A; --rest:#8591A3; --err:#E5484D; --meet:#7A5AC8;
+  --err-ink:#C42730; --on-a:#FFFFFF; --chip-wash:rgba(0,0,0,.22); --chip-wash-2:rgba(0,0,0,.32);
+  --w-a:#DFEDDE; --a-a:#267A4A;
+  --w-b:#DCE7F5; --a-b:#3C6FC4;
+  --w-c:#F5E0EA; --a-c:#B0406F;
+  --w-hq:#E4E8EF; --a-hq:#2A3448;
+  --font-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono","Nanum Gothic Coding",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --floor:#0F141B; --floor-2:#121822; --surface:#171E28; --surface-2:#1F2834;
+    --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --line-2:#465163;
+    --focus:#7AA7FF; --scrim:rgba(0,0,0,.6);
+    --plate:#0A0E14; --plate-ink:#F3F5F8; --plate-rim:#3A4659; --gold:#E5B75A;
+    --desk-top:#6E5136; --desk-edge:#4F3A26; --chair:#0F131A;
+    --monitor:#0A0D12; --screen:#0A1219; --screen-mid:#0F2133; --screen-on:#12324F;
+    --glow:#FFC861; --table:#6E5136; --table-edge:#4F3A26; --room:#1B222D;
+    --rack:#0E1217; --rack-2:#1A2029; --rack-ink:#E4E8EE; --rack-ink-2:#8A94A3;
+    --work:#FFB224; --ok:#3DD68C; --rest:#6F7B8E; --err:#FF6369; --meet:#A68BEA;
+    --err-ink:#FF8A8E; --on-a:#0E1218; --chip-wash:rgba(255,255,255,.22); --chip-wash-2:rgba(255,255,255,.32);
+    --w-a:#1E2D22; --a-a:#4CC07E; --w-b:#1D293A; --a-b:#6F9BE0; --w-c:#33222C; --a-c:#E0728F; --w-hq:#20252E; --a-hq:#9AA6BA;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --floor:#0F141B; --floor-2:#121822; --surface:#171E28; --surface-2:#1F2834;
+  --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --line-2:#465163;
+  --focus:#7AA7FF; --scrim:rgba(0,0,0,.6);
+  --plate:#0A0E14; --plate-ink:#F3F5F8; --plate-rim:#3A4659; --gold:#E5B75A;
+  --desk-top:#6E5136; --desk-edge:#4F3A26; --chair:#0F131A;
+  --monitor:#0A0D12; --screen:#0A1219; --screen-mid:#0F2133; --screen-on:#12324F;
+  --glow:#FFC861; --table:#6E5136; --table-edge:#4F3A26; --room:#1B222D;
+  --rack:#0E1217; --rack-2:#1A2029; --rack-ink:#E4E8EE; --rack-ink-2:#8A94A3;
+  --work:#FFB224; --ok:#3DD68C; --rest:#6F7B8E; --err:#FF6369; --meet:#A68BEA;
+  --err-ink:#FF8A8E; --on-a:#0E1218; --chip-wash:rgba(255,255,255,.22); --chip-wash-2:rgba(255,255,255,.32);
+  --w-a:#1E2D22; --a-a:#4CC07E; --w-b:#1D293A; --a-b:#6F9BE0; --w-c:#33222C; --a-c:#E0728F; --w-hq:#20252E; --a-hq:#9AA6BA;
+}
+*{box-sizing:border-box}
+body{background-color:var(--floor); background-image:repeating-conic-gradient(var(--floor) 0 25%, var(--floor-2) 0 50%); background-size:96px 96px; color:var(--ink); font-family:var(--font-body); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased}
+button{font:inherit}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.wrap{max-width:1440px; margin:0 auto; padding-block:22px 56px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px))}
+[data-team="hq"]{--tw:var(--w-hq); --ta:var(--a-hq)}
+/* 팀 색: org.json의 tone(a·b·c) 또는 층 번호 순서로 정해요. 팀 id와 상관없이 어떤 팀이든 색이 들어가요. */
+[data-tone="a"]{--tw:var(--w-a); --ta:var(--a-a)}
+[data-tone="b"]{--tw:var(--w-b); --ta:var(--a-b)}
+[data-tone="c"]{--tw:var(--w-c); --ta:var(--a-c)}
+[data-tone="hq"]{--tw:var(--w-hq); --ta:var(--a-hq)}
+
+/* 머리말 */
+.top{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:14px 24px}
+.sign{display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px; min-width:0; flex:1 1 560px}
+.plate{position:relative; margin:0; white-space:nowrap; font-family:var(--font-display); font-weight:400; font-size:32px; line-height:1; background:var(--plate); color:var(--plate-ink); padding:11px 22px 9px; border-radius:6px; box-shadow:inset 0 0 0 2px var(--plate-rim), 0 3px 0 var(--plate-rim)}
+.plate::before,.plate::after{content:""; position:absolute; top:50%; width:5px; height:5px; margin-top:-2.5px; border-radius:50%; background:var(--plate-rim)}
+.plate::before{left:7px} .plate::after{right:7px}
+.sign-sub{flex:1 1 300px; min-width:0; max-width:66ch}
+.sign-sub p{margin:0; color:var(--ink-2); font-size:13.5px; text-wrap:pretty}
+.sign-sub b{color:var(--ink); font-weight:600}
+.live{display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:6px; background:var(--surface); border:1px solid var(--line); font-size:12.5px; color:var(--ink-2)}
+.live i{width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s ease-in-out infinite}
+.live.snap i{background:var(--rest); animation:none}
+.live.lost i{background:var(--err); animation:none}
+.live b{font-family:var(--font-mono); font-weight:500; color:var(--ink)}
+
+.sec-title{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:0 0 12px}
+.sec-title h2{margin:0; font-family:var(--font-display); font-weight:400; font-size:22px; line-height:1.1}
+.sec-title p{margin:0; font-size:13px; color:var(--ink-2)}
+
+/* 조직도 */
+.org{margin-top:18px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px}
+.org-top{position:relative; display:flex; justify-content:center}
+.org-top::after{content:""; position:absolute; left:50%; bottom:-20px; height:20px; border-left:2px solid var(--line-2)}
+.hq-node{display:flex; align-items:center; gap:12px; padding:10px 16px 10px 10px; border-radius:10px; background:var(--plate); color:var(--plate-ink); box-shadow:inset 0 0 0 2px var(--plate-rim)}
+.hq-node .av{background:var(--gold); color:#1C2330}
+.hq-node b{display:block; font-family:var(--font-display); font-weight:400; font-size:21px; line-height:1.1}
+.hq-node small{display:block; font-size:12px; color:#AEB8C7}
+.hq-node a{margin-left:6px; padding:5px 10px; border-radius:5px; background:rgba(255,255,255,.12); color:var(--plate-ink); font-size:12px; font-weight:600; text-decoration:none; white-space:nowrap}
+.hq-node a:hover{background:rgba(255,255,255,.22)}
+.org-branches{position:relative; margin-top:40px; display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px}
+.org-branches::before{content:""; position:absolute; top:-20px; left:calc((100% - 48px) / 10); right:calc((100% - 48px) / 10); border-top:2px solid var(--line-2)}
+.org-team{position:relative; display:flex; flex-direction:column; gap:5px; width:100%; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); font:inherit; text-align:left; cursor:pointer; transition:box-shadow .2s, border-color .2s}
+.org-team::before{content:""; position:absolute; left:50%; top:-21px; height:20px; border-left:2px solid var(--line-2)}
+.org-team:hover{border-color:var(--ink-3)}
+.org-team.on{border-color:var(--ta); background:color-mix(in srgb, var(--tw) 45%, var(--surface))}
+.org-team[aria-pressed="true"]{border-color:var(--ta); box-shadow:0 0 0 3px color-mix(in srgb, var(--ta) 38%, transparent)}
+.ot-head{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0}
+.fl-no{flex:none; font:600 11.5px var(--font-mono); padding:2px 7px; border-radius:3px; background:var(--surface-2); color:var(--ink-2); white-space:nowrap}
+.org-team[aria-pressed="true"] .fl-no{background:var(--ta); color:var(--on-a)}
+.ot-name{font-family:var(--font-display); font-size:19px; line-height:1.1; overflow-wrap:break-word}
+.ot-row{font-size:12.5px; color:var(--ink-2)}
+.ot-row b{color:var(--ink); font-weight:600}
+.badge{align-self:flex-start; font-size:11px; font-weight:600; padding:2px 7px; border-radius:3px; background:var(--surface-2); color:var(--ink-2)}
+.org-team.on .badge{background:var(--ta); color:var(--on-a)}
+
+/* 팀 사무실 */
+.room{margin-top:22px; background:color-mix(in srgb, var(--tw) 50%, var(--surface)); border:1px solid color-mix(in srgb, var(--ta) 40%, var(--line)); border-radius:12px; padding:0 14px 14px}
+.room-head{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin:-1px -15px 14px; padding:11px 15px; border-radius:12px 12px 0 0; background:var(--ta); color:var(--on-a)}
+.room-head .tn{font-family:var(--font-display); font-size:26px; line-height:1}
+.room-head .fl{font:600 13px var(--font-mono); padding:3px 8px; border-radius:3px; background:var(--chip-wash)}
+.room-head .kind{font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:3px; background:var(--chip-wash)}
+.room-head .meta{margin-left:auto; display:flex; flex-wrap:wrap; align-items:center; gap:2px 14px; font-size:12.5px}
+.room-head code{font:500 12px var(--font-mono)}
+.room-head .notion{padding:3px 9px; border-radius:4px; background:var(--chip-wash); color:inherit; font-weight:600; text-decoration:none; white-space:nowrap}
+.room-head .notion:hover{background:var(--chip-wash-2)}
+.room-grid{display:grid; grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr); gap:16px; align-items:start}
+.desks{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px}
+.side{display:flex; flex-direction:column; gap:14px; min-width:0}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; min-width:0}
+.panel h3{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0 0 8px; font-family:var(--font-display); font-weight:400; font-size:19px}
+.panel h3 span{font:500 12px var(--font-body); color:var(--ink-3)}
+
+/* 책상 */
+.desk{position:relative; display:flex; flex-direction:column; min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:pointer; transition:box-shadow .3s, border-color .3s}
+.desk:hover{border-color:var(--ink-3)}
+.desk.is-work{border-color:var(--work); box-shadow:0 0 0 3px color-mix(in srgb, var(--work) 30%, transparent)}
+.desk.is-meet{border-color:var(--meet)}
+.desk.is-block{border-color:var(--err); box-shadow:0 0 0 3px color-mix(in srgb, var(--err) 25%, transparent)}
+.desk.is-vacant{border-style:dashed; cursor:default}
+.plate-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 11px 8px}
+.who{display:flex; flex-direction:column; min-width:0}
+.nm{font-family:var(--font-display); font-size:21px; line-height:1.05}
+.when{font:500 11px var(--font-mono); color:var(--ink-3); margin-top:2px}
+.status{display:inline-flex; align-items:center; gap:5px; flex:none; padding:3px 8px; border-radius:4px; background:var(--surface-2); color:var(--ink-2); font-size:11.5px; font-weight:500; white-space:nowrap}
+.sd{width:8px; height:8px; border-radius:50%; flex:none; display:inline-block; background:var(--rest)}
+.sd.work{background:var(--work); animation:pulse 1.2s ease-in-out infinite}
+.sd.here{background:var(--ok)}
+.sd.meet{background:var(--meet)}
+.sd.block{background:var(--err)}
+.sd.none{background:transparent; box-shadow:inset 0 0 0 1.5px var(--rest)}
+.scene{position:relative; container-type:inline-size; line-height:0}
+.scene svg{display:block; width:100%; height:auto}
+.screen-ui{position:absolute; left:25.833%; top:6.667%; width:50%; height:44%; padding:3cqw 3.4cqw; display:flex; flex-direction:column; gap:1.3cqw; overflow:hidden; color:var(--screen-ink); line-height:1.3}
+.screen-call{font:500 3.2cqw var(--font-mono); color:var(--screen-call); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.screen-msg{font-size:3.9cqw; font-weight:500; word-break:keep-all; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.is-here .screen-ui,.is-meet .screen-ui,.is-vacant .screen-ui{color:var(--screen-dim)}
+.caret{display:inline-block; width:.48em; height:1em; margin-left:2px; vertical-align:-.16em; background:currentColor; animation:caret 1s steps(2) infinite}
+.bubble{position:absolute; right:2%; top:3%; max-width:36%; padding:1.6cqw 2.6cqw; border-radius:2.4cqw; background:var(--surface); color:var(--ink); font-size:3.5cqw; line-height:1.35; font-weight:500; box-shadow:0 2px 8px rgba(0,0,0,.25); word-break:keep-all; overflow-wrap:anywhere}
+.bubble::after{content:""; position:absolute; left:18%; bottom:-1.6cqw; border:1.6cqw solid transparent; border-top-color:var(--surface); border-bottom:0}
+.screen-bg{fill:var(--screen)}
+.is-work .screen-bg{fill:var(--screen-on)}
+.glow{opacity:0} .is-work .glow{opacity:.55}
+.head{transform-box:fill-box; transform-origin:50% 90%}
+.is-work .head{animation:bob .42s ease-in-out infinite alternate}
+.is-meet .person,.is-vacant .person,.is-vacant .mug{display:none}
+.pwr{fill:var(--ok)} .is-work .pwr{fill:var(--work); animation:blink .32s steps(2) infinite}
+.steam path{opacity:0; transform-box:fill-box}
+.is-work .steam path{animation:steam 2.2s ease-out infinite}
+.is-work .steam path:nth-child(2){animation-delay:.8s}
+.away-note{position:absolute; left:50%; bottom:10%; transform:translateX(-50%); padding:1.2cqw 3cqw; border-radius:1.6cqw; background:var(--meet); color:#fff; font-size:3.6cqw; font-weight:600; white-space:nowrap}
+.task{padding:8px 11px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--ink-2); min-height:36px; display:flex; align-items:center; gap:6px}
+.task b{font:600 11.5px var(--font-mono); color:var(--ink)}
+.desk-foot{margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px 9px 7px; background:var(--rack); color:var(--rack-ink); font-size:11px}
+.desk-foot code{font:500 10.5px var(--font-mono); color:var(--rack-ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.open-chat{flex:none; display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:4px; background:var(--rack-2); color:var(--rack-ink); font-size:11px; font-weight:600; text-decoration:none}
+.open-chat::after{content:"↗"; font-size:10px}
+.open-chat:hover{background:#fff; color:#111}
+
+/* 회의실 */
+.meet-svg{display:block; width:100%; height:auto; border-radius:8px}
+.meet-state{display:flex; align-items:center; gap:8px; margin-top:8px; font-size:13px}
+.meet-state b{font-weight:600}
+.meet-file{margin-top:6px; padding:0; border:0; background:none; color:var(--ink); font:500 12px var(--font-mono); text-decoration:underline; text-decoration-color:var(--line-2); text-underline-offset:3px; cursor:pointer; text-align:left; overflow-wrap:anywhere}
+
+/* 업무판 */
+.board{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
+.board li{display:grid; grid-template-columns:18px minmax(0,1fr); gap:3px 8px; padding:7px 0; border-top:1px solid var(--line); font-size:13px}
+.board li:first-child{border-top:0}
+.board .ck{width:14px; height:14px; margin-top:3px; border-radius:3px; border:1.5px solid var(--line-2)}
+.board li.done .ck{background:var(--ok); border-color:var(--ok)}
+.board li.done .bt{color:var(--ink-3); text-decoration:line-through}
+.board .bm{grid-column:2; display:flex; flex-wrap:wrap; gap:4px 8px; font-size:11.5px; color:var(--ink-3)}
+.board .bm code{font:600 11px var(--font-mono); color:var(--ink-2)}
+.chip{display:inline-block; padding:1px 6px; border-radius:3px; background:var(--surface-2); color:var(--ink-2); font-size:11px; font-weight:500}
+.chip.wait{background:color-mix(in srgb, var(--work) 22%, var(--surface)); color:var(--ink)}
+.empty{font-size:12.5px; color:var(--ink-3)}
+
+/* 기록 */
+.bottom{display:grid; grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr); gap:16px; margin-top:16px}
+.feed{list-style:none; margin:0; padding:0; max-height:340px; overflow:auto}
+.feed li{display:grid; grid-template-columns:44px minmax(0,1fr); gap:2px 10px; padding:7px 0; border-top:1px solid var(--line); font-size:13px}
+.feed li:first-child{border-top:0}
+.feed time{font:500 11.5px var(--font-mono); color:var(--ink-3); font-variant-numeric:tabular-nums}
+.feed .route{font-size:12px; color:var(--ink-2)}
+.feed .route b{color:var(--ink); font-weight:600}
+.k{display:inline-block; margin-right:6px; padding:0 6px; border-radius:3px; font-size:11px; font-weight:600; background:var(--surface-2); color:var(--ink-2)}
+.k.지시,.k.업무{background:color-mix(in srgb, var(--focus) 16%, var(--surface)); color:var(--ink)}
+.k.보고{background:color-mix(in srgb, var(--ok) 20%, var(--surface)); color:var(--ink)}
+.k.회의{background:color-mix(in srgb, var(--meet) 20%, var(--surface)); color:var(--ink)}
+.k.질문{background:color-mix(in srgb, var(--work) 22%, var(--surface)); color:var(--ink)}
+.files{list-style:none; margin:0; padding:0}
+.files li + li{border-top:1px solid var(--line)}
+.files button{width:100%; padding:7px 0; border:0; background:none; color:var(--ink); font:500 12px var(--font-mono); text-align:left; cursor:pointer; overflow-wrap:anywhere}
+.files button:hover{text-decoration:underline}
+
+/* 명령 도우미 */
+.howto{margin-top:16px}
+.cmds{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:8px}
+.cmd{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2)}
+.cmd code{font:500 12.5px var(--font-body); color:var(--ink); overflow-wrap:anywhere}
+.cmd button{flex:none; padding:4px 9px; border-radius:5px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:12px; cursor:pointer}
+
+/* 입주 예정 층 */
+.later-card{background:var(--surface); border:1px dashed var(--line-2); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:6px}
+.later-card b{font-family:var(--font-display); font-weight:400; font-size:19px}
+.later-card p{margin:0; font-size:12.5px; color:var(--ink-2)}
+.later-card a{align-self:flex-start; font-size:12px; font-weight:600}
+
+/* 서랍 */
+.drawer{position:fixed; inset:0; z-index:50; display:flex; justify-content:flex-end}
+.drawer-bg{position:absolute; inset:0; background:var(--scrim)}
+.drawer-panel{position:relative; width:min(520px, 100%); height:100%; overflow-y:auto; overscroll-behavior:contain; background:var(--surface); color:var(--ink); padding:calc(14px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) 22px; box-shadow:-24px 0 60px -30px rgba(0,0,0,.55); animation:slidein .22s ease-out}
+.d-bar{display:flex; justify-content:flex-end; margin-bottom:10px}
+.d-close{padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13px; font-weight:500; cursor:pointer}
+.d-title{margin:0; font-family:var(--font-display); font-weight:400; font-size:30px; line-height:1.1}
+.d-eyebrow{margin:0 0 2px; font-size:12.5px; color:var(--ink-2); font-weight:500}
+.d-pre{margin:14px 0 0; padding:12px; border-radius:8px; background:var(--surface-2); font:400 12.5px/1.6 var(--font-mono); white-space:pre-wrap; overflow-wrap:anywhere}
+.facts{display:grid; grid-template-columns:7em minmax(0,1fr); margin:14px 0 0}
+.facts dt,.facts dd{padding:6px 0; border-top:1px solid var(--line); font-size:13px}
+.facts dt{color:var(--ink-3)}
+.facts dd{margin:0; min-width:0; overflow-wrap:anywhere}
+.facts code{font:500 12px var(--font-mono)}
+.btn-primary{display:inline-flex; align-items:center; gap:6px; margin-top:14px; padding:8px 14px; border-radius:6px; background:var(--ink); color:var(--surface); font-size:13.5px; font-weight:600; text-decoration:none}
+.btn-primary::after{content:"↗"}
+.av{width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-family:var(--font-display); font-size:20px; line-height:1; flex:none}
+
+/* 대화·회의·결재 */
+.btn{display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:6px; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; cursor:pointer; text-decoration:none}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--ink); border-color:var(--ink); color:var(--surface)}
+.btn.warn{color:var(--err-ink)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+button.live{cursor:pointer; font:inherit; font-size:12.5px}
+.live.alert{border-color:var(--work); background:color-mix(in srgb, var(--work) 16%, var(--surface)); color:var(--ink)}
+.live.alert b{color:var(--ink)}
+.hq-node button{margin-left:6px; padding:5px 10px; border-radius:5px; border:0; background:rgba(255,255,255,.12); color:var(--plate-ink); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap}
+.hq-node button:hover{background:rgba(255,255,255,.22)}
+.d-sec{margin:20px 0 6px; font-size:13px}
+.thread{list-style:none; margin:10px 0 0; padding:10px; display:flex; flex-direction:column; gap:8px; max-height:46vh; overflow:auto; border-radius:10px; background:var(--surface-2)}
+.msg{align-self:flex-start; max-width:88%; padding:7px 11px; border-radius:10px; background:var(--surface); font-size:13.5px; white-space:pre-wrap; overflow-wrap:anywhere; box-shadow:0 1px 0 var(--line)}
+.msg.me{align-self:flex-end; background:color-mix(in srgb, var(--focus) 16%, var(--surface))}
+.msg .who{display:block; margin-bottom:2px; font:600 11.5px var(--font-body); color:var(--ink-3); white-space:normal}
+.msg.sys{align-self:center; max-width:100%; padding:2px 8px; background:none; box-shadow:none; color:var(--ink-3); font-size:12px; text-align:center}
+.composer{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+.composer textarea,.composer input[type="text"]{width:100%; padding:9px 10px; border:1px solid var(--line-2); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:14px}
+.composer textarea{min-height:76px; resize:vertical}
+.composer .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; border:0; min-width:0}
+.chips legend{padding:0; margin-bottom:4px; font-size:12px; color:var(--ink-3)}
+.chips label{display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12.5px; cursor:pointer}
+.hint{margin:0; font-size:12px; color:var(--ink-3)}
+.err{margin:0; font-size:12.5px; color:var(--err-ink)}
+.err:empty{display:none}
+.appr{border:1px solid var(--line); border-radius:10px; padding:12px 13px; margin-top:12px; background:var(--surface)}
+.appr.done{opacity:.72}
+.appr-top{display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:12px; color:var(--ink-3)}
+.appr h4{margin:6px 0 4px; font-size:15.5px; line-height:1.35}
+.appr .sum{margin:0; font-size:13px; color:var(--ink-2); white-space:pre-wrap; overflow-wrap:anywhere}
+.appr .risk{margin:8px 0 0; padding:7px 9px; border-radius:6px; background:color-mix(in srgb, var(--err) 12%, var(--surface)); font-size:12.5px; color:var(--ink)}
+.appr .opts{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.appr .opts .rec::after{content:"추천"; margin-left:4px; padding:0 5px; border-radius:3px; background:var(--gold); color:#1C2330; font-size:10.5px}
+.meet-now{margin-top:8px; padding:8px 10px; border-radius:8px; background:color-mix(in srgb, var(--meet) 14%, var(--surface)); font-size:13px}
+.meet-now ol{margin:6px 0 0; padding-left:18px; color:var(--ink-2); font-size:12.5px}
+.meet-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.new-dot{display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--err); color:#fff; font:700 10.5px/1.4 var(--font-body); vertical-align:middle}
+.relay-note{margin:0; font-size:12px; color:var(--err-ink)}
+.relay-note:empty{display:none}
+.past{list-style:none; margin:0; padding:0}
+.past li + li{border-top:1px solid var(--line)}
+.past button{width:100%; padding:7px 0; border:0; background:none; color:var(--ink); font:500 12.5px var(--font-body); text-align:left; cursor:pointer; overflow-wrap:anywhere}
+.past button:hover{text-decoration:underline}
+.past small{color:var(--ink-3)}
+
+@media (max-width:1100px){ .room-grid,.bottom{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:899px){
+  .org-branches{grid-template-columns:minmax(0,1fr); margin-top:18px; padding-left:22px}
+  .org-branches::before{left:8px; right:auto; top:-18px; bottom:auto; height:18px; border-top:0; border-left:2px solid var(--line-2)}
+  /* 카드마다 위 틈에서 자기 가지까지 ㄴ자 선을 긋고, 마지막 카드가 아니면 아래로 줄기를 이어요. 카드 높이와 상관없이 줄기가 마지막 가지에서 끝나요. */
+  .org-team::before{left:-15px; top:-13px; width:15px; height:35px; border-top:0; border-left:2px solid var(--line-2); border-bottom:2px solid var(--line-2)}
+  .org-team:not(:last-child)::after{content:""; position:absolute; left:-15px; top:22px; bottom:-1px; border-left:2px solid var(--line-2)}
+  .org-top{justify-content:flex-start} .org-top::after{left:8px; bottom:-18px; height:18px}
+  .room-head .meta{margin-left:0; width:100%}
+}
+@media (max-width:559px){
+  .plate{font-size:28px}
+  .desks{grid-template-columns:minmax(0,1fr)}
+  .org-team{flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 10px; padding:9px 12px}
+  .org-team .ot-row{display:none}
+  .org-team::before{height:calc(50% + 12px)}
+  .org-team:not(:last-child)::after{top:50%}
+  .hq-node{flex-wrap:wrap}
+  .drawer{align-items:flex-end}
+  .drawer-panel{height:auto; max-height:88%; border-radius:14px 14px 0 0; padding-left:max(18px, env(safe-area-inset-left, 0px)); padding-right:max(18px, env(safe-area-inset-right, 0px)); animation-name:slideup}
+}
+@keyframes pulse{50%{opacity:.35}}
+@keyframes blink{50%{opacity:.25}}
+@keyframes bob{to{transform:translateY(-1.2px)}}
+@keyframes caret{50%{opacity:0}}
+@keyframes steam{0%{opacity:0; transform:translateY(2px)} 40%{opacity:.7} 100%{opacity:0; transform:translateY(-6px)}}
+@keyframes slidein{from{opacity:0; transform:translateX(28px)}}
+@keyframes slideup{from{opacity:0; transform:translateY(28px)}}
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{animation:none !important; transition:none !important} }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><radialGradient id="screenGlow"><stop offset="0" style="stop-color:var(--glow); stop-opacity:.8"/><stop offset="1" style="stop-color:var(--glow); stop-opacity:0"/></radialGradient></defs></svg>
+
+<div class="wrap">
+  <header class="top">
+    <div class="sign">
+      <h1 class="plate">클로드 오피스</h1>
+      <div class="sign-sub">
+        <p><b>환경 하나가 팀 하나, 팀 하나가 한 층</b>이에요. 팀마다 팀장·개발자·디자이너·기획이 있고, 팀원 → 팀장 → 총괄 순서로 보고가 올라와요. <b>여기서 바로</b> 책상을 눌러 누구에게나 말을 걸고, 회의실에서 회의를 열고, 위의 <b>결재함</b>에서 팀장이 올린 결재를 처리해요. 이 화면은 팀 사무실 폴더의 파일을 몇 초마다 다시 읽어서 보여 줘요.</p>
+      </div>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap"><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
+  </header>
+
+  <section class="org" aria-label="층 안내">
+    <div class="sec-title"><h2>층 안내</h2><p>층을 누르면 그 팀 사무실만 아래에 보여요. 팀원을 뽑은 팀부터 층이 생겨요.</p></div>
+    <div class="org-top" id="orgTop"></div>
+    <div class="org-branches" id="orgTeams"></div>
+  </section>
+
+  <div id="rooms"></div>
+</div>
+
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer-bg" id="drawerBg"></div>
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+    <div class="d-bar"><button class="d-close" id="drawerClose" type="button">닫기</button></div>
+    <div id="drawerBody"></div>
+  </div>
+</div>
+
+<script type="application/json" id="snapshot">/*@@SNAPSHOT@@*/</script>
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const chatLink = id => `claude://claude.ai/epitaxy/${encodeURIComponent(String(id || ''))}`;
+const ROLE_ORDER = ['팀장', '개발자', '디자이너', '기획'];
+// 로컬 서버(office_server.py)가 페이지를 줄 때 이 자리에 열쇠를 넣어요. 스냅샷(artifact)에서는 그대로 남아서 보내기 기능이 꺼져요.
+const TOKEN = '@@OFFICE_TOKEN@@';
+const API = /^[A-Za-z0-9_-]{20,}$/.test(TOKEN);
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Token': TOKEN }, body: JSON.stringify(body) });
+  let j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok || !j.ok) throw new Error(j.error || `보내지 못했어요 (${r.status})`);
+  return j;
+}
+const ST = {
+  '일하는 중': { cls: 'is-work', sd: 'work' },
+  '대기': { cls: 'is-here', sd: 'here' },
+  '회의 중': { cls: 'is-meet', sd: 'meet' },
+  '막힘': { cls: 'is-block', sd: 'block' }
+};
+
+/* ---------- 불러오기 ---------- */
+let state = null, mode = 'loading';
+const bust = u => u + (u.includes('?') ? '&' : '?') + 't=' + Date.now();
+async function getText(u) { const r = await fetch(bust(u), { cache: 'no-store' }); if (!r.ok) throw new Error(r.status + ' ' + u); return r.text(); }
+async function getJSON(u) { return JSON.parse(await getText(u)); }
+async function listDir(u) {
+  const html = await getText(u);
+  return [...html.matchAll(/href="([^"?#][^"]*)"/g)].map(m => decodeURIComponent(m[1])).filter(h => !h.startsWith('/') && !h.startsWith('..'));
+}
+const enc = p => p.split('/').map(encodeURIComponent).join('/');
+const jsonl = text => String(text || '').split('\n').map(l => { try { return l.trim() ? JSON.parse(l) : null; } catch (e) { return null; } }).filter(Boolean);
+async function loadTeam(t) {
+  const base = t.office.replace(/\/$/, '') + '/';
+  const team = await getJSON(base + 'team.json');
+  const status = {};
+  await Promise.all(team.members.map(async m => { try { status[m.role] = await getJSON(base + 'status/' + enc(m.role) + '.json'); } catch (e) { status[m.role] = null; } }));
+  const board = await getText(base + 'board.md').catch(() => '');
+  const log = jsonl(await getText(base + 'log.jsonl').catch(() => ''));
+  const meetDir = await listDir(base + 'meetings/').catch(() => []);
+  const meetings = meetDir.filter(f => f.endsWith('.md')).sort();
+  const reports = (await listDir(base + 'reports/').catch(() => [])).filter(f => f.endsWith('.md')).sort();
+  const meeting = meetings.length ? { file: meetings[meetings.length - 1], text: await getText(base + 'meetings/' + enc(meetings[meetings.length - 1])).catch(() => '') } : null;
+  // 사이트 회의(대표가 연 회의): meetings/<id>.json 정보 + <id>.chat.jsonl 대화
+  const metas = (await Promise.all(meetDir.filter(f => /^\d{8}-M-\d+\.json$/.test(f)).sort().slice(-12)
+    .map(f => getJSON(base + 'meetings/' + enc(f)).catch(() => null)))).filter(Boolean);
+  const active = metas.find(m => m.status === '진행 중') || metas.find(m => m.status === '정리 중') || null;
+  const activeChat = active ? jsonl(await getText(base + 'meetings/' + enc(active.id + '.chat.jsonl')).catch(() => '')) : [];
+  // 결재: approvals/<id>.json — 번호는 늘 파일 이름이에요(파일 안 id 칸은 무시)
+  const approvals = (await Promise.all((await listDir(base + 'approvals/').catch(() => [])).filter(f => /\.json$/.test(f) && !f.startsWith('.'))
+    .map(f => getJSON(base + 'approvals/' + enc(f)).then(a => (a && typeof a === 'object' ? Object.assign({}, a, { id: f.replace(/\.json$/, '') }) : null)).catch(() => null)))).filter(Boolean);
+  // 바로 대화의 마지막 줄(새 답 표시용)
+  const lastChat = {};
+  if (API) await Promise.all(team.members.map(async m => {
+    const lines = jsonl(await getText(base + 'chat/' + enc(m.role) + '.jsonl').catch(() => ''));
+    lastChat[m.role] = lines.length ? lines[lines.length - 1] : null;
+  }));
+  return { team, status, board, log, meetings, reports, meeting, metas, active, activeChat, approvals, lastChat, base };
+}
+async function load() {
+  try {
+    const org = await getJSON('org.json');
+    const teams = {};
+    // 한 팀 파일이 깨져도 나머지 층과 총괄·결재함은 그대로 보여요(그 팀은 직전 상태를 써요)
+    for (const t of org.teams) if (t.office) {
+      try { teams[t.id] = await loadTeam(t); } catch (e) { if (state && state.teams && state.teams[t.id]) teams[t.id] = Object.assign({}, state.teams[t.id], { broken: true }); }
+    }
+    let hqLast = null;
+    if (API) { const l = jsonl(await getText('hq/chat.jsonl').catch(() => '')); hqLast = l.length ? l[l.length - 1] : null; }
+    let relay = null;
+    if (API) { try { relay = JSON.parse(await getText('api/state')); } catch (e) { relay = null; } }
+    state = { org, teams, relay, hqLast, at: new Date().toISOString() };
+    mode = 'live';
+  } catch (e) {
+    if (!state) {
+      try { const s = JSON.parse($('#snapshot').textContent); if (s && s.org) { state = s; mode = 'snap'; } } catch (err) {}
+      if (!state) mode = 'none';
+    } else if (mode === 'live') mode = 'lost';
+  }
+  if (!$('#drawer').hidden) { pending = true; return; }   // 서랍이 열려 있으면 닫을 때 다시 그려요
+  render();
+}
+
+/* ---------- 시간 ---------- */
+function hm(iso) { try { return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso)); } catch (e) { return ''; } }
+function ago(iso) {
+  const ms = Date.now() - Date.parse(iso);
+  if (!isFinite(ms)) return '';
+  const m = ms / 6e4;
+  if (m < 1) return '방금';
+  if (m < 60) return `${Math.round(m)}분 전`;
+  if (m < 1440) return `${Math.round(m / 60)}시간 전`;
+  return `${Math.floor(m / 1440)}일 전`;
+}
+
+/* ---------- 그림 ---------- */
+function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const STYLES = ['bun', 'cap', 'curly', 'bob', 'long', 'ponytail', 'short', 'spiky'];
+const HAIRS = ['#3B2A22', '#1E222B', '#5A3420', '#B4462A', '#2A1E18', '#4A3226', '#A3A8AE', '#15171C'];
+const SKINS = ['#F1C7A5', '#C68863', '#8D5A3B', '#F5D3B8', '#E9B48F', '#F0C9A8', '#D9A07A', '#7A4B2F'];
+const MUGS = ['#FBFBF8', '#E5484D', '#F4D35E', '#8A5CD6', '#3B6FD9', '#22B36A'];
+const ROLE_LOOK = { '팀장': { prop: 'calendar' }, '개발자': { acc: 'headphones' }, '디자이너': { prop: 'swatch', acc: 'beret' }, '기획': { prop: 'frame', acc: 'pencil' } };
+function lookOf(key, role) {
+  const h = hash(key);
+  const pick = (a, k) => a[(h >>> k) % a.length];
+  return Object.assign({ style: pick(STYLES, 0), hair: pick(HAIRS, 3), skin: pick(SKINS, 7), mug: pick(MUGS, 11), tie: '#F4D35E', prop: 'sticky', acc: '' }, ROLE_LOOK[role] || {});
+}
+function propSVG(kind) {
+  switch (kind) {
+    case 'sticky': return `<g><rect x="198" y="11" width="11" height="11" fill="#F7D96B" transform="rotate(-6 203.5 16.5)"/><rect x="212" y="9" width="11" height="11" fill="#F5A3B8" transform="rotate(5 217.5 14.5)"/><rect x="204" y="25" width="11" height="11" fill="#9BE3C6" transform="rotate(3 209.5 30.5)"/></g>`;
+    case 'swatch': return `<g><rect x="197" y="9" width="30" height="32" rx="1.5" fill="#FBFBF8" stroke="#2A303B" stroke-width="1.5"/><rect x="201" y="13" width="5" height="19" fill="#8A5CD6"/><rect x="207" y="13" width="5" height="19" fill="#E86A92"/><rect x="213" y="13" width="5" height="19" fill="#F2B33D"/><rect x="219" y="13" width="5" height="19" fill="#3B9BD9"/></g>`;
+    case 'frame': return `<g><rect x="197" y="9" width="30" height="32" fill="#FBFBF8" stroke="#6B4E33" stroke-width="2.2"/><rect x="202" y="14" width="16" height="3" fill="#2A303B"/><rect x="202" y="20" width="20" height="1.8" fill="#B8C0CC"/><rect x="202" y="24" width="18" height="1.8" fill="#B8C0CC"/><rect x="202" y="28" width="20" height="1.8" fill="#B8C0CC"/></g>`;
+    case 'calendar': return `<g><rect x="199" y="9" width="26" height="30" rx="2" fill="#FBFBF8" stroke="#2A303B" stroke-width="1.2"/><path d="M199 17V11a2 2 0 0 1 2-2h22a2 2 0 0 1 2 2v6z" fill="#E5484D"/><text x="212" y="34" text-anchor="middle" font-size="14" font-family="Do Hyeon, sans-serif" fill="#1C2330">${new Date().getDate()}</text></g>`;
+  }
+  return '';
+}
+function personSVG(L, role) {
+  const H = L.hair, S = L.skin;
+  let back = '', top = '', acc = '';
+  switch (L.style) {
+    case 'long': back = `<rect x="107" y="94" width="30" height="34" rx="11" fill="${H}"/>`; break;
+    case 'ponytail': back = `<path d="M117 106Q112 120 118 131Q124 136 127 128Q130 118 127 106Z" fill="${H}"/>`; top = `<rect x="118.5" y="103.5" width="7" height="3" rx="1.5" fill="${L.tie}"/>`; break;
+    case 'bun': top = `<circle cx="122" cy="80.5" r="6.6" fill="${H}"/><rect x="117" y="84.6" width="10" height="2.4" rx="1.2" fill="${L.tie}"/>`; break;
+    case 'curly': top = Array.from({ length: 11 }, (_, i) => { const a = Math.PI + i * Math.PI / 10; return `<circle cx="${(122 + 13.4 * Math.cos(a)).toFixed(1)}" cy="${(95 + 13.4 * Math.sin(a)).toFixed(1)}" r="4.8" fill="${H}"/>`; }).join(''); break;
+    case 'cap': top = `<path d="M107.5 93A14.5 14.5 0 0 1 136.5 93Z" style="fill:var(--ta)"/><ellipse cx="122" cy="94" rx="10.5" ry="3.4" fill="#00000040"/>`; break;
+    case 'bob': top = `<path d="M107.5 92Q107 108 112.5 110.5L131.5 110.5Q137 108 136.5 92Z" fill="${H}"/>`; break;
+    case 'spiky': top = `<path d="M108 93L109.5 80L114 87L117 76.5L121 85L124.5 75.5L127.5 85L131.5 77.5L133.5 87L137 81L136.5 93Z" fill="${H}"/>`; break;
+  }
+  if (L.acc === 'headphones' && L.style !== 'cap') acc = `<path d="M106.3 97A15.7 15.7 0 0 1 137.7 97" fill="none" stroke="#262B35" stroke-width="3.2"/><rect x="102.3" y="91.5" width="7.4" height="12.5" rx="3.4" fill="#262B35"/><rect x="134.3" y="91.5" width="7.4" height="12.5" rx="3.4" fill="#262B35"/>`;
+  if (L.acc === 'beret') acc = `<ellipse cx="118" cy="84" rx="13.5" ry="5.4" transform="rotate(-14 118 84)" fill="#8A5CD6"/>`;
+  if (L.acc === 'pencil') acc = `<line x1="134" y1="92.5" x2="145" y2="84.5" stroke="#E9B53C" stroke-width="2.4" stroke-linecap="round"/>`;
+  const neck = L.style === 'long' ? '' : `<rect x="116" y="102" width="12" height="9" rx="3" fill="${S}"/>`;
+  const collar = role === '팀장' ? `<path d="M113 108.5l9 9 9-9z" fill="#FFFFFF" opacity=".9"/><path d="M120.6 114.5h2.8l.9 9-2.3 3-2.3-3z" fill="#1C2330"/>` : `<path d="M114 109l8 9 8-9z" fill="#FFFFFF" opacity=".75"/>`;
+  return `<g class="person"><rect x="90" y="108" width="64" height="52" rx="22" style="fill:var(--ta)"/>${collar}${back}<g class="head">${neck}<ellipse cx="107.4" cy="98" rx="2.6" ry="3.6" fill="${S}"/><ellipse cx="136.6" cy="98" rx="2.6" ry="3.6" fill="${S}"/><circle cx="122" cy="96" r="14.5" fill="${H}"/>${top}${acc}</g></g>`;
+}
+function sceneSVG(L, role) {
+  const right = role === '개발자'
+    ? `<rect x="188" y="34" width="48" height="36" rx="3" style="fill:var(--monitor)"/><rect x="191" y="37" width="42" height="30" rx="1" style="fill:var(--screen)"/><rect x="194" y="40" width="18" height="2" rx="1" fill="#7FD1FF"/><rect x="198" y="44" width="24" height="2" rx="1" fill="#FFC861"/><rect x="198" y="48" width="14" height="2" rx="1" fill="#9AD73A"/><rect x="194" y="52" width="20" height="2" rx="1" fill="#7FD1FF"/><rect x="198" y="56" width="26" height="2" rx="1" fill="#F472B6"/><rect x="208" y="70" width="8" height="18" style="fill:var(--monitor)"/><rect x="200" y="86.5" width="24" height="3.5" rx="1.7" style="fill:var(--monitor)"/>`
+    : `${propSVG(L.prop)}<rect x="199" y="45" width="28" height="48" rx="3" style="fill:var(--monitor)"/><rect x="203" y="51" width="20" height="2.4" rx="1" fill="#FFFFFF" opacity=".14"/><circle class="pwr" cx="213" cy="86" r="1.9"/>`;
+  const plaque = role === '팀장' ? `<rect x="146" y="94" width="30" height="10" rx="1.5" fill="#20252D"/><text x="161" y="101.6" text-anchor="middle" font-size="6.4" font-family="IBM Plex Sans KR, sans-serif" font-weight="700" style="fill:var(--gold)">팀장</text>` : `<ellipse cx="170" cy="99" rx="4.2" ry="5.6" style="fill:var(--monitor)"/>`;
+  return `<svg viewBox="0 0 240 150" aria-hidden="true" focusable="false">
+    <rect width="240" height="88" style="fill:var(--tw)"/>
+    <ellipse class="glow" cx="122" cy="44" rx="88" ry="52" fill="url(#screenGlow)"/>
+    <rect x="4" y="36" width="50" height="3" rx="1" style="fill:var(--desk-edge)"/>
+    ${[0, 1, 2, 3].map(i => `<rect x="${6 + i * 6.6}" y="${36 - 14 - (i * 3) % 7}" width="5.4" height="${14 + (i * 3) % 7}" rx=".8" style="fill:${i % 2 ? 'var(--ta)' : 'var(--ink-3)'}"/>`).join('')}
+    <rect y="88" width="240" height="22" style="fill:var(--desk-top)"/>
+    <rect y="110" width="240" height="40" style="fill:var(--desk-edge)"/>
+    <rect x="58" y="6" width="128" height="74" rx="4" style="fill:var(--monitor)"/>
+    <rect class="screen-bg" x="62" y="10" width="120" height="66" rx="1.5"/>
+    <rect x="116" y="80" width="12" height="9" style="fill:var(--monitor)"/><rect x="103" y="87.5" width="38" height="4" rx="2" style="fill:var(--monitor)"/>
+    ${right}
+    <g class="mug"><rect x="23" y="80" width="11" height="12" rx="2" fill="${L.mug}" stroke="#00000026" stroke-width=".6"/><path d="M34 83h2.4a3 3 0 0 1 0 6H34" fill="none" stroke="${L.mug}" stroke-width="1.8"/></g>
+    <g class="steam" fill="none" style="stroke:var(--ink-3)" stroke-width="1.1" stroke-linecap="round"><path d="M26.5 77q-2-3 0-5.5t0-5.5"/><path d="M30.5 77q-2-3 0-5.5t0-5.5"/></g>
+    ${plaque}
+    ${personSVG(L, role)}
+    <rect x="${role === '팀장' ? 93 : 98}" y="${role === '팀장' ? 122 : 124}" width="${role === '팀장' ? 58 : 48}" height="36" rx="9" style="fill:var(--chair)"/>
+  </svg>`;
+}
+
+/* ---------- 조각 ---------- */
+const SEEN_KEY = 'claude-office.seen';
+function seenMap() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function markSeen(file, t) { if (!t) return; try { const m = seenMap(); if (!m[file] || m[file] < t) { m[file] = t; localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } } catch (e) {} }
+const unread = (file, last) => { if (!last || last.from === '대표' || !last.t) return false; const s = seenMap()[file]; return !s || s < last.t; };
+function deskHTML(m, st, tid, newReply) {
+  if (!m.sessionId) {
+    return `<article class="desk is-vacant"><header class="plate-row"><div class="who"><span class="nm">${esc(m.role)}</span><span class="when">합류 전</span></div><span class="status"><i class="sd none"></i>빈자리</span></header>
+      <div class="scene">${sceneSVG(lookOf(m.role, m.role), m.role)}<div class="screen-ui"><div class="screen-call">${esc(m.title)}</div><div class="screen-msg">곧 합류해요</div></div></div>
+      <div class="task">아직 세션이 없어요.</div><div class="desk-foot"><code>—</code></div></article>`;
+  }
+  const s = st || { state: '대기', task: '', say: '', updated: '' };
+  const S = ST[s.state] || ST['대기'];
+  const L = lookOf(m.sessionId, m.role);
+  const fresh = s.updated && (Date.now() - Date.parse(s.updated)) < 6 * 3600e3;
+  const bubble = s.say && fresh && s.state !== '회의 중' ? `<div class="bubble">${esc(s.say)}</div>` : '';
+  const away = s.state === '회의 중' ? `<span class="away-note">회의실에 있어요</span>` : '';
+  const caret = s.state === '일하는 중' ? '<span class="caret"></span>' : '';
+  const stale = (s.state === '일하는 중' || s.state === '회의 중') && s.updated && (Date.now() - Date.parse(s.updated)) > 30 * 60e3;
+  return `<article class="desk ${S.cls}" data-role="${esc(m.role)}" data-team="${tid}" tabindex="0" role="button" aria-label="${esc(m.name)}, ${esc(s.state)}">
+    <header class="plate-row"><div class="who"><span class="nm">${esc(m.role)}${newReply ? '<span class="new-dot">새 답</span>' : ''}</span><span class="when">${esc(m.title)}${s.updated ? ' · ' + esc(ago(s.updated)) : ''}</span></div><span class="status"><i class="sd ${stale ? 'block' : S.sd}"></i>${esc(s.state)}${stale ? ' · 응답 없음?' : ''}</span></header>
+    <div class="scene">${sceneSVG(L, m.role)}<div class="screen-ui"><div class="screen-call">${esc(s.state)}</div><div class="screen-msg">${esc(s.task || (s.state === '대기' ? '다음 일을 기다리는 중' : ''))}${caret}</div></div>${bubble}${away}</div>
+    <div class="task">${s.task ? `<b>${esc(s.task.split(' ')[0])}</b>${esc(s.task.split(' ').slice(1).join(' '))}` : '<span class="empty">다음 일을 기다리는 중</span>'}</div>
+    <div class="desk-foot"><code>${esc(m.sessionId)}</code><a class="open-chat" href="${chatLink(m.sessionId)}">대화 열기</a></div>
+  </article>`;
+}
+function meetingSVG(members, status) {
+  const seats = [[160, 34], [62, 96], [160, 158], [258, 96]];
+  const people = ROLE_ORDER.map((r, i) => {
+    const m = members.find(x => x.role === r);
+    const s = m && status[r];
+    if (!m || !s || s.state !== '회의 중') return `<g opacity=".5"><rect x="${seats[i][0] - 16}" y="${seats[i][1] - 14}" width="32" height="28" rx="8" style="fill:var(--chair)"/></g>`;
+    const L = lookOf(m.sessionId || r, r);
+    return `<g><rect x="${seats[i][0] - 16}" y="${seats[i][1] - 14}" width="32" height="28" rx="8" style="fill:var(--chair)"/><circle cx="${seats[i][0]}" cy="${seats[i][1]}" r="13" style="fill:var(--ta)"/><circle cx="${seats[i][0]}" cy="${seats[i][1]}" r="9" fill="${L.hair}"/><text x="${seats[i][0]}" y="${seats[i][1] + (i === 2 ? 30 : i === 0 ? -20 : 30)}" text-anchor="middle" font-size="11" font-weight="600" font-family="IBM Plex Sans KR, sans-serif" style="fill:var(--ink)">${r}</text></g>`;
+  }).join('');
+  return `<svg class="meet-svg" viewBox="0 0 320 192" aria-hidden="true"><rect width="320" height="192" style="fill:var(--room)"/><rect x="232" y="10" width="76" height="40" rx="2" fill="#FBFBF8" stroke="#2A303B" stroke-width="1.2"/><path d="M240 20h40M240 28h52M240 36h30" stroke="#8591A3" stroke-width="2"/><rect x="92" y="62" width="136" height="68" rx="34" style="fill:var(--table); stroke:var(--table-edge)" stroke-width="3"/>${people}</svg>`;
+}
+function parseBoard(md) {
+  return md.split('\n').map(l => l.match(/^\s*-\s*\[( |x|X)\]\s*(.+)$/)).filter(Boolean).map(m => {
+    const parts = m[2].split('|').map(s => s.trim());
+    return { done: m[1].toLowerCase() === 'x', id: parts[0] || '', who: parts[1] || '', title: parts[2] || parts[0], st: parts[3] || '' };
+  });
+}
+
+/* ---------- 층 ---------- */
+// floor는 사용자가 고른 층이에요. 그 층이 잠깐 없을 때 보여 주는 대신 층은 저장하지 않아요.
+let floor = null;
+const FLOOR_KEY = 'claude-office.floor';
+const floorLabel = t => t.floor ? `${t.floor}층` : '입주 예정';
+const toneOf = t => (t && /^(a|b|c)$/.test(t.tone)) ? t.tone : (t && t.floor ? 'abc'[(Number(t.floor) - 1) % 3] || 'hq' : 'hq');
+const hasFloor = (org, id) => !!id && org.teams.some(t => t.id === id);
+function hashFloor() { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ''; } }
+function savedFloor() { try { return localStorage.getItem(FLOOR_KEY); } catch (e) { return null; } }
+function shownFloor(org) {
+  for (const id of [floor, hashFloor(), savedFloor()]) if (hasFloor(org, id)) return id;
+  const first = org.teams.find(t => t.office) || org.teams[0];
+  return first ? first.id : null;
+}
+function setFloor(id) {
+  floor = id;
+  try { localStorage.setItem(FLOOR_KEY, id); } catch (e) {}
+  if (hashFloor() !== id) { try { history.replaceState(null, '', '#' + encodeURIComponent(id)); } catch (e) {} }
+}
+function goFloor(id) {
+  if (!state || !hasFloor(state.org, id)) return;
+  setFloor(id);
+  render();
+  const r = $('#rooms');
+  if (r.getBoundingClientRect().top > window.innerHeight * 0.7) r.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+/* ---------- 그리기 ---------- */
+// 4초마다 다시 그려도 내용이 같으면 DOM을 건드리지 않아요(누르던 버튼·키보드 위치가 그대로 남아요).
+function put(el, html) { if (el._html === html) return false; el._html = html; el.innerHTML = html; return true; }
+const FOCUSABLE = 'a[href], button, [tabindex]';
+const sigOf = n => [n.tagName, n.dataset.goto, n.dataset.file, n.dataset.copy, n.dataset.team, n.dataset.role, n.getAttribute('href')].join('|');
+function focusKey(el) {
+  if (!el || !el.closest) return null;
+  const box = el.closest('#orgTop, #orgTeams, #rooms');
+  if (!box) return null;
+  return { box: box.id, sig: sigOf(el), i: [...box.querySelectorAll(FOCUSABLE)].indexOf(el) };
+}
+function refocus(k) {
+  const box = k && document.getElementById(k.box);
+  if (!box) return;
+  const list = [...box.querySelectorAll(FOCUSABLE)];
+  const el = list.find(n => sigOf(n) === k.sig) || (k.i >= 0 ? list[k.i] : null);
+  if (el) el.focus({ preventScroll: true });
+}
+function render() {
+  const live = $('#live'), lt = $('#liveText');
+  live.className = 'live' + (mode === 'snap' ? ' snap' : mode === 'lost' || mode === 'none' ? ' lost' : '');
+  put(lt, mode === 'live' ? `실시간 · <b>${esc(hm(state.at))}</b> 갱신` : mode === 'snap' ? `스냅샷 · <b>${esc(hm(state.at))}</b> 기준 · 실시간은 로컬 페이지에서` : mode === 'lost' ? `연결이 끊겼어요 · 마지막 <b>${esc(hm(state.at))}</b>` : '사무실 파일을 찾지 못했어요');
+  if (!state) return;
+  const { org, teams } = state;
+  const shown = shownFloor(org);
+  const cur = org.teams.find(t => t.id === shown);
+  const was = document.activeElement, keep = focusKey(was);
+  const nl = $('#notionLink'); if (org.notion) { nl.href = org.notion; nl.hidden = false; }
+  // 결재함: 모든 팀의 '결재 대기'·'보류'
+  const waiting = Object.values(teams).reduce((n, d) => n + (d.approvals || []).filter(a => a.status === '결재 대기' || a.status === '보류').length, 0);
+  const ab = $('#apprBtn');
+  ab.hidden = !Object.values(teams).some(d => (d.approvals || []).length);
+  ab.className = 'live' + (waiting ? ' alert' : '');
+  put($('#apprN'), String(waiting));
+  // 총괄 연결: 총괄이 outbox를 지켜보는 중인지(1초마다 heartbeat)
+  const rl = $('#relay');
+  rl.hidden = !API;
+  if (API) {
+    const r = state.relay, ok = r && r.relayAge != null && r.relayAge < 15;
+    rl.className = 'live' + (ok ? '' : ' alert');
+    put(rl, ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${r.pending}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${r.pending}</b>` : ''}`);
+  }
+  put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a></div>`);
+  put($('#orgTeams'), org.teams.map(t => {
+    const d = teams[t.id];
+    const on = !!d;
+    const ms = on ? d.team.members : [];
+    const lead = on ? ms.find(m => m.role === '팀장') : t.lead;
+    const joined = ms.filter(m => m.sessionId).length;
+    return `<button type="button" class="org-team${on ? ' on' : ''}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms">
+      <span class="ot-head"><span class="fl-no">${esc(floorLabel(t))}</span><span class="ot-name">${esc(t.name)}</span></span><span class="badge">${esc(t.state)}</span>
+      <span class="ot-row">팀장 <b>${lead ? esc(lead.title) : '없음'}</b></span>
+      <span class="ot-row">${on ? `팀원 <b>${joined - (lead && lead.sessionId ? 1 : 0)}</b>/${ms.length - 1}명` : '팀원 아직 없음'}</span>
+    </button>`;
+  }).join(''));
+  // 방을 다시 그려도 활동 기록·파일 목록을 보던 위치는 그대로
+  const scrolls = $$('#rooms .feed, #rooms .files').map(el => el.scrollTop);
+  if (put($('#rooms'), !cur ? '' : teams[cur.id] ? roomHTML(cur, teams[cur.id]) : vacantHTML(cur))) {
+    $$('#rooms .feed, #rooms .files').forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
+  }
+  document.title = cur ? `클로드 오피스 · ${floorLabel(cur)} ${cur.name}` : '클로드 오피스';
+  if (keep && !was.isConnected) refocus(keep);
+}
+function vacantHTML(t) {
+  return `<section class="room" data-team="hq" data-tone="hq" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 입주 예정">
+    <div class="room-head"><span class="fl">입주 예정</span><span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span></div>
+    <div class="later-card">
+      <p>${esc(t.what)}</p>
+      <p>팀장 후보: ${t.lead ? esc(t.lead.title) : '없음'}</p>
+      <p>팀원을 뽑으면 다음 층에 사무실이 생겨요. 총괄에게 “${esc(t.name)} 팀도 만들어 줘”라고 말하면 돼요.</p>
+      ${t.lead ? `<a href="${chatLink(t.lead.sessionId)}">팀장 후보 대화 열기 ↗</a>` : ''}
+    </div>
+  </section>`;
+}
+function roomHTML(t, d) {
+  const ms = [...d.team.members].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
+  const working = ms.filter(m => d.status[m.role] && d.status[m.role].state === '일하는 중').length;
+  const meeting = ms.filter(m => d.status[m.role] && d.status[m.role].state === '회의 중').length;
+  const items = parseBoard(d.board);
+  const open = items.filter(i => !i.done);
+  const done = items.filter(i => i.done);
+  const log = [...d.log].reverse().slice(0, 40);
+  const boardHTML = items.length ? `<ul class="board">${[...open, ...done.slice(-4).reverse()].map(i => `<li class="${i.done ? 'done' : ''}"><span class="ck"></span><span class="bt">${esc(i.title)}</span><span class="bm"><code>${esc(i.id)}</code><span>${esc(i.who)}</span>${i.st ? `<span class="chip${/결정 대기|막힘/.test(i.st) ? ' wait' : ''}">${esc(i.st)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="empty">업무판이 비어 있어요.</p>';
+  const feed = log.length ? `<ul class="feed">${log.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 기록이 없어요.</p>';
+  const reports = d.reports.length ? `<ul class="files">${[...d.reports].reverse().slice(0, 12).map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 보고서가 없어요.</p>';
+  const meets = d.meetings.length ? `<ul class="files">${[...d.meetings].reverse().slice(0, 6).map(f => `<li><button type="button" data-file="${esc(d.base + 'meetings/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '';
+  const cmds = [
+    `${t.name} 회의하자: (주제)`,
+    `${t.name} 개발자한테 (할 일) 시켜`,
+    `${t.name} 디자이너한테 (할 일) 시켜`,
+    `${t.name} 기획한테 (할 일) 시켜`,
+    `${t.name} 진행 상황 보고해`
+  ];
+  const am = (d.metas || []).find(m => m.status === '진행 중') || d.active;
+  const amLast = am ? (d.activeChat || []).filter(l => !l.kind).slice(-3) : [];
+  const meetPanel = am
+    ? `<div class="meet-now"><b>${am.status === '정리 중' ? '회의록 정리 중' : am.mode === '참석' ? '대표와 회의 중' : '팀끼리 회의 중'}</b> · ${esc(am.topic)}
+        ${amLast.length ? `<ol>${amLast.map(l => `<li>${esc(l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
+       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
+    : `${d.meeting ? `<div class="meet-state"><i class="sd ${meeting ? 'meet' : 'none'}"></i><b>${meeting ? '지금 회의 중' : '마지막 회의'}</b></div><button class="meet-file" type="button" data-file="${esc(d.base + 'meetings/' + d.meeting.file)}">${esc(d.meeting.file)}</button>` : '<p class="empty" style="margin-top:8px">아직 회의를 하지 않았어요.</p>'}
+       ${API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
+  return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
+    <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
+      <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}</div></div>
+    <div class="room-grid">
+      <div class="desks">${ms.map(m => deskHTML(m, d.status[m.role], t.id, unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]))).join('')}</div>
+      <div class="side">
+        <div class="panel"><h3>회의실 <span>${am ? esc(am.mode) + ' 회의' : meeting ? '회의 중' : '비어 있음'}</span></h3>${meetingSVG(ms, d.status)}
+          ${meetPanel}</div>
+        <div class="panel"><h3>업무판 <span>열린 일 ${open.length}</span></h3>${boardHTML}</div>
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="panel"><h3>활동 기록 <span>지시·업무·보고·회의</span></h3>${feed}</div>
+      <div class="panel"><h3>보고서 <span>${d.reports.length}개</span></h3>${reports}${meets ? `<h3 style="margin-top:14px">회의록 <span>${d.meetings.length}개</span></h3>${meets}` : ''}
+        ${(d.metas || []).length ? `<h3 style="margin-top:14px">사이트 회의 대화 <span>${d.metas.length}개</span></h3><ul class="past">${[...d.metas].reverse().map(m => `<li><button type="button" data-meet-open="${esc(t.id)}" data-meet-id="${esc(m.id)}">${esc(m.topic)} <small>· ${esc(m.id)} · ${esc(m.mode)} · ${esc(m.status)}</small></button></li>`).join('')}</ul>` : ''}</div>
+    </div>
+    ${API
+      ? `<div class="panel howto"><h3>여기서 하는 법 <span>보낸 말은 총괄이 그 세션에 바로 전해요</span></h3>
+          <div class="cmds"><div class="cmd"><code>책상을 누르면 그 사람과 바로 대화해요</code></div><div class="cmd"><code>회의실의 ‘회의 시작’: 같이 하거나 맡기기</code></div><div class="cmd"><code>위의 ‘결재함’: 팀장이 올린 결재 처리</code></div></div></div>`
+      : `<div class="panel howto"><h3>총괄에게 이렇게 말하세요 <span>복사해서 총괄 대화창에 붙여 넣으면 돼요</span></h3>
+          <div class="cmds">${cmds.map(c => `<div class="cmd"><code>${esc(c)}</code><button type="button" data-copy="${esc(c)}">복사</button></div>`).join('')}</div></div>`}
+  </section>`;
+}
+
+/* ---------- 서랍 ---------- */
+let lastFocus = null, lastKey = null, pending = false;
+function openDrawer(html, team) {
+  $('#drawerBody').innerHTML = html;
+  const p = $('.drawer-panel');
+  if (team) p.dataset.team = team; else delete p.dataset.team;
+  const tt = team && state && state.org.teams.find(x => x.id === team);
+  if (tt) p.dataset.tone = toneOf(tt); else delete p.dataset.tone;
+  const dr = $('#drawer');
+  if (dr.hidden) { lastFocus = document.activeElement; lastKey = focusKey(lastFocus); dr.hidden = false; }
+  p.scrollTop = 0;
+  restoreDrafts();
+  armButtons();
+  $('#drawerClose').focus();
+}
+function closeDrawer() {
+  $('#drawer').hidden = true;
+  live = null;
+  if (pending) { pending = false; render(); }
+  if (lastFocus && lastFocus.isConnected && lastFocus.focus) lastFocus.focus(); else refocus(lastKey);
+}
+// 결정 버튼(결재 선택·회의에서 빠지기)은 서랍이 열리고 잠깐 뒤에 눌리게 해요(겹친 화면에서 실수로 눌리지 않게).
+function armButtons() {
+  const bs = $$('#drawerBody [data-arm]');
+  bs.forEach(b => { b.disabled = true; });
+  setTimeout(() => bs.forEach(b => { if (b.isConnected && !b.closest('form[data-busy]')) b.disabled = false; }), 600);
+}
+
+/* ---------- 쓰던 글 보관 ---------- */
+// 서랍을 닫거나 다시 그려도 쓰던 글이 남아요. 보내면 지워요.
+const drafts = new Map();
+const draftKey = ta => { const f = ta.form; return f ? `${f.dataset.form}|${f.dataset.key || ''}|${ta.name}` : ''; };
+function restoreDrafts() { $$('#drawerBody form[data-form] textarea').forEach(ta => { const v = drafts.get(draftKey(ta)); if (v) ta.value = v; }); }
+document.addEventListener('input', e => { if (e.target.matches && e.target.matches('form[data-form] textarea')) drafts.set(draftKey(e.target), e.target.value); });
+
+/* ---------- 대화(사이트 → 총괄 → 세션, 답은 대화 파일로) ---------- */
+// live: 지금 열린 서랍의 대화 파일. 3초마다 다시 읽어 말풍선만 바꿔요(쓰던 글은 그대로).
+let live = null;
+function threadHTML(lines) {
+  if (!lines.length) return '<li class="msg sys">아직 주고받은 말이 없어요.</li>';
+  return lines.map(l => {
+    if (l.kind && l.kind !== '말') return `<li class="msg sys">${esc(hm(l.t))} · ${esc(l.text)}</li>`;
+    const to = Array.isArray(l.to) && l.to.length ? ` → ${l.to.map(esc).join(', ')}` : '';
+    return `<li class="msg${l.from === '대표' ? ' me' : ''}"><span class="who">${esc(l.from)}${to} · ${esc(hm(l.t))}</span>${esc(l.text)}</li>`;
+  }).join('');
+}
+async function refreshThread(force) {
+  if (!live || $('#drawer').hidden) return;
+  const el = $('#thread'), cur = live;
+  if (!el) return;
+  if (cur.tick) cur.tick();
+  let text = null;
+  if (!API) text = cur.fallback ? cur.fallback.map(l => JSON.stringify(l)).join('\n') : null;
+  else {
+    try { text = await getText(enc(cur.file)); }
+    catch (e) { text = /404|not found/i.test(String(e && e.message)) || !cur.last ? '' : null; }
+  }
+  if (live !== cur) return;
+  if (text === null) {   // 못 읽음(서버 재시작 등): 보이던 대화를 그대로 두고 알림만
+    if (!API && !cur.fallback) el.innerHTML = '<li class="msg sys">대화는 이 맥의 로컬 페이지에서만 볼 수 있어요.</li>';
+    return;
+  }
+  if (!force && text === cur.last) return;
+  cur.last = text;
+  const lines = jsonl(text);
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  el.innerHTML = threadHTML(lines);
+  if (atBottom || force) el.scrollTop = el.scrollHeight;
+  if (lines.length) markSeen(cur.file, lines[lines.length - 1].t);
+}
+function relayWarn() {
+  const r = state && state.relay;
+  if (!API) return '';
+  if (!r || r.relayAge == null || r.relayAge >= 15) return '총괄 연결이 끊겨 있어요. 보낸 말은 쌓여 있다가 총괄이 돌아오면 전해져요. 총괄 창에 “사이트 연결 다시 켜”라고 해 주세요.';
+  if (r.pending && r.oldestAge > 90) return `총괄이 ${r.pending}개를 아직 전하지 못하고 있어요(가장 오래된 것 ${Math.round(r.oldestAge / 60)}분).`;
+  return '';
+}
+function composerHTML(form, extra = '', placeholder = '여기에 쓰고 보내기 (⌘/Ctrl + Enter)', key = '') {
+  if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
+  return `<form class="composer" data-form="${form}" data-key="${esc(key)}">${extra}
+    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말"></textarea>
+    <div class="row"><p class="hint">총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><button type="submit" class="btn primary">보내기</button></div>
+    <p class="relay-note" role="status">${esc(relayWarn())}</p>
+    <p class="err" role="alert"></p></form>`;
+}
+function openThread(file, opts = {}) {
+  live = Object.assign({ file, last: null }, opts);
+  refreshThread(true);
+}
+function bossDrawer() {
+  openDrawer(`<p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">총괄과 대화</h2>
+    <p class="hint" style="margin-top:6px">무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.</p>
+    <ul class="thread" id="thread" aria-live="polite"></ul>
+    ${composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`);
+  openThread('hq/chat.jsonl');
+}
+function memberDrawer(tid, role) {
+  const d = state.teams[tid], m = d.team.members.find(x => x.role === role), s = d.status[role] || {};
+  const mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
+  const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
+  openDrawer(`
+    <p class="d-eyebrow">${esc(d.team.team)} 팀</p>
+    <h2 class="d-title" id="dTitle">${esc(role)}</h2>
+    <dl class="facts">
+      <dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
+      <dt>상태</dt><dd>${esc(s.state || '—')}${s.updated ? ` · ${esc(ago(s.updated))}` : ''}</dd>
+      <dt>맡은 일</dt><dd>${esc(s.task || '없음')}</dd>
+      <dt>한마디</dt><dd>${esc(s.say || '—')}</dd>
+    </dl>
+    <h3 class="d-sec">바로 대화</h3>
+    <ul class="thread" id="thread" aria-live="polite"></ul>
+    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${role}에게 바로 말 걸기`, `${tid}:${role}`)}
+    <a class="btn-primary" href="${esc(chatLink(m.sessionId))}">세션 창 열기</a>
+    <p class="hint" style="margin-top:6px">커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.</p>
+    <h3 style="margin:20px 0 6px; font-size:13px">주고받은 메시지</h3>
+    ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
+    <h3 style="margin:20px 0 6px; font-size:13px">보고서</h3>
+    ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}`, tid);
+  openThread(d.base + 'chat/' + role + '.jsonl');
+}
+
+/* ---------- 회의(대표만 시작) ---------- */
+function meetStartDrawer(tid, preset = {}) {
+  const d = state.teams[tid];
+  const roles = ROLE_ORDER.filter(r => d.team.members.some(m => m.role === r && m.sessionId));
+  const want = Array.isArray(preset.participants) && preset.participants.length ? preset.participants : roles;
+  const mode = preset.mode === '위임' ? '위임' : '참석';
+  openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">회의 시작</h2>
+    ${preset.approval ? `<p class="hint" style="margin-top:6px">팀장이 올린 회의 요청(${esc(preset.approval)})이에요. 시작하면 그 결재도 승인돼요.</p>` : ''}
+    <form class="composer" data-form="meet-start" data-key="${esc(tid)}"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="approval" value="${esc(preset.approval || '')}">
+      <input type="text" name="topic" required maxlength="300" value="${esc(preset.topic || '')}" placeholder="주제 (예: 현장 테스트 날짜와 방법)" aria-label="회의 주제">
+      <fieldset class="chips"><legend>방식</legend>
+        <label><input type="radio" name="mode" value="참석"${mode === '참석' ? ' checked' : ''}> 내가 같이 해요 (참석)</label>
+        <label><input type="radio" name="mode" value="위임"${mode === '위임' ? ' checked' : ''}> 너희끼리 해요 (위임)</label></fieldset>
+      <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === '팀장' || want.includes(r) ? ' checked' : ''}${r === '팀장' ? ' disabled' : ''}> ${esc(r)}</label>`).join('')}</fieldset>
+      <textarea name="note" maxlength="2000" placeholder="안건이나 메모 (선택)" aria-label="회의 메모">${esc(preset.note || '')}</textarea>
+      <div class="row"><p class="hint">참석: 내 말이 참석자에게 바로 가요. 위임: 팀장이 진행하고 결과를 회의록·결재로 올려요. 중간에 빠지면 나머지는 팀이 이어서 해요.</p><button type="submit" class="btn primary">회의 시작</button></div>
+      <p class="relay-note" role="status">${esc(relayWarn())}</p>
+      <p class="err" role="alert"></p></form>`, tid);
+}
+function meetDrawer(tid, id) {
+  const d = state.teams[tid];
+  const am = (id && (d.metas || []).find(m => m.id === id)) || (d.metas || []).find(m => m.status === '진행 중') || d.active;
+  if (!am) { meetStartDrawer(tid); return; }
+  let minutes = d.meetings.includes(am.id + '.md');
+  const drawControls = meta => {
+    const box = $('#meetCtl');
+    if (!box) return;
+    const going = meta.status === '진행 중';
+    put(box, `<p class="hint">${esc(meta.id)} · ${going ? (meta.mode === '참석' ? '대표 참석 중' : '대표 없이 진행 중(위임)') : esc(meta.status)} · 참석 ${(meta.participants || []).map(esc).join(', ')}</p>
+      ${API && going ? `<div class="meet-actions">${meta.mode === '참석'
+        ? `<button type="button" class="btn" data-arm data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="위임">나는 빠질게 (나머지는 너희끼리)</button>`
+        : `<button type="button" class="btn primary" data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="참석">회의에 참석하기</button>`}
+        <button type="button" class="btn warn" data-act="meet-end" data-team="${esc(tid)}" data-id="${esc(meta.id)}">회의 끝내기</button></div>` : ''}
+      ${meta.status === '정리 중' ? `<p class="hint">팀장이 회의록을 정리하고 있어요. 오래 멈춰 있으면 직접 닫을 수 있어요.</p>${API ? `<div class="meet-actions"><button type="button" class="btn" data-act="meet-close" data-team="${esc(tid)}" data-id="${esc(meta.id)}">정리 끝내기 (내가 닫기)</button></div>` : ''}` : ''}
+      ${minutes ? `<p class="hint"><button type="button" class="meet-file" data-file="${esc(d.base + 'meetings/' + meta.id + '.md')}">회의록 보기</button></p>` : ''}`);
+    const f = $('#meetSay');
+    if (f) f.hidden = !(API && going && meta.mode === '참석');
+  };
+  openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">${esc(am.topic)}</h2>
+    <div id="meetCtl"></div>
+    <ul class="thread" id="thread" aria-live="polite"></ul>
+    <div id="meetSay">${composerHTML('say', `<input type="hidden" name="thread" value="meeting:${esc(am.id)}"><input type="hidden" name="team" value="${esc(tid)}">
+      <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}" checked> ${esc(r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid);
+  drawControls(am);
+  // 회의 정보(진행 중·정리 중·끝, 참석/위임)와 회의록 여부는 대화와 따로 3초마다 확인해요.
+  let busy = false;
+  openThread(d.base + 'meetings/' + am.id + '.chat.jsonl', {
+    fallback: !API ? (am.id === (d.active && d.active.id) ? d.activeChat : null) : null,
+    tick: async () => {
+      if (!API || busy) return;
+      busy = true;
+      try {
+        const meta = await getJSON(d.base + 'meetings/' + enc(am.id + '.json'));
+        if (!minutes) { try { await getText(d.base + 'meetings/' + enc(am.id + '.md')); minutes = true; } catch (e) {} }
+        drawControls(meta);
+      } catch (e) {} finally { busy = false; }
+    }
+  });
+}
+
+/* ---------- 결재함 ---------- */
+// 선택지는 [{key,label}]도 ["A안", ...]도 받아요. 번호는 파일 이름. 보고서 칸이 절대경로면 사무실 기준으로 바꿔요.
+function optionsOf(a) {
+  const out = [];
+  for (const o of Array.isArray(a.options) ? a.options : []) {
+    if (o && typeof o === 'object' && String(o.key || '').trim()) out.push({ key: String(o.key).trim(), label: String(o.label || '') });
+    else if ((typeof o === 'string' || typeof o === 'number') && String(o).trim()) out.push({ key: String(o).trim(), label: '' });
+  }
+  return out;
+}
+function reportPath(d, r) {
+  r = String(r || '');
+  if (!r) return '';
+  if (r.startsWith('/')) { const i = r.indexOf('/.office/'); return i >= 0 ? d.base + r.slice(i + 9) : ''; }
+  return d.base + r.replace(/^\.?\/?(\.office\/)?/, '');
+}
+function apprCard(tid, d, a) {
+  const open = a.status === '결재 대기' || a.status === '보류';
+  const opts = optionsOf(a);
+  const shown = opts.length ? opts : [{ key: '승인', label: '' }];
+  const rec = String(a.recommend == null ? '' : a.recommend);
+  const rp = reportPath(d, a.report);
+  const meetingAsk = a.kind === 'meeting';
+  return `<article class="appr${open ? '' : ' done'}" data-team="${esc(tid)}">
+    <div class="appr-top"><span class="chip">${esc(d.team.team)}</span><span>${esc(a.from || '팀장')}</span>${a.related ? `<code>${esc(a.related)}</code>` : ''}<span>${esc(a.created ? ago(a.created) : '')}</span><span class="chip${open ? ' wait' : ''}">${esc(a.status || '')}</span></div>
+    <h4>${meetingAsk ? '회의 요청 · ' : ''}${esc(a.title || a.id)}</h4>
+    ${a.summary ? `<p class="sum">${esc(a.summary)}</p>` : ''}
+    ${a.risky ? `<p class="risk">위험한 일이에요. 결재는 ‘하기로 정함’이고, 실제 실행은 ${esc(a.where || '그 일을 할 세션 창')}에서 마지막으로 한 번 더 확인해요.</p>` : ''}
+    ${rp ? `<button type="button" class="meet-file" data-file="${esc(rp)}">보고서 보기</button>` : ''}
+    ${a.decision ? `<p class="hint" style="margin-top:8px">결정: ${esc(a.decision.choice)}${a.decision.meeting ? ` (${esc(a.decision.meeting)})` : ''}${a.decision.comment ? ` · “${esc(a.decision.comment)}”` : ''} · ${esc(ago(a.decision.t))}</p>` : ''}
+    ${open && API && meetingAsk ? `<div class="meet-actions"><button type="button" class="btn primary" data-arm data-meet-new="${esc(tid)}" data-approval="${esc(a.id)}">이 주제로 회의 열기</button></div>
+      <form class="composer" data-form="decide" data-key="${esc(tid + ':' + a.id)}" data-risky="0"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="id" value="${esc(a.id)}">
+      <div class="opts"><button type="submit" class="btn warn" data-arm name="choice" value="반려">반려</button><button type="submit" class="btn" data-arm name="choice" value="보류">보류</button></div><p class="err" role="alert"></p></form>` : ''}
+    ${open && API && !meetingAsk ? `<form class="composer" data-form="decide" data-key="${esc(tid + ':' + a.id)}" data-risky="${a.risky ? 1 : 0}"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="id" value="${esc(a.id)}">
+      <textarea name="comment" maxlength="2000" placeholder="메모 (선택)" aria-label="결재 메모" style="min-height:52px"></textarea>
+      <div class="opts">${shown.map(o => `<button type="submit" class="btn primary${rec === o.key ? ' rec' : ''}" data-arm name="choice" value="${esc(o.key)}">${esc(o.key)}${o.label ? ' · ' + esc(o.label) : ''}</button>`).join('')}
+        <button type="submit" class="btn warn" data-arm name="choice" value="반려">반려</button><button type="submit" class="btn" data-arm name="choice" value="보류">보류</button></div>
+      <p class="err" role="alert"></p></form>` : ''}
+  </article>`;
+}
+function apprDrawer() {
+  const all = [];
+  for (const [tid, d] of Object.entries(state.teams)) for (const a of d.approvals || []) all.push({ tid, d, a });
+  const isOpen = x => x.a.status === '결재 대기' || x.a.status === '보류';
+  const byTime = (x, y) => String(y.a.created || '').localeCompare(String(x.a.created || ''));
+  const open = all.filter(isOpen).sort(byTime), done = all.filter(x => !isOpen(x)).sort(byTime).slice(0, 8);
+  const keepScroll = !$('#drawer').hidden && $('#dTitle') && $('#dTitle').textContent === '결재함' ? $('.drawer-panel').scrollTop : 0;
+  openDrawer(`<p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">결재함</h2>
+    <p class="hint" style="margin-top:6px">팀장이 대표의 결정이 필요한 일을 올려요. 고르면 그 팀장에게 바로 전해져요.</p>
+    ${open.length ? open.map(x => apprCard(x.tid, x.d, x.a)).join('') : '<p class="empty" style="margin-top:12px">기다리는 결재가 없어요.</p>'}
+    ${done.length ? `<h3 class="d-sec">처리한 결재</h3>${done.map(x => apprCard(x.tid, x.d, x.a)).join('')}` : ''}`);
+  if (keepScroll) $('.drawer-panel').scrollTop = keepScroll;
+}
+
+/* ---------- 보내기 ---------- */
+async function submitForm(form, submitter) {
+  if (form.dataset.busy) return;          // 같은 말을 두 번 보내지 않게
+  const err = $('.err', form), btns = $$('button[type="submit"]', form);
+  const fd = new FormData(form);
+  err.textContent = '';
+  form.dataset.busy = '1';
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    if (form.dataset.form === 'say') {
+      const body = { team: fd.get('team'), thread: fd.get('thread'), text: String(fd.get('text') || '') };
+      const to = fd.getAll('to');
+      if (String(body.thread).startsWith('meeting:')) { if (!to.length) throw new Error('받는 사람을 한 명 이상 골라요'); body.to = to; }
+      const res = await post('api/say', body);
+      const ta = form.querySelector('textarea');
+      drafts.delete(draftKey(ta)); ta.value = '';
+      if (state) state.relay = Object.assign({}, state.relay || {}, res);
+      const note = $('.relay-note', form); if (note) note.textContent = relayWarn();
+      await refreshThread(true);
+    } else if (form.dataset.form === 'meet-start') {
+      const parts = ['팀장', ...fd.getAll('p')];
+      const mode = String(fd.get('mode'));
+      if (!confirm(`‘${String(fd.get('topic') || '').trim()}’ 회의를 ${mode === '참석' ? '내가 참석해서' : '팀에 맡겨서(위임)'} 시작할까요?\n참석: ${parts.join(', ')}`)) throw new Error('');
+      const res = await post('api/meeting/start', { team: fd.get('team'), topic: String(fd.get('topic') || ''), mode, participants: parts, note: String(fd.get('note') || ''), approval: String(fd.get('approval') || '') });
+      $$('textarea', form).forEach(ta => drafts.delete(draftKey(ta)));
+      await load(); pending = false; render();
+      meetDrawer(String(fd.get('team')), res.id);
+    } else if (form.dataset.form === 'decide') {
+      const choice = submitter && submitter.value;
+      if (!choice) throw new Error('버튼을 눌러 골라 주세요');
+      if (choice === '반려' && !confirm('반려할까요?')) throw new Error('');
+      if (form.dataset.risky === '1' && choice !== '반려' && choice !== '보류' && !confirm('위험한 일이에요. 결재하면 팀장이 실행할 창과 할 말을 알려 줘요. 실제 실행은 그 창에서 한 번 더 확인해요. 결재할까요?')) throw new Error('');
+      await post('api/decide', { team: fd.get('team'), id: fd.get('id'), choice, comment: String(fd.get('comment') || '') });
+      $$('textarea', form).forEach(ta => drafts.delete(draftKey(ta)));
+      await load(); pending = false; render();
+      apprDrawer();
+    }
+  } catch (e) {
+    if (e.message) err.textContent = e.message;
+    if (/진행 중인 회의가 아니|끝났거나 정리 중|참석해야/.test(e.message || '') && live && live.tick) live.tick();
+  } finally {
+    delete form.dataset.busy;
+    btns.forEach(b => { if (b.isConnected) b.disabled = false; });
+  }
+}
+async function meetAction(btn) {
+  const { team, id } = btn.dataset;
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    if (btn.dataset.act === 'meet-end') {
+      if (!confirm('회의를 끝낼까요? 팀장이 지금까지 내용으로 회의록을 써요.')) return;
+      await post('api/meeting/end', { team, id });
+    } else if (btn.dataset.act === 'meet-close') {
+      if (!confirm('정리 중인 회의를 끝으로 닫을까요? 팀장에게도 알려요.')) return;
+      await post('api/meeting/close', { team, id });
+    } else {
+      await post('api/meeting/mode', { team, id, mode: btn.dataset.mode });
+    }
+    await load(); pending = false; render();
+    meetDrawer(team, id);
+  } catch (e) {
+    alert(e.message);
+    if (live && live.tick) live.tick();
+  } finally {
+    if (btn.isConnected) btn.disabled = false;
+  }
+}
+async function fileDrawer(path) {
+  let text = '';
+  try { text = await getText(enc(path)); } catch (e) {
+    const t = state && Object.values(state.teams).find(d => path.startsWith(d.base));
+    text = (t && t.files && t.files[path]) || '이 파일은 로컬 페이지에서만 열 수 있어요.';
+  }
+  openDrawer(`<p class="d-eyebrow">파일</p><h2 class="d-title" id="dTitle" style="font-size:20px; font-family:var(--font-mono)">${esc(path.split('/').pop())}</h2><pre class="d-pre">${esc(text)}</pre>`);
+}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click', e => {
+  if (e.target.closest('a[href^="claude://"]')) return;
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    const done = ok => { const o = cp.textContent; cp.textContent = ok ? '복사했어요' : '직접 선택해 복사하세요'; setTimeout(() => { cp.textContent = o; }, 1600); };
+    try { navigator.clipboard.writeText(cp.dataset.copy).then(() => done(true), () => done(false)); } catch (err) { done(false); }
+    return;
+  }
+  const f = e.target.closest('[data-file]');
+  if (f) { fileDrawer(f.dataset.file); return; }
+  const g = e.target.closest('[data-goto]');
+  if (g) { goFloor(g.dataset.goto); return; }
+  const act = e.target.closest('[data-act]');
+  if (act && state) {
+    if (act.dataset.act === 'boss-chat') { bossDrawer(); return; }
+    if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
+    if (/^meet-(mode|end|close)$/.test(act.dataset.act)) { meetAction(act); return; }
+  }
+  const mo = e.target.closest('[data-meet-open]');
+  if (mo && state) { meetDrawer(mo.dataset.meetOpen, mo.dataset.meetId); return; }
+  const mn = e.target.closest('[data-meet-new]');
+  if (mn && state) {
+    const tid = mn.dataset.meetNew, aid = mn.dataset.approval;
+    const a = aid && ((state.teams[tid] || {}).approvals || []).find(x => x.id === aid);
+    meetStartDrawer(tid, a ? { topic: a.topic || a.title, mode: a.mode, participants: a.participants, note: a.summary, approval: a.id } : {});
+    return;
+  }
+  const desk = e.target.closest('.desk[data-role]');
+  if (desk) { memberDrawer(desk.dataset.team, desk.dataset.role); return; }
+});
+document.addEventListener('submit', e => {
+  const form = e.target.closest('form[data-form]');
+  if (!form) return;
+  e.preventDefault();
+  // 진짜 버튼을 눌렀거나 ⌘/Ctrl+Enter일 때만 보내요(입력칸에서 엔터만 눌렀을 때 저절로 보내지지 않게)
+  if (!e.submitter || e.submitter.type !== 'submit') return;
+  submitForm(form, e.submitter);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches) return;
+  if (e.target.matches('form[data-form] input')) { if (!e.isComposing) e.preventDefault(); return; }
+  if ((e.metaKey || e.ctrlKey) && !e.isComposing && !e.repeat && e.target.matches('form[data-form] textarea')) {
+    e.preventDefault();
+    const form = e.target.form, btn = form && form.querySelector('button[type="submit"]');
+    if (btn && !btn.disabled && !form.dataset.busy && form.dataset.form !== 'decide') form.requestSubmit(btn);
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#drawer').hidden && !e.isComposing) { closeDrawer(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && !e.target.closest('a, button, input, textarea')) {
+    const desk = e.target.closest('.desk[data-role]');
+    if (desk) { e.preventDefault(); memberDrawer(desk.dataset.team, desk.dataset.role); }
+  }
+});
+window.addEventListener('hashchange', () => {
+  const id = hashFloor();
+  if (!state || !hasFloor(state.org, id) || id === floor) return;
+  if (!$('#drawer').hidden) closeDrawer();
+  setFloor(id);
+  render();
+});
+$('#drawerBg').addEventListener('click', closeDrawer);
+$('#drawerClose').addEventListener('click', closeDrawer);
+
+// 서랍이 열려 있어도 총괄 연결 상태는 계속 확인해서 작성창 아래에 알려요.
+async function pollRelay() {
+  if (!API || !state || document.visibilityState === 'hidden') return;
+  try { state.relay = JSON.parse(await getText('api/state')); } catch (e) { return; }
+  $$('#drawerBody .relay-note').forEach(n => { n.textContent = relayWarn(); });
+}
+
+load();
+setInterval(() => { if (document.visibilityState !== 'hidden' && $('#drawer').hidden) load(); }, 4000);
+setInterval(() => { if (document.visibilityState !== 'hidden') refreshThread(false); }, 3000);
+setInterval(() => { if (!$('#drawer').hidden) pollRelay(); }, 5000);
+})();
+</script>
