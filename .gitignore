@@ -15,3 +15,6 @@ __pycache__/
 # 예시 팀을 써 보면 생기는 기록
 /examples/teams/demo/chat/*.jsonl
 /examples/teams/demo/meetings/*-M-*
+# 토큰 시티 공개 설정과 내보낸 파일(내 정보)
+/public.json
+/claude-office.json

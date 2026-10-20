@@ -3,7 +3,7 @@
 
 python3 -I office_server.py   -> http://127.0.0.1:8765
 
-- 페이지(index.html), org.json, 총괄 대화(hq/), 팀 사무실(teams/<id>/ → 각 팀 .office)만 보여 줘요. 나머지 파일은 404예요.
+- 페이지(index.html), 토큰 시티(city.html, examples/city/), org.json, 총괄 대화(hq/), 팀 사무실(teams/<id>/ → 각 팀 .office)만 보여 줘요. 나머지 파일은 404예요.
   index.html에는 서버를 켤 때마다 새로 만든 열쇠(token)를 넣어요.
 - 사이트에서 대표가 하는 일(말 걸기, 회의 시작·참석·빠지기·끝내기·닫기, 결재)을 받아서 파일에 적어요.
   팀 사무실의 대화 파일·회의 파일·결재 파일과 log.jsonl, 그리고 outbox/에 '전달할 메시지'를 남겨요.
@@ -445,7 +445,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*a, directory=HERE, **kw)
 
     def log_message(self, fmt, *args):
-        if self.command == "POST" or (len(args) > 1 and str(args[1])[:1] in "45"):
+        # 대화 파일이 아직 없을 때 나는 404는 흔해서 적지 않아요(보낸 요청·거절·서버 오류만 적어요).
+        if self.command == "POST" or (len(args) > 1 and (str(args[1])[:1] == "5" or str(args[1]) == "403")):
             super().log_message(fmt, *args)
 
     def host_ok(self):
@@ -457,9 +458,9 @@ class Handler(SimpleHTTPRequestHandler):
     def allowed(self):
         """보여 줘도 되는 파일만: org.json, hq/, teams/<id>/ 아래(실제 팀 사무실 안)."""
         real = os.path.realpath(self.translate_path(self.path))
-        if real == os.path.join(HERE, "org.json"):
+        if real in (os.path.join(HERE, "org.json"), os.path.join(HERE, "city.html")):
             return True
-        for root in [HQ] + office_roots():
+        for root in [HQ, os.path.join(HERE, "examples", "city")] + office_roots():
             if real == root or real.startswith(root + os.sep):
                 return True
         return False

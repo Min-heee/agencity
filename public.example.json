@@ -1,0 +1,8 @@
+{
+  "login": "<내 GitHub 아이디>",
+  "gist": "<token-meter gist id>",
+  "profile": { "intro": "소개 한 줄", "district": "app" },
+  "floors": {
+    "<org.json의 팀 id>": { "public": "tour", "name": "공개용 층 이름", "summary": "공개용 소개", "district": "app", "tasks": false }
+  }
+}

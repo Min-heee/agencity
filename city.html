@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>토큰 시티</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 토큰 시티: 등록한 사람마다 건물 하나. 높이는 토큰 작업량(로그 눈금), 금빛 띠는 공개한 층(팀).
+   숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약은 같은 gist의 claude-office.json에서 읽어요.
+   이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요). */
+:root{
+  --sky-1:#0B1222; --sky-2:#1B2742; --ground:#121A2B; --street:#1A2438;
+  --panel:#FFFFFF; --panel-2:#F2F4F8; --ink:#172030; --ink-2:#4F5D72; --ink-3:#8591A3; --line:#D6DDE7;
+  --gold:#F4C35A; --lit:#FFD27A; --focus:#2563EB; --err:#C42730;
+  --font-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; }
+}
+:root[data-theme="dark"]{ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; }
+*{box-sizing:border-box}
+html,body{margin:0; height:100%}
+body{background:var(--sky-1); color:var(--ink); font:14px/1.5 var(--font-body); -webkit-font-smoothing:antialiased; overflow:hidden}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+.top{position:fixed; z-index:5; left:0; right:0; top:0; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); pointer-events:none}
+.top > *{pointer-events:auto}
+.plate{margin:0; font:400 26px/1 var(--font-display); color:#F3F5F8; background:#0A0E14; padding:9px 16px 7px; border-radius:6px; box-shadow:inset 0 0 0 2px #3A4659}
+.chip{display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:6px; background:rgba(10,14,20,.72); color:#E4E8EE; border:1px solid #3A4659; font-size:12.5px; text-decoration:none}
+.chip b{font-family:var(--font-mono); font-weight:500}
+.chip.warn{border-color:#FFB224; color:#FFD27A}
+.sp{flex:1}
+#stage{position:fixed; inset:0; background:linear-gradient(var(--sky-1), var(--sky-2) 60%, var(--ground)); touch-action:none; cursor:grab}
+#stage.drag{cursor:grabbing}
+#city{width:100%; height:100%; display:block}
+.bld{cursor:pointer}
+.bld:focus{outline:none}
+.bld:focus-visible .b-top{stroke:var(--gold); stroke-width:2.4}
+.dim{opacity:.28}
+.bld.sel .b-top{stroke:var(--gold); stroke-width:2.2}
+.name{font:600 11px var(--font-body); fill:#E4E8EE; paint-order:stroke; stroke:#0B1222; stroke-width:3px; cursor:pointer}
+.name.sel{fill:var(--gold)}
+.hint{position:fixed; z-index:4; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%); color:#A9B4C3; font-size:12px; background:rgba(10,14,20,.6); padding:5px 10px; border-radius:6px; white-space:nowrap}
+.zoom{position:fixed; z-index:7; right:max(16px, env(safe-area-inset-right)); bottom:max(48px, calc(env(safe-area-inset-bottom) + 40px)); display:flex; flex-direction:column; gap:6px}
+.zoom button{width:38px; height:38px; border-radius:8px; border:1px solid #3A4659; background:rgba(10,14,20,.85); color:#E4E8EE; font-size:18px; cursor:pointer}
+.msg{position:fixed; z-index:4; left:50%; top:46%; transform:translate(-50%,-50%); color:#C8D0DC; text-align:center; max-width:min(520px, calc(100% - 32px))}
+.msg h2{font:400 24px var(--font-display); margin:0 0 6px; color:#F3F5F8}
+/* 카드 */
+.card{position:fixed; z-index:6; top:64px; right:max(16px, env(safe-area-inset-right)); width:min(380px, calc(100% - 32px)); max-height:calc(100% - 84px); overflow:auto; background:var(--panel); color:var(--ink); border-radius:12px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6); padding:16px 18px 18px}
+.card[hidden]{display:none}
+.card-head{display:flex; align-items:center; gap:12px}
+.card-head img{width:44px; height:44px; border-radius:50%; background:var(--panel-2)}
+.card-head h2{margin:0; font:400 24px/1.1 var(--font-display); overflow-wrap:anywhere}
+.card-head small{display:block; color:var(--ink-3); font-size:12px}
+.x{margin-left:auto; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:6px; padding:5px 10px; cursor:pointer}
+.stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin:14px 0 0}
+.stat{background:var(--panel-2); border-radius:8px; padding:8px 10px}
+.stat span{display:block; font-size:11.5px; color:var(--ink-3)}
+.stat b{font:600 15px var(--font-body)}
+.bar{display:flex; height:8px; border-radius:4px; overflow:hidden; margin-top:10px; background:var(--panel-2)}
+.bar i{display:block}
+.legend{display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; font-size:12px; color:var(--ink-2)}
+.legend em{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px; vertical-align:-1px}
+.sec{margin:16px 0 6px; font-size:13px; font-weight:600}
+.floors{list-style:none; margin:0; padding:0}
+.floors li{padding:8px 0; border-top:1px solid var(--line); font-size:13px}
+.floors li:first-child{border-top:0}
+.floors b{font-family:var(--font-mono); font-size:12px; margin-right:6px}
+.floors p{margin:2px 0 0; color:var(--ink-2); font-size:12.5px}
+.u{unicode-bidi:isolate}
+.note{margin:12px 0 0; font-size:12px; color:var(--ink-3)}
+.btn{display:inline-flex; align-items:center; gap:6px; margin-top:12px; padding:8px 13px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:var(--panel); font-size:13px; font-weight:600; cursor:pointer; text-decoration:none}
+.btn.ghost{background:var(--panel); color:var(--ink); border-color:var(--line)}
+/* 둘러보기 */
+.tour{position:fixed; z-index:8; inset:0; background:rgba(5,8,14,.72); display:flex; align-items:center; justify-content:center; padding:16px}
+.tour[hidden]{display:none}
+.tour-box{width:min(760px, 100%); max-height:100%; overflow:auto; background:var(--panel); color:var(--ink); border-radius:14px; padding:18px 20px}
+.tour-box h2{margin:0; font:400 26px var(--font-display); overflow-wrap:anywhere}
+.tf{margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
+.tf h3{margin:0 0 6px; font:400 19px var(--font-display)}
+.tf h3 small{font:500 12px var(--font-body); color:var(--ink-3); margin-left:6px}
+.desks{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; margin-top:8px}
+.desk{background:var(--panel-2); border-radius:8px; padding:8px 10px; font-size:12.5px}
+.desk b{display:block; font:400 16px var(--font-display)}
+.st{display:inline-block; margin-top:2px; padding:0 6px; border-radius:3px; font-size:11px; font-weight:600; background:var(--line); color:var(--ink)}
+.st.work{background:#FFB224; color:#1C2330}
+.st.meet{background:#A68BEA; color:#1C2330}
+.st.block{background:#FF6369; color:#1C2330}
+.boardl{margin:8px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink-2)}
+@media (max-width:620px){
+  .card{top:auto; bottom:0; right:0; width:100%; max-height:58%; border-radius:14px 14px 0 0; padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  body.carded .zoom{bottom:calc(58% + 12px)}
+  .plate{font-size:22px}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 class="plate">토큰 시티</h1>
+  <span class="chip" id="count" role="status">불러오는 중</span>
+  <span class="sp"></span>
+  <a class="chip" id="home" href="./" hidden>← 내 사무실</a>
+  <a class="chip" href="https://github.com/Min-heee/claude-office/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
+</header>
+<div id="stage" aria-label="토큰 시티 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
+<div class="msg" id="msg" hidden></div>
+<div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
+<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요</p>
+<aside class="card" id="card" hidden aria-live="polite"></aside>
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle"><div class="tour-box" id="tourBox"></div></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const NS = 'http://www.w3.org/2000/svg';
+
+/* ---------- 설정 ---------- */
+// 기본: token-meter 공개 명단. 로컬 사무실 서버에서는 org.json의 city 칸으로 바꿀 수 있어요({registry, me}).
+const CONFIG = { registry: 'https://min-heee.github.io/token-meter/', gistRaw: 'https://gist.githubusercontent.com/', meterFile: 'token-meter.json', officeFile: 'claude-office.json', me: '' };
+const params = new URLSearchParams(location.search);
+const DEMO = params.has('demo');
+const DEMO_NOW = new Date('2026-10-21T09:00:00+09:00');   // 예시 데이터의 기준 날짜(언제 열어도 같은 모습)
+const now = () => DEMO ? DEMO_NOW : new Date();
+const LOGIN_RE = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
+const GIST_RE = /^[0-9a-f]{5,64}$/i;
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TZ_RE = /^[A-Za-z0-9_+\-/]{1,64}$/;
+const MAX_BYTES = 256 * 1024, MEMBERS_BYTES = 4 * 1024 * 1024, MAX_MEMBERS = 2000, TIMEOUT = 12000, DEADLINE = 25000, CONC = 8;
+const TOOLS = { claude: '#E0895A', codex: '#6FB6A0', gemini: '#7A9BE0' };
+const DISTRICTS = { app: '앱', web: '웹', data: '데이터', content: '콘텐츠', tool: '개발 도구', game: '게임', etc: '기타' };
+const STATES = ['일하는 중', '대기', '회의 중', '막힘'];
+
+/* ---------- 받기 (남이 만든 데이터라 크기·모양을 엄격히 확인) ---------- */
+async function getCapped(url, cap = MAX_BYTES, fresh = false) {
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), TIMEOUT);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, cache: fresh ? 'no-store' : 'default', credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!r.ok) { const e = new Error(String(r.status)); e.status = r.status; throw e; }
+    const len = Number(r.headers.get('content-length'));
+    if (len && len > cap) { ctl.abort(); throw new Error('too_large'); }
+    if (!r.body || !r.body.getReader) { const t = await r.text(); if (t.length > cap) throw new Error('too_large'); return t; }
+    const reader = r.body.getReader(), parts = [];
+    let n = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      n += value.byteLength;
+      if (n > cap) { ctl.abort(); throw new Error('too_large'); }
+      parts.push(value);
+    }
+    const all = new Uint8Array(n); let o = 0;
+    for (const p of parts) { all.set(p, o); o += p.byteLength; }
+    return new TextDecoder().decode(all);
+  } finally { clearTimeout(tm); }
+}
+const num = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= Number.MAX_SAFE_INTEGER) ? v : 0;
+// 제어·방향 바꾸기·보이지 않는 글자는 빼요(남의 글이 화면을 속이지 못하게).
+const str = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f\u2028\u2029]|\p{Cf}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '';
+
+function cleanMeter(doc, login) {
+  if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== 'token-meter' || String(doc.login).toLowerCase() !== login.toLowerCase() || !Array.isArray(doc.entries)) return null;
+  const tools = Object.create(null), days = Object.create(null), models = Object.create(null);
+  let tz = '';
+  for (const e of doc.entries.slice(0, 3)) {
+    if (!e || typeof e !== 'object' || typeof e.tool !== 'string' || !own(TOOLS, e.tool) || !e.totals || typeof e.totals !== 'object') continue;
+    const t = e.totals;
+    tools[e.tool] = { input: num(t.input), output: num(t.output), cacheWrite: num(t.cacheWrite), cacheRead: num(t.cacheRead), total: num(t.total) };
+    if (!tz && typeof e.tz === 'string' && TZ_RE.test(e.tz)) { try { new Intl.DateTimeFormat('en-CA', { timeZone: e.tz }); tz = e.tz; } catch (x) {} }
+    if (e.byDay && typeof e.byDay === 'object') {
+      for (const [d, v] of Object.entries(e.byDay).slice(-400)) if (DAY_RE.test(d) && Array.isArray(v) && num(v[0]) > 0) days[d] = (days[d] || 0) + num(v[0]);
+    }
+    if (e.byModel && typeof e.byModel === 'object') {
+      for (const [m, v] of Object.entries(e.byModel).slice(0, 100)) { const f = family(m); models[f] = (models[f] || 0) + num(v && v.total); }
+    }
+  }
+  if (!Object.keys(tools).length) return null;
+  return { tools, days, models, tz, updatedAt: str(doc.updatedAt, 40) };
+}
+// 모델 이름은 계열로만 묶어요(사내 배포 이름 같은 게 보이지 않게).
+function family(m) {
+  m = String(m).toLowerCase();
+  if (m.includes('opus')) return 'Opus';
+  if (m.includes('sonnet')) return 'Sonnet';
+  if (m.includes('haiku')) return 'Haiku';
+  if (m.includes('fable')) return 'Fable';
+  if (m.includes('gemini')) return 'Gemini';
+  if (m.includes('gpt') || m.includes('codex') || /^o\d/.test(m)) return 'GPT';
+  return '기타';
+}
+const district = v => (typeof v === 'string' && own(DISTRICTS, v)) ? v : '';
+function cleanOffice(doc, login) {
+  if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== 'claude-office' || String(doc.login).toLowerCase() !== login.toLowerCase()) return null;
+  const p = doc.profile && typeof doc.profile === 'object' ? doc.profile : {};
+  const floors = (Array.isArray(doc.floors) ? doc.floors : []).slice(0, 20).map(f => {
+    if (!f || typeof f !== 'object') return null;
+    const level = f.public === 'tour' ? 'tour' : f.public === 'name' ? 'name' : null;
+    if (!level) return null;
+    return {
+      floor: Math.max(1, Math.min(99, Math.round(num(f.floor)) || 1)), name: str(f.name, 40) || '이름 없는 층', level,
+      summary: str(f.summary, 200), district: district(f.district),
+      desks: level === 'tour' && Array.isArray(f.desks) ? f.desks.slice(0, 8).map(d => d && typeof d === 'object' && ({ role: str(d.role, 10), state: STATES.includes(d.state) ? d.state : '', task: str(d.task, 80) })).filter(d => d && d.role) : [],
+      board: level === 'tour' && Array.isArray(f.board) ? f.board.slice(0, 10).map(b => str(b, 80)).filter(Boolean) : [],
+    };
+  }).filter(Boolean).sort((a, b) => a.floor - b.floor);
+  return { intro: str(p.intro, 120), district: district(p.district), floors, updatedAt: str(doc.updatedAt, 40) };
+}
+
+// onPerson: 한 사람씩 도착할 때마다 불러요(먼저 온 건물부터 그려요).
+async function loadMembers(onPerson) {
+  if (DEMO) {
+    const doc = JSON.parse(await getCapped('examples/city/demo.json'));
+    const ppl = (Array.isArray(doc.people) ? doc.people : []).slice(0, 200);
+    for (const p of ppl) {
+      const login = String(p && p.login || '');
+      if (!LOGIN_RE.test(login)) continue;
+      const meter = cleanMeter(p.meter, login);
+      if (meter) onPerson({ login, demo: true, meter, office: cleanOffice(p.office, login) });
+    }
+    return { listed: ppl.length, failed: 0 };
+  }
+  const doc = JSON.parse(await getCapped(new URL('members.json', new URL(CONFIG.registry)).href, MEMBERS_BYTES, true));
+  const list = (Array.isArray(doc.members) ? doc.members : []).slice(0, MAX_MEMBERS).filter(m => m && LOGIN_RE.test(m.login) && GIST_RE.test(m.gist));
+  let i = 0, failed = 0;
+  const stopAt = Date.now() + DEADLINE;
+  async function worker() {
+    while (i < list.length && Date.now() < stopAt) {
+      const m = list[i++];
+      const raw = `${CONFIG.gistRaw}${encodeURIComponent(m.login)}/${encodeURIComponent(m.gist)}/raw/`;
+      let meter = null, office = null;
+      try { meter = cleanMeter(JSON.parse(await getCapped(raw + CONFIG.meterFile)), m.login); } catch (e) {}
+      if (!meter) { failed++; continue; }
+      try { office = cleanOffice(JSON.parse(await getCapped(raw + CONFIG.officeFile)), m.login); } catch (e) {}
+      onPerson({ login: m.login, gist: m.gist, meter, office });
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONC, list.length) }, worker));
+  return { listed: list.length, failed, cut: Math.max(0, list.length - i) };
+}
+
+/* ---------- 건물 크기 ---------- */
+// 작업량 = (총 토큰 − 캐시 읽기) + 캐시 읽기 × 0.1. 캐시 읽기는 양이 너무 많아서 가볍게만 셉니다.
+const workOf = t => Math.max(0, t.total - t.cacheRead) + t.cacheRead * 0.1;
+function work(meter) { let w = 0; for (const k of Object.keys(meter.tools)) w += workOf(meter.tools[k]); return w; }
+function totalOf(meter) { let w = 0; for (const k of Object.keys(meter.tools)) w += meter.tools[k].total; return w; }
+// 층수 = (log10(작업량) − 5) × 5, 1~40층. 도시 전체와 상관없는 절대 눈금이라 남이 들어와도 내 건물이 줄지 않아요.
+const floorsOf = w => Math.max(1, Math.min(40, Math.round((Math.log10(Math.max(w, 1)) - 5) * 5)));
+const levelOf = w => Math.max(1, Math.min(9, Math.floor(Math.log10(Math.max(w, 1))) - 4));
+function dayKey(d, tz) {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone: tz || undefined, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); }
+  catch (e) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+}
+// 최근 7일: 올린 사람의 시간대 달력 기준(token-meter의 byDay가 그 기준이에요).
+function recentDays(meter) {
+  let n = 0;
+  const t0 = now().getTime();
+  for (let k = 0; k < 7; k++) if (meter.days[dayKey(new Date(t0 - k * 864e5), meter.tz)] > 0) n++;
+  return n;
+}
+const activeDays = meter => Object.keys(meter.days).length;
+// 달력 날짜로 며칠 전인지(미래 시각이면 모름 = -1)
+function daysAgo(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t) || t > now().getTime() + 36e5) return -1;
+  const a = Date.parse(dayKey(new Date(t)) + 'T00:00:00'), b = Date.parse(dayKey(now()) + 'T00:00:00');
+  return Math.max(0, Math.round((b - a) / 864e5));
+}
+const agoLabel = d => d < 0 ? '모름' : d === 0 ? '오늘' : d === 1 ? '어제' : `${d}일 전`;
+function korNum(n) {
+  n = Math.round(n);
+  if (n >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + '조';
+  if (n >= 1e8) return Math.round(n / 1e8).toLocaleString('ko-KR') + '억';
+  if (n >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만';
+  return n.toLocaleString('ko-KR');
+}
+function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+/* ---------- 그리기 (아이소메트릭 SVG) ---------- */
+const A = 30, B = 15, FLOOR_H = 13, CELL = 6;   // 타일 반너비·반높이, 한 층 높이, 자리 간격(가장 넓은 4칸 + 길 2칸)
+const svg = $('#city');
+let people = [], view = { x: 0, y: 0, k: 1 }, fitK = 1, moved = false, bounds = null, selected = null, lastFocus = null;
+const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k of Object.keys(attrs || {})) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+const pts = a => a.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+const quad = q => 'M' + q.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + 'Z';
+const shade = (hsl, dl) => `hsl(${hsl[0]} ${hsl[1]}% ${Math.max(6, Math.min(92, hsl[2] + dl))}%)`;
+
+// 가운데부터 바깥으로 도는 자리 목록
+function spiral(n) {
+  const out = [[0, 0]];
+  let x = 0, y = 0, step = 1;
+  while (out.length < n) {
+    for (const [dx, dy, times] of [[1, 0, step], [0, 1, step], [-1, 0, step + 1], [0, -1, step + 1]]) {
+      for (let t = 0; t < times && out.length < n; t++) { x += dx; y += dy; out.push([x, y]); }
+    }
+    step += 2;
+  }
+  return out;
+}
+// 키 큰 건물을 뒤쪽 자리부터 채워요. 그러면 앞 건물이 뒤 건물보다 높지 않아서 지붕이 가려지지 않아요.
+function layout() {
+  const spots = spiral(people.length).sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || Math.abs(p[0] - p[1]) - Math.abs(q[0] - q[1]));
+  [...people].sort((a, b) => b.w - a.w || a.login.localeCompare(b.login)).forEach((p, i) => { p.gx = spots[i][0] * CELL; p.gy = spots[i][1] * CELL; });
+}
+function geom(p) {
+  const s = p.size, h = p.floors * FLOOR_H, ox = (p.gx - p.gy) * A, oy = (p.gx + p.gy) * B;
+  return { s, h, ox, oy, T: [ox, oy], R: [ox + A * s, oy + B * s], Bm: [ox, oy + 2 * B * s], L: [ox - A * s, oy + B * s] };
+}
+function drawBuilding(g, p) {
+  const { s, h, T, R, Bm, L } = geom(p);
+  const up = q => [q[0], q[1] - h];
+  el('polygon', { points: pts([T, R, Bm, L]), fill: 'rgba(0,0,0,.28)', transform: 'translate(6,4)' }, g);
+  el('polygon', { points: pts([L, Bm, up(Bm), up(L)]), fill: shade(p.hsl, -16) }, g);
+  el('polygon', { points: pts([Bm, R, up(R), up(Bm)]), fill: shade(p.hsl, -4) }, g);
+  el('polygon', { class: 'b-top', points: pts([up(T), up(R), up(Bm), up(L)]), fill: shade(p.hsl, 10), stroke: 'rgba(0,0,0,.25)', 'stroke-width': .8 }, g);
+  // 창문: 꺼진 창·켜진 창·공개한 층의 켜진 창을 각각 경로 하나로(건물 하나에 노드 몇 개만).
+  const cols = Math.max(2, s + 1), rnd = hash(p.login);
+  const lit = p.stale < 0 || p.stale > 14 ? 0.03 : Math.max(0.06, p.recent / 7);
+  const teamFloors = new Set((p.office ? p.office.floors : []).map(f => f.floor));
+  let dark = '', on = '', team = '';
+  for (const [a0, a1, face] of [[L, Bm, 1], [Bm, R, 5]]) {
+    for (let f = 0; f < p.floors; f++) {
+      for (let c = 0; c < cols; c++) {
+        const t0 = (c + 0.25) / cols, t1 = (c + 0.75) / cols;
+        const x0 = a0[0] + (a1[0] - a0[0]) * t0, y0 = a0[1] + (a1[1] - a0[1]) * t0;
+        const x1 = a0[0] + (a1[0] - a0[0]) * t1, y1 = a0[1] + (a1[1] - a0[1]) * t1;
+        const yb = -(f * FLOOR_H + 3), yt = -(f * FLOOR_H + FLOOR_H - 3);
+        const d = quad([[x0, y0 + yb], [x1, y1 + yb], [x1, y1 + yt], [x0, y0 + yt]]);
+        const isOn = ((rnd >>> ((f * 7 + c * 3 + face) % 29)) % 100) / 100 < lit;
+        if (!isOn) dark += d; else if (teamFloors.has(f + 1)) team += d; else on += d;
+      }
+    }
+  }
+  if (dark) el('path', { d: dark, fill: 'rgba(10,14,22,.55)' }, g);
+  if (on) el('path', { d: on, fill: 'var(--lit)' }, g);
+  if (team) el('path', { d: team, fill: '#FFE9A8' }, g);
+  // 공개한 층(팀)은 층 사이에 금빛 띠
+  let bands = '';
+  for (const fl of teamFloors) if (fl <= p.floors) { const y = -(fl * FLOOR_H); bands += `M${L[0]} ${L[1] + y}L${Bm[0]} ${Bm[1] + y}L${R[0]} ${R[1] + y}`; }
+  if (bands) el('path', { d: bands, fill: 'none', stroke: 'var(--gold)', 'stroke-width': 1.4, opacity: .85 }, g);
+  return { minX: L[0], maxX: R[0], minY: T[1] - h - 24, maxY: Bm[1] + 6, cx: T[0], top: T[1] - h };
+}
+let drawQueued = false;
+function scheduleDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; layout(); draw(); if (!moved) fit(); }); }
+function draw() {
+  svg.textContent = '';
+  const root = el('g', { id: 'world' }, svg);
+  const ground = el('g', {}, root), blds = el('g', {}, root), labels = el('g', {}, root);
+  let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  for (const p of people) {
+    const { s, ox, oy } = geom(p);
+    el('polygon', { points: pts([[ox, oy - B], [ox + A * (s + 1), oy + B * s], [ox, oy + B * (2 * s + 1)], [ox - A * (s + 1), oy + B * s]]), fill: 'var(--street)', opacity: .9 }, ground);
+  }
+  const order = [...people].sort((a, b) => (a.gx + a.gy) - (b.gx + b.gy) || (a.gx - b.gx));
+  const tags = [];
+  for (const p of order) {
+    const g = el('g', { class: 'bld', tabindex: 0, role: 'button', 'aria-label': `${p.login}, ${p.floors}층` }, blds);
+    g.dataset.login = p.login;
+    const b = drawBuilding(g, p);
+    bx0 = Math.min(bx0, b.minX); bx1 = Math.max(bx1, b.maxX); by0 = Math.min(by0, b.minY); by1 = Math.max(by1, b.maxY);
+    p.g = g; p.box = b;
+    tags.push({ p, x: b.cx, y: b.top - 8, w: p.login.length * 6.8 + 6 });
+  }
+  // 이름은 건물 위에 따로 그리고, 서로 겹치면 위로 조금씩 밀어요. 이름도 눌러서 열 수 있어요.
+  tags.sort((a, b) => a.y - b.y);
+  const placed = [];
+  for (const t of tags.reverse()) {
+    let y = t.y;
+    for (let tries = 0; tries < 6 && placed.some(q => Math.abs(q.x - t.x) < (q.w + t.w) / 2 && Math.abs(q.y - y) < 13); tries++) y -= 13;
+    placed.push({ x: t.x, y, w: t.w });
+    const tx = el('text', { class: 'name', x: t.x, y, 'text-anchor': 'middle' }, labels);
+    tx.dataset.login = t.p.login; tx.textContent = t.p.login; t.p.label = tx;
+    by0 = Math.min(by0, y - 14); bx0 = Math.min(bx0, t.x - t.w / 2); bx1 = Math.max(bx1, t.x + t.w / 2);
+  }
+  bounds = people.length ? { x: bx0 - 40, y: by0 - 30, w: bx1 - bx0 + 80, h: by1 - by0 + 60 } : { x: -200, y: -150, w: 400, h: 300 };
+  applyView(); applySel();
+}
+const narrow = () => (svg.clientWidth || innerWidth) <= 620;
+function fit(target) {
+  const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
+  let k = Math.min(W / bounds.w, (H - 80) / bounds.h, 2.2);
+  fitK = k;
+  const focus = target || (narrow() && k < 0.8 ? [...people].sort((a, b) => b.w - a.w)[0] : null);
+  if (focus && narrow() && k < 0.8) {
+    k = 0.8;
+    const b = focus.box;
+    view = { k, x: W / 2 - b.cx * k, y: H * 0.42 - ((b.top + b.maxY) / 2) * k };
+  } else {
+    view = { k, x: W / 2 - (bounds.x + bounds.w / 2) * k, y: (H + 40) / 2 - (bounds.y + bounds.h / 2) * k };
+  }
+  moved = false;
+  applyView();
+}
+function applyView() { const w = $('#world'); if (w) w.setAttribute('transform', `translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(4)})`); }
+function zoomAt(f, cx, cy) {
+  const k = Math.max(Math.min(0.25, fitK * 0.8), Math.min(4, view.k * f));
+  view.x = cx - (cx - view.x) * (k / view.k); view.y = cy - (cy - view.y) * (k / view.k); view.k = k;
+  moved = true; applyView();
+}
+function applySel() {
+  for (const p of people) {
+    if (p.g) { p.g.classList.toggle('sel', p === selected); p.g.classList.toggle('dim', !!selected && p !== selected); }
+    if (p.label) { p.label.classList.toggle('sel', p === selected); p.label.classList.toggle('dim', !!selected && p !== selected); }
+  }
+}
+// 카드가 화면 아래를 덮는 휴대폰에서는 고른 건물을 위쪽 빈 곳으로 옮겨요.
+function bringIntoView(p) {
+  if (!narrow() || !p.box) return;
+  const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
+  const midY = ((p.box.top + p.box.maxY) / 2) * view.k + view.y, midX = p.box.cx * view.k + view.x;
+  view.x += W / 2 - midX; view.y += H * 0.22 - midY; moved = true; applyView();
+}
+
+/* ---------- 카드·둘러보기 ---------- */
+function card(p) {
+  selected = p; applySel();
+  lastFocus = p.g;
+  const m = p.meter, o = p.office;
+  const tools = Object.keys(m.tools).map(k => [k, workOf(m.tools[k])]).filter(([, v]) => v > 0);
+  const tsum = tools.reduce((a, [, v]) => a + v, 0) || 1;
+  const fams = Object.keys(m.models).filter(f => m.models[f] > 0).sort((a, b) => m.models[b] - m.models[a]).slice(0, 4);
+  const isMe = CONFIG.me && CONFIG.me.toLowerCase() === p.login.toLowerCase();
+  const local = location.protocol.startsWith('http') && /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+  const officeAgo = o ? daysAgo(o.updatedAt) : -1;
+  $('#card').innerHTML = `
+    <div class="card-head">${p.demo ? '' : `<img alt="" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=88" referrerpolicy="no-referrer">`}
+      <div><h2>${esc(p.login)}</h2><small>${o && o.district ? esc(DISTRICTS[o.district]) + ' 동네 · ' : ''}${p.floors}층 · Lv.${p.level}${p.demo ? ' · 예시' : ''}</small></div>
+      <button type="button" class="x" id="cardX">닫기</button></div>
+    ${o && o.intro ? `<p class="u" style="margin:10px 0 0">${esc(o.intro)}</p>` : ''}
+    <div class="stats">
+      <div class="stat"><span>작업량(캐시 읽기 ×0.1)</span><b>${korNum(p.w)} 토큰</b></div>
+      <div class="stat"><span>총 토큰(token-meter)</span><b>${korNum(totalOf(m))}</b></div>
+      <div class="stat"><span>활동한 날 · 최근 7일</span><b>${activeDays(m)}일 · ${p.recent}일</b></div>
+      <div class="stat"><span>숫자 마지막 갱신</span><b>${agoLabel(p.stale)}</b></div>
+    </div>
+    <div class="bar" aria-hidden="true">${tools.map(([k, v]) => `<i style="width:${(v / tsum * 100).toFixed(1)}%; background:${TOOLS[k]}"></i>`).join('')}</div>
+    <div class="legend">${tools.map(([k, v]) => `<span><em style="background:${TOOLS[k]}"></em>${esc(k)} ${Math.round(v / tsum * 100)}%</span>`).join('')}${fams.length ? `<span>· 모델 ${fams.map(esc).join(', ')}</span>` : ''}</div>
+    <h3 class="sec">공개한 층(팀)${o && o.floors.length ? ` <small style="font-weight:400; color:var(--ink-3)">· ${esc(agoLabel(officeAgo))} 기준</small>` : ''}</h3>
+    ${o && o.floors.length ? `<ul class="floors">${o.floors.map(f => `<li><b>${f.floor}층</b><span class="u">${esc(f.name)}</span>${f.district ? ` <small>· ${esc(DISTRICTS[f.district])}</small>` : ''}${f.summary ? `<p class="u">${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul>
+      ${o.floors.some(f => f.level === 'tour') ? '<button type="button" class="btn" id="tourBtn">사무실 둘러보기</button>' : ''}`
+      : '<p class="note" style="margin-top:0">아직 공개한 층이 없어요. 건물 크기만 보여요.</p>'}
+    ${isMe && !p.demo && local ? '<a class="btn ghost" href="./">내 사무실 열기</a>' : ''}
+    <p class="note">숫자는 각자 token-meter로 세어 올린 자기 신고 값이에요. 작업량은 캐시 읽기를 10분의 1로 센 값이라 token-meter 순위판의 총 토큰보다 작아요. 대화·경로·세션 정보는 올리지 않아요.</p>`;
+  $('#card').hidden = false;
+  document.body.classList.add('carded');
+  $('#cardX').addEventListener('click', closeCard);
+  const tb = $('#tourBtn'); if (tb) tb.addEventListener('click', () => tour(p));
+  $('#cardX').focus({ preventScroll: true });
+  bringIntoView(p);
+}
+function closeCard() {
+  $('#card').hidden = true; document.body.classList.remove('carded');
+  selected = null; applySel();
+  if (lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
+}
+function tour(p) {
+  const o = p.office;
+  $('#tourBox').innerHTML = `<div style="display:flex; align-items:center; gap:10px"><h2 id="tourTitle">${esc(p.login)}의 사무실</h2><button type="button" class="x" id="tourX">닫기</button></div>
+    <p class="note" style="margin-top:4px">주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${esc(agoLabel(daysAgo(o.updatedAt)))} 기준이라 지금과 다를 수 있어요.</p>
+    ${o.floors.filter(f => f.level === 'tour').map(f => `<section class="tf"><h3>${f.floor}층 · <span class="u">${esc(f.name)}</span>${f.district ? `<small>· ${esc(DISTRICTS[f.district])}</small>` : ''}</h3>
+      ${f.summary ? `<p class="u" style="margin:0; font-size:13px">${esc(f.summary)}</p>` : ''}
+      ${f.desks.length ? `<div class="desks">${f.desks.map(d => `<div class="desk"><b class="u">${esc(d.role)}</b>${d.state ? `<span class="st ${d.state === '일하는 중' ? 'work' : d.state === '회의 중' ? 'meet' : d.state === '막힘' ? 'block' : ''}">${esc(d.state)}</span>` : ''}${d.task ? `<div class="u" style="margin-top:4px">${esc(d.task)}</div>` : ''}</div>`).join('')}</div>` : ''}
+      ${f.board.length ? `<ul class="boardl">${f.board.map(b => `<li class="u">${esc(b)}</li>`).join('')}</ul>` : ''}</section>`).join('')}`;
+  $('#tour').hidden = false;
+  $('#tourX').addEventListener('click', closeTour);
+  $('#tourX').focus();
+}
+function closeTour() { $('#tour').hidden = true; const tb = $('#tourBtn'); if (tb) tb.focus(); }
+
+/* ---------- 조작: 끌기·핀치·누르기 ---------- */
+const stage = $('#stage');
+const ptrs = new Map();
+let drag = null, pinch = null, wasMove = false;
+const findPerson = target => { const n = target && target.closest && target.closest('[data-login]'); return n ? people.find(x => x.login === n.dataset.login) : null; };
+stage.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  try { stage.setPointerCapture(e.pointerId); } catch (x) {}
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, slop: e.pointerType === 'mouse' ? 4 : 10 }; wasMove = false; }
+  else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    drag = null; wasMove = true;
+  }
+});
+stage.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  if (e.pointerType === 'mouse' && !(e.buttons & 1)) { endPtr(e); return; }
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    view.x += mx - pinch.mx; view.y += my - pinch.my;
+    zoomAt(d / pinch.d, mx, my);
+    pinch = { d, mx, my };
+    return;
+  }
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!wasMove && Math.hypot(dx, dy) < drag.slop) return;
+  if (!wasMove) stage.classList.add('drag');
+  wasMove = true; moved = true;
+  view.x = drag.vx + dx; view.y = drag.vy + dy; applyView();
+});
+function endPtr(e) {
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (drag && e.pointerId === drag.id) drag = null;
+  if (!ptrs.size) stage.classList.remove('drag');
+}
+stage.addEventListener('pointerup', e => {
+  const tap = drag && e.pointerId === drag.id && !wasMove && ptrs.size === 1;
+  endPtr(e);
+  if (!tap) return;
+  const p = findPerson(document.elementFromPoint(e.clientX, e.clientY));
+  if (p) card(p); else if (!$('#card').hidden) closeCard();
+});
+stage.addEventListener('pointercancel', endPtr);
+stage.addEventListener('lostpointercapture', e => { if (ptrs.has(e.pointerId)) endPtr(e); });
+stage.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
+$('#zin').addEventListener('click', () => zoomAt(1.25, innerWidth / 2, innerHeight / 2));
+$('#zout').addEventListener('click', () => zoomAt(0.8, innerWidth / 2, innerHeight / 2));
+$('#zfit').addEventListener('click', () => fit());
+svg.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const p = findPerson(e.target);
+  if (p) { e.preventDefault(); card(p); }
+});
+// 키보드로 건물에 오면 그 건물이 화면에 보이게
+svg.addEventListener('focusin', e => {
+  const p = findPerson(e.target);
+  if (!p || !p.box) return;
+  const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
+  const sx = p.box.cx * view.k + view.x, sy = ((p.box.top + p.box.maxY) / 2) * view.k + view.y;
+  if (sx < 40 || sx > W - 40 || sy < 80 || sy > H - 60) { view.x += W / 2 - sx; view.y += H / 2 - sy; moved = true; applyView(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Tab' && !$('#tour').hidden) {          // 둘러보기 창 안에서만 돌아요
+    const f = [...$('#tourBox').querySelectorAll('button, a[href]')];
+    if (f.length) { const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
+  }
+  if (e.key !== 'Escape') return;
+  if (!$('#tour').hidden) { closeTour(); return; }
+  if (!$('#card').hidden) closeCard();
+});
+$('#tour').addEventListener('click', e => { if (e.target.id === 'tour') closeTour(); });
+// 창 크기가 바뀌면: 직접 움직이지 않았으면 다시 맞추고, 움직였으면 가운데 있던 곳을 그대로 가운데에
+let lastW = innerWidth, lastH = innerHeight;
+addEventListener('resize', () => {
+  if (!bounds) return;
+  if (!moved) fit();
+  else { view.x += (innerWidth - lastW) / 2; view.y += (innerHeight - lastH) / 2; applyView(); }
+  lastW = innerWidth; lastH = innerHeight;
+});
+
+/* ---------- 시작 ---------- */
+function message(title, body) { const m = $('#msg'); m.innerHTML = `<h2>${esc(title)}</h2><p>${esc(body)}</p>`; m.hidden = false; }
+function addPerson(m) {
+  const w = work(m.meter), h = hash(m.login);
+  people.push(Object.assign(m, { w, floors: floorsOf(w), level: levelOf(w), recent: recentDays(m.meter), stale: daysAgo(m.meter.updatedAt),
+    size: Math.max(2, Math.min(4, 2 + Math.floor(activeDays(m.meter) / 120))), hsl: [h % 360, 22 + (h >>> 9) % 18, 42 + (h >>> 17) % 12] }));
+  $('#count').innerHTML = `건물 <b>${people.length}</b>채 · 불러오는 중`;
+  scheduleDraw();
+}
+(async () => {
+  // 로컬 사무실 서버라면 org.json의 city 설정(registry, me)을 써요. 정적 호스팅이면 그냥 기본값.
+  try {
+    const org = JSON.parse(await getCapped('org.json', MAX_BYTES, true));
+    if (org && org.city && typeof org.city === 'object') {
+      if (typeof org.city.registry === 'string' && /^https:\/\//.test(org.city.registry)) CONFIG.registry = org.city.registry;
+      if (typeof org.city.me === 'string' && LOGIN_RE.test(org.city.me)) CONFIG.me = org.city.me;
+    }
+    $('#home').hidden = false;
+  } catch (e) {}
+  try {
+    const res = await loadMembers(addPerson);
+    const extra = [res.failed ? `${res.failed}명 못 불러옴` : '', res.cut ? `${res.cut}명은 시간이 걸려 뺐어요` : '', DEMO ? '예시' : ''].filter(Boolean).join(' · ');
+    $('#count').innerHTML = `건물 <b>${people.length}</b>채${extra ? ' · ' + esc(extra) : ''}`;
+    if (res.failed || res.cut) $('#count').classList.add('warn');
+    if (!people.length) {
+      if (res.listed) message('건물을 불러오지 못했어요', `명단의 ${res.listed}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`);
+      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.');
+      return;
+    }
+    layout(); draw();
+    const want = params.get('who');
+    const p = want && people.find(x => x.login.toLowerCase() === want.toLowerCase());
+    if (!moved) fit(p || undefined);
+    if (p) card(p);
+  } catch (e) {
+    $('#count').textContent = '불러오지 못함';
+    $('#count').classList.add('warn');
+    message('명단을 불러오지 못했어요', '인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.');
+  }
+})();
+})();
+</script>
+</body>
+</html>
