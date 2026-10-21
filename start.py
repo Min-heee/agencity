@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""클로드 오피스 시작하기.
+"""에이전시티 시작하기.
 
 python3 start.py              # 페이지를 만들고 서버를 켠 뒤 브라우저를 열어요(끄려면 Ctrl-C)
 python3 start.py --no-open    # 브라우저는 열지 않아요
+python3 start.py --app        # 맥 앱(Agencity.app)이 쓰는 방식: 브라우저 대신 주소 한 줄을 알려 줘요
 OFFICE_PORT=8766 python3 start.py   # 다른 포트로
 
 처음 켜면 org.json이 없어서 예시 팀(examples/)으로 시작해요. 내 팀은 python3 bin/new_team.py로 등록해요.
+
+--app: 서버가 켜지면(이 폴더의 사무실이 이미 켜져 있으면 바로) AGENCITY_URL=http://127.0.0.1:<포트>/ 한 줄을 알려 줘요.
+  이미 켜져 있었으면 그 줄만 알리고 끝나요. 아니면 종료 신호(SIGTERM·SIGHUP)를 받거나, 앱과 이어진 표준입력(파이프)이
+  닫힐 때까지(앱이 강제로 꺼진 경우) 켜 둬요. 앱에 따로 보여 줄 말은 AGENCITY_NOTE=<말> 줄로 먼저 알려요.
 """
 import hashlib
 import json
@@ -13,8 +18,10 @@ import os
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import webbrowser
@@ -40,13 +47,35 @@ def port_open(port):
 
 
 def office_state(port):
-    """그 포트가 클로드 오피스면 /api/state 답(dict), 아니면 None."""
+    """그 포트가 에이전시티면 /api/state 답(dict), 아니면 None."""
     try:
         with LOCAL.open(f"http://127.0.0.1:{port}/api/state", timeout=1) as r:
             res = json.load(r)
     except Exception:  # noqa: BLE001 — 다른 프로그램이면 아니라고 봐요
         return None
     return res if isinstance(res, dict) and res.get("ok") is True else None
+
+
+def tell_app(url):
+    """--app: 앱이 읽는 주소 줄. 한 번만, 바로 보내요."""
+    print(f"AGENCITY_URL={url}", flush=True)
+
+
+def stdin_is_pipe():
+    try:
+        return stat.S_ISFIFO(os.fstat(0).st_mode)
+    except OSError:
+        return False
+
+
+def watch_stdin():
+    """--app: 앱과 이어진 표준입력이 닫히면(앱이 강제로 꺼져도) 종료 신호처럼 서버까지 같이 꺼요."""
+    try:
+        while os.read(0, 1024):
+            pass
+    except OSError:
+        pass
+    os.kill(os.getpid(), signal.SIGTERM)
 
 
 def main():
@@ -57,9 +86,10 @@ def main():
         sys.stdout.reconfigure(line_buffering=True)   # 터미널이 아니어도 안내가 바로 보이게
     except (AttributeError, ValueError):
         pass
-    no_open = "--no-open" in sys.argv
+    app = "--app" in sys.argv
+    no_open = app or "--no-open" in sys.argv
     ver = version()
-    print(f"클로드 오피스 {ver}")
+    print(f"에이전시티 {ver}")
 
     # 이 폴더의 사무실이 이미 켜져 있으면 그걸 열어요. 페이지는 다시 만들지 않아요(켜진 서버와 짝이 맞게).
     want = int(os.environ.get("OFFICE_PORT", FIRST_PORT))
@@ -75,13 +105,19 @@ def main():
         if st.get("home") != HOME_ID:
             # home이 없으면 0.3.0 이전 서버라 어느 폴더 것인지 몰라요. 다른 사무실로 보고 넘어가요.
             what = "다른 폴더의" if st.get("home") else "다른(예전 버전)"
-            print(f"· 참고: {p} 포트에는 {what} 클로드 오피스가 켜져 있어요.")
+            print(f"· 참고: {p} 포트에는 {what} 에이전시티가 켜져 있어요.")
             continue
+        old = st.get("version") or "?"
         if st.get("version") != ver:
-            print(f"· 이 폴더의 예전 버전({st.get('version') or '?'})이 {url} 에 켜져 있어요."
+            print(f"· 이 폴더의 예전 버전({old})이 {url} 에 켜져 있어요."
                   f" 새 버전({ver})은 그 창에서 Ctrl-C로 끄고 python3 start.py로 다시 켜야 적용돼요.")
+            if app:
+                print(f"AGENCITY_NOTE=이 폴더의 예전 버전({old}) 사무실이 이미 켜져 있어서 그 화면을 보여 줘요."
+                      f" 새 버전({ver})을 쓰려면 예전 사무실을 켠 창에서 끈 뒤(터미널은 Ctrl-C, 앱은 ⌘Q) 앱을 다시 열어 주세요.")
         else:
             print(f"· 이미 켜져 있어요: {url}")
+        if app:
+            tell_app(url)
         if not no_open:
             webbrowser.open(url)
         return
@@ -107,7 +143,9 @@ def main():
             signal.signal(sig, stop)
 
     env = dict(os.environ, OFFICE_PORT=str(port))
-    proc = subprocess.Popen([sys.executable, "-I", "office_server.py"], env=env)
+    # --app: 서버는 앱과 이어진 표준입력을 물려받지 않게 해요(그 파이프는 start.py만 지켜봐요).
+    proc = subprocess.Popen([sys.executable, "-I", "office_server.py"], env=env,
+                            stdin=subprocess.DEVNULL if app else None)
     url = f"http://127.0.0.1:{port}/"
     try:
         for _ in range(50):
@@ -116,8 +154,13 @@ def main():
             if port_open(port):
                 break
             time.sleep(0.1)
-        print(f"· 켜졌어요: {url}   (토큰 시티: {url}city.html)")
-        print("· 끄려면 이 창에서 Ctrl-C")
+        print(f"· 켜졌어요: {url}   (도시: {url}city.html)")
+        if app:
+            tell_app(url)
+            if stdin_is_pipe():   # 터미널이나 /dev/null이면 지켜보지 않아요
+                threading.Thread(target=watch_stdin, daemon=True).start()
+        else:
+            print("· 끄려면 이 창에서 Ctrl-C")
         print("· 사이트에서 보낸 말을 팀 세션에 전하려면, 총괄로 쓸 Claude Code 세션에서 docs/COORDINATOR.md 대로 전달을 켜요")
         if not no_open:
             webbrowser.open(url)
@@ -128,7 +171,10 @@ def main():
             proc.wait(timeout=3)
         except subprocess.TimeoutExpired:
             proc.kill()
-        print("\n끝냈어요.")
+        try:
+            print("\n끝냈어요.")
+        except OSError:   # --app: 앱이 먼저 꺼져 출력 파이프가 닫힌 경우
+            pass
 
 
 if __name__ == "__main__":

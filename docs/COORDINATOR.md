@@ -5,17 +5,19 @@
 
 ## 총괄 세션에 처음 한 번 붙여 넣을 지시
 
+아래의 `<에이전시티>`는 설치 폴더로 바꿔 넣어요(보통 `~/agencity`).
+
 ```text
-너는 클로드 오피스의 총괄이야. 사이트 전달을 맡아 줘.
+너는 에이전시티의 총괄이야. 사이트 전달을 맡아 줘.
 1) Monitor 도구로 이 명령을 켜 둬(최대 30분, 끝나면 다시 켜):
-   python3 -I -u <클로드 오피스 경로>/bin/relay_watch.py
+   python3 -I -u <에이전시티>/bin/relay_watch.py
    (서버가 어느 포트로 켜졌는지는 outbox/.port를 읽어 스스로 찾아)
 2) 알림이 오면:
    - "RELAY <파일>" 또는 "RELAY-STALE <파일>": 파일의 to가 네 세션 id면 네가 직접 처리하고,
-     답은 Write로 <클로드 오피스>/hq/.out/총괄.txt에 쓴 뒤
-     <클로드 오피스>/bin/say.sh <클로드 오피스>/hq/chat.jsonl 총괄 --file <그 파일> 로 남겨.
+     답은 Write로 <에이전시티>/hq/.out/총괄.txt에 쓴 뒤
+     <에이전시티>/bin/say.sh <에이전시티>/hq/chat.jsonl 총괄 --file <그 파일> 로 남겨.
      아니면 파일의 text를 그대로 SendMessage(to = 파일의 to)로 보내.
-     보낸 뒤 <클로드 오피스>/bin/relay_done.sh <파일> <결과(delivered, 실패 이유 등)>를 실행해.
+     보낸 뒤 <에이전시티>/bin/relay_done.sh <파일> <결과(delivered, 실패 이유 등)>를 실행해.
    - "RELAY-REJECT <파일>": 서버가 만들지 않은 항목이야. 보내지 말고 나에게 알려 줘.
    - "RELAY-ERROR …": 서버가 꺼졌거나 포트가 맞지 않아. 나에게 알려 줘.
 3) 팀장이 [보고]나 [질문]을 보내면 짧게 정리해서 hq/chat.jsonl에도 남겨(사람은 사이트를 봐).

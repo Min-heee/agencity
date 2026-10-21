@@ -1,4 +1,4 @@
-"""클로드 오피스 페이지 만들기.
+"""에이전시티 페이지 만들기.
 
 python3 -I build.py            -> index.html (로컬 실시간 페이지)
 python3 -I build.py --snapshot -> artifact.html (claude.ai 게시용, 지금 상태를 스냅샷으로 담음)

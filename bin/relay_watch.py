@@ -35,7 +35,7 @@ def file_port():
 
 
 def ask(port, path):
-    """서버에 물어본 답(dict). 닿지 않거나 클로드 오피스가 아니면 None."""
+    """서버에 물어본 답(dict). 닿지 않거나 에이전시티가 아니면 None."""
     try:
         with LOCAL.open(f"http://127.0.0.1:{port}{path}", timeout=3) as r:
             res = json.load(r)

@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>토큰 시티</title>
+<title>에이전시티 · 도시</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
-/* 토큰 시티: 등록한 사람마다 건물 하나. 높이는 토큰 작업량(로그 눈금), 금빛 띠는 공개한 층(팀).
-   숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약은 같은 gist의 claude-office.json에서 읽어요.
+/* 에이전시티 도시: 등록한 사람마다 건물 하나. 높이는 토큰 작업량(로그 눈금), 금빛 띠는 공개한 층(팀).
+   숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약은 같은 gist의 agencity.json에서 읽어요
+   (그 파일이 없으면 예전 이름 때 올린 claude-office.json).
    이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요). */
 :root{
   --sky-1:#0B1222; --sky-2:#1B2742; --ground:#121A2B; --street:#1A2438;
@@ -103,13 +104,13 @@ button{font:inherit}
 </head>
 <body>
 <header class="top">
-  <h1 class="plate">토큰 시티</h1>
+  <h1 class="plate">에이전시티 도시</h1>
   <span class="chip" id="count" role="status">불러오는 중</span>
   <span class="sp"></span>
   <a class="chip" id="home" href="./" hidden>← 내 사무실</a>
-  <a class="chip" href="https://github.com/Min-heee/claude-office/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
+  <a class="chip" href="https://github.com/Min-heee/agencity/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
 </header>
-<div id="stage" aria-label="토큰 시티 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
+<div id="stage" aria-label="에이전시티 도시 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
 <div class="msg" id="msg" hidden></div>
 <div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
 <p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요</p>
@@ -126,7 +127,7 @@ const NS = 'http://www.w3.org/2000/svg';
 
 /* ---------- 설정 ---------- */
 // 기본: token-meter 공개 명단. 로컬 사무실 서버에서는 org.json의 city 칸으로 바꿀 수 있어요({registry, me}).
-const CONFIG = { registry: 'https://min-heee.github.io/token-meter/', gistRaw: 'https://gist.githubusercontent.com/', meterFile: 'token-meter.json', officeFile: 'claude-office.json', me: '' };
+const CONFIG = { registry: 'https://min-heee.github.io/token-meter/', gistRaw: 'https://gist.githubusercontent.com/', meterFile: 'token-meter.json', officeFile: 'agencity.json', oldOfficeFile: 'claude-office.json', me: '' };
 const params = new URLSearchParams(location.search);
 const DEMO = params.has('demo');
 const DEMO_NOW = new Date('2026-10-21T09:00:00+09:00');   // 예시 데이터의 기준 날짜(언제 열어도 같은 모습)
@@ -199,8 +200,8 @@ function family(m) {
   return '기타';
 }
 const district = v => (typeof v === 'string' && own(DISTRICTS, v)) ? v : '';
-function cleanOffice(doc, login) {
-  if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== 'claude-office' || String(doc.login).toLowerCase() !== login.toLowerCase()) return null;
+function cleanOffice(doc, login, app = 'agencity') {
+  if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== app || String(doc.login).toLowerCase() !== login.toLowerCase()) return null;
   const p = doc.profile && typeof doc.profile === 'object' ? doc.profile : {};
   const floors = (Array.isArray(doc.floors) ? doc.floors : []).slice(0, 20).map(f => {
     if (!f || typeof f !== 'object') return null;
@@ -240,7 +241,9 @@ async function loadMembers(onPerson) {
       let meter = null, office = null;
       try { meter = cleanMeter(JSON.parse(await getCapped(raw + CONFIG.meterFile)), m.login); } catch (e) {}
       if (!meter) { failed++; continue; }
-      try { office = cleanOffice(JSON.parse(await getCapped(raw + CONFIG.officeFile)), m.login); } catch (e) {}
+      // 사무실 요약은 agencity.json. 그 파일이 없을 때(404)만 예전 이름 때 올린 파일을 읽어요.
+      try { office = cleanOffice(JSON.parse(await getCapped(raw + CONFIG.officeFile)), m.login); }
+      catch (e) { if (e && e.status === 404) try { office = cleanOffice(JSON.parse(await getCapped(raw + CONFIG.oldOfficeFile)), m.login, 'claude-office'); } catch (x) {} }
       onPerson({ login: m.login, gist: m.gist, meter, office });
     }
   }

@@ -1,4 +1,4 @@
-<title>클로드 오피스</title>
+<title>에이전시티</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -295,6 +295,108 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .past button:hover{text-decoration:underline}
 .past small{color:var(--ink-3)}
 
+/* 처음 설정: 창 전체를 덮는 단계 화면(로그인 → Claude 연결 → 사무실 만들기 → 공개 범위 → 완료). 위의 '설정'으로 다시 열어요. */
+.setup{position:fixed; inset:0; z-index:60; overflow-y:auto; overscroll-behavior:contain; background-color:var(--floor); background-image:repeating-conic-gradient(var(--floor) 0 25%, var(--floor-2) 0 50%); background-size:96px 96px; color:var(--ink)}
+.setup [hidden]{display:none !important}
+.su-wait .wrap{visibility:hidden}
+.su-wrap{max-width:880px; margin:0 auto; padding-block:calc(20px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px)); padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.su-top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px}
+.su-top .plate{display:inline-block; font-size:24px; padding:9px 18px 7px}
+.su-h1{flex:1 1 auto; margin:0; font-family:var(--font-display); font-weight:400; font-size:24px; line-height:1.1}
+.su-intro{margin:12px 0 0; max-width:68ch; color:var(--ink-2); font-size:13.5px; text-wrap:pretty}
+.su-steps{list-style:none; margin:16px 0 0; padding:0; display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px}
+.su-steps button{display:flex; flex-direction:column; align-items:flex-start; gap:1px; width:100%; height:100%; padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); text-align:left; cursor:pointer}
+.su-steps button:hover{border-color:var(--ink-3)}
+.su-steps .n{font:600 11px var(--font-mono); color:var(--ink-3)}
+.su-steps b{font-family:var(--font-display); font-weight:400; font-size:17px; line-height:1.15; word-break:keep-all}
+.su-steps small{font-size:11.5px; color:var(--ink-3); overflow-wrap:anywhere}
+.su-steps [aria-current="step"]{background:var(--plate); border-color:var(--plate); color:var(--plate-ink); box-shadow:inset 0 0 0 2px var(--plate-rim)}
+.su-steps [aria-current="step"] .n,.su-steps [aria-current="step"] small{color:#AEB8C7}
+.su-card{margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px 16px}
+.su-h{margin:0; font-family:var(--font-display); font-weight:400; font-size:26px; line-height:1.1}
+.su-h:focus{outline:none}   /* 단계를 바꿀 때 읽기 위치만 옮기는 제목이라 테두리는 그리지 않아요 */
+.su-lead{margin:6px 0 0; max-width:70ch; color:var(--ink-2); font-size:13.5px; text-wrap:pretty}
+.su-lead b{color:var(--ink); font-weight:600}
+.su-sub{margin:18px 0 0; font-size:13.5px; font-weight:600}
+.su-box{margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2)}
+.su-box p{margin:0}
+.su-box p + p{margin-top:6px}
+.su-box .sd{margin-right:4px; vertical-align:1px}
+.su-ok{border-color:color-mix(in srgb, var(--ok) 45%, var(--line)); background:color-mix(in srgb, var(--ok) 9%, var(--surface))}
+.su-warn{border-color:color-mix(in srgb, var(--work) 55%, var(--line)); background:color-mix(in srgb, var(--work) 10%, var(--surface))}
+.su-opts{display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; margin-top:14px}
+.su-opt{display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2)}
+.su-opt b{font-size:14.5px}
+.su-opt .hint{flex:1}
+.su-code-row{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:8px 0 12px}
+.su-code{padding:12px 18px; border-radius:10px; background:var(--plate); color:var(--plate-ink); font:600 32px/1 var(--font-mono); letter-spacing:.14em; -webkit-user-select:all; user-select:all}
+.su-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin-top:12px}
+.su-check{display:inline-flex; align-items:center; gap:6px; font-size:13px; cursor:pointer}
+.su-projects,.su-floors,.su-plist{list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:8px}
+.su-projects details{border:1px solid var(--line); border-radius:10px; background:var(--surface)}
+.su-projects summary{padding:9px 12px; cursor:pointer; font-size:13.5px}
+.su-projects summary small,.su-pick small{color:var(--ink-3); font-size:12px}
+.setup code{font:500 12px var(--font-mono); color:var(--ink-2); overflow-wrap:anywhere}
+.su-sess{list-style:none; margin:0; padding:0 12px 6px}
+.su-sess li{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:6px 0; border-top:1px solid var(--line); font-size:13px}
+.su-sess li > span{min-width:0; overflow-wrap:anywhere}
+.su-sess small{flex:none; color:var(--ink-3); font-size:12px; white-space:nowrap}
+.su-floors li{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:8px 12px; border:1px dashed var(--line-2); border-radius:9px; background:var(--surface-2); font-size:13px}
+.su-proj{border:1px solid var(--line); border-radius:10px; background:var(--surface); padding:10px 12px}
+.su-proj.on{border-color:var(--focus); box-shadow:0 0 0 2px color-mix(in srgb, var(--focus) 22%, transparent)}
+.su-proj.done{border-style:dashed; background:var(--surface-2)}
+.su-pick{display:flex; align-items:baseline; gap:8px; font-size:13.5px}
+label.su-pick{cursor:pointer}
+.su-pick input{flex:none; margin:0; transform:translateY(2px)}
+.su-pick > span{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0}
+.su-pick > .chip{flex:none; white-space:nowrap}
+.su-proj-body{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line)}
+.su-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 12px}
+.su-roles{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; margin:12px 0 0; padding:0; border:0; min-width:0}
+.su-roles legend{padding:0; margin-bottom:6px; font-size:12px; color:var(--ink-3)}
+.su-field{display:flex; flex-direction:column; gap:4px; min-width:0}
+.su-field label{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.su-field label small{font-weight:400; color:var(--ink-3)}
+.setup input[type="text"],.setup select{width:100%; min-width:0; padding:7px 9px; border:1px solid var(--line-2); border-radius:7px; background:var(--surface); color:var(--ink); font:inherit; font-size:13.5px}
+.su-boss{margin-top:16px; max-width:560px}
+.su-intro-f{margin-top:16px; max-width:560px}
+.su-res{margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2)}
+.su-res h3{margin:0 0 6px; font-size:13.5px}
+.su-res ul{list-style:none; margin:0; padding:0; font-size:13px}
+.su-res li{padding:3px 0}
+.su-res .bad{color:var(--err-ink)}
+.su-res .hint{margin-top:8px}
+.su-vis{margin:12px 0 0; padding:8px 12px 12px; border:1px solid var(--line); border-radius:10px; min-width:0}
+.su-vis legend{display:flex; align-items:center; gap:6px; padding:0 4px; font-family:var(--font-display); font-size:18px}
+.su-levels{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
+.su-lv{display:flex; align-items:flex-start; gap:7px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface); cursor:pointer; font-size:13px}
+.su-lv input{flex:none; margin:3px 0 0}
+.su-lv > span{display:flex; flex-direction:column; gap:1px; min-width:0}
+.su-lv small{color:var(--ink-3); font-size:11.5px; line-height:1.4}
+.su-lv:has(input:checked){border-color:var(--ink); background:color-mix(in srgb, var(--focus) 8%, var(--surface))}
+/* 설정 화면의 작은 설명 글(무엇이 공개되는지, 로그인 방법)은 --ink-3로는 대비가 모자라서 --ink-2로(6:1 이상). 지금 단계 표시는 더 구체적인 규칙이 그대로 이겨요. */
+.setup .hint,.su-lv small,.su-steps .n,.su-steps small,.su-field label small,.su-roles legend,.su-projects summary small,.su-pick small,.su-sess small{color:var(--ink-2)}
+.su-pubstate{margin-top:6px; font-weight:600}
+.su-rules{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:2px; font-size:12.5px}
+.su-confirm{margin-top:14px; padding:14px; border:2px solid var(--err); border-radius:10px; background:color-mix(in srgb, var(--err) 8%, var(--surface))}
+.su-confirm h3{margin:0; font-size:15.5px}
+.su-confirm p{margin:6px 0 0; font-size:13px}
+.su-confirm ul{margin:6px 0 0; padding-left:18px; font-size:13px}
+.su-nav{display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px; margin-top:20px; padding-top:14px; border-top:1px solid var(--line)}
+.su-sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap}
+@media (max-width:760px){
+  .su-roles,.su-levels{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .su-steps small{display:none}
+}
+@media (max-width:559px){
+  .su-grid,.su-roles,.su-levels{grid-template-columns:minmax(0,1fr)}
+  .su-steps{gap:4px}
+  .su-steps button{align-items:center; padding:6px 4px; text-align:center}
+  .su-steps b{font-size:13.5px}
+  .su-card{padding:14px}
+  .su-code{font-size:26px}
+}
+
 @media (max-width:1100px){ .room-grid,.bottom{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:899px){
   .org-branches{grid-template-columns:minmax(0,1fr); margin-top:18px; padding-left:22px}
@@ -331,12 +433,12 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 <div class="wrap">
   <header class="top">
     <div class="sign">
-      <h1 class="plate">클로드 오피스</h1>
+      <h1 class="plate">에이전시티</h1>
       <div class="sign-sub">
         <p><b>환경 하나가 팀 하나, 팀 하나가 한 층</b>이에요. 팀마다 팀장·개발자·디자이너·기획이 있고, 팀원 → 팀장 → 총괄 순서로 보고가 올라와요. <b>여기서 바로</b> 책상을 눌러 누구에게나 말을 걸고, 회의실에서 회의를 열고, 위의 <b>결재함</b>에서 팀장이 올린 결재를 처리해요. 이 화면은 팀 사무실 폴더의 파일을 몇 초마다 다시 읽어서 보여 줘요.</p>
       </div>
     </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap"><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><a class="live" href="city.html" style="text-decoration:none">토큰 시티 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap"><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
   </header>
 
   <section class="org" aria-label="층 안내">
@@ -356,6 +458,16 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   </div>
 </div>
 
+<div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="suTitle" hidden>
+  <div class="su-wrap">
+    <div class="su-top"><span class="plate" aria-hidden="true">에이전시티</span><h1 class="su-h1" id="suTitle">처음 설정</h1><button type="button" class="d-close" id="suClose" data-su="close">나중에 하기</button></div>
+    <p class="su-intro" id="suIntro"></p>
+    <nav aria-label="설정 단계"><ol class="su-steps" id="suSteps"></ol></nav>
+    <section class="su-card" id="suBody" aria-labelledby="suHead"></section>
+    <p class="su-sr" id="suLive" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
 <script type="application/json" id="snapshot">/*@@SNAPSHOT@@*/</script>
 <script>
 (() => {
@@ -371,7 +483,7 @@ async function post(path, body) {
   const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Token': TOKEN }, body: JSON.stringify(body) });
   let j = {};
   try { j = await r.json(); } catch (e) {}
-  if (!r.ok || !j.ok) throw new Error(j.error || `보내지 못했어요 (${r.status})`);
+  if (!r.ok || !j.ok) throw Object.assign(new Error(j.error || `보내지 못했어요 (${r.status})`), { body: j });   // 처음 설정은 답의 나머지 칸(층별 오류)도 써요
   return j;
 }
 const ST = {
@@ -520,7 +632,9 @@ function sceneSVG(L, role) {
 }
 
 /* ---------- 조각 ---------- */
-const SEEN_KEY = 'claude-office.seen';
+const SEEN_KEY = 'agencity.seen';
+// 예전 이름 때 이 브라우저에 남긴 값(읽은 자리·고른 층)은 한 번만 새 이름으로 옮겨요.
+try { for (const k of ['seen', 'floor']) { const v = localStorage.getItem('claude-office.' + k); if (v === null) continue; if (localStorage.getItem('agencity.' + k) === null) localStorage.setItem('agencity.' + k, v); localStorage.removeItem('claude-office.' + k); } } catch (e) {}
 function seenMap() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function markSeen(file, t) { if (!t) return; try { const m = seenMap(); if (!m[file] || m[file] < t) { m[file] = t; localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } } catch (e) {} }
 const unread = (file, last) => { if (!last || last.from === '대표' || !last.t) return false; const s = seenMap()[file]; return !s || s < last.t; };
@@ -566,7 +680,7 @@ function parseBoard(md) {
 /* ---------- 층 ---------- */
 // floor는 사용자가 고른 층이에요. 그 층이 잠깐 없을 때 보여 주는 대신 층은 저장하지 않아요.
 let floor = null;
-const FLOOR_KEY = 'claude-office.floor';
+const FLOOR_KEY = 'agencity.floor';
 const floorLabel = t => t.floor ? `${t.floor}층` : '입주 예정';
 const toneOf = t => (t && /^(a|b|c)$/.test(t.tone)) ? t.tone : (t && t.floor ? 'abc'[(Number(t.floor) - 1) % 3] || 'hq' : 'hq');
 const hasFloor = (org, id) => !!id && org.teams.some(t => t.id === id);
@@ -650,7 +764,7 @@ function render() {
   if (put($('#rooms'), !cur ? '' : teams[cur.id] ? roomHTML(cur, teams[cur.id]) : vacantHTML(cur))) {
     $$('#rooms .feed, #rooms .files').forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   }
-  document.title = cur ? `클로드 오피스 · ${floorLabel(cur)} ${cur.name}` : '클로드 오피스';
+  document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
 }
 function vacantHTML(t) {
@@ -1027,6 +1141,597 @@ async function fileDrawer(path) {
   openDrawer(`<p class="d-eyebrow">파일</p><h2 class="d-title" id="dTitle" style="font-size:20px; font-family:var(--font-mono)">${esc(path.split('/').pop())}</h2><pre class="d-pre">${esc(text)}</pre>`);
 }
 
+/* ---------- 처음 설정 ---------- */
+// 로그인(GitHub) → Claude 연결(이 맥의 Claude 앱 세션 목록) → 사무실 만들기(층) → 공개 범위 → 완료.
+// 서버의 /api/setup/*만 불러요. GitHub 토큰은 서버가 이 맥에만 두고 페이지로는 오지 않아요.
+// 고르던 값(층 이름·팀 id·자리·공개 범위)은 SU에 두고 화면만 다시 그려서, 다른 단계에 갔다 와도 남아요. 서버에서 온 글은 모두 esc()를 거쳐요.
+const SU_STEPS = ['로그인', 'Claude 연결', '사무실 만들기', '공개 범위', '완료'];
+const SU_LEVELS = [   // docs/VISION.md의 공개 범위 단계. 건물 자체는 어느 단계든 token-meter 숫자로 서요(층 정보는 names·tour만 나가요).
+  { v: 'private', name: '비공개', say: '이 층은 도시에 나오지 않아요(기본)' },
+  { v: 'building', name: '건물만', say: '이 층 정보는 안 나가요(건물은 token-meter 숫자로 따로 서요)' },
+  { v: 'names', name: '층 이름', say: '층 이름이 더해져요' },
+  { v: 'tour', name: '둘러보기', say: '층 이름에 책상 상태(일하는 중·대기)를 읽기 전용으로 더해요' }
+];
+const SU_OUT = new Set(['names', 'tour']);   // 실제로 도시에 층 정보가 나가는 범위
+const TEAM_ID = /^[a-z][a-z0-9-]{0,19}$/;   // bin/new_team.py와 같은 규칙
+const SU = {
+  open: false, step: 0, st: null, back: null, err: '',
+  claude: null, claudeErr: '', claudeBusy: false, claudeSeq: 0, archived: false, home: '', shut: new Set(),
+  gh: { flow: null, seq: 0, timer: 0, fails: 0, note: '' },
+  picks: {}, boss: '', made: null, madeAt: {}, madeRun: [], skip: false,
+  vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: ''
+};
+async function sp(path, body) {
+  try { return await post('api/setup/' + path, body || {}); }
+  catch (e) { throw Object.assign(new Error(e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : (e.message || '안 됐어요')), { body: e.body }); }
+}
+async function refreshSetup() {
+  const st = await sp('state');
+  SU.st = Object.assign({ floors: [], visibility: {}, claude: { app: false, sessions: 0 } }, st);
+  if (!Array.isArray(SU.st.floors)) SU.st.floors = [];
+  if (!SU.st.claude || typeof SU.st.claude !== 'object') SU.st.claude = { app: false, sessions: 0 };
+  if (!SU.visDirty) SU.vis = Object.assign({}, SU.st.visibility || {});
+  if (!SU.introDirty && typeof st.intro === 'string') SU.intro = st.intro;
+  return SU.st;
+}
+const suSay = t => { const el = $('#suLive'); if (el) { el.textContent = ''; setTimeout(() => { el.textContent = t; }, 30); } };
+const baseName = p => String(p || '').replace(/\/+$/, '').split('/').pop() || String(p || '');
+const tilde = p => { p = String(p || ''); return SU.home && (p === SU.home || p.startsWith(SU.home + '/')) ? '~' + p.slice(SU.home.length) : p; };
+const levelOf = id => SU.vis[id] || 'private';
+const myFloors = () => SU.st.floors.filter(f => !f.example);   // 예시 팀은 공개 범위에서 빼요(늘 비공개)
+const countSess = c => (c.projects || []).reduce((n, p) => n + p.sessions.length, 0);
+// 세션 기록의 시각은 ISO 글이나 숫자(밀리초·초) 둘 다 받아요.
+function agoAt(v) {
+  let ms = typeof v === 'number' ? v : /^\d+$/.test(String(v == null ? '' : v)) ? Number(v) : Date.parse(v);
+  if (!isFinite(ms) || !ms) return '';
+  if (ms < 1e12) ms *= 1000;
+  return ago(new Date(ms).toISOString());
+}
+// 이미 층인 프로젝트: 층의 폴더가 프로젝트 폴더(또는 ~로 줄인 모양)와 같거나, 여기서 만든 층이에요(서버가 경로를 실제 경로로 바꿔 적어도 알아봐요).
+function floorOf(p) {
+  const norm = s => String(s || '').replace(/\/+$/, ''), mine = p.team || SU.madeAt[p.folder];   // team: 서버가 실제 경로로 맞춰 본 층 id
+  return SU.st.floors.find(f => (mine && f.id === mine) || (f.folder && [norm(p.folder), norm(p.display)].includes(norm(f.folder)))) || null;
+}
+function slugId(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^[^a-z]+/, '').slice(0, 20).replace(/-+$/, ''); }
+function autoId(name, folder) {
+  const base = slugId(name) || slugId(baseName(folder)) || 'team';
+  const taken = new Set([...SU.st.floors.map(f => f.id), ...Object.entries(SU.picks).filter(([k, p]) => k !== folder && p.on).map(([, p]) => p.id)]);
+  let id = base, n = 2;
+  while (taken.has(id)) { const suf = '-' + n++; id = base.slice(0, 20 - suf.length).replace(/-+$/, '') + suf; }
+  return id;
+}
+function pickOf(p) {
+  let k = SU.picks[p.folder];
+  if (!k) {
+    k = SU.picks[p.folder] = { on: false, name: baseName(p.folder).slice(0, 30), id: '', idEdited: false, roles: { '팀장': '', '개발자': '', '디자이너': '', '기획': '' }, err: '' };
+    const lead = p.sessions.find(s => !s.archived);   // 팀장 자리는 가장 최근 세션으로 먼저 채워 둬요(바꿀 수 있어요)
+    if (lead) k.roles['팀장'] = lead.sessionId;
+  }
+  return k;
+}
+const pendingPicks = () => ((SU.claude && SU.claude.projects) || []).filter(p => !floorOf(p) && p.exists && SU.picks[p.folder] && SU.picks[p.folder].on);
+const sessLabel = s => `${s.title || '(제목 없음)'}${s.archived ? ' (보관됨)' : ''} · ${agoAt(s.lastActivityAt) || '—'}`;
+const worktree = s => { const m = String(s.cwd || '').match(/\/\.claude\/worktrees\/([^/]+)/); return m ? m[1] : ''; };
+const pubCount = () => myFloors().filter(f => SU_OUT.has(levelOf(f.id))).length;   // '공개'는 층 정보가 나가는 층만 세요
+const withdraw = () => pubCount() === 0;   // 공개할 층이 없으면 올리기 = 도시에서 내리기(층 정보를 비워 올려요)
+function pubBlock() {
+  if (!SU.st.github) return '도시에 올리려면 1단계에서 GitHub에 연결해요.';
+  if (withdraw() && !SU.st.published) return '공개한 층이 없어요. 올린 적이 없어서 내릴 것도 없어요.';
+  return '';
+}
+function pubHint() {
+  const p = SU.st.published;
+  if (!withdraw()) return '올리려면 token-meter로 만든 내 gist가 있어야 해요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
+  if (p && p.current === true && p.floors === 0) return '도시에 올라간 층 정보는 이미 비어 있어요. 소개 한 줄을 고쳤다면 다시 눌러 반영해요.';
+  return '도시에 올라간 층 정보를 비워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
+}
+function coordLink() {   // 앱에는 파일을 열 곳이 없어서 GitHub의 문서로 이어요(설치한 판과 같은 태그)
+  const v = String((SU.st && SU.st.version) || '');
+  return `<a href="https://github.com/Min-heee/agencity/blob/${/^\d+\.\d+\.\d+$/.test(v) ? 'v' + v : 'main'}/docs/COORDINATOR.md" target="_blank" rel="noopener">docs/COORDINATOR.md</a>`;
+}
+// 오류 글 속 https 주소만 링크로(나머지는 그대로 esc)
+const linkify = s => esc(s).replace(/https:\/\/[^\s<>"'()]+[^\s<>"'().,]/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+
+/* 단계별 화면 */
+function stepNote(i) {
+  const st = SU.st;
+  if (i === 0) return st.github ? '@' + st.github.login : '연결 안 함';
+  if (i === 1) {
+    if (SU.claudeErr && !SU.claude) return '목록을 못 읽었어요';
+    const c = SU.claude || st.claude || {}, n = SU.claude ? countSess(SU.claude) : Number(c.sessions) || 0; return n ? `세션 ${n}개` : c.app ? '세션 없음' : '앱 없음';
+  }
+  if (i === 2) return `층 ${st.floors.length}개`;
+  if (i === 3) {
+    const n = pubCount(), p = st.published;
+    return (n ? `${n}개 층 공개` : '공개한 층 없음') + (!p ? (n ? ' · 아직 안 올림' : '') : p.current === false ? ' · 도시는 예전 내용' : '');
+  }
+  return st.done ? '끝냈어요' : '';
+}
+function loginHTML() {
+  const st = SU.st, g = st.github, f = SU.gh.flow;
+  let body;
+  if (g) {
+    body = `<div class="su-box su-ok"><p><i class="sd here"></i>GitHub <b>@${esc(g.login)}</b> 계정으로 연결돼 있어요 <span class="chip">${g.via === 'gh' ? 'gh 로그인' : '기기 로그인'}</span></p>
+      <p class="hint">${g.via === 'gh' ? '이 맥의 gh 로그인을 빌려 써요. 연결을 끊어도 gh 로그인은 그대로예요.' : '로그인 정보는 이 맥에만 두고 화면에는 보이지 않아요. 연결을 끊으면 지워요.'}</p>
+      <div class="su-actions"><button type="button" class="btn" data-su="gh-logout">연결 끊기</button></div></div>`;
+  } else if (f) {
+    const left = Math.max(1, Math.ceil((f.until - Date.now()) / 60000));
+    const where = f.uri ? f.uri.replace(/^https?:\/\//i, '').replace(/\/$/, '') : 'github.com/login/device';
+    body = `<div class="su-box">
+      <p><b>1.</b> 이 코드를 복사해요</p>
+      <div class="su-code-row"><span class="su-code" aria-label="로그인 코드 ${esc(f.code.split('').join(' '))}">${esc(f.code)}</span><button type="button" class="btn" id="suCopy" data-copy="${esc(f.code)}">코드 복사</button></div>
+      <p><b>2.</b> GitHub 페이지를 열어 코드를 넣고 승인해요</p>
+      <div class="su-actions">${f.uri ? `<a class="btn primary" id="suDevLink" href="${esc(f.uri)}" target="_blank" rel="noopener">${esc(where)} 열기 ↗</a>` : `<code>${esc(where)}</code>`}<button type="button" class="btn" data-su="gh-cancel">취소</button></div>
+      <p class="hint" id="suGhState" role="status" style="margin-top:10px">${esc(SU.gh.note || `승인을 기다리는 중이에요 · ${left}분 안에 해 주세요. 승인하면 여기가 저절로 바뀌어요`)}</p></div>`;
+  } else {
+    const opts = [];
+    if (st.deviceFlow) opts.push(`<div class="su-opt"><b>GitHub로 로그인</b><p class="hint">코드를 받아 GitHub 페이지에 넣으면 연결돼요. 받는 권한은 gist(공개 요약을 올리는 곳) 하나예요.</p><button type="button" class="btn primary" data-su="gh-start">GitHub로 로그인</button></div>`);
+    if (st.ghAvailable) opts.push(`<div class="su-opt"><b>gh(GitHub CLI) 로그인 쓰기</b><p class="hint">터미널에서 gh auth login을 해 뒀다면 그 계정으로 연결해요. 토큰은 화면에 나오지 않고 따로 저장하지도 않아요.</p><button type="button" class="btn${st.deviceFlow ? '' : ' primary'}" data-su="gh-gh">이걸로 연결</button></div>`);
+    if (!opts.length) opts.push(`<div class="su-opt"><b>지금은 GitHub에 연결할 수 없어요</b><p class="hint">이 설치본에는 GitHub 로그인이 준비돼 있지 않고 gh(GitHub CLI)도 찾지 못했어요. gh를 설치하고 터미널에서 gh auth login을 한 뒤 다시 열면 연결할 수 있어요.</p></div>`);
+    opts.push(`<div class="su-opt"><b>로그인 없이 쓰기</b><p class="hint">공개하지 않을 거면 필요 없어요. 나중에 ‘설정’에서 언제든 연결해요.</p><button type="button" class="btn" data-su="skip-login">로그인 없이 쓰기</button></div>`);
+    body = `<div class="su-opts">${opts.join('')}</div>`;
+  }
+  return `<h2 class="su-h" id="suHead" tabindex="-1">로그인</h2>
+    <p class="su-lead">GitHub 계정은 <b>에이전시티 도시에 내 건물과 공개한 층을 올릴 때만</b> 써요. 사무실은 로그인 없이도 이 맥에서 다 돼요.</p>${body}`;
+}
+function claudeHTML() {
+  const c = SU.claude, app = c ? c.app : !!SU.st.claude.app, ps = c ? c.projects : [];
+  let list;
+  if (!c) list = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
+  else if (!ps.length) list = '<p class="empty" style="margin-top:12px">찾은 세션이 없어요.</p>';
+  else list = `<h3 class="su-sub">프로젝트와 세션</h3><ul class="su-projects">${ps.map(p => `<li><details data-folder="${esc(p.folder)}"${SU.shut.has(p.folder) ? '' : ' open'}><summary><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>· 세션 ${p.sessions.length}개${p.sessions[0] && agoAt(p.sessions[0].lastActivityAt) ? ' · 마지막 ' + esc(agoAt(p.sessions[0].lastActivityAt)) : ''}</small></summary>
+      <ul class="su-sess">${p.sessions.map(s => `<li><span>${esc(s.title || '(제목 없음)')}${s.archived ? ' <span class="chip">보관됨</span>' : ''}${worktree(s) ? ` <span class="chip">worktree ${esc(worktree(s))}</span>` : ''}</span><small>${esc(agoAt(s.lastActivityAt))}</small></li>`).join('')}</ul></details></li>`).join('')}</ul>`;
+  return `<h2 class="su-h" id="suHead" tabindex="-1">Claude 연결</h2>
+    <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)만 읽어요. 대화 내용은 읽지 않아요. 지금은 Claude Code 세션만 층이 되고, Codex·Gemini CLI는 앞으로 붙여요.</p>
+    <div class="su-box ${app ? 'su-ok' : 'su-warn'}"><p><i class="sd ${app ? 'here' : 'block'}"></i>${app ? 'Claude 앱을 찾았어요' : 'Claude 앱을 찾지 못했어요'}${c ? ` · 프로젝트 ${ps.length}개, 세션 ${countSess(c)}개` : ''}</p>
+      ${app ? '' : `<p class="hint">Claude 데스크톱 앱을 설치하고, 층으로 만들 프로젝트 폴더에서 Claude Code 세션을 하나 이상 연 뒤 ‘다시 찾기’를 눌러요.${SU.st.platform === 'mac' ? '' : ' 이 컴퓨터에서 세션을 찾을 수 없으면 터미널에서 python3 bin/new_team.py로 층을 만들어요.'}</p>`}
+      <div class="su-actions"><label class="su-check"><input type="checkbox" id="suArch" data-su-in="archived"${SU.archived ? ' checked' : ''}> 보관한 세션도 보기</label><button type="button" class="btn" data-su="claude-reload"${SU.claudeBusy ? ' disabled' : ''}>${SU.claudeBusy ? '찾는 중…' : '다시 찾기'}</button></div></div>${claudeErrP()}${list}`;
+}
+// 세션 목록을 못 읽었으면(예전 목록이 남아 있어도) 2·3단계 모두에 알려요.
+const claudeErrP = () => SU.claudeErr ? `<p class="err" role="alert" style="margin-top:12px">세션 목록을 읽지 못했어요: ${esc(SU.claudeErr)}${SU.claude ? ' (아래는 전에 읽은 목록이에요)' : ''}</p>` : '';
+function projHTML(p, i) {
+  const done = floorOf(p);
+  if (done) return `<li class="su-proj done"><div class="su-pick"><span class="chip">${done.floor ? esc(done.floor + '층') + ' · ' : ''}만들었어요</span><span><b>${esc(done.name)}</b> <code>${esc(p.display)}</code></span></div></li>`;
+  if (!p.exists) return `<li class="su-proj done"><div class="su-pick"><span class="chip">폴더 없음</span><span><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>지금은 없는 폴더라 층으로 만들 수 없어요</small></span></div></li>`;
+  const k = pickOf(p), have = new Set(p.sessions.map(s => s.sessionId));
+  ROLE_ORDER.forEach(r => { if (k.roles[r] && !have.has(k.roles[r])) k.roles[r] = ''; });   // 목록에서 빠진 세션(보관함 숨김 등)은 비워요
+  const opt = sel => '<option value="">비워 두기</option>' + p.sessions.map(s => `<option value="${esc(s.sessionId)}"${s.sessionId === sel ? ' selected' : ''}>${esc(sessLabel(s))}</option>`).join('');
+  return `<li class="su-proj${k.on ? ' on' : ''}" data-folder="${esc(p.folder)}">
+    <label class="su-pick"><input type="checkbox" id="suP${i}" data-su-in="pick"${k.on ? ' checked' : ''}><span><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>세션 ${p.sessions.length}개</small></span></label>
+    <div class="su-proj-body"${k.on ? '' : ' hidden'}>
+      <div class="su-grid">
+        <div class="su-field"><label for="suN${i}">층 이름</label><input type="text" id="suN${i}" data-su-in="name" maxlength="30" value="${esc(k.name)}" autocomplete="off"></div>
+        <div class="su-field"><label for="suI${i}">팀 id <small>영문 소문자·숫자·-</small></label><input type="text" id="suI${i}" data-su-in="id" maxlength="20" value="${esc(k.id)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suIh${i}"><small class="hint" id="suIh${i}">화면 주소(#id)와 teams/ 폴더 이름에 써요</small></div>
+      </div>
+      <fieldset class="su-roles"><legend>자리마다 앉힐 세션 (한 세션은 한 자리에만)</legend>${ROLE_ORDER.map((r, j) => `<div class="su-field"><label for="suR${i}-${j}">${r}</label><select id="suR${i}-${j}" data-su-in="role" data-role="${r}">${opt(k.roles[r])}</select></div>`).join('')}</fieldset>
+      <p class="err" role="alert" data-err style="margin-top:8px">${esc(k.err)}</p>
+    </div></li>`;
+}
+// 이번 설정에서 만든 층: 각 프로젝트의 CLAUDE.local.md에 넣을 한 줄(복사 버튼과 함께)
+function rulesHTML(id) {
+  const ps = SU.madeRun;
+  if (!ps.length) return '';
+  return `<p class="hint" style="margin-top:8px">각 프로젝트 폴더의 CLAUDE.local.md에 이 한 줄을 넣으면 그 프로젝트의 세션들이 팀 규칙을 읽어요: <code>@.office/RULES.md</code> <button type="button" class="btn" id="${id}" data-copy="@.office/RULES.md">복사</button></p>
+    <ul class="su-rules">${ps.map(p => `<li><code>${esc(String(p.display).replace(/\/+$/, ''))}/CLAUDE.local.md</code></li>`).join('')}</ul>`;
+}
+function floorsHTML() {
+  const c = SU.claude, fl = SU.st.floors;
+  const have = fl.length ? `<h3 class="su-sub">지금 있는 층</h3><ul class="su-floors">${fl.map(f => `<li><span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code></li>`).join('')}</ul>` : '';
+  let pick;
+  if (!c) pick = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
+  else if (!c.projects.length) pick = '<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>';
+  else {
+    const all = c.projects.flatMap(p => p.sessions.map(s => ({ p, s })));
+    const groups = c.projects.map(p => `<optgroup label="${esc(p.display)}">${p.sessions.map(s => `<option value="${esc(s.sessionId)}"${s.sessionId === SU.boss ? ' selected' : ''}>${esc(sessLabel(s))}</option>`).join('')}</optgroup>`).join('');
+    if (SU.boss && !all.some(x => x.s.sessionId === SU.boss)) SU.boss = '';
+    const n = pendingPicks().length;
+    pick = `<h3 class="su-sub">층으로 만들 프로젝트</h3><ul class="su-plist">${c.projects.map(projHTML).join('')}</ul>
+      <div class="su-field su-boss"><label for="suBoss">총괄(코디네이터) 세션</label><select id="suBoss" data-su-in="boss" aria-describedby="suBossH"><option value="">${SU.st.boss ? '그대로 두기' : '나중에 정하기'}</option>${groups}</select>
+        <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}</small></div>
+      <div class="su-actions"><button type="button" class="btn primary" data-su="floors-make">층 만들기</button><span class="hint" id="suPickN">고른 프로젝트 ${n}개</span></div>
+      ${fl.some(f => f.example) ? '<p class="hint" style="margin-top:6px">층을 만들면 예시 팀은 층 안내에서 빠져요(예시 파일은 그대로 남아요).</p>' : ''}`;
+  }
+  const m = SU.made;
+  const res = m ? `<div class="su-res" id="suRes" tabindex="-1"><h3>결과</h3><ul>
+      ${m.created.map(x => { const f = fl.find(y => y.id === x.id); return `<li>✓ ${x.floor ? esc(x.floor + '층') + ' · ' : ''}${esc(f ? f.name : x.id)} 만들었어요</li>`; }).join('')}
+      ${m.errors.map(x => `<li class="bad">✗ ${esc(x.name || x.id)}: ${esc(x.error)}</li>`).join('')}
+      ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : SU.st.boss ? '' : '<li>· 총괄 세션은 아직 정하지 않았어요. 나중에 여기서 고르면 돼요</li>'}</ul>
+      ${m.created.length ? rulesHTML('suRulesCopy') : ''}</div>` : '';
+  return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
+    <p class="su-lead">프로젝트(폴더) 하나가 층(팀) 하나가 돼요. 층으로 만들 프로젝트를 고르고, 팀장·개발자·디자이너·기획 자리에 그 프로젝트의 세션을 앉혀요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채울 수 있어요.</p>
+    ${have}${claudeErrP()}${pick}${res}`;
+}
+// 저장한 설정과 도시에 올라간 것의 관계(서버가 마지막으로 올린 설정의 지문과 지금 public.json을 비교해 알려 줘요). here: 4단계 안에서 보여 줄 때
+function pubState(here) {
+  const p = SU.st.published, n = pubCount(), at = here ? '' : '4단계에서 ', act = n ? '‘도시에 올리기’' : '‘도시에서 내리기’';
+  if (!p) return n ? (here ? '아직 도시에 올리지 않았어요. 아래 ‘도시에 올리기’를 눌러야 나가요' : '아직 도시에 올리지 않았어요(4단계 ‘도시에 올리기’)') : '';
+  if (SU.visDirty || SU.introDirty) return `바꾼 내용은 아직 도시에 없어요. ${at}${act}를 누르면 반영돼요`;
+  if (p.current === null || p.current === undefined) return `도시에 예전에 올린 내용이 있을 수 있어요. ${at}${act}를 누르면 지금 설정으로 맞춰져요`;
+  if (!p.current) return `도시에는 예전 내용이 올라가 있어요. ${at}${act}를 눌러 반영해요`;
+  return '';
+}
+function saveNote() {   // '저장'을 누른 뒤: 이 맥에만 적었다는 것과 도시에 있는 것과의 관계
+  const p = SU.st.published, act = pubCount() ? '‘도시에 올리기’' : '‘도시에서 내리기’';
+  if (!p) return pubCount() ? '저장했어요. 이 맥의 public.json에만 적었고 아직 도시에 올리지 않았어요.' : '저장했어요. 이 맥의 public.json에만 적었어요.';
+  if (p.current === true) return '저장했어요. 도시에 올라간 내용과 같아요.';
+  return `저장했어요. 이 맥의 public.json에만 적었어요. 도시에는 예전 내용이 ${p.current === false ? '그대로 있으니' : '있을 수 있으니'} ${act}를 눌러 반영해요.`;
+}
+function visHTML() {
+  const fl = myFloors(), why = pubBlock(), out = withdraw(), ps = pubState(true);
+  const rows = fl.length ? fl.map((f, i) => `<fieldset class="su-vis"><legend><span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span>${esc(f.name)}</legend>
+      <div class="su-levels">${SU_LEVELS.map((L, j) => `<label class="su-lv"><input type="radio" name="suV${i}" id="suV${i}-${j}" value="${L.v}" data-su-in="vis" data-team="${esc(f.id)}"${levelOf(f.id) === L.v ? ' checked' : ''}><span><b>${L.name}</b><small>${L.say}</small></span></label>`).join('')}</div></fieldset>`).join('')
+    : '<p class="empty" style="margin-top:12px">아직 층이 없어요. ‘사무실 만들기’에서 먼저 만들어요.</p>';
+  // 공개 확인: 서버가 만든 미리보기(bin/office_public.py가 내보낼 내용 그대로)를 보여 주고 한 번 더 받아요.
+  const pv = SU.preview && SU.preview.preview && typeof SU.preview.preview === 'object' ? SU.preview.preview : {};
+  const fno = f => f.floor ? esc(f.floor + '층') + ' ' : '';
+  const desks = f => { const d = Array.isArray(f.desks) ? f.desks : [], w = d.filter(x => x && x.state === '일하는 중').length; return d.length ? ` · 책상 ${d.length}개${w ? `(일하는 중 ${w})` : ''}` : ''; };
+  const items = (Array.isArray(pv.floors) ? pv.floors : []).map(f => `<li>${fno(f)}${esc(f.name)} · ${f.public === 'tour' ? '둘러보기' : '층 이름'}${esc(desks(f))}${f.summary ? ` · 소개 ${esc(f.summary)}` : ''}</li>`)
+    .concat(fl.filter(f => levelOf(f.id) === 'building').map(f => `<li>${fno(f)}${esc(f.name)} · 건물만 (이 층 정보는 나가지 않아요)</li>`));
+  const pvIntro = pv.profile && pv.profile.intro ? String(pv.profile.intro) : '';
+  const intro = pvIntro ? `<li>소개 한 줄: ${esc(pvIntro)} <small class="hint">(층 공개 범위와 상관없이 함께 나가요)</small></li>` : '';
+  const notes = Array.isArray(SU.preview && SU.preview.notes) ? SU.preview.notes : [];
+  const who = pv.login ? `GitHub <b>@${esc(pv.login)}</b>의 ` : '내 ';
+  const body = out
+    ? `<h3 id="suCfT">도시에서 내릴까요?</h3>
+      <p id="suCfD">${who}token-meter gist의 에이전시티 요약에서 <b>층 정보를 모두 비워서</b> 올려요. 건물(높이·등급·창문 불빛)은 token-meter 숫자로 그대로 서요. <b>예전 판은 gist 수정 기록에 남을 수 있어요.</b></p>
+      ${items.length || intro ? `<ul>${items.join('')}${intro}</ul>` : ''}
+      ${pvIntro ? '<div class="su-actions"><button type="button" class="btn" data-su="pub-clear-intro">소개 한 줄도 지우기</button></div>' : ''}`
+    : `<h3 id="suCfT">정말 공개할까요?</h3>
+      <p id="suCfD">${who}token-meter gist에 아래 요약을 올려요. <b>누구나 볼 수 있고, gist 수정 기록은 지울 수 없어요.</b> 대화·결재·보고서·경로·세션 id는 들어가지 않아요.</p>
+      <ul>${items.join('')}${intro}</ul>`;
+  const confirmBox = SU.confirm && !why ? `<div class="su-confirm" id="suConfirm" role="alertdialog" aria-labelledby="suCfT" aria-describedby="suCfD" tabindex="-1">
+      ${body}
+      ${notes.map(n => `<p class="hint">· ${esc(n)}</p>`).join('')}
+      ${SU.preview && SU.preview.preview ? `<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">올라갈 내용 그대로 보기</summary><pre class="d-pre">${esc(JSON.stringify(pv, null, 1))}</pre></details>` : ''}
+      <p class="err" role="alert" id="suPubErr" style="margin-top:10px">${linkify(SU.pubErr)}</p>
+      <div class="su-actions" style="margin-top:6px"><button type="button" class="btn primary" id="suPubYes" data-su="pub-yes" disabled>${out ? '네, 내릴게요' : '네, 공개할게요'}</button><button type="button" class="btn" data-su="pub-no">취소</button></div></div>` : '';
+  const done = SU.pubUrl || SU.note ? `<div class="su-box su-ok" id="suPubDone" tabindex="-1"><p>${esc(SU.note)}</p>${SU.pubUrl ? `<p><a href="${esc(SU.pubUrl)}" target="_blank" rel="noopener">올린 gist 보기 ↗</a></p>` : ''}</div>` : '';
+  return `<h2 class="su-h" id="suHead" tabindex="-1">공개 범위</h2>
+    <p class="su-lead">에이전시티 도시에서 내 건물에 어떤 층 정보를 보여 줄지 층마다 정해요. 기본은 비공개예요. <b>저장</b>은 이 맥에만 적고, <b>도시에 올리기</b>를 눌러야 공개돼요.</p>
+    <p class="hint" style="margin-top:6px">건물 자체(높이·등급·창문 불빛)는 여기서 고른 것과 상관없이 token-meter gist의 숫자로 서요. 어느 단계든 대화·결재·보고서 원문·파일 경로·세션 id·프롬프트는 나가지 않아요. 업무판 제목과 책상의 ‘지금 하는 일’도 여기서는 켜지 않아요.</p>
+    <p class="hint su-pubstate" id="suPubState"${ps ? '' : ' hidden'}>· ${esc(ps)}</p>
+    ${rows}
+    <div class="su-field su-intro-f"><label for="suIntroIn">프로필 소개 한 줄 <small>(선택 · 올리면 층 공개 범위와 상관없이 함께 나가요)</small></label><input type="text" id="suIntroIn" data-su-in="intro" maxlength="120" value="${esc(SU.intro)}" placeholder="예: 앱 세 개를 팀 셋으로 굴려요" autocomplete="off"></div>
+    <div class="su-actions"><button type="button" class="btn" id="suSave" data-su="vis-save">저장</button><button type="button" class="btn primary" id="suPub" data-su="pub-ask" aria-describedby="suPubWhy"${why ? ' disabled' : ''}>${out ? '도시에서 내리기' : '도시에 올리기'}</button></div>
+    <p class="hint" id="suPubWhy" style="margin-top:6px">${esc(why || pubHint())}</p>
+    ${confirmBox}${done}`;
+}
+function doneHTML() {
+  const st = SU.st, c = SU.claude || st.claude || {}, n = pubCount(), ps = pubState(false);
+  const left = pendingPicks().length;
+  return `<h2 class="su-h" id="suHead" tabindex="-1">완료</h2>
+    <p class="su-lead">${st.done ? '바꾼 설정으로 사무실에 돌아가요.' : '이제 사무실을 열어요. 바꾸고 싶으면 언제든 위의 ‘설정’을 눌러요.'}</p>
+    <dl class="facts">
+      <dt>GitHub</dt><dd>${st.github ? `@${esc(st.github.login)} 연결됨` : '연결 안 함 (공개할 때만 필요해요)'}</dd>
+      <dt>Claude</dt><dd>${c.app ? 'Claude 앱 찾음' : 'Claude 앱 못 찾음'} · ${esc(stepNote(1))}</dd>
+      <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 프로젝트 ${left}개</span>` : ''}</dd>
+      <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.visDirty || SU.introDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
+    </dl>
+    ${rulesHTML('suRulesCopy2')}
+    <p class="hint" style="margin-top:12px">사이트에서 보낸 말을 팀 세션에 전하려면 ${st.boss ? '총괄 세션에서' : '총괄 세션을 정하고(3단계) 그 세션에서'} ${coordLink()}대로 전달을 켜요.</p>
+    <div class="su-actions"><button type="button" class="btn primary" id="suFinish" data-su="finish">사무실 열기</button></div>`;
+}
+function navHTML() {
+  const last = SU.step === SU_STEPS.length - 1;
+  return `<p class="err" role="alert" id="suErr" style="margin-top:12px">${esc(SU.err)}</p>
+    <div class="su-nav">${SU.step ? '<button type="button" class="btn" data-su="prev">이전</button>' : '<span></span>'}${last ? '' : `<button type="button" class="btn primary" id="suNext" data-su="next">${SU.skip ? '만들지 않고 넘어가기' : '다음'}</button>`}</div>`;
+}
+// 다시 그려도 키보드 위치는 그대로(id나 data-su로 같은 자리를 찾아요). focus를 주면 그곳으로 옮겨요.
+function suFocusKey() {
+  const a = document.activeElement;
+  if (!a || a === document.body || !$('#setup').contains(a)) return null;
+  if (a.id) return '#' + CSS.escape(a.id);
+  if (a.dataset && a.dataset.su) return `[data-su="${a.dataset.su}"]` + (a.dataset.step ? `[data-step="${a.dataset.step}"]` : '');
+  return null;
+}
+function renderSetup(focus) {
+  if (!SU.st) return;
+  const keep = focus || suFocusKey(), st = SU.st;
+  $('#suTitle').textContent = st.done ? '설정' : '처음 설정';
+  $('#suClose').textContent = st.done ? '닫기' : '나중에 하기';
+  $('#suIntro').textContent = st.done ? '바꾸고 싶은 단계를 눌러요. 고른 값은 저장하거나 만들기를 눌러야 바뀌어요.' : '몇 가지만 고르면 이 맥의 Claude Code 세션들이 층(팀)이 돼요. 나중에 위의 ‘설정’에서 언제든 바꿀 수 있어요.';
+  $('#suSteps').innerHTML = SU_STEPS.map((n, i) => `<li><button type="button" data-su="go" data-step="${i}"${i === SU.step ? ' aria-current="step"' : ''}><span class="n">${i + 1}단계</span><b>${n}</b><small>${esc(stepNote(i))}</small></button></li>`).join('');
+  $('#suBody').innerHTML = [loginHTML, claudeHTML, floorsHTML, visHTML, doneHTML][SU.step]() + navHTML();
+  const el = keep && $(keep, $('#setup'));
+  (el || $('#suHead')).focus({ preventScroll: !focus && !!el });
+  if (SU.confirm) setTimeout(() => { const y = $('#suPubYes'); if (y) y.disabled = false; }, 600);   // 겹친 화면에서 실수로 눌리지 않게
+}
+function openSetup(step) {
+  if (!SU.st) return;
+  if (!$('#drawer').hidden) closeDrawer();
+  if (!SU.open) SU.back = document.activeElement;
+  SU.open = true;
+  if (typeof step === 'number') SU.step = step;
+  SU.err = ''; SU.pubErr = ''; SU.confirm = false; SU.skip = false;
+  $('.wrap').inert = true;
+  document.body.style.overflow = 'hidden';
+  $('#setup').hidden = false;
+  $('#setup').scrollTop = 0;
+  renderSetup('#suHead');
+  // 열 때마다 세션 목록을 새로 읽어요(앱은 며칠씩 켜 두니 새 프로젝트·터미널에서 만든 층이 보이게). 늦게 온 옛 답은 loadClaude가 버려요.
+  loadClaude();
+}
+function closeSetup() {
+  ghStop(); SU.gh.flow = null; SU.gh.note = '';
+  SU.open = false; SU.confirm = false; SU.err = '';
+  $('#setup').hidden = true;
+  $('.wrap').inert = false;
+  document.body.style.overflow = '';
+  const b = SU.back; SU.back = null;
+  if (b && b !== document.body && b.isConnected && b.focus) b.focus(); else if (!$('#setupBtn').hidden) $('#setupBtn').focus();
+}
+function goStep(i) {
+  if (i < 0 || i >= SU_STEPS.length) return;
+  SU.step = i; SU.err = ''; SU.pubErr = ''; SU.confirm = false; SU.skip = false;
+  if (i !== 3) SU.note = '';
+  $('#setup').scrollTop = 0;
+  renderSetup('#suHead');
+}
+async function suNext() {
+  if (SU.step === 2 && pendingPicks().length && !SU.skip) {
+    SU.skip = true;
+    SU.err = `고른 프로젝트 ${pendingPicks().length}개를 아직 층으로 만들지 않았어요. ‘층 만들기’를 누르거나, 만들지 않고 넘어가려면 한 번 더 눌러요.`;
+    renderSetup('#suNext');
+    return;
+  }
+  if (SU.step === 3 && (SU.visDirty || SU.introDirty)) await visSave();   // 저장은 이 맥에만 적어요(공개는 따로)
+  goStep(SU.step + 1);
+}
+// where === 'pub': 공개 확인 상자 안의 버튼이라 오류도 그 상자 안(버튼 옆)에 보여요.
+async function suRun(btn, fn, where) {
+  if (btn.dataset.busy) return;
+  btn.dataset.busy = '1'; btn.disabled = true;
+  SU.err = ''; SU.pubErr = '';
+  for (const id of ['#suErr', '#suPubErr']) { const el = $(id); if (el) el.textContent = ''; }
+  try { await fn(); }
+  catch (e) {
+    const msg = e.message || '안 됐어요', box = where === 'pub' && $('#suPubErr');
+    if (box) { SU.pubErr = msg; box.innerHTML = linkify(msg); } else { SU.err = msg; const el = $('#suErr'); if (el) el.textContent = msg; }
+    const el = box || $('#suErr');
+    if (el) el.scrollIntoView({ block: 'nearest' });   // 화면 밖에 나오면 아무 일도 없는 것처럼 보여요
+  }
+  finally {
+    if (btn.isConnected) {
+      delete btn.dataset.busy; btn.disabled = false;
+      const a = document.activeElement;   // 누르는 동안 버튼이 꺼지면서 잃은 키보드 위치를 돌려줘요
+      if (!a || a === document.body) btn.focus({ preventScroll: true });
+    }
+  }
+}
+
+/* GitHub 기기 로그인: 코드를 보여 주고, 서버가 알려 준 간격(interval초)마다 승인됐는지 물어요. */
+function ghStop() { clearTimeout(SU.gh.timer); SU.gh.timer = 0; SU.gh.seq++; }
+function ghSchedule() { const seq = SU.gh.seq; clearTimeout(SU.gh.timer); SU.gh.timer = setTimeout(() => ghPoll(seq), SU.gh.flow.interval * 1000); }
+function ghNote(t) { SU.gh.note = t; const el = $('#suGhState'); if (el) el.textContent = t; }
+function ghEnd(msg) { ghStop(); SU.gh.flow = null; SU.gh.note = ''; SU.err = msg; if (SU.open && SU.step === 0) renderSetup(); }
+async function ghStart() {
+  ghStop();
+  const r = await sp('github/start');
+  const code = String(r.userCode || ''), uri = String(r.verificationUri || '');
+  if (!code) throw new Error('로그인 코드를 받지 못했어요. 잠시 뒤 다시 해 주세요');
+  SU.gh.flow = { code, uri: /^https?:\/\//i.test(uri) ? uri : '', interval: Math.max(1, Number(r.interval) || 5), until: Date.now() + Math.max(60, Number(r.expiresIn) || 900) * 1000 };
+  SU.gh.fails = 0; SU.gh.note = '';
+  renderSetup('#suCopy');
+  suSay('로그인 코드를 받았어요. 코드를 복사해서 GitHub 페이지에 넣어요.');
+  ghSchedule();
+}
+async function ghPoll(seq) {
+  const f = SU.gh.flow;
+  if (!f || seq !== SU.gh.seq || !SU.open) return;
+  if (Date.now() > f.until) { ghEnd('코드 시간이 지났어요. ‘GitHub로 로그인’을 다시 눌러 주세요'); return; }
+  let r;
+  try { r = await sp('github/poll'); SU.gh.fails = 0; }
+  catch (e) {
+    if (seq !== SU.gh.seq) return;
+    if (++SU.gh.fails >= 3) { ghEnd(e.message); return; }
+    ghNote(`잠깐 확인하지 못했어요. 다시 물어볼게요 (${e.message})`);
+    ghSchedule();
+    return;
+  }
+  if (seq !== SU.gh.seq) return;
+  if (r.status === 'ok') {
+    ghStop(); SU.gh.flow = null; SU.gh.note = '';
+    try { await refreshSetup(); } catch (e) { SU.st.github = { login: String(r.login || ''), via: 'device' }; }
+    if (SU.open) { renderSetup(SU.step === 0 ? '#suNext' : undefined); suSay(`GitHub ${SU.st.github ? '@' + SU.st.github.login : ''} 계정으로 연결했어요`); }
+    return;
+  }
+  if (r.status === 'expired') { ghEnd('코드 시간이 지났어요. ‘GitHub로 로그인’을 다시 눌러 주세요'); return; }
+  if (r.status === 'denied') { ghEnd('GitHub에서 연결을 거절했어요. 다시 하려면 ‘GitHub로 로그인’을 눌러요'); return; }
+  const iv = Number(r.interval);
+  if (r.status === 'slow_down') f.interval = iv > f.interval ? iv : f.interval + 5;   // GitHub가 천천히 물어 달라고 하면 간격을 늘려요
+  else if (iv >= 1) f.interval = iv;
+  ghNote(`승인을 기다리는 중이에요 · ${Math.max(1, Math.ceil((f.until - Date.now()) / 60000))}분 안에 해 주세요. 승인하면 여기가 저절로 바뀌어요`);
+  ghSchedule();
+}
+
+async function loadClaude() {
+  const my = ++SU.claudeSeq;
+  SU.claudeBusy = true; SU.claudeErr = '';
+  if (SU.open && (SU.step === 1 || SU.step === 2)) renderSetup();
+  try {
+    const r = await sp('claude', { includeArchived: SU.archived });
+    if (my !== SU.claudeSeq) return;
+    const projects = (Array.isArray(r.projects) ? r.projects : []).filter(p => p && p.folder).map(p => ({
+      folder: String(p.folder), display: String(p.display || p.folder), team: p.team ? String(p.team) : '', exists: p.exists !== false,
+      sessions: (Array.isArray(p.sessions) ? p.sessions : []).filter(s => s && s.sessionId).map(s => Object.assign({}, s, { sessionId: String(s.sessionId), title: String(s.title || '') }))
+    }));
+    SU.claude = { app: !!r.app, projects };
+    for (const p of projects) if (p.display.startsWith('~/') && p.folder.endsWith(p.display.slice(1))) { SU.home = p.folder.slice(0, p.folder.length - p.display.length + 1); break; }
+  } catch (e) {
+    if (my !== SU.claudeSeq) return;
+    SU.claudeErr = e.message;
+  }
+  SU.claudeBusy = false;
+  if (SU.open) renderSetup();
+}
+async function floorsMake() {
+  const list = pendingPicks().map(p => ({ p, k: SU.picks[p.folder], li: $$('#suBody .su-proj[data-folder]').find(li => li.dataset.folder === p.folder) }));
+  if (!list.length && !SU.boss) throw new Error('층으로 만들 프로젝트를 하나 이상 골라 주세요');
+  const taken = new Set(SU.st.floors.map(f => f.id)), seen = new Set();
+  let bad = null;
+  for (const { k, li } of list) {
+    const name = k.name.trim(), sids = ROLE_ORDER.map(r => k.roles[r]).filter(Boolean);
+    let msg = '', field = '';
+    if (!name || name.length > 30) { msg = '층 이름을 30자 안으로 적어 주세요'; field = 'name'; }
+    else if (!TEAM_ID.test(k.id)) { msg = '팀 id는 영문 소문자로 시작하고 소문자·숫자·-로 20자까지예요'; field = 'id'; }
+    else if (taken.has(k.id) || seen.has(k.id)) { msg = `‘${k.id}’ id는 이미 있어요. 다른 id를 적어 주세요`; field = 'id'; }
+    else if (new Set(sids).size !== sids.length) { msg = '한 세션은 한 자리에만 앉힐 수 있어요'; field = 'role'; }
+    seen.add(k.id);
+    k.err = msg;
+    if (li) $('[data-err]', li).textContent = msg;
+    if (msg && !bad && li) bad = $(`[data-su-in="${field}"]`, li);
+  }
+  if (bad) { bad.focus(); throw new Error('고칠 곳이 있어요. 빨간 글을 확인해 주세요'); }
+  const boss = SU.boss || null;
+  let res;
+  try { res = await sp('floors', { boss, floors: list.map(({ p, k }) => ({ id: k.id, name: k.name.trim(), folder: p.folder, roles: Object.fromEntries(ROLE_ORDER.map(r => [r, k.roles[r] || null])) })) }); }
+  catch (e) { if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) throw e; res = e.body; }   // 모두 못 만들었어도 층마다 까닭을 보여 줘요
+  const created = Array.isArray(res.created) ? res.created : [], errors = Array.isArray(res.errors) ? res.errors : [];
+  for (const { p, k } of list) {
+    const er = errors.find(x => x.id === k.id);
+    k.err = er ? String(er.error || '만들지 못했어요') : '';
+    if (created.some(x => x.id === k.id)) {
+      delete SU.picks[p.folder]; SU.madeAt[p.folder] = k.id;
+      if (!SU.madeRun.some(x => x.folder === p.folder)) SU.madeRun.push({ id: k.id, folder: p.folder, display: p.display });   // 완료 화면의 CLAUDE.local.md 안내용
+    }
+  }
+  SU.made = { created, boss: !!boss, errors: errors.map(x => Object.assign({}, x, { name: (list.find(l => l.k.id === x.id) || { k: {} }).k.name })) };
+  SU.boss = '';
+  SU.skip = false;
+  await refreshSetup().catch(() => {});
+  load();
+  renderSetup('#suRes');
+  suSay(created.length ? `층 ${created.length}개를 만들었어요${errors.length ? `, ${errors.length}개는 못 만들었어요` : ''}` : '층을 만들지 못했어요. 결과를 확인해 주세요');
+  loadClaude();   // 프로젝트마다 어느 층인지(team)를 서버에서 다시 맞춰 봐요
+}
+async function visSave() {
+  const visibility = {};
+  for (const f of myFloors()) visibility[f.id] = levelOf(f.id);
+  const body = { visibility };
+  if (SU.introDirty) body.intro = SU.intro.trim().slice(0, 120);
+  await sp('visibility', body);
+  SU.visDirty = false; SU.introDirty = false;
+  await refreshSetup().catch(() => {});
+}
+// 도시에 올리기: 지금 고른 범위를 저장하고 미리보기를 받아 확인 상자를 띄워요. '네'를 눌러야 올려요.
+async function pubAsk() {
+  await visSave();
+  const r = await sp('publish', { preview: true });
+  if (!r.preview) { await refreshSetup().catch(() => {}); pubDone(r); return; }   // 미리보기를 모르는 서버라면 이미 올라갔어요
+  SU.preview = r; SU.confirm = true; SU.note = ''; SU.pubUrl = ''; SU.pubErr = '';
+  renderSetup('#suConfirm');
+}
+function pubDone(r) {
+  const out = r.floors === 0 || (r.floors == null && withdraw());   // 층 정보를 비워 올렸으면 '내렸어요'
+  SU.confirm = false; SU.preview = null; SU.pubErr = '';
+  SU.pubUrl = /^https:\/\//i.test(String(r.url || '')) ? String(r.url) : '';
+  SU.note = out ? '도시에서 내렸어요. 이제 도시에는 내 층 정보가 나오지 않아요(건물은 token-meter 숫자로 그대로 서요). 예전 판은 gist 수정 기록에 남을 수 있어요.'
+    : '도시에 올렸어요. 도시 명단(token-meter)에 등록돼 있으면 도시를 새로 열 때 보여요.';
+  renderSetup('#suPubDone');
+  suSay(SU.note);
+}
+async function publishNow() {
+  const r = await sp('publish');
+  await refreshSetup().catch(() => {});   // 올린 것과 지금 설정이 같다는 표시(published)를 새로 받아요
+  pubDone(r);
+}
+
+$('#setup').addEventListener('click', e => {
+  const b = e.target.closest('[data-su]');
+  if (!b || b.disabled) return;
+  const a = b.dataset.su;
+  if (a === 'close') closeSetup();
+  else if (a === 'go') goStep(Number(b.dataset.step));
+  else if (a === 'prev') goStep(SU.step - 1);
+  else if (a === 'next') suRun(b, suNext);
+  else if (a === 'skip-login') goStep(1);
+  else if (a === 'gh-start') suRun(b, ghStart);
+  else if (a === 'gh-cancel') { ghStop(); SU.gh.flow = null; SU.gh.note = ''; renderSetup('#suHead'); }
+  else if (a === 'gh-gh') suRun(b, async () => { const r = await sp('github/gh'); await refreshSetup().catch(() => { SU.st.github = { login: String(r.login || ''), via: 'gh' }; }); renderSetup('#suNext'); suSay('gh 로그인으로 연결했어요'); });
+  else if (a === 'gh-logout') suRun(b, async () => { await sp('github/logout'); await refreshSetup().catch(() => { SU.st.github = null; }); renderSetup('#suHead'); suSay('GitHub 연결을 끊었어요'); });
+  else if (a === 'claude-reload') loadClaude();
+  else if (a === 'floors-make') suRun(b, floorsMake);
+  else if (a === 'vis-save') suRun(b, async () => { await visSave(); SU.pubUrl = ''; SU.note = saveNote(); renderSetup('#suSave'); suSay(SU.note); });
+  else if (a === 'pub-ask') { if (!pubBlock()) suRun(b, pubAsk); }
+  else if (a === 'pub-no') { SU.confirm = false; SU.preview = null; SU.pubErr = ''; renderSetup('#suPub'); }
+  else if (a === 'pub-yes') suRun(b, publishNow, 'pub');
+  else if (a === 'pub-clear-intro') suRun(b, async () => { SU.intro = ''; SU.introDirty = true; await pubAsk(); suSay('소개 한 줄을 지웠어요. 확인 상자를 다시 봐 주세요'); }, 'pub');
+  else if (a === 'finish') suRun(b, async () => {
+    if (SU.visDirty || SU.introDirty) await visSave();
+    await sp('done', { done: true });
+    SU.st.done = true;
+    closeSetup();
+    load();
+  });
+});
+function suInput(e) {
+  const t = e.target, kind = t.dataset && t.dataset.suIn;
+  if (!kind) return;
+  if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
+  if (kind === 'boss') { SU.boss = t.value; return; }
+  if (kind === 'intro') {
+    SU.intro = t.value; SU.introDirty = true;
+    const ps = $('#suPubState'); if (ps) { const v = pubState(true); ps.textContent = '· ' + v; ps.hidden = !v; }
+    return;
+  }
+  if (kind === 'vis') {
+    SU.vis[t.dataset.team] = t.value; SU.visDirty = true; SU.note = ''; SU.pubUrl = '';
+    const why = pubBlock(), pb = $('#suPub'), w = $('#suPubWhy'), cf = $('#suConfirm'), dn = $('#suPubDone'), sn = $('#suSteps [data-step="3"] small'), ps = $('#suPubState');
+    if (pb) { pb.disabled = !!why; pb.textContent = withdraw() ? '도시에서 내리기' : '도시에 올리기'; }
+    if (w) w.textContent = why || pubHint();
+    if (ps) { const v = pubState(true); ps.textContent = '· ' + v; ps.hidden = !v; }
+    if (cf) { SU.confirm = false; SU.preview = null; SU.pubErr = ''; cf.remove(); }   // 고른 게 바뀌면 미리보기와 확인을 다시 받아요
+    if (dn) dn.remove();
+    if (sn) sn.textContent = stepNote(3);
+    return;
+  }
+  const li = t.closest('.su-proj'), k = li && SU.picks[li.dataset.folder];
+  if (!k) return;
+  const idBox = $('[data-su-in="id"]', li);
+  if (kind === 'pick') {
+    k.on = t.checked; k.err = ''; SU.skip = false;
+    li.classList.toggle('on', k.on);
+    $('.su-proj-body', li).hidden = !k.on;
+    $('[data-err]', li).textContent = '';
+    if (k.on && !k.idEdited) { k.id = autoId(k.name, li.dataset.folder); idBox.value = k.id; }
+    const n = $('#suPickN'); if (n) n.textContent = `고른 프로젝트 ${pendingPicks().length}개`;
+    const nx = $('#suNext'); if (nx) nx.textContent = '다음';
+  } else if (kind === 'name') {
+    k.name = t.value;
+    if (!k.idEdited) { k.id = autoId(k.name, li.dataset.folder); idBox.value = k.id; }
+  } else if (kind === 'id') {
+    const low = t.value.toLowerCase();
+    if (low !== t.value) { const a = t.selectionStart, b = t.selectionEnd; t.value = low; try { t.setSelectionRange(a, b); } catch (err) {} }
+    k.id = low; k.idEdited = !!low;   // 지우면 다시 층 이름에서 지어요
+  } else if (kind === 'role') k.roles[t.dataset.role] = t.value;
+}
+$('#setup').addEventListener('input', e => { if (e.target.type === 'text') suInput(e); });
+$('#setup').addEventListener('change', e => { if (e.target.type !== 'text') suInput(e); });
+$('#setup').addEventListener('toggle', e => {   // 펼친 프로젝트는 다시 그려도 그대로
+  const d = e.target;
+  if (d.tagName === 'DETAILS' && d.dataset.folder) { if (d.open) SU.shut.delete(d.dataset.folder); else SU.shut.add(d.dataset.folder); }
+}, true);
+$('#setup').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && e.target.id === 'suIntroIn') { e.preventDefault(); const b = $('#suSave'); if (b && !b.disabled) b.click(); }
+});
+// 다시 열 때는 늘 새 상태로(그사이 터미널에서 만들거나 뺀 층, 새 세션). 잠깐 못 읽으면 전에 받은 상태로 열어요.
+$('#setupBtn').addEventListener('click', () => {
+  SU.claude = null;   // openSetup이 세션 목록을 새로 읽어요(프로젝트와 층 짝도 다시 맞춰요)
+  refreshSetup().then(() => openSetup(0), e => { if (SU.st) openSetup(0); else alert(e.message); });
+});
+async function initSetup() {
+  if (!API) return;
+  try {
+    await refreshSetup();
+    $('#setupBtn').hidden = false;
+    if (!SU.st.done) openSetup(0);
+  } catch (e) {
+    // 예전 서버라 설정 주소가 없으면(404) 설정 없이 지금처럼 사무실만 보여요
+  } finally {
+    document.documentElement.classList.remove('su-wait');
+  }
+}
+
 /* ---------- 이벤트 ---------- */
 document.addEventListener('click', e => {
   if (e.target.closest('a[href^="claude://"]')) return;
@@ -1076,6 +1781,10 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && SU.open && !e.isComposing) {   // 공개 확인이 떠 있으면 그것만 닫아요
+    if (SU.confirm) { SU.confirm = false; renderSetup('#suPub'); } else closeSetup();
+    return;
+  }
   if (e.key === 'Escape' && !$('#drawer').hidden && !e.isComposing) { closeDrawer(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && !e.target.closest('a, button, input, textarea')) {
     const desk = e.target.closest('.desk[data-role]');
@@ -1099,7 +1808,10 @@ async function pollRelay() {
   $$('#drawerBody .relay-note').forEach(n => { n.textContent = relayWarn(); });
 }
 
+// 로컬 페이지면 처음 설정을 끝냈는지 먼저 물어요. 그동안 사무실을 잠깐 가려서 설정 화면 전에 번쩍이지 않게 해요(늦어도 2초 뒤엔 보여요).
+if (API) { document.documentElement.classList.add('su-wait'); setTimeout(() => document.documentElement.classList.remove('su-wait'), 2000); }
 load();
+initSetup();
 setInterval(() => { if (document.visibilityState !== 'hidden' && $('#drawer').hidden) load(); }, 4000);
 setInterval(() => { if (document.visibilityState !== 'hidden') refreshThread(false); }, 3000);
 setInterval(() => { if (!$('#drawer').hidden) pollRelay(); }, 5000);
