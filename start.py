@@ -72,8 +72,10 @@ def main():
         if st is None:
             continue
         url = f"http://127.0.0.1:{p}/"
-        if st.get("home") not in (None, HOME_ID):
-            print(f"· 참고: {p} 포트에는 다른 폴더의 클로드 오피스가 켜져 있어요.")
+        if st.get("home") != HOME_ID:
+            # home이 없으면 0.3.0 이전 서버라 어느 폴더 것인지 몰라요. 다른 사무실로 보고 넘어가요.
+            what = "다른 폴더의" if st.get("home") else "다른(예전 버전)"
+            print(f"· 참고: {p} 포트에는 {what} 클로드 오피스가 켜져 있어요.")
             continue
         if st.get("version") != ver:
             print(f"· 이 폴더의 예전 버전({st.get('version') or '?'})이 {url} 에 켜져 있어요."

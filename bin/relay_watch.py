@@ -46,7 +46,7 @@ def ask(port, path):
 
 def server_ok(port):
     st = ask(port, "/api/state")
-    return bool(st) and st.get("ok") is True and st.get("home") in (None, HOME_ID)
+    return bool(st) and st.get("ok") is True and st.get("home") == HOME_ID
 
 
 def genuine(path, port):
