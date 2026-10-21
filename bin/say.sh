@@ -4,6 +4,7 @@
 #   답 본문은 Write 도구로 대화 파일 옆 .out/<역할>.txt에 먼저 써요. 본문을 명령 줄에 넣지 않아야
 #   팀 안전장치(훅)가 본문 낱말에 걸리지 않아요. (예전 방식: [내용] 또는 표준입력도 아직 돼요.)
 set -eu
+command -v jq >/dev/null 2>&1 || { echo "jq가 필요해요. 맥: brew install jq, 리눅스: sudo apt install jq" >&2; exit 1; }
 OFFICE=$(cd "$(dirname "$0")/.." && pwd -P)
 [ $# -ge 2 ] || { echo "사용: say.sh <대화 파일> <보내는 사람> --file <답 파일>" >&2; exit 2; }
 f=$1; who=$2; shift 2

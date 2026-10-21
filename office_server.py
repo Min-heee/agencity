@@ -16,6 +16,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,13 @@ OUTBOX = os.path.join(HERE, "outbox")
 SAY = os.path.join(HERE, "bin", "say.sh")
 HQ = os.path.join(HERE, "hq")
 HQ_CHAT = os.path.join(HQ, "chat.jsonl")
+PORT_FILE = os.path.join(OUTBOX, ".port")   # relay_watch.py가 이 서버의 포트를 찾는 곳
+HOME_ID = hashlib.sha256(HERE.encode("utf-8")).hexdigest()[:12]   # 어느 설치 폴더의 서버인지(경로 대신 해시)
+try:
+    with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as _f:
+        VERSION = _f.read().strip() or "dev"
+except OSError:
+    VERSION = "dev"
 MAX_BODY = 64 * 1024
 MAX_TEXT = 4000
 MAX_PENDING = 40          # outbox에 이만큼 쌓이면 더 받지 않아요(총괄이 아직 전달 중)
@@ -504,7 +512,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
             return
         if u.path == "/api/state":
-            self.send_json(200, api_state())
+            self.send_json(200, dict(api_state(), version=VERSION, home=HOME_ID))
             return
         if u.path == "/api/outbox/check":
             self.send_json(200, api_outbox_check(parse_qs(u.query)))
@@ -565,11 +573,26 @@ def main():
     os.makedirs(HQ, exist_ok=True)
     os.makedirs(os.path.join(HERE, "teams"), exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+
+    def stop(*_):   # 종료 신호도 Ctrl-C처럼 받아서 outbox/.port를 치우고 끝내요
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, stop)
+    with open(PORT_FILE + ".tmp", "w") as f:
+        f.write(str(PORT))
+    os.replace(PORT_FILE + ".tmp", PORT_FILE)
     print(f"클로드 오피스: http://127.0.0.1:{PORT}  (끄려면 Ctrl-C)", flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        try:
+            with open(PORT_FILE) as f:
+                mine = f.read().strip() == str(PORT)
+            if mine:
+                os.remove(PORT_FILE)
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":

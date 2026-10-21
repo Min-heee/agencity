@@ -17,6 +17,39 @@ Claude Code 세션 여러 개를 **팀(팀장·개발자·디자이너·기획)*
 - 팀장이 올린 **결재**를 결재함에서 고르면 그 팀장에게 바로 전해져요.
 - 파일만 읽고 쓰는 단순한 구조예요(Python 표준 라이브러리 + 정적 HTML).
 
+## 설치하고 켜기 (macOS·Linux)
+
+**한 줄로** — 터미널에 붙여 넣으면 `~/claude-office`에 설치하고 바로 켜요:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Min-heee/claude-office/main/install.sh | sh
+```
+
+**내려받아서** — [Releases](https://github.com/Min-heee/claude-office/releases/latest)에서 소스 zip을 받아 풀고,
+맥은 `Claude Office.command`를 더블클릭해요. 처음 한 번은 "확인되지 않은 개발자"라며 막힐 수 있어요.
+그럴 땐 **시스템 설정 → 개인정보 보호 및 보안**의 아래쪽에서 **그래도 열기**를 누르거나(예전 macOS는 오른쪽 클릭 → **열기**),
+터미널에서 그 폴더로 가서 `python3 start.py`로 켜요. 리눅스도 `python3 start.py`.
+
+**git으로**:
+
+```bash
+git clone https://github.com/Min-heee/claude-office.git && cd claude-office && python3 start.py
+```
+
+- 처음 켜면 예시 팀으로 열려요. 다음에 켤 때도 `python3 start.py`(또는 더블클릭)만 하면 돼요. 끄려면 그 창에서 Ctrl-C.
+- 8765 포트가 쓰이고 있으면 다음 빈 포트로 켜고 주소를 알려 줘요. 이 폴더의 사무실이 이미 켜져 있으면 그 페이지를 열어요.
+  전달 감시기(`bin/relay_watch.py`)는 서버가 `outbox/.port`에 적어 둔 포트를 스스로 찾아요.
+- **새 버전 받기**: 한 줄 설치로 받았다면 같은 줄을 다시 실행해요. 코드만 새로 받고 내 팀 정보(`org.json`, `teams/`, `hq/`,
+  `outbox/`, `public.json`, `claude-office.json`)는 그대로 둬요. 켜져 있던 사무실은 Ctrl-C로 끄고 다시 켜야 새 버전이 적용돼요.
+  git으로 받았다면 `git pull`(한 줄 설치는 git 폴더를 덮어쓰지 않아요).
+  zip으로 받았다면 처음에 폴더를 한 곳(예: `~/claude-office`)에 두고 계속 써요. 팀 규칙 파일에 그 폴더 경로가 들어가서,
+  새 zip을 다른 폴더에 풀면 팀 정보가 따라가지 않아요. 그 폴더에 새 버전을 받으려면
+  `curl -fsSL https://raw.githubusercontent.com/Min-heee/claude-office/main/install.sh | CLAUDE_OFFICE_DIR=<그 폴더> sh`.
+- 필요한 것: 파이썬 3.9 이상(맥은 기본 또는 `xcode-select --install`), `jq`(사이트 메시지 전달과 팀원 답장에 필요,
+  맥 `brew install jq`, 리눅스 `sudo apt install jq`), Claude Code 데스크톱 앱. 다른 패키지는 없어요.
+- 예시 팀을 써 보면 `examples/teams/demo/`에 기록이 남아요. 지우려면 git으로 받았을 땐 `git checkout examples/ && git clean -fdx examples/`,
+  아니면 설치 폴더에서 `rm -rf examples/teams/demo/chat/*.jsonl examples/teams/demo/meetings/*-M-* examples/teams/demo/.out` 뒤 설치를 한 번 더 해요.
+
 ## 토큰 시티 (첫 버전)
 
 ![토큰 시티 예시](docs/city.jpg)
@@ -73,33 +106,19 @@ Claude Code의 자동 모드 안전장치가 막아요. 그래서 공식 도구�
 사이트에서 온 말은 다른 세션을 거친 메시지라 **승인(커밋·배포·결제 등)으로 쓰이지 않아요.**
 위험한 일은 결재로 "하기로 정함"까지만 하고, 실제 실행은 그 세션 창에서 사람이 마지막으로 확인해요.
 
-## 필요한 것
-
-- macOS 또는 Linux, Python 3.9 이상, `jq`
-- Claude Code 데스크톱 앱(세션 간 메시지 `SendMessage`, `Monitor` 도구가 되는 버전)
-
-## 빠르게 써 보기 (예시 팀)
-
-```bash
-git clone https://github.com/Min-heee/claude-office.git && cd claude-office
-cp examples/org.example.json org.json
-python3 build.py              # office.src.html → index.html
-python3 office_server.py      # http://127.0.0.1:8765
-```
-
-8765 포트가 이미 쓰이면 `OFFICE_PORT=8766 python3 office_server.py`로 켜고 `http://127.0.0.1:8766/#demo`를 열어요(코디네이터의 `relay_watch.py`도 같은 `OFFICE_PORT`로 켜요).
-
-브라우저에서 `http://127.0.0.1:8765/#demo`를 열면 예시 팀 1층이 보여요.
-예시 팀의 세션 id는 가짜라서 말을 보내면 `outbox/`에 쌓이기만 해요(코디네이터가 없으니까요).
-써 보면 `examples/teams/demo/`에 기록이 남아요. 처음 상태로 돌리려면 `git checkout examples/ && git clean -fd examples/`.
-
 ## 내 팀 꾸리기
 
-1. 프로젝트마다 팀 사무실 폴더(예: `<프로젝트>/.office/`)를 만들고 `examples/teams/demo/` 구조를 따라요:
-   `team.json`(역할별 세션 id), `status/<역할>.json`, `board.md`, `log.jsonl`, `reports/`, `meetings/`, `approvals/`, `chat/`.
-2. `teams/<id>`를 그 폴더로 연결하고(`mkdir -p teams && ln -s <프로젝트>/.office teams/<id>`), `org.json`의 `teams`에 넣어요(`office: "teams/<id>"`, `floor`).
-3. 각 세션이 [docs/TEAM_RULES.md](docs/TEAM_RULES.md)를 읽게 해요(예: 프로젝트의 `CLAUDE.local.md`에서 `@/절대경로/TEAM_RULES.md`로 가져오기). 세션 id는 데스크톱 앱의 세션 id(`local_…`)예요.
-4. 총괄(코디네이터)로 쓸 세션 하나를 정해 `org.json`의 `boss.sessionId`에 넣고, [docs/COORDINATOR.md](docs/COORDINATOR.md)대로 전달을 켜요.
+```bash
+python3 bin/new_team.py
+```
+
+팀 id·이름·프로젝트 폴더·역할별 세션 id(모르면 비워 둬도 돼요)를 물어보고, `<프로젝트>/.office/` 팀 사무실과
+`teams/<id>` 연결, `org.json`의 다음 층을 한 번에 만들어요. 팀 사무실에는 `.gitignore`(`*`)를 둬서 팀 기록이 커밋되지 않게 해요.
+끝나면 `@.office/RULES.md` 한 줄을 프로젝트의 `CLAUDE.local.md`에 넣으면 그 프로젝트의 세션들이 팀 규칙을 읽어요.
+세션 id(`local_…`)는 각 세션에서 "이 세션 id 알려 줘"라고 물으면 돼요.
+
+사이트에서 보낸 말을 팀 세션에 전하려면 총괄(코디네이터)로 쓸 세션 하나에서 [docs/COORDINATOR.md](docs/COORDINATOR.md)대로 전달을 켜요.
+손으로 꾸리고 싶다면 `examples/teams/demo/` 구조와 [docs/TEAM_RULES.md](docs/TEAM_RULES.md)를 참고하세요.
 
 ## 보안 메모
 
