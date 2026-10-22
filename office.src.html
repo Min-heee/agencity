@@ -631,9 +631,6 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   <header class="top">
     <div class="sign">
       <h1 class="plate">에이전시티</h1>
-      <div class="sign-sub">
-        <p><b>환경 하나가 팀 하나, 팀 하나가 한 층</b>이에요. 팀마다 팀장과 팀원들이 있고(개발자·마케팅·기획처럼 역할은 층마다 달라요), 팀원 → 팀장 → 총괄 순서로 보고가 올라와요. <b>여기서 바로</b> 책상을 눌러 누구에게나 말을 걸고, 회의실에서 회의를 열고, 위의 <b>결재함</b>에서 팀장이 올린 결재를 처리해요. 이 화면은 팀 사무실 폴더의 파일을 몇 초마다 다시 읽어서 보여 줘요.</p>
-      </div>
     </div>
     <div style="display:flex; gap:6px; flex-wrap:wrap"><div class="upd" id="upd" role="group" aria-label="새 버전 알림" hidden></div><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
   </header>
@@ -1179,8 +1176,7 @@ function roomHTML(t, d) {
         ${(d.metas || []).length ? `<h3 style="margin-top:14px">사이트 회의 대화 <span>${d.metas.length}개</span></h3><ul class="past">${[...d.metas].reverse().map(m => `<li><button type="button" data-meet-open="${esc(t.id)}" data-meet-id="${esc(m.id)}">${esc(m.topic)} <small>· ${esc(m.id)} · ${esc(m.mode)} · ${esc(m.status)}</small></button></li>`).join('')}</ul>` : ''}</div>
     </div>
     ${API
-      ? `<div class="panel howto"><h3>여기서 하는 법 <span>보낸 말은 총괄이 그 세션에 바로 전해요</span></h3>
-          <div class="cmds"><div class="cmd"><code>책상을 누르면 그 사람과 바로 대화해요</code></div><div class="cmd"><code>회의실의 ‘회의 시작’: 같이 하거나 맡기기</code></div><div class="cmd"><code>위의 ‘결재함’: 팀장이 올린 결재 처리</code></div></div></div>`
+      ? ''
       : `<div class="panel howto"><h3>총괄에게 이렇게 말하세요 <span>복사해서 총괄 대화창에 붙여 넣으면 돼요</span></h3>
           <div class="cmds">${cmds.map(c => `<div class="cmd"><code>${esc(c)}</code><button type="button" data-copy="${esc(c)}">복사</button></div>`).join('')}</div></div>`}
   </section>`;
