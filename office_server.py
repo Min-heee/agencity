@@ -779,7 +779,8 @@ def api_decide(body):
     label = next((o["label"] for o in opts if o["key"] == choice), "")
     picked = f" · 선택 {choice}" + (f" {label}" if label else "") if keys and status == "승인" else ""
     log(base, "팀장", "결재", f"{aid} {status}{picked}")
-    if "팀장" in members:
+    delivered = "팀장" in members   # 팀장 자리가 비었으면 결정만 남기고 아무에게도 전하지 못해요(화면이 알려 줘요)
+    if delivered:
         check_rate(1)
         risky = ("\n이 결재는 팀 규칙의 '사람 승인이 필요한 일'이에요. 결재는 '하기로 정함'이고, 실제 실행은 그 일을 할 세션 창에서 대표가 직접 말하거나 권한 창을 눌러야 해요. "
                  "실행할 세션과 할 말을 대표에게 다시 알려 주세요.") if a.get("risky") else ""
@@ -789,7 +790,7 @@ def api_decide(body):
                 f"[대표·사이트] 결재 {aid} «{one_line(a.get('title'))}»\n결과: {status}{picked}" +
                 (f"\n대표 메모: {comment}" if comment else "") + f"\n결재 파일: {path}\n이어서 진행하고, 진행 결과를 아래 방법으로 사이트에 남긴 뒤 총괄에게 보고해요.{risky}"
                 f"{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
-    return {"ok": True, "status": status}
+    return {"ok": True, "status": status, "delivered": delivered}
 
 
 def api_state():
@@ -3654,6 +3655,18 @@ def save_seats(s, lst):
     write_json(SETUP, s)
 
 
+def seat_revive(p, t):
+    """시간이 지난(expired) 기다림을 같은 자리 표시로 다시 기다리게 해요. issued(그 표시를 처음 링크에 넣은 시각)는 그대로 둬요."""
+    p.update(state="waiting", issued=p.get("issued") or p["started"], started=iso_at(t), expires=iso_at(t + SEAT_TTL))
+    p.pop("done", None)
+
+
+def seat_issued(p):
+    """그 자리 표시를 처음 링크에 넣은 시각(ms). 다시 기다리는 자리도 앞의 링크로 연 세션까지 찾아요(한 시간 반 앞까지만)."""
+    s = epoch_ms(p["started"])
+    return min(s, max(epoch_ms(p.get("issued")) or s, s - (SEAT_TTL + SEAT_KEEP) * 1000))
+
+
 def seat_view(p, t, boss=False):
     """기다리는 자리(boss면 기다리는 총괄)를 화면에 알릴 모양."""
     v = ({"state": p["state"], "started": p["started"], "expires": p["expires"]} if boss else
@@ -3671,10 +3684,9 @@ def seat_view(p, t, boss=False):
     return v
 
 
-def api_seat_link(body):
-    """빈자리에 앉힐 새 세션 링크: {team, role} → {ok, url, marker, folder, display, expires}."""
-    t, base = floor_of(body.get("team"), "예시 팀에는 세션을 앉힐 수 없어요. 내 층을 만든 뒤 해 주세요")
-    role_in = body.get("role")
+def seat_url(tid, role_in, marker):
+    """빈자리에 앉힐 새 세션 링크(첫 메시지에 자리 표시 marker): (층, 사무실 경로, 층 폴더, 자리 이름, 링크). 못 쓰는 자리면 ApiError."""
+    t, base = floor_of(tid, "예시 팀에는 세션을 앉힐 수 없어요. 내 층을 만든 뒤 해 주세요")
     if not isinstance(role_in, str) or not role_in.strip():
         raise ApiError(400, "역할(role)을 보내 주세요")
     folder = os.path.dirname(base)   # 팀 사무실(.office)을 품은 층의 프로젝트 폴더
@@ -3698,25 +3710,54 @@ def api_seat_link(body):
     lead = next((m.get("sessionId") for m in raw if isinstance(m, dict) and m.get("role") == LEAD), None)
     boss = boss_sid()
     report = ("팀장", lead) if role != LEAD and real_sid(lead) else ("총괄", boss) if boss else None
-    marker = "AGC-" + secrets.token_hex(4)
     prompt = seat_prompt(fname, role, name, marker, base, report)
     if len(prompt) >= SEAT_PROMPT_MAX:
         raise ApiError(409, "첫 메시지가 너무 길어요(층 폴더 경로가 아주 길어요)")
-    url = "claude://code/new?folder=" + quote(folder, safe="") + "&q=" + quote(prompt, safe="")
+    return t, base, folder, role, "claude://code/new?folder=" + quote(folder, safe="") + "&q=" + quote(prompt, safe="")
+
+
+def seat_relink(p):
+    """기다리는 자리 p의 링크를 그 자리 표시로 다시 지어요(다시 불러온 화면의 ‘다시 열기’용). 그사이 자리·폴더가 바뀌었으면 ""."""
+    try:
+        _, _, folder, _, url = seat_url(p["team"], p["role"], p["marker"])
+    except ApiError:
+        return ""
+    return url if folder == p["folder"] else ""
+
+
+def api_seat_link(body):
+    """빈자리에 앉힐 새 세션 링크: {team, role} → {ok, url, marker, folder, display, expires}.
+    그 자리를 이미 기다리고 있거나 시간이 지난 지 한 시간이 안 됐으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 앉게)."""
+    marker = "AGC-" + secrets.token_hex(4)
+    t, base, folder, role, url = seat_url(body.get("team"), body.get("role"), marker)
+    try:
+        api_floor_rules_sync({"team": t["id"]})   # 새 팀원이 읽을 RULES.md에 ‘팀 간 대화’가 있게(이미 있으면 그대로)
+    except ApiError:
+        pass
     t0 = time.time()
-    entry = {"team": t["id"], "role": role, "marker": marker, "folder": folder, "state": "waiting",
-             "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL)}
     with SETUP_LOCK:
         s = load_setup()
-        lst = [p for p in pending_seats(s) if not same_seat(p, t["id"], role)]   # 같은 자리의 새 링크는 앞의 것을 바꿔요
+        lst = pending_seats(s)
         seat_tidy(lst, t0)
-        while len(lst) >= SEAT_MAX:
-            old = next((p for p in sorted(lst, key=lambda p: epoch_ms(p["started"])) if p["state"] not in SEAT_LIVE), None)
-            if old is None:
-                raise ApiError(429, f"세션을 기다리는 자리가 {SEAT_MAX}개예요. 앞의 자리를 끝내거나 취소한 뒤 다시 해 주세요")
-            lst.remove(old)
-        lst.append(entry)
+        entry = next((p for p in lst if same_seat(p, t["id"], role) and p["state"] in SEAT_LIVE + ("expired",) and p["folder"] == folder), None)
+        if entry and entry["state"] == "expired":
+            seat_revive(entry, t0)   # 고를 세션은 이제부터 연 것만 봐요
+        elif entry:
+            entry["expires"] = iso_at(t0 + SEAT_TTL)
+        else:
+            lst = [p for p in lst if not same_seat(p, t["id"], role)]   # 끝난 앞의 것은 바꿔요
+            while len(lst) >= SEAT_MAX:
+                old = next((p for p in sorted(lst, key=lambda p: epoch_ms(p["started"])) if p["state"] not in SEAT_LIVE), None)
+                if old is None:
+                    raise ApiError(429, f"세션을 기다리는 자리가 {SEAT_MAX}개예요. 앞의 자리를 끝내거나 취소한 뒤 다시 해 주세요")
+                lst.remove(old)
+            entry = {"team": t["id"], "role": role, "marker": marker, "folder": folder, "state": "waiting",
+                     "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL)}
+            lst.append(entry)
         save_seats(s, lst)
+    if entry["marker"] != marker:
+        marker = entry["marker"]
+        url = seat_url(t["id"], role, marker)[4]
     seat_kick()
     log(base, role, "설정", f"‘{role}’ 자리의 세션 만들기 링크를 열었어요({marker})")
     return {"ok": True, "url": url, "marker": marker, "folder": folder, "display": show_path(folder), "expires": entry["expires"]}
@@ -3933,7 +3974,7 @@ def seat_pass(force=False):
         marks = {p["marker"]: p for p in live}
         if bp:
             marks[bp["marker"]] = bp
-        since = min(epoch_ms(p["started"]) for p in marks.values()) - SEAT_SLACK * 1000
+        since = min(seat_issued(p) for p in marks.values()) - SEAT_SLACK * 1000
         seated, boss = floor_members(), boss_sid()
         recs = [r for r in session_records(since) if r["sessionId"] not in seated and r["sessionId"] != boss]
         for r in recs:
@@ -3945,7 +3986,7 @@ def seat_pass(force=False):
         plan, used = {}, set()
         for r in sorted(recs, key=lambda r: r["created"]):   # 1) 자리 표시가 맞는 세션(같은 표시가 둘이면 먼저 만든 세션)
             m = r["match"]
-            if m and m not in plan and r["created"] >= epoch_ms(marks[m]["started"]) - SEAT_SLACK * 1000:
+            if m and m not in plan and r["created"] >= seat_issued(marks[m]) - SEAT_SLACK * 1000:
                 plan[m] = (r["sessionId"], "marker", r["title"])
                 used.add(r["sessionId"])
         pools = {}
@@ -4042,7 +4083,8 @@ def seat_kick():
 
 
 def api_seat_pending(body):
-    """기다리는 자리들: {ok, pending: [{team, role, state, marker?, sessionId?, candidates?, error?, started, expires, remaining?}]}."""
+    """기다리는 자리들: {ok, pending: [{team, role, state, marker?, url?, sessionId?, candidates?, error?, started, expires, remaining?}]}.
+    url: 기다리는 자리의 링크(그 자리 표시 그대로). 다시 불러온 화면도 ‘다시 열기’로 같은 링크를 열어요."""
     if SEAT_RUN["active"]:
         seat_pass()   # 1초에 한 번까지
     t = time.time()
@@ -4056,7 +4098,17 @@ def api_seat_pending(body):
         elif b:
             write_json(SETUP, s)
         bp = pending_boss(s)
-    return {"ok": True, "pending": [seat_view(p, t) for p in lst], "boss": seat_view(bp, t, boss=True) if bp else None}
+    out, bv = [seat_view(p, t) for p in lst], seat_view(bp, t, boss=True) if bp else None
+    for p, v in zip(lst, out):
+        u = seat_relink(p) if p["state"] in SEAT_LIVE else ""
+        if u:
+            v["url"] = u
+    if bv and bp["state"] in SEAT_LIVE:
+        try:
+            bv["url"] = boss_url(bp["marker"], bp.get("prev"))
+        except ApiError:
+            pass
+    return {"ok": True, "pending": out, "boss": bv}
 
 
 def seat_args(body, need_sid=False):
@@ -4172,22 +4224,39 @@ def boss_prompt(marker, prev=None):
     ])
 
 
+def boss_url(marker, prev=None):
+    """총괄로 열 새 세션 링크(첫 메시지에 자리 표시 marker, 바꿀 때는 예전 총괄 prev). 첫 메시지가 너무 길면 ApiError."""
+    prompt = boss_prompt(marker, prev)
+    if len(prompt) >= BOSS_PROMPT_MAX:
+        raise ApiError(409, "첫 메시지가 너무 길어요(설치 폴더 경로가 아주 길어요)")
+    return "claude://code/new?folder=" + quote(HERE, safe="") + "&q=" + quote(prompt, safe="")
+
+
 def api_boss_link(body):
-    """총괄로 쓸 새 세션 링크: {} → {ok, url, marker, folder, display, expires, replaces}. 이미 총괄이 있으면 새 세션으로 바꿔요(replaces: true)."""
+    """총괄로 쓸 새 세션 링크: {} → {ok, url, marker, folder, display, expires, replaces}. 이미 총괄이 있으면 새 세션으로 바꿔요(replaces: true).
+    총괄을 이미 기다리고 있거나 시간이 지난 지 한 시간이 안 됐으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 총괄이 되게)."""
     if any(unicodedata.category(ch) in NAME_BAD for ch in HERE):   # 경로는 첫 메시지에 그대로 들어가요
         raise ApiError(409, "설치 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요")
     marker = "AGC-" + secrets.token_hex(4)
     prev = boss_sid()
-    prompt = boss_prompt(marker, prev)
-    if len(prompt) >= BOSS_PROMPT_MAX:
-        raise ApiError(409, "첫 메시지가 너무 길어요(설치 폴더 경로가 아주 길어요)")
-    url = "claude://code/new?folder=" + quote(HERE, safe="") + "&q=" + quote(prompt, safe="")
+    url = boss_url(marker, prev)
     t0 = time.time()
-    entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
     with SETUP_LOCK:
         s = load_setup()
-        s["pendingBoss"] = entry   # 새 링크는 앞의 것을 바꿔요
+        boss_tidy(s, pending_boss(s), t0)
+        entry = pending_boss(s)
+        if entry and entry["state"] == "expired" and entry["folder"] == HERE:
+            seat_revive(entry, t0)
+            entry["prev"] = prev
+        elif entry and entry["state"] in SEAT_LIVE:
+            entry["expires"] = iso_at(t0 + SEAT_TTL)
+        else:
+            entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
+            s["pendingBoss"] = entry   # 끝난 앞의 것은 바꿔요
         write_json(SETUP, s)
+    if entry["marker"] != marker:
+        marker = entry["marker"]
+        url = boss_url(marker, entry.get("prev"))
     seat_kick()
     return {"ok": True, "url": url, "marker": marker, "folder": HERE, "display": show_path(HERE), "expires": entry["expires"],
             "replaces": prev is not None}

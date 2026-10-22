@@ -85,7 +85,7 @@ msid=$(printf '%s' "$mine" | jq -r '.sessionId')
 sname=$(printf '%s' "$mine" | jq -r --arg d "$fname $role" '(if (.name | type) == "string" and .name != "" then .name else $d end) | '"$CLEAN"' | .[0:40]')
 tsid=$(jq -r '[.members[]? | select(type == "object" and .role == "팀장")][0].sessionId // ""' "$troot/team.json") ||
   die "상대 층의 team.json을 읽지 못했어요"
-jq -en --arg v "$tsid" '$v | '"$SID" >/dev/null 2>&1 || die "‘${tname}’ 층 팀장 자리에 세션이 앉아 있지 않아요"
+jq -en --arg v "$tsid" '$v | '"$SID" >/dev/null 2>&1 || die "‘${tname}’ 층에는 팀장이 없어요. 보내지 말고 총괄에게 [보고]로 올려요"
 [ "$tsid" != "$msid" ] || die "상대 층 팀장이 나와 같은 세션이에요. team.json을 확인해 주세요"
 
 # 보낼 글 파일: hq/.out/ 안의 보통 파일만(say.sh처럼 대화 파일 옆 .out/)

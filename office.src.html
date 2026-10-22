@@ -615,6 +615,8 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .boss-mk{width:min(100%, 460px); border:1px dashed var(--line-2); border-radius:10px; background:var(--surface)}
 .boss-mk > p{margin:0; padding:8px 11px 0; font-size:12.5px; color:var(--ink-2)}
 .boss-mk .seat{border-top:0}
+.meet-lead{margin-top:10px}
+.meet-lead .seat{padding:6px 0 0; border-top:0}
 .hq-node button.mk{margin-left:6px; padding:5px 10px; border:0; border-radius:5px; background:var(--gold); color:#1C2330; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap}
 .live.alert{border-color:color-mix(in srgb, var(--work) 60%, var(--line)); color:var(--ink)}
 button.live{font:inherit; font-size:12.5px; cursor:pointer}
@@ -1254,6 +1256,13 @@ function vacantHTML(t) {
     </div>
   </section>`;
 }
+// 팀장 자리에 세션이 없으면 회의를 열 수 없어요: 회의 시작 대신 이 글과 팀장 자리의 세션 만들기를 보여 줘요. 팀장이 있으면 ''
+function leadGapHTML(t, d, where) {
+  const lead = (d.team.members || []).find(m => m && m.role === LEAD);
+  if (lead && lead.sessionId) return '';
+  const can = !!lead && !isCx(lead) && API && !String(t.office || '').startsWith('examples/') && shownRows(d.team.members).some(x => x.m === lead);
+  return `<div class="meet-lead"><p class="seat-st">팀장 자리를 먼저 채워요</p>${can ? seatBoxHTML(t.id, lead.role, where) : ''}</div>`;
+}
 function roomHTML(t, d) {
   const ms = leadFirst(d.team.members);
   // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
@@ -1276,12 +1285,13 @@ function roomHTML(t, d) {
   ];
   const am = (d.metas || []).find(m => m.status === '진행 중') || d.active;
   const amLast = am ? (d.activeChat || []).filter(l => !l.kind).slice(-3) : [];
+  const leadGap = API ? leadGapHTML(t, d, 'e') : '';
   const meetPanel = am
     ? `<div class="meet-now"><b>${am.status === '정리 중' ? '회의록 정리 중' : am.mode === '참석' ? '대표와 회의 중' : '팀끼리 회의 중'}</b> · ${esc(am.topic)}
         ${amLast.length ? `<ol>${amLast.map(l => `<li>${seatHTML(t.id, l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
-       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
+       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' && !leadGap ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>${am.status !== '진행 중' ? leadGap : ''}`
     : `${d.meeting ? `<div class="meet-state"><i class="sd ${meeting ? 'meet' : 'none'}"></i><b>${meeting ? '지금 회의 중' : '마지막 회의'}</b></div><button class="meet-file" type="button" data-file="${esc(d.base + 'meetings/' + d.meeting.file)}">${esc(d.meeting.file)}</button>` : '<p class="empty" style="margin-top:8px">아직 회의를 하지 않았어요.</p>'}
-       ${API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
+       ${API ? leadGap || `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
   return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
     <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
       <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}${mine ? floorToolsHTML(t) : ''}</div></div>
@@ -1463,7 +1473,7 @@ function openClaude(url) {
   try { a.click(); } finally { a.remove(); }
   return true;
 }
-function seatBoxHTML(tid, role, where, cls = '') {   // where: 'r' 사무실 책상 · 's' 설정의 팀원 고치기 줄 · 'm' 층 만들기 결과(같은 자리가 여러 곳에 있어도 id가 겹치지 않게)
+function seatBoxHTML(tid, role, where, cls = '') {   // where: 'r' 사무실 책상 · 'e' 회의실 칸 · 'w' 회의 시작 서랍 · 's' 설정의 팀원 고치기 줄 · 'm' 층 만들기 결과(같은 자리가 여러 곳에 있어도 id가 겹치지 않게)
   const k = seatKey(tid, role);
   return `<div class="seat${cls}" id="${where}sb${hash(k).toString(36)}" data-seat-box="${esc(k)}" data-team="${esc(tid)}" data-role="${esc(role)}" tabindex="-1">${seatInner(tid, role, where)}</div>`;
 }
@@ -1501,7 +1511,7 @@ function seatPaint(k, prefer) {
   const was = boxId && a && a.dataset ? a.dataset.seat || '' : '';
   if (state) { if ($('#drawer').hidden) render(); else pending = true; }
   const [tid, role] = seatSplit(k);
-  for (const el of $$('#setup [data-seat-box]')) if (el.dataset.seatBox === k) el.innerHTML = seatInner(tid, role, el.id.charAt(0));
+  for (const el of $$('#setup [data-seat-box], #drawer [data-seat-box]')) if (el.dataset.seatBox === k) el.innerHTML = seatInner(tid, role, el.id.charAt(0));
   const el = boxId ? document.getElementById(boxId) : null;
   if (!el) return;
   const now = document.activeElement;
@@ -1531,7 +1541,8 @@ async function seatLink(tid, role) {
   }
   seatSchedule();
 }
-// 다시 열기: 이 화면에서 만든 링크가 아직 쓸 수 있으면 그 링크를, 아니면(시간이 지났거나 다시 불러온 화면) 새 링크를 만들어 열어요
+// 다시 열기: 기다리는 자리의 링크(이 화면에서 만들었거나 서버가 알려 준 것)가 아직 쓸 수 있으면 그 링크를, 아니면 새 링크를 만들어 열어요.
+// 서버는 같은 자리면(시간이 지난 뒤에도 한 시간 안이면) 새로 만들어도 같은 자리 표시를 써요(어느 링크로 연 세션이든 앉아요)
 function seatRetry(tid, role) {
   const s = seatGet(seatKey(tid, role));
   if (s && s.state === 'waiting' && s.url && Date.now() < (s.expires || 0) - 10e3) {
@@ -1582,7 +1593,7 @@ function seatNorm(p) {
   if ((state === 'waiting' || state === 'pick') && expires && Date.now() > expires + 5000) state = 'expired';   // 서버가 아직 치우지 않았어도
   const candidates = (Array.isArray(p.candidates) ? p.candidates : []).filter(c => c && typeof c === 'object' && SID_RE.test(String(c.sessionId || ''))).slice(0, 12)
     .map(c => ({ sessionId: String(c.sessionId), title: cut(String(c.title == null ? '' : c.title).trim(), 80), createdAt: c.createdAt }));
-  return { team: p.team, role: p.role.normalize('NFC'), state, candidates, marker: typeof p.marker === 'string' ? p.marker : '', folder: typeof p.folder === 'string' ? p.folder : '',
+  return { team: p.team, role: p.role.normalize('NFC'), state, candidates, marker: typeof p.marker === 'string' ? p.marker : '', url: CLAUDE_NEW.test(String(p.url || '')) ? String(p.url) : '', folder: typeof p.folder === 'string' ? p.folder : '',
     sessionId: typeof p.sessionId === 'string' && SID_RE.test(p.sessionId) ? p.sessionId : '', started: msOf(p.started), expires,
     error: state === 'failed' ? cut(String(p.error || '').trim(), 200) : '' };
 }
@@ -1604,6 +1615,7 @@ function seatMerge(list, at) {
     if (p.state === 'gone') { SEAT.delete(k); changed.add(k); continue; }
     const before = JSON.stringify([s.state, s.sessionId, s.candidates, s.fail]), who = seatWho(s.team, s.role);
     if (p.marker && s.marker && p.marker !== s.marker) s.url = '';   // 다른 곳에서 링크를 새로 만들었어요(이 화면의 옛 링크는 다시 열지 않아요)
+    if (p.url) s.url = p.url;   // 서버가 그 자리 표시로 지은 링크(다시 불러온 화면도 ‘다시 열기’로 같은 링크를 열어요)
     if (p.marker) s.marker = p.marker;
     if (p.folder) s.folder = p.folder;
     if (p.started) s.started = p.started;
@@ -1971,6 +1983,8 @@ function memberDrawer(tid, role) {
 /* ---------- 회의(대표만 시작) ---------- */
 function meetStartDrawer(tid, preset = {}) {
   const d = state.teams[tid];
+  const t = state.org.teams.find(x => x.id === tid), gap = t ? leadGapHTML(t, d, 'w') : '';
+  if (gap) { openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">회의 시작</h2>${gap}`, tid); return; }
   const roles = leadFirst(d.team.members).filter(m => m.sessionId).map(m => m.role);
   const want = Array.isArray(preset.participants) && preset.participants.length ? preset.participants : roles;
   const mode = preset.mode === '위임' ? '위임' : '참석';
@@ -2069,7 +2083,7 @@ function apprCard(tid, d, a) {
       <p class="err" role="alert"></p></form>` : ''}
   </article>`;
 }
-function apprDrawer() {
+function apprDrawer(note = '') {
   const all = [];
   for (const [tid, d] of Object.entries(state.teams)) for (const a of d.approvals || []) all.push({ tid, d, a });
   const isOpen = x => x.a.status === '결재 대기' || x.a.status === '보류';
@@ -2078,6 +2092,7 @@ function apprDrawer() {
   const keepScroll = !$('#drawer').hidden && $('#dTitle') && $('#dTitle').textContent === '결재함' ? $('.drawer-panel').scrollTop : 0;
   openDrawer(`<p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">결재함</h2>
     <p class="hint" style="margin-top:6px">팀장이 대표의 결정이 필요한 일을 올려요. 고르면 그 팀장에게 바로 전해져요.</p>
+    ${note ? `<p class="err" role="alert" style="margin-top:8px">${esc(note)}</p>` : ''}
     ${open.length ? open.map(x => apprCard(x.tid, x.d, x.a)).join('') : '<p class="empty" style="margin-top:12px">기다리는 결재가 없어요.</p>'}
     ${done.length ? `<h3 class="d-sec">처리한 결재</h3>${done.map(x => apprCard(x.tid, x.d, x.a)).join('')}` : ''}`);
   if (keepScroll) $('.drawer-panel').scrollTop = keepScroll;
@@ -2115,10 +2130,10 @@ async function submitForm(form, submitter) {
       if (!choice) throw new Error('버튼을 눌러 골라 주세요');
       if (choice === '반려' && !confirm('반려할까요?')) throw new Error('');
       if (form.dataset.risky === '1' && choice !== '반려' && choice !== '보류' && !confirm('위험한 일이에요. 결재하면 팀장이 실행할 창과 할 말을 알려 줘요. 실제 실행은 그 창에서 한 번 더 확인해요. 결재할까요?')) throw new Error('');
-      await post('api/decide', { team: fd.get('team'), id: fd.get('id'), choice, comment: String(fd.get('comment') || '') });
+      const res = await post('api/decide', { team: fd.get('team'), id: fd.get('id'), choice, comment: String(fd.get('comment') || '') });
       $$('textarea', form).forEach(ta => drafts.delete(draftKey(ta)));
       await load(); pending = false; render();
-      apprDrawer();
+      apprDrawer(res && res.delivered === false ? '팀장이 없어서 전하지 못했어요. 팀장 자리를 채운 뒤 다시 알려 주세요.' : '');
     }
   } catch (e) {
     if (e.message) err.textContent = e.message;
