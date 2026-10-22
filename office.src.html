@@ -1281,7 +1281,7 @@ function roomHTML(t, d) {
   const meetPanel = am
     ? `<div class="meet-now"><b>${am.status === '정리 중' ? '회의록 정리 중' : am.mode === '참석' ? '대표와 회의 중' : '팀끼리 회의 중'}</b> · ${esc(am.topic)}
         ${amLast.length ? `<ol>${amLast.map(l => `<li>${seatHTML(t.id, l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
-       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' && !leadGap ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
+       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' && !leadGap ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>${am.status !== '진행 중' ? leadGap : ''}`
     : `${d.meeting ? `<div class="meet-state"><i class="sd ${meeting ? 'meet' : 'none'}"></i><b>${meeting ? '지금 회의 중' : '마지막 회의'}</b></div><button class="meet-file" type="button" data-file="${esc(d.base + 'meetings/' + d.meeting.file)}">${esc(d.meeting.file)}</button>` : '<p class="empty" style="margin-top:8px">아직 회의를 하지 않았어요.</p>'}
        ${API ? leadGap || `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
   return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
@@ -1533,7 +1533,7 @@ async function seatLink(tid, role) {
   seatSchedule();
 }
 // 다시 열기: 기다리는 자리의 링크(이 화면에서 만들었거나 서버가 알려 준 것)가 아직 쓸 수 있으면 그 링크를, 아니면 새 링크를 만들어 열어요.
-// 서버는 같은 자리를 기다리는 동안에는 새로 만들어도 같은 자리 표시를 써요(어느 링크로 연 세션이든 앉아요)
+// 서버는 같은 자리면(시간이 지난 뒤에도 한 시간 안이면) 새로 만들어도 같은 자리 표시를 써요(어느 링크로 연 세션이든 앉아요)
 function seatRetry(tid, role) {
   const s = seatGet(seatKey(tid, role));
   if (s && s.state === 'waiting' && s.url && Date.now() < (s.expires || 0) - 10e3) {

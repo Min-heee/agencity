@@ -3490,6 +3490,18 @@ def save_seats(s, lst):
     write_json(SETUP, s)
 
 
+def seat_revive(p, t):
+    """시간이 지난(expired) 기다림을 같은 자리 표시로 다시 기다리게 해요. issued(그 표시를 처음 링크에 넣은 시각)는 그대로 둬요."""
+    p.update(state="waiting", issued=p.get("issued") or p["started"], started=iso_at(t), expires=iso_at(t + SEAT_TTL))
+    p.pop("done", None)
+
+
+def seat_issued(p):
+    """그 자리 표시를 처음 링크에 넣은 시각(ms). 다시 기다리는 자리도 앞의 링크로 연 세션까지 찾아요(한 시간 반 앞까지만)."""
+    s = epoch_ms(p["started"])
+    return min(s, max(epoch_ms(p.get("issued")) or s, s - (SEAT_TTL + SEAT_KEEP) * 1000))
+
+
 def seat_view(p, t, boss=False):
     """기다리는 자리(boss면 기다리는 총괄)를 화면에 알릴 모양."""
     v = ({"state": p["state"], "started": p["started"], "expires": p["expires"]} if boss else
@@ -3550,7 +3562,7 @@ def seat_relink(p):
 
 def api_seat_link(body):
     """빈자리에 앉힐 새 세션 링크: {team, role} → {ok, url, marker, folder, display, expires}.
-    그 자리를 이미 기다리고 있으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 앉게)."""
+    그 자리를 이미 기다리고 있거나 시간이 지난 지 한 시간이 안 됐으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 앉게)."""
     marker = "AGC-" + secrets.token_hex(4)
     t, base, folder, role, url = seat_url(body.get("team"), body.get("role"), marker)
     try:
@@ -3562,8 +3574,10 @@ def api_seat_link(body):
         s = load_setup()
         lst = pending_seats(s)
         seat_tidy(lst, t0)
-        entry = next((p for p in lst if same_seat(p, t["id"], role) and p["state"] in SEAT_LIVE and p["folder"] == folder), None)
-        if entry:
+        entry = next((p for p in lst if same_seat(p, t["id"], role) and p["state"] in SEAT_LIVE + ("expired",) and p["folder"] == folder), None)
+        if entry and entry["state"] == "expired":
+            seat_revive(entry, t0)   # 고를 세션은 이제부터 연 것만 봐요
+        elif entry:
             entry["expires"] = iso_at(t0 + SEAT_TTL)
         else:
             lst = [p for p in lst if not same_seat(p, t["id"], role)]   # 끝난 앞의 것은 바꿔요
@@ -3795,7 +3809,7 @@ def seat_pass(force=False):
         marks = {p["marker"]: p for p in live}
         if bp:
             marks[bp["marker"]] = bp
-        since = min(epoch_ms(p["started"]) for p in marks.values()) - SEAT_SLACK * 1000
+        since = min(seat_issued(p) for p in marks.values()) - SEAT_SLACK * 1000
         seated, boss = floor_members(), boss_sid()
         recs = [r for r in session_records(since) if r["sessionId"] not in seated and r["sessionId"] != boss]
         for r in recs:
@@ -3807,7 +3821,7 @@ def seat_pass(force=False):
         plan, used = {}, set()
         for r in sorted(recs, key=lambda r: r["created"]):   # 1) 자리 표시가 맞는 세션(같은 표시가 둘이면 먼저 만든 세션)
             m = r["match"]
-            if m and m not in plan and r["created"] >= epoch_ms(marks[m]["started"]) - SEAT_SLACK * 1000:
+            if m and m not in plan and r["created"] >= seat_issued(marks[m]) - SEAT_SLACK * 1000:
                 plan[m] = (r["sessionId"], "marker", r["title"])
                 used.add(r["sessionId"])
         pools = {}
@@ -4053,7 +4067,7 @@ def boss_url(marker):
 
 def api_boss_link(body):
     """총괄로 쓸 새 세션 링크: {} → {ok, url, marker, folder, display, expires, replaces}. 이미 총괄이 있으면 새 세션으로 바꿔요(replaces: true).
-    총괄을 이미 기다리고 있으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 총괄이 되게)."""
+    총괄을 이미 기다리고 있거나 시간이 지난 지 한 시간이 안 됐으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 총괄이 되게)."""
     if any(unicodedata.category(ch) in NAME_BAD for ch in HERE):   # 경로는 첫 메시지에 그대로 들어가요
         raise ApiError(409, "설치 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요")
     marker = "AGC-" + secrets.token_hex(4)
@@ -4064,7 +4078,10 @@ def api_boss_link(body):
         s = load_setup()
         boss_tidy(s, pending_boss(s), t0)
         entry = pending_boss(s)
-        if entry and entry["state"] in SEAT_LIVE:
+        if entry and entry["state"] == "expired" and entry["folder"] == HERE:
+            seat_revive(entry, t0)
+            entry["prev"] = prev
+        elif entry and entry["state"] in SEAT_LIVE:
             entry["expires"] = iso_at(t0 + SEAT_TTL)
         else:
             entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
