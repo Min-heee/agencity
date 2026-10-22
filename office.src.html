@@ -567,6 +567,76 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .su-seats li{display:grid; grid-template-columns:minmax(6em, 9em) minmax(0,1fr); gap:4px 10px; align-items:start; padding:0}
 .su-seats li > b{padding-top:6px; font-size:13px; overflow-wrap:anywhere}
 @media (max-width:559px){ .su-seats li{grid-template-columns:minmax(0,1fr)} .su-seats li > b{padding-top:0} }
+/* 추천 팀(설정 3단계 맨 위): 세션 목록(과 허락하면 첫 메시지 몇 줄)을 보고 서버가 나눈 층. 카드마다 팀원과 그렇게 고른 까닭 한 마디 */
+.su-rec{margin-top:16px; padding:14px 16px 16px; border:1px solid color-mix(in srgb, var(--focus) 40%, var(--line)); border-radius:12px; background:color-mix(in srgb, var(--focus) 5%, var(--surface))}
+.su-rec-h{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; margin:0}
+.su-rec-h h3{margin:0; font-family:var(--font-display); font-weight:400; font-size:21px; line-height:1.15}
+.su-rec-h h3:focus{outline:none}
+.su-rec-h .btn{margin-left:auto; padding:4px 11px; font-size:12.5px}
+.su-rec > .hint{margin-top:4px}
+.su-ask{margin-top:12px; padding:12px 14px; border:1px solid color-mix(in srgb, var(--work) 55%, var(--line)); border-radius:10px; background:color-mix(in srgb, var(--work) 10%, var(--surface))}
+.su-ask p{margin:0; font-size:13.5px; color:var(--ink)}
+.su-ask .su-actions{margin-top:8px}
+.su-recs{list-style:none; margin:12px 0 0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap:10px}
+.su-rc{display:flex; flex-direction:column; min-width:0; padding:10px 12px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface)}
+.su-rc-h{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px}
+.su-rc-t{flex:1 1 auto; min-width:0; margin:0; font-family:var(--font-display); font-weight:400; font-size:19px; line-height:1.15; overflow-wrap:anywhere}
+.su-rc-h .btn{padding:3px 10px; font-size:12.5px}
+.su-rc-meta{display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; margin:3px 0 0; font-size:12px; color:var(--ink-2)}
+.su-rc-meta code{font:500 11.5px var(--font-mono); color:var(--ink-2); overflow-wrap:anywhere}
+.su-rc-ms{list-style:none; margin:8px 0 0; padding:0; border-top:1px dashed var(--line)}
+.su-rc-ms li{display:grid; grid-template-columns:minmax(4.5em, 6.5em) minmax(0,1fr); gap:0 8px; padding:5px 0; border-bottom:1px dashed var(--line); font-size:13px}
+.su-rc-ms li > b{font-weight:600; overflow-wrap:anywhere}
+.su-rc-ms .who{display:flex; flex-wrap:wrap; align-items:baseline; gap:1px 6px; min-width:0; overflow-wrap:anywhere}
+.su-rc-ms small{font-size:11.5px; color:var(--ink-2)}
+.su-rc-ms li.off{color:var(--ink-2)}
+.su-rc-ms li.off .who > span:first-child{text-decoration:line-through; text-decoration-color:var(--line-2)}
+.su-rc-ms li.empty .who > span:first-child{color:var(--ink-2)}
+.su-rc .err{margin-top:6px}
+.su-rc .hint{margin-top:6px}
+.chip.cx{background:color-mix(in srgb, var(--meet) 18%, var(--surface)); color:var(--ink); white-space:nowrap}
+.su-rec-go{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-top:14px}
+.su-rec-go .btn.primary{padding:9px 16px; font-size:14px}
+.su-rec-more{margin-top:10px; display:flex; flex-direction:column; gap:4px}
+.su-cx-note{margin:8px 0 0}
+.su-rec-more p{margin:0; font-size:12.5px; color:var(--ink-2)}
+.su-rec-more .btn{padding:2px 9px; font-size:12px; vertical-align:baseline}
+.su-rec .su-res{margin-top:12px; background:var(--surface)}
+/* 팀원 줄의 Codex 자리(읽기 전용): 세션 칸에서 ‘Codex (읽기 전용)’ 묶음의 세션을 고르면 그 줄 아래에 한 줄로 알려요 */
+.su-cxn{display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; font-size:12px}
+@media (max-width:559px){ .su-rc-ms li{grid-template-columns:minmax(4em, 5.5em) minmax(0,1fr)} .su-rec{padding:12px} }
+/* 총괄 만들기(설정 3단계 총괄 칸 아래, 사무실의 총괄 칸 아래) */
+.su-bossmk{margin-top:10px; padding:10px 12px; border:1px dashed var(--line-2); border-radius:9px; background:var(--surface-2)}
+.su-bossmk > p{margin:0; font-size:12.5px; color:var(--ink-2)}
+.setup .su-bossmk .seat{padding:6px 0 0; border-top:0}
+.org-top{flex-direction:column; align-items:center; gap:8px}
+@media (max-width:899px){ .org-top{align-items:flex-start} }
+.boss-mk{width:min(100%, 460px); border:1px dashed var(--line-2); border-radius:10px; background:var(--surface)}
+.boss-mk > p{margin:0; padding:8px 11px 0; font-size:12.5px; color:var(--ink-2)}
+.boss-mk .seat{border-top:0}
+.hq-node button.mk{margin-left:6px; padding:5px 10px; border:0; border-radius:5px; background:var(--gold); color:#1C2330; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap}
+.live.alert{border-color:color-mix(in srgb, var(--work) 60%, var(--line)); color:var(--ink)}
+button.live{font:inherit; font-size:12.5px; cursor:pointer}
+/* 책상의 Codex 자리: 읽기 전용(말 걸기는 아직 안 돼요) */
+.desk.is-cx .plate-row .when b{font-weight:600; color:var(--ink-2)}
+.desk.is-cx .task{color:var(--ink-2)}
+.desk-foot .cx-tag{flex:none; padding:2px 7px; border-radius:4px; background:var(--rack-2); color:var(--rack-ink); font-size:11px; font-weight:600}
+/* 5단계: 팀 규칙 한 줄(CLAUDE.local.md) 넣기 */
+.su-rl{margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2)}
+.su-rl .su-check{align-items:flex-start; font-weight:600}
+.su-rl .su-check input{margin-top:3px}
+.su-rl ul{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+.su-rl li{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; font-size:13px}
+.su-rl li code{font:500 12px var(--font-mono); overflow-wrap:anywhere}
+.su-rl li .btn{margin-left:auto; padding:3px 10px; font-size:12.5px}
+.su-rl .st{flex:1 1 100%; margin:0; font-size:12.5px; color:var(--ink-2)}
+.su-rl .st.ok{color:var(--ink)}
+.su-rl .st.ok::before{content:"✓ "; color:var(--ok)}
+.su-rl .st.bad{color:var(--err-ink)}
+.su-have-b{margin-left:auto; display:inline-flex; flex-wrap:wrap; gap:6px}
+.su-have-h .su-have-b .su-to{margin-left:0}
+.su-have .su-rlst{margin-top:4px}
+.su-have .su-rlst.bad{color:var(--err-ink)}
 /* 층 머리의 [섹션 맞추기]·[규칙 맞추기]와 그 결과 한 줄 */
 .room-head button.notion[aria-disabled="true"]{opacity:.62; cursor:not-allowed}
 .room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
@@ -632,7 +702,7 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
     <div class="sign">
       <h1 class="plate">에이전시티</h1>
     </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap"><div class="upd" id="upd" role="group" aria-label="새 버전 알림" hidden></div><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap"><div class="upd" id="upd" role="group" aria-label="새 버전 알림" hidden></div><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><button type="button" class="live alert" id="bossHint" data-act="boss-find" hidden>총괄 없음 · 총괄 만들기</button><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
   </header>
 
   <section class="org" aria-label="층 안내">
@@ -691,6 +761,15 @@ const chatLink = id => `claude://claude.ai/epitaxy/${encodeURIComponent(String(i
 // 팀장 자리만 이름이 정해져 있어요. 다른 역할 이름(개발자·마케팅·QA…)과 사람 수는 층마다 달라요.
 const LEAD = '팀장';
 const leadFirst = ms => [...ms.filter(m => m.role === LEAD), ...ms.filter(m => m.role !== LEAD)];   // 팀장 먼저, 나머지는 team.json 순서
+// Codex 자리(읽기 전용): team.json 줄에 codexId(와 tool:"codex")가 있고 sessionId는 비어 있어요. 화면은 상태만 보여 주고
+// 말 걸기·회의·결재·전달은 하지 않아요. 상태는 서버가 Codex 기록 파일이 마지막으로 바뀐 때로 셈해요(2분 안이면 ‘일하는 중’).
+const CX_RE = /^[0-9A-Fa-f][0-9A-Fa-f-]{7,63}$/;   // Codex 세션 id(uuid 모양)
+const CX_HOT = 2 * 60e3;
+const isCx = m => !!m && typeof m === 'object' && !m.sessionId && CX_RE.test(String(m.codexId || ''));
+const CX_NO_TALK = 'Codex에는 아직 말을 걸 수 없어요';
+const CX_SEAT_NOTE = 'Codex 자리는 에이전시티가 Codex 기록을 읽어 상태(일하는 중·대기)만 보여 줘요. Codex 쪽은 바꾸지 않고, 아직 말을 걸 수는 없어요.';
+const CX_UNTITLED = '제목 없는 Codex 세션';   // 서버(office_server.py의 CODEX_UNTITLED)와 같은 말이에요(추천하지 않은 세션 이름에도 이렇게 와요)
+const CX_GROUP = 'Codex (읽기 전용)';   // 팀원 자리의 세션 칸에서 Codex 세션을 모은 묶음 이름(팀장 자리에는 없어요)
 // 팀원 표시 이름: 역할(role)은 대화·상태 파일 이름이자 회의·결재·전달의 열쇠라 그대로고, team.json의 name은 화면에 보이는 이름이에요(서버 office_server.py와 같은 규칙).
 // 이름을 비우면 기본 이름 ‘<팀 이름> <역할>’이고, 기본 이름은 화면에서 역할만 보여 줘요(지금처럼). 따로 정한 이름이 있으면 그 이름을 크게, 역할을 작게 같이 보여요.
 // 이름은 어디서나 esc()를 거쳐 그려요(< > 도 그대로 글자로 보여요). 글 안의 이름 표시는 seatHTML(팀 id, 역할)로 해요.
@@ -900,8 +979,34 @@ function nameEditHTML(m, cx) {
     <small class="hint" id="nmHint">Enter 저장 · Esc 취소 · 비워 두면 ‘${esc(ph)}’로 불러요</small>
     <p class="err" id="nmErr" role="alert">${esc(e.err)}</p></div>`;
 }
+// Codex 자리의 지금 상태: 서버가 알려 준 것(/api/codex/status의 seats, 없으면 /api/setup/state의 floors[].members[].codex)에서 읽어요.
+// 마지막 활동 시각이 있으면 그걸로 다시 셈해요(서버 답이 몇 초 지났어도 2분 기준이 맞게). 못 받았으면 ‘대기’예요.
+const CXS = { seats: null, at: 0, busy: false, none: false };
+function cxInfo(tid, m) {
+  const id = String(m.codexId || '').toLowerCase(), o = x => (x && typeof x === 'object' && !Array.isArray(x) ? x : null), same = x => o(x) && String(x.codexId || '').toLowerCase() === id;
+  const lm = Array.isArray(CXS.seats) ? CXS.seats.find(x => same(x) && (!x.team || x.team === tid)) : null;
+  const f = SU.st && Array.isArray(SU.st.floors) ? SU.st.floors.find(x => x && x.id === tid) : null;
+  const fm = f && Array.isArray(f.members) ? f.members.find(same) : null;
+  const src = o(lm) || (fm && o(fm.codex)) || {};
+  const said = src.state === '일하는 중' || src.state === '대기' ? src.state : '';
+  const at = msOf(src.lastActivityAt);
+  const st = at ? (Date.now() - at < CX_HOT ? '일하는 중' : '대기') : said || '대기';
+  const title = cut(String(src.title || m.title || '').replace(/\s+/g, ' ').trim(), 80);   // Codex 세션 제목(thread_name)이 먼저예요
+  return { state: st, at, title, missing: src.found === false };
+}
+function cxDeskHTML(m, tid, cx) {
+  const c = customName(m, cx.names), nm = c ? `${c}(${m.role})` : m.name || m.role, x = cxInfo(tid, m), S = ST[x.state] || ST['대기'];
+  const sub = x.missing ? '기록을 찾지 못했어요' : x.at ? ago(new Date(x.at).toISOString()) : '';
+  return `<article class="desk is-cx ${S.cls}" data-role="${esc(m.role)}" data-team="${esc(tid)}" tabindex="0" role="button" aria-label="${esc(nm)}, Codex 읽기 전용, ${esc(x.state)}">
+    <header class="plate-row"><div class="who">${nameBlockHTML(m, tid, false, cx)}<span class="when"><b>Codex · 읽기 전용</b>${sub ? ' · ' + esc(sub) : ''}</span></div><span class="status"><i class="sd ${S.sd}"></i>${esc(x.state)}</span></header>
+    <div class="scene">${sceneSVG(lookOf(m.codexId, m.role), m.role)}<div class="screen-ui"><div class="screen-call">CODEX · ${esc(x.state)}</div><div class="screen-msg">${esc(x.title || 'Codex 세션')}${x.state === '일하는 중' ? '<span class="caret"></span>' : ''}</div></div></div>
+    <div class="task"><span class="empty">${CX_NO_TALK}. 상태만 보여요.</span></div>
+    <div class="desk-foot"><code>${esc(m.codexId)}</code><span class="cx-tag">Codex</span></div>
+  </article>`;
+}
 function deskHTML(m, st, tid, newReply, cx) {
   const c = customName(m, cx.names), nm = c ? `${c}(${m.role})` : m.name || m.role;
+  if (isCx(m)) return cxDeskHTML(m, tid, cx);
   if (!m.sessionId) {
     // 빈자리: [세션 만들기]로 이 층 폴더에서 새 세션을 열어 앉혀요(로컬 페이지, 예시 팀이 아니고 서버가 고칠 수 있는 줄일 때만)
     const sk = seatKey(tid, m.role), so = seatGet(sk), can = !!(cx.seat && cx.edit && cx.edit.has(m));
@@ -1076,14 +1181,19 @@ function render() {
   ab.className = 'live' + (waiting ? ' alert' : '');
   put($('#apprN'), String(waiting));
   // 총괄 연결: 총괄이 outbox를 지켜보는 중인지(1초마다 heartbeat)
-  const rl = $('#relay');
-  rl.hidden = !API;
-  if (API) {
+  const rl = $('#relay'), bh = $('#bossHint');
+  // 진짜 총괄 세션이 아직 없으면 ‘총괄 연결 끊김’ 대신 [총괄 만들기] 안내를 보여요(층 안내의 총괄 칸 아래에 만들기 상자가 있어요)
+  const bs = API ? seatGet(seatKey(BOSS_T, BOSS_ROLE)) : null, noBoss = API && mode !== 'snap' && !realBoss();
+  rl.hidden = !API || noBoss;
+  bh.hidden = !noBoss;
+  if (noBoss) put(bh, bs && (bs.state === 'waiting' || bs.state === 'pick') ? '총괄 만드는 중 · Claude 앱을 확인해 주세요' : '총괄 없음 · 총괄 만들기');
+  if (API && !noBoss) {
     const r = state.relay, ok = r && r.relayAge != null && r.relayAge < 15;
     rl.className = 'live' + (ok ? '' : ' alert');
     put(rl, ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${esc(r.pending)}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : ''}`);
   }
-  put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a></div>`);
+  const bossBox = noBoss || (bs && bs.state === 'seated') ? `<div class="boss-mk">${noBoss ? '<p>아직 총괄 세션이 없어요. 총괄이 있어야 여기서 보낸 말이 팀에 전해져요.</p>' : ''}${seatBoxHTML(BOSS_T, BOSS_ROLE, 'h')}</div>` : '';
+  put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
   // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(입주 예정 자리는 늘 맨 뒤). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
   const ids = officeIds(org), ob = $('#orderBtn');
   const canOrder = API && !!SU.st && ids.length > 1;
@@ -1101,12 +1211,15 @@ function render() {
     const ms = on ? d.team.members : [];
     const lead = on ? ms.find(m => m.role === LEAD) : t.lead;
     const others = ms.filter(m => m.role !== LEAD);
+    // 팀장: 사무실이 있는 층에서 세션 없이 비어 있으면 책상처럼 ‘빈자리’(따로 정한 이름이 있으면 같이). 입주 예정 층은 org.json의 팀장 그대로
+    const lc = on && lead ? customName(lead, [d.team.team, t.name]) : '';
+    const leadTxt = !lead ? '없음' : on && !lead.sessionId ? (lc ? `${lc} · 빈자리` : '빈자리') : (lc || lead.title);
     const k = t.office ? ids.indexOf(t.id) : -1, label = `${floorLabel(t)} ${t.name}`;
     const mv = orderMode && k >= 0 ? `<span class="ot-move" role="group" aria-label="${esc(label)} 순서">${moveBtn('up', t, label, k === 0)}${moveBtn('down', t, label, k === ids.length - 1)}</span>` : '';
     return `<div class="ot-cell"><button type="button" class="org-team${on ? ' on' : ''}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms">
       <span class="ot-head"><span class="fl-no">${esc(floorLabel(t))}</span><span class="ot-name">${esc(t.name)}</span></span><span class="badge">${esc(t.state)}</span>
-      <span class="ot-row">팀장 <b>${lead ? esc((on && customName(lead, [d.team.team, t.name])) || lead.title) : '없음'}</b></span>
-      <span class="ot-row">${on ? `팀원 <b>${others.filter(m => m.sessionId).length}</b>/${others.length}명` : '팀원 아직 없음'}</span>
+      <span class="ot-row">팀장 <b>${esc(leadTxt)}</b></span>
+      <span class="ot-row">${on ? `팀원 <b>${others.filter(m => m.sessionId || isCx(m)).length}</b>/${others.length}명` : '팀원 아직 없음'}</span>
     </button>${mv}</div>`;
   }).join(''));
   // 방을 다시 그려도 활동 기록·파일 목록을 보던 위치는 그대로
@@ -1135,7 +1248,7 @@ function roomHTML(t, d) {
   // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
   const mine = API && !String(t.office || '').startsWith('examples/');   // 로컬 페이지의 내 층(예시 팀은 고치지도, 세션을 만들지도 않아요)
   const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: mine ? new Set(shownRows(d.team.members).map(x => x.m)) : null, seat: mine };
-  const working = ms.filter(m => d.status[m.role] && d.status[m.role].state === '일하는 중').length;
+  const working = ms.filter(m => (isCx(m) ? cxInfo(t.id, m).state === '일하는 중' : d.status[m.role] && d.status[m.role].state === '일하는 중')).length;
   const meeting = ms.filter(m => d.status[m.role] && d.status[m.role].state === '회의 중').length;
   const items = parseBoard(d.board);
   const open = items.filter(i => !i.done);
@@ -1147,7 +1260,7 @@ function roomHTML(t, d) {
   const meets = d.meetings.length ? `<ul class="files">${[...d.meetings].reverse().slice(0, 6).map(f => `<li><button type="button" data-file="${esc(d.base + 'meetings/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '';
   const cmds = [
     `${t.name} 회의하자: (주제)`,
-    ...ms.filter(m => m.role !== LEAD).slice(0, 6).map(m => `${t.name} ${m.role}한테 (할 일) 시켜`),
+    ...ms.filter(m => m.role !== LEAD && !isCx(m)).slice(0, 6).map(m => `${t.name} ${m.role}한테 (할 일) 시켜`),
     `${t.name} 진행 상황 보고해`
   ];
   const am = (d.metas || []).find(m => m.status === '진행 중') || d.active;
@@ -1309,8 +1422,14 @@ const CLAUDE_NEW = /^claude:\/\/code\/new\?/;   // 서버가 준 링크가 이 �
 const seatKey = (tid, role) => `${tid}|${role}`;   // 층 id와 역할 이름에는 |가 들어가지 않아요
 const seatSplit = k => { const s = String(k), i = s.indexOf('|'); return [s.slice(0, i), s.slice(i + 1)]; };
 const seatSay = t => { const el = $('#seatLive'); if (el) { el.textContent = ''; setTimeout(() => { el.textContent = t; }, 30); } };
+// [총괄 만들기]도 같은 자리 상자를 써요: /api/boss/link가 설치 폴더로 총괄 지시(docs/COORDINATOR.md)와 자리 표시를 채운 링크를 만들고,
+// 서버가 세션 만들기와 같이 새 세션을 찾아 org.json의 총괄(boss.sessionId)로 정해요. 자리 표시가 없는 새 세션은 저절로 고르지 않고 대표가 골라요.
+// 기다리는 상태는 /api/seat/pending 목록에 kind:"boss"(또는 boss:true) 항목으로 와요. 층 id에는 @가 들어갈 수 없어서 이 열쇠는 층과 겹치지 않아요.
+const BOSS_T = '@hq', BOSS_ROLE = '총괄';
+const isBossSeat = tid => tid === BOSS_T;
 // 단추 이름(aria-label)·알림에 쓰는 자리 이름: ‘<층 이름> <자리>’(같은 역할이 여러 층에 있어도 구분돼요). 막 만든 층은 아직 state에 없어서 설정의 층 목록에서 찾아요
 function seatWho(tid, role) {
+  if (isBossSeat(tid)) return '총괄';
   const t = state && state.org && Array.isArray(state.org.teams) ? state.org.teams.find(x => x.id === tid) : null;
   const f = SU.st && Array.isArray(SU.st.floors) ? SU.st.floors.find(x => x.id === tid) : null;
   const n = String((t && t.name) || (f && f.name) || '').trim();
@@ -1338,25 +1457,27 @@ function seatBoxHTML(tid, role, where, cls = '') {   // where: 'r' 사무실 책
   return `<div class="seat${cls}" id="${where}sb${hash(k).toString(36)}" data-seat-box="${esc(k)}" data-team="${esc(tid)}" data-role="${esc(role)}" tabindex="-1">${seatInner(tid, role, where)}</div>`;
 }
 function seatInner(tid, role, where) {
-  const k = seatKey(tid, role), s = seatGet(k), h = hash(k).toString(36), who = seatWho(tid, role), busy = !!(s && s.busy), st = s ? s.state : '';
+  const k = seatKey(tid, role), s = seatGet(k), h = hash(k).toString(36), who = seatWho(tid, role), busy = !!(s && s.busy), st = s ? s.state : '', boss = isBossSeat(tid);
   const b = (act, label, aria, cls = '') => `<button type="button" class="btn${cls}" id="${where}sb${h}${act}" data-seat="${act}" data-team="${esc(tid)}" data-role="${esc(role)}"${aria ? ` aria-label="${esc(aria)}"` : ''}${busy ? ' disabled' : ''}>${esc(label)}</button>`;
   const err = s && s.err ? `<p class="seat-st bad" role="alert">${esc(s.err)}</p>` : '';
-  const cancel = b('cancel', s && s.busy === 'cancel' ? '취소하는 중…' : '취소', s && s.busy === 'cancel' ? '' : `${who} 자리 세션 만들기 취소`);
-  if (st === 'seated') return `<p class="seat-st ok">자리에 앉혔어요 <b aria-hidden="true">✓</b></p>`;
+  const cancel = b('cancel', s && s.busy === 'cancel' ? '취소하는 중…' : '취소', s && s.busy === 'cancel' ? '' : boss ? '총괄 만들기 취소' : `${who} 자리 세션 만들기 취소`);
+  const relink = boss ? '총괄 링크 다시 열기' : `${who} 자리 링크 다시 열기`, aim = boss ? '총괄로 쓸' : '이 자리에 앉힐';
+  if (st === 'seated') return boss ? `<p class="seat-st ok">총괄로 정했어요 <b aria-hidden="true">✓</b></p><p class="hint">새 총괄이 지시대로 전달을 켜면 위쪽에 ‘총괄 연결됨’이 떠요.</p>` : `<p class="seat-st ok">자리에 앉혔어요 <b aria-hidden="true">✓</b></p>`;
   if (st === 'waiting') {
     const till = s.expires ? hm(new Date(s.expires).toISOString()) : '';
     const line = [s.folder ? `폴더 <code>${esc(tilde(s.folder))}</code>` : '', till ? `${esc(till)}까지 기다려요` : ''].filter(Boolean).join(' · ');
     return `<p class="seat-st wait">Claude 앱에서 폴더를 확인하고 Enter를 눌러 주세요 · 기다리는 중…</p>${line ? `<p class="hint">${line}</p>` : ''}
-      <div class="seat-acts">${b('retry', '다시 열기', `${who} 자리 링크 다시 열기`)}${cancel}</div>${err}`;
+      <div class="seat-acts">${b('retry', '다시 열기', relink)}${cancel}</div>${err}`;
   }
   if (st === 'pick') {
     const cs = s.candidates || [];
-    return `<p class="seat-st">${cs.length === 1 ? '자리 표시가 없는 새 세션이 보여요. 이 자리에 앉힐 세션이 맞으면 골라 주세요' : '새 세션이 여럿 보여요. 이 자리에 앉힐 세션을 골라 주세요'}</p>
-      <ul class="seat-pick" aria-label="${esc(who)} 자리에 앉힐 세션">${cs.map(c => `<li><button type="button" class="btn" id="${where}sb${h}p${hash(c.sessionId).toString(36)}" data-seat="pick" data-sid="${esc(c.sessionId)}" data-team="${esc(tid)}" data-role="${esc(role)}"${busy ? ' disabled' : ''}><span>${esc(c.title || '(제목 없음)')}</span>${agoAt(c.createdAt) ? `<small>${esc(agoAt(c.createdAt))} 만듦</small>` : ''}</button></li>`).join('') || '<li class="hint">고를 세션을 읽는 중이에요…</li>'}</ul>
+    return `<p class="seat-st">${cs.length === 1 ? `자리 표시가 없는 새 세션이 보여요. ${aim} 세션이 맞으면 골라 주세요` : `새 세션이 여럿 보여요. ${aim} 세션을 골라 주세요`}</p>
+      <ul class="seat-pick" aria-label="${esc(boss ? '총괄로 쓸 세션' : `${who} 자리에 앉힐 세션`)}">${cs.map(c => `<li><button type="button" class="btn" id="${where}sb${h}p${hash(c.sessionId).toString(36)}" data-seat="pick" data-sid="${esc(c.sessionId)}" data-team="${esc(tid)}" data-role="${esc(role)}"${busy ? ' disabled' : ''}><span>${esc(c.title || '(제목 없음)')}</span>${agoAt(c.createdAt) ? `<small>${esc(agoAt(c.createdAt))} 만듦</small>` : ''}</button></li>`).join('') || '<li class="hint">고를 세션을 읽는 중이에요…</li>'}</ul>
       <div class="seat-acts">${cancel}</div>${err}`;
   }
-  if (st === 'expired' || st === 'failed') return `<p class="seat-st${st === 'failed' ? ' bad' : ''}">${esc(st === 'failed' ? s.fail || '자리에 앉히지 못했어요. 다시 열어 주세요' : '시간이 지나 다시 열어야 해요')}</p><div class="seat-acts">${b('retry', s.busy === 'link' ? '여는 중…' : '다시 열기', s.busy === 'link' ? '' : `${who} 자리 링크 다시 열기`, ' primary')}${cancel}</div>${err}`;
+  if (st === 'expired' || st === 'failed') return `<p class="seat-st${st === 'failed' ? ' bad' : ''}">${esc(st === 'failed' ? s.fail || (boss ? '총괄로 정하지 못했어요. 다시 열어 주세요' : '자리에 앉히지 못했어요. 다시 열어 주세요') : '시간이 지나 다시 열어야 해요')}</p><div class="seat-acts">${b('retry', s.busy === 'link' ? '여는 중…' : '다시 열기', s.busy === 'link' ? '' : relink, ' primary')}${cancel}</div>${err}`;
   // 아직 링크가 없어요(또는 만드는 중이거나 못 만들었어요)
+  if (boss) return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '총괄 만들기', busy ? '' : '총괄 세션 새로 만들기', ' primary')}</div>${err}<p class="hint">에이전시티 폴더에서 새 Claude 세션을 열고 총괄 지시를 채워 둬요. Claude 앱에서 Enter만 누르면 총괄로 정해요.</p>`;
   return `${where === 'r' ? '<p class="seat-st">아직 세션이 없어요.</p>' : ''}<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '세션 만들기', busy ? '' : `${who} 자리에 새 세션 만들기`, ' primary')}</div>${err}${where === 'r' ? '<p class="hint">이 층 폴더에서 새 Claude 세션을 열어요. Claude 앱에서 Enter를 누르면 이 자리에 앉혀요.</p>' : ''}`;
 }
 // 상태가 바뀐 자리를 다시 그려요: 사무실은 render()(같은 글이면 그대로), 설정 화면은 그 상자만(쓰던 칸이 그대로 남게).
@@ -1383,14 +1504,14 @@ async function seatLink(tid, role) {
   s.busy = 'link'; s.err = ''; s.at = Date.now();
   seatPaint(k);
   try {
-    const r = await post('api/seat/link', { team: tid, role });
+    const r = isBossSeat(tid) ? await post('api/boss/link', {}) : await post('api/seat/link', { team: tid, role });
     const url = String(r.url || '');
     if (!CLAUDE_NEW.test(url)) throw new Error('서버가 준 링크 모양이 이상해서 열지 않았어요. 다시 해 주세요');
     Object.assign(s, { busy: '', state: 'waiting', fail: '', url, marker: String(r.marker || ''), folder: typeof r.display === 'string' && r.display ? r.display : typeof r.folder === 'string' ? r.folder : '',
       started: Date.now(), expires: msOf(r.expires) || Date.now() + 30 * 60e3, candidates: [], sessionId: '', doneAt: 0, at: Date.now() });
     seatPaint(k, 'retry');
     openClaude(url);
-    seatSay(`Claude 앱을 열었어요. 폴더를 확인하고 Enter를 누르면 ${seatWho(tid, role)} 자리에 앉혀요`);
+    seatSay(isBossSeat(tid) ? 'Claude 앱을 열었어요. 폴더를 확인하고 Enter를 누르면 그 세션을 총괄로 정해요' : `Claude 앱을 열었어요. 폴더를 확인하고 Enter를 누르면 ${seatWho(tid, role)} 자리에 앉혀요`);
   } catch (e) {
     s.busy = ''; s.err = seatErr(e, '링크를 만들지 못했어요'); s.at = Date.now();
     seatPaint(k, s.state === 'expired' || s.state === 'failed' ? 'retry' : 'link');
@@ -1415,7 +1536,7 @@ async function seatPick(tid, role, sid) {
   s.busy = 'pick'; s.err = ''; s.at = Date.now();
   seatPaint(k);
   try {
-    await post('api/seat/pick', { team: tid, role, sessionId: sid });
+    if (isBossSeat(tid)) await post('api/boss/pick', { sessionId: sid }); else await post('api/seat/pick', { team: tid, role, sessionId: sid });
     Object.assign(s, { busy: '', state: 'seated', sessionId: sid, doneAt: Date.now(), at: Date.now() });
     seatPaint(k);
     seatSeated(s);
@@ -1432,16 +1553,17 @@ async function seatCancel(tid, role) {
   if (s.state) {
     s.busy = 'cancel'; s.err = ''; s.at = Date.now();
     seatPaint(k);
-    try { await post('api/seat/cancel', { team: tid, role }); }
+    try { if (isBossSeat(tid)) await post('api/boss/cancel', {}); else await post('api/seat/cancel', { team: tid, role }); }
     catch (e) { if (e instanceof TypeError) { s.busy = ''; s.err = seatErr(e); seatPaint(k, 'cancel'); return; } }   // 서버가 이미 치운 자리(없어요 등)면 화면에서도 지워요
   }
   SEAT.delete(k);
   seatPaint(k, 'link');
-  seatSay(`${seatWho(tid, role)} 자리 세션 만들기를 ${s.state ? '취소했어요' : '닫았어요'}`);
+  seatSay(isBossSeat(tid) ? `총괄 만들기를 ${s.state ? '취소했어요' : '닫았어요'}` : `${seatWho(tid, role)} 자리 세션 만들기를 ${s.state ? '취소했어요' : '닫았어요'}`);
   seatSchedule();
 }
 // 서버가 알려 준 한 줄을 이 화면이 쓰는 모양으로(모양이 틀리면 null). state: 'waiting'(그 밖의 이름) · 'pick' · 'seated' · 'expired' · 'failed'(error) · 'gone'(취소됨)
 function seatNorm(p) {
+  if (p && typeof p === 'object' && (p.kind === 'boss' || p.boss === true || p.team === BOSS_T)) p = Object.assign({}, p, { team: BOSS_T, role: BOSS_ROLE });   // 총괄 만들기
   if (!p || typeof p !== 'object' || typeof p.team !== 'string' || typeof p.role !== 'string' || !p.team || !p.role) return null;
   const st = String(p.state || ''), expires = msOf(p.expires);
   let state = ['seated', 'pick', 'expired', 'failed'].includes(st) ? st : /^cancel/.test(st) ? 'gone' : 'waiting';
@@ -1501,13 +1623,15 @@ async function seatPoll(first) {
   let r = null;
   try { r = await post('api/seat/pending', {}); } catch (e) { r = null; }   // 잠깐 못 물었으면 그대로 두고 다음에 다시 물어요
   seatAsking = false;
-  if (r && Array.isArray(r.pending)) seatMerge(r.pending, at);
+  // 총괄 만들기는 pending 목록 안(kind:"boss")이나 따로 boss 칸으로 와요
+  if (r && Array.isArray(r.pending)) seatMerge(r.pending.concat(r.boss && typeof r.boss === 'object' && !Array.isArray(r.boss) ? [Object.assign({}, r.boss, { kind: 'boss' })] : []), at);
   for (const [k, s] of [...SEAT]) { const was = s.state; if (seatGet(k) !== s || s.state !== was) seatPaint(k); }   // 시간이 지난 자리·오래된 ✓
   seatSchedule();
 }
 // 앉혔어요: 사무실(team.json)과 설정의 층 정보·세션 목록을 새로 읽어요. 열어 둔 ‘팀원 고치기’의 그 빈자리도 새 세션으로 맞춰요(저장하면 비우지 않게).
 async function seatSeated(s) {
-  seatSay(`${seatWho(s.team, s.role)} 자리에 새 세션을 앉혔어요`);
+  seatSay(isBossSeat(s.team) ? '새 세션을 총괄로 정했어요. 그 세션이 지시대로 전달을 켜면 위쪽에 ‘총괄 연결됨’이 떠요' : `${seatWho(s.team, s.role)} 자리에 새 세션을 앉혔어요`);
+  if (isBossSeat(s.team)) { SU.boss = ''; SU.bossTouched = false; }   // 새 총괄을 정했어요: 설정의 ‘총괄(코디네이터) 세션’에 미리 골라 둔 후보가 다음 층 만들기에서 새 총괄을 덮어쓰지 않게
   seatPatchEditor(s);
   const k = seatKey(s.team, s.role), a = document.activeElement, box = a && a.closest ? a.closest('#rooms [data-seat-box]') : null;
   await load();
@@ -1525,7 +1649,7 @@ function seatPatchEditor(s) {
   const e = SU.edit[s.team], k = roleKey(s.role);
   if (!e || e.loading || e.loadErr || !Array.isArray(e.loaded) || !s.sessionId) return;
   const L = e.loaded.find(m => roleKey(m.role) === k);
-  if (!L || L.sid) return;
+  if (!L || L.sid || L.cx) return;
   L.sid = s.sessionId;
   try { const o = JSON.parse(e.orig), x = o.find(v => v[0] === k && !v[1]); if (x) { x[1] = s.sessionId; e.orig = JSON.stringify(o); } } catch (err) {}
   const r = e.rows.find(y => y.was && roleKey(y.was) === k && roleKey(y.role) === k);
@@ -1534,9 +1658,9 @@ function seatPatchEditor(s) {
 }
 // 팀원 고치기의 한 줄이 서버에도 저장된 빈자리면 그 자리 열쇠(역할 이름을 바꾸는 중이거나 새로 더한 줄, 세션을 고른 줄은 저장한 뒤에)
 function rowSeat(e, r) {
-  if (!API || e.kind !== 'floor' || !r.was || roleKey(r.was) !== roleKey(r.role) || !Array.isArray(e.loaded)) return '';
+  if (!API || e.kind !== 'floor' || !r.was || r.cx || roleKey(r.was) !== roleKey(r.role) || !Array.isArray(e.loaded)) return '';   // Codex 자리는 빈자리가 아니에요
   const k = seatKey(e.id, r.was), L = e.loaded.find(m => roleKey(m.role) === roleKey(r.was));
-  return (L && !L.sid && !r.sid) || SEAT.has(k) ? k : '';
+  return (L && !L.sid && !L.cx && !r.sid) || SEAT.has(k) ? k : '';
 }
 
 /* ---------- 층 머리: 섹션 맞추기 · 규칙 맞추기 ---------- */
@@ -1545,7 +1669,7 @@ function rowSeat(e, r) {
 // [규칙 맞추기]: 층의 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 덧붙여요(/api/floor/rules-sync, 다른 글은 건드리지 않아요).
 const FNOTE = new Map();   // 층 id → { text, bad, busy: ''|'sidebar'|'rules', at }: 층 머리 아래 한 줄 알림
 const FNOTE_MS = 60e3;
-const NO_BOSS = '총괄 세션이 없어서 쓸 수 없어요. 설정(3단계)에서 총괄 세션을 정하면 돼요';
+const NO_BOSS = '총괄 세션이 없어서 쓸 수 없어요. 위쪽 ‘총괄 없음 · 총괄 만들기’나 설정(3단계)에서 총괄을 정하면 돼요';
 const realBoss = () => { const b = state && state.org && state.org.boss, sid = b && typeof b.sessionId === 'string' ? b.sessionId : ''; return SID_RE.test(sid) && !sid.startsWith('local_00000000'); };
 function floorToolsHTML(t) {
   const n = FNOTE.get(t.id), busy = !!(n && n.busy), boss = realBoss(), id = esc(t.id);
@@ -1716,8 +1840,20 @@ function bossDrawer() {
     ${composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`, null, true);
   openThread('hq/chat.jsonl');
 }
+// Codex 자리: 무엇이 앉았는지와 상태만 보여 주고 작성창은 없어요(말 걸기는 아직 안 돼요. 앞으로 붙여요)
+function cxDrawer(tid, m) {
+  const d = state.teams[tid], x = cxInfo(tid, m), cn = customName(m, teamNames(tid));
+  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀 · Codex</p><h2 class="d-title" id="dTitle">${seatHTML(tid, m.role)}</h2></div>
+    <div class="d-main"><dl class="facts">
+      ${cn ? `<dt>역할</dt><dd>${esc(m.role)}</dd>` : ''}<dt>세션</dt><dd>${esc(x.title || 'Codex 세션')} <span class="chip cx">Codex · 읽기 전용</span><br><code>${esc(m.codexId)}</code></dd>
+      <dt>상태</dt><dd>${esc(x.state)}${x.at ? ` · 마지막 활동 ${esc(ago(new Date(x.at).toISOString()))}` : x.missing ? ' · 기록을 찾지 못했어요' : ''}</dd>
+    </dl>
+    <p style="margin:14px 0 0; font-size:13.5px"><b>${CX_NO_TALK}.</b></p>
+    <p class="hint" style="margin-top:6px">에이전시티는 이 Codex 세션의 기록 파일이 언제 바뀌었는지만 보고 상태를 보여 줘요(2분 안에 바뀌었으면 ‘일하는 중’, 아니면 ‘대기’). 상태를 볼 때 대화 내용은 읽지 않고, Codex 폴더에는 아무것도 쓰지 않아요. 일을 시키려면 Codex 창에서 직접 해요.</p></div>`, tid);
+}
 function memberDrawer(tid, role) {
   const d = state.teams[tid], m = d.team.members.find(x => x.role === role), s = d.status[role] || {};
+  if (isCx(m)) { cxDrawer(tid, m); return; }
   const mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
   const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
   const cn = customName(m, teamNames(tid));
@@ -1953,7 +2089,11 @@ const SU = {
   claude: null, claudeErr: '', claudeBusy: false, claudeSeq: 0, archived: false, q: '', home: '', opened: new Map(),
   gh: { flow: null, seq: 0, timer: 0, fails: 0, note: '' },
   picks: {}, pickSeq: 0, rowSeq: 0, edit: {}, editNote: {}, boss: '', bossTouched: false, made: null, madeAt: {}, madeRun: [], skip: false,
-  vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: ''
+  vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: '',
+  // 추천 팀(/api/setup/recommend): data는 마지막 답, drop은 대표가 뺀 추천, done은 이번에 만든 추천, errs는 추천마다 못 만든 까닭, old는 30일 넘은 세션도 넣기
+  rec: { data: null, busy: false, err: '', none: false, seq: 0, at: 0, drop: new Set(), done: new Set(), errs: {}, old: false },
+  // 5단계의 팀 규칙 한 줄(/api/floor/link-rules): on은 체크 상자, res는 층마다 결과 { busy, done, bad, text }
+  rules: { on: true, res: {} }
 };
 async function sp(path, body) {
   try { return await post('api/setup/' + path, body || {}); }
@@ -2060,7 +2200,10 @@ function keptLine(kept, n) {
 // 이미 팀 사무실(.office/team.json)이 있는 폴더: 서버가 알려 준 팀 이름·머리글·팀원(team.json 순서)·그대로 두는 줄(kept). 모양이 틀리면 없는 걸로 봐요(층을 만들 때 서버가 다시 봐요).
 function exTeam(v) {
   if (!v || typeof v !== 'object') return null;
-  const ms = shownRows(v.members).map(x => ({ role: x.role, sid: typeof x.m.sessionId === 'string' && SID_RE.test(x.m.sessionId) ? x.m.sessionId : '', name: cut(String(x.m.name == null ? '' : x.m.name).trim(), 60) }));
+  const ms = shownRows(v.members).map(x => {
+    const sid = typeof x.m.sessionId === 'string' && SID_RE.test(x.m.sessionId) ? x.m.sessionId : '';
+    return { role: x.role, sid, cx: !sid && x.role !== LEAD ? cxKey(x.m.codexId) : '', name: cut(String(x.m.name == null ? '' : x.m.name).trim(), 60), title: cut(String(x.m.title == null ? '' : x.m.title).trim(), 80) };
+  });
   const kept = (Array.isArray(v.kept) ? v.kept : []).filter(x => typeof x === 'string').slice(0, 20).map(x => cut(x.trim(), 20) || '(빈 이름)');
   const keptCount = Number.isInteger(v.keptCount) && v.keptCount >= kept.length ? Math.min(v.keptCount, 1e6) : kept.length;
   const held = new Map(Object.entries(v.keptSessions && typeof v.keptSessions === 'object' ? v.keptSessions : {})
@@ -2129,7 +2272,29 @@ function parseClaude(r) {
   const pool = projects.flatMap(p => p.sessions).filter(s => s.boss && !s.archived).sort((a, b) => msOf(b.lastActivityAt) - msOf(a.lastActivityAt));
   const sb = typeof r.suggestedBoss === 'string' && SID_RE.test(r.suggestedBoss) ? r.suggestedBoss : pool.length ? pool[0].sessionId : '';
   const cur = typeof r.currentBoss === 'string' && SID_RE.test(r.currentBoss) ? r.currentBoss : '';   // org.json에 정한 지금 총괄
-  return { app: !!r.app, groupSource: r.groupSource === 'app' ? 'app' : 'folder', projects, fgroups, groups, suggestedBoss: sb, currentBoss: cur };
+  return { app: !!r.app, groupSource: r.groupSource === 'app' ? 'app' : 'folder', projects, fgroups, groups, suggestedBoss: sb, currentBoss: cur, codex: cxList(r.codexSessions) };
+}
+// Codex 세션(팀원 자리의 세션 칸에서 읽기 전용 자리로 골라요): 서버의 codexSessions [{codexId, title, folder, display, lastActivityAt, seatedOn}](최근 것 먼저).
+// id는 소문자로 맞춰요(서버도 team.json에 소문자로 적어요). seatedOn: 이미 그 Codex 세션을 앉힌 층 id
+function cxList(v) {
+  const seen = new Set(), out = [];
+  for (const x of Array.isArray(v) ? v : []) {
+    if (!x || typeof x !== 'object' || !CX_RE.test(String(x.codexId || ''))) continue;
+    const id = String(x.codexId).toLowerCase();
+    if (seen.has(id) || out.length >= 200) continue;
+    seen.add(id);
+    out.push({ codexId: id, title: cut(String(x.title == null ? '' : x.title).replace(/\s+/g, ' ').trim(), 80), folder: pathOk(x.folder) ? String(x.folder) : '',
+      display: typeof x.display === 'string' ? cut(x.display.trim(), 300) : '', lastActivityAt: x.lastActivityAt, seatedOn: typeof x.seatedOn === 'string' && x.seatedOn ? x.seatedOn : '' });
+  }
+  return out;
+}
+const cxSessions = () => (SU.claude && Array.isArray(SU.claude.codex) ? SU.claude.codex : []);
+const cxById = id => cxSessions().find(x => x.codexId === id) || null;
+const cxKey = v => (CX_RE.test(String(v || '')) ? String(v).toLowerCase() : '');   // team.json·추천에서 읽은 codexId를 세션 칸 값과 같은 모양(소문자)으로
+// 세션 칸의 Codex 한 줄: ‘Codex · 제목 · 폴더 · 마지막 활동’(폴더는 끝 이름만, 홈 폴더는 ~)
+function cxLabel(x) {
+  const d = x.display || tilde(x.folder), where = !d ? '폴더 없음' : d === '~' ? '~' : baseName(d);
+  return `Codex · ${x.title || CX_UNTITLED} · ${where} · ${agoAt(x.lastActivityAt) || '—'}`;
 }
 const treeGroups = () => (!SU.claude ? [] : SU.claude.groups || SU.claude.fgroups);   // 나무의 위 단계(사이드바 순서)
 const groupByKey = key => treeGroups().find(g => g.key === key) || null;
@@ -2150,6 +2315,8 @@ const ownFloor = owner => (String(owner).startsWith('floor|') ? String(owner).sl
 // 총괄 세션: 이번에 고른 총괄, 안 골랐으면 지금 총괄(org.json). 총괄은 층의 자리에 앉힐 수 없어요(그 자리로 보낸 말을 총괄이 자기에게 전하게 돼요)
 const bossNow = () => SU.boss || (SU.claude && SU.claude.currentBoss) || '';
 const isBoss = sid => !!sid && sid === bossNow();
+// 층 만들기·추천대로 모두 만들기가 함께 보낼 총괄: 고른 값. 진짜 총괄이 이미 있으면 대표가 직접 고른 값만(제목 보고 미리 골라 둔 후보로 지금 총괄을 덮어쓰지 않게)
+const bossPick = () => ((SU.bossTouched || !SU.st.boss) && SU.boss) || null;
 const BOSS_SEAT = '총괄 세션은 층의 자리에 앉힐 수 없어요. 다른 세션을 고르거나 비워 두세요';
 function slugId(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^[^a-z]+/, '').slice(0, 20).replace(/-+$/, ''); }
 
@@ -2170,17 +2337,19 @@ function autoId(p) {
   return id;
 }
 // name: 입력칸의 이름(화면에 보일 이름, 비면 기본 이름), nameOrig: 불러온 이름(바꾼 줄만 서버로 보내요)
-const newRow = (role, sid, why, title) => ({ uid: ++SU.rowSeq, role: role || '', sid: sid || '', why: why || '', auto: sid || '', title: title || '', err: '', name: '', nameOrig: '' });
+// cx: Codex 세션 id(읽기 전용 자리). sid와 함께 쓰지 않아요(한 자리에는 하나만)
+const newRow = (role, sid, why, title) => ({ uid: ++SU.rowSeq, role: role || '', sid: sid || '', cx: '', why: why || '', auto: sid || '', title: title || '', err: '', name: '', nameOrig: '' });
 function uniqueRole(base, rows) {   // 같은 이름이 있으면 숫자를 붙여요(개발자 → 개발자2). 12자를 넘지 않게
   const has = r => rows.some(x => roleKey(x.role) === roleKey(r));
   if (!has(base)) return base;
   for (let n = 2; ; n++) { const s = String(n), r = cut(base, 12 - s.length) + s; if (!has(r)) return r; }
 }
 // 지금 고르는 중인 자리(만들 층 + 열어 둔 ‘팀원 고치기’): 세션 id → 어디 어느 자리인지. 한 세션은 한 자리에만 앉아요.
+// Codex 세션은 'cx:<id>' 열쇠로 같이 적어요(한 Codex 세션도 한 자리에만).
 function seatsInUse() {
-  const m = new Map();
-  for (const p of picksList()) for (const r of p.rows) if (r.sid && !m.has(r.sid)) m.set(r.sid, { owner: p.key, label: `만들 층 ‘${p.name.trim() || p.src}’`, role: r.role });
-  for (const [id, e] of Object.entries(SU.edit)) for (const r of e.rows || []) if (r.sid && !m.has(r.sid)) { const f = floorById(id); m.set(r.sid, { owner: 'floor|' + id, label: `‘${f ? f.name : id}’ 층(고치는 중)`, role: r.role }); }
+  const m = new Map(), keyOf = r => (r.cx ? 'cx:' + r.cx : r.sid);
+  for (const p of picksList()) for (const r of p.rows) { const k = keyOf(r); if (k && !m.has(k)) m.set(k, { owner: p.key, label: `만들 층 ‘${p.name.trim() || p.src}’`, role: r.role }); }
+  for (const [id, e] of Object.entries(SU.edit)) for (const r of e.rows || []) { const k = keyOf(r); if (k && !m.has(k)) { const f = floorById(id); m.set(k, { owner: 'floor|' + id, label: `‘${f ? f.name : id}’ 층(고치는 중)`, role: r.role }); } }
   return m;
 }
 // 그룹을 통째로 고르면 그 세션들을 팀원으로 미리 앉혀요: 제목으로 짐작한 역할(못 맞추면 ‘팀원’), 팀장으로 짐작한 세션(여럿이면 가장 최근)은 팀장 자리에.
@@ -2237,7 +2406,7 @@ function rowsFromTeam(ex, names) {
   const all = allSessions(), title = sid => { const x = sid && all.get(sid); return x ? x.s.title : ''; };
   const lead = ex.members.find(m => m.role === LEAD);
   const rows = [newRow(LEAD, lead ? lead.sid : '', '', title(lead && lead.sid))];
-  for (const m of ex.members) if (m.role !== LEAD) rows.push(newRow(m.role, m.sid, '', title(m.sid)));
+  for (const m of ex.members) if (m.role !== LEAD) { const r = newRow(m.role, m.sid, '', m.cx ? m.title : title(m.sid)); if (m.cx) r.cx = m.cx; rows.push(r); }
   rows.forEach(r => { const m = ex.members.find(x => x.role === r.role); r.name = r.nameOrig = m ? customName({ role: m.role, name: m.name }, names) : ''; });   // 따로 정한 이름은 칸에, 기본 이름은 빈 칸으로
   rows.forEach(r => { r.auto = ''; r.kept = true; });   // kept: 불러온 자리(역할 이름은 여기서 못 바꿔요. 바꾸면 그 자리의 이름·상태·대화가 따라오지 않아요)
   return rows;
@@ -2443,10 +2612,16 @@ function claudeHTML() {
   else if (!treeGroups().length) list = `${toolsHTML()}<p class="empty" style="margin-top:12px">찾은 세션이 없어요.${SU.archived ? '' : ' 보관한 세션까지 보려면 위에서 켜요.'}</p>`;
   else list = `<h3 class="su-sub">Claude 앱 사이드바처럼 묶은 세션</h3>${srcNote()}${toolsHTML()}${treeHTML('browse')}`;
   return `<h2 class="su-h" id="suHead" tabindex="-1">Claude 연결</h2>
-    <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)과 사이드바에 만든 그룹(이름·순서)만 읽어요. 대화 내용은 읽지 않아요. 지금은 Claude Code 세션만 층이 되고, Codex·Gemini CLI는 앞으로 붙여요.</p>
+    <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)과 사이드바에 만든 그룹(이름·순서)만 읽어요. 대화 내용은 읽지 않아요(3단계에서 허락하면 세션마다 첫 메시지 몇 줄만 이 맥 안에서 읽어 역할을 맞춰요. 저장하거나 AI에 보내지 않아요. 세션 만들기·총괄 만들기 때는 새 세션의 첫 메시지에서 자리 표시만 찾아요). Codex 세션은 3단계에서 읽기 전용 자리로 앉혀요(추천 팀, 또는 팀원 자리의 세션 칸 ‘Codex (읽기 전용)’. 말 걸기는 아직 안 돼요. 앞으로 붙여요). Gemini CLI는 앞으로 붙여요.</p>
     <div class="su-box ${app ? 'su-ok' : 'su-warn'}"><p><i class="sd ${app ? 'here' : 'block'}"></i>${app ? 'Claude 앱을 찾았어요' : 'Claude 앱을 찾지 못했어요'}${c ? ` · 세션 ${countSess(c)}개${nG ? `, 내가 만든 그룹 ${nG}개` : ''}` : ''}</p>
+      ${cxFoundHTML()}
       ${app ? '' : `<p class="hint">Claude 데스크톱 앱을 설치하고, 층으로 만들 프로젝트 폴더에서 Claude Code 세션을 하나 이상 연 뒤 ‘다시 찾기’를 눌러요.${SU.st.platform === 'mac' ? '' : ' 이 컴퓨터에서 세션을 찾을 수 없으면 터미널에서 python3 bin/new_team.py로 층을 만들어요.'}</p>`}
       <div class="su-actions"><button type="button" class="btn" data-su="claude-reload"${SU.claudeBusy ? ' disabled' : ''}>${SU.claudeBusy ? '찾는 중…' : '다시 찾기'}</button></div></div>${claudeErrP()}${list}`;
+}
+// 이 맥에 Codex 기록(~/.codex)이 있으면 알려 줘요(서버의 /api/setup/state codex: {found, sessions}). 읽기만 하고 아무것도 쓰지 않아요
+function cxFoundHTML() {
+  const x = SU.st && SU.st.codex && typeof SU.st.codex === 'object' ? SU.st.codex : null, n = x && Number.isInteger(x.sessions) && x.sessions > 0 ? x.sessions : 0;
+  return x && x.found ? `<p class="hint">Codex 기록도 찾았어요${n ? ` · 세션 ${n}개` : ''}. 3단계의 추천 팀이나 팀원 자리의 세션 칸(‘${CX_GROUP}’)에서 읽기 전용 자리로 앉혀요(따로 로그인하지 않아요).</p>` : '';
 }
 // 세션 목록을 못 읽었으면(예전 목록이 남아 있어도) 2·3단계 모두에 알려요.
 const claudeErrP = () => SU.claudeErr ? `<p class="err" role="alert" style="margin-top:12px">세션 목록을 읽지 못했어요: ${esc(SU.claudeErr)}${SU.claude ? ' (아래는 전에 읽은 목록이에요)' : ''}</p>` : '';
@@ -2471,6 +2646,7 @@ function seatCtx(e, owner, used) {
   const all = allSessions(), fid = ownFloor(owner), ownIds = new Set(), g = e.gkey ? groupByKey(e.gkey) : null;
   if (e.kind === 'group' && g) g.sessions.forEach(s => ownIds.add(s.sessionId));
   if (e.kind === 'one') ownIds.add(e.sid);
+  if (e.kind === 'rec') (e.recSids || []).forEach(id => ownIds.add(id));   // 추천 팀에서 고치는 층: 추천한 세션이 ‘이 층’
   if (fid) for (const x of all.values()) if (x.s.seatedOn === fid || (x.g.team && x.g.team === fid)) ownIds.add(x.s.sessionId);
   e.rows.forEach(r => { if (r.sid) ownIds.add(r.sid); });
   return { all, used: used || seatsInUse(), fid, owner, ownIds, own: [...all.values()].filter(x => ownIds.has(x.s.sessionId)) };
@@ -2491,9 +2667,23 @@ function seatOpts(e, r, c) {
     const xs = g.sessions.filter(s => !c.ownIds.has(s.sessionId)).map(s => c.all.get(s.sessionId)).filter(x => x && x.g === g);
     if (xs.length) h += `<optgroup label="${esc(g.name)}">${xs.map(o).join('')}</optgroup>`;
   }
-  return h;
+  return e.rows[0] === r ? h : h + cxOpts(e, r, c);   // 팀장 자리에는 Codex를 앉히지 않아요
 }
-const rowNote = (r, j) => (r.sid && r.sid === r.auto ? (r.why === 'picked' ? '고른 세션이에요' : r.why === 'title' ? (j ? '제목 보고 역할 이름을 지었어요' : '제목 보고 팀장으로 골랐어요') : '') : '');
+// 세션 칸의 ‘Codex (읽기 전용)’ 묶음: 값은 ‘cx:<Codex 세션 id>’예요(Claude 세션 id와 섞이지 않게). 다른 층에 앉았거나 다른 만들 층·팀원 고치기에 넣은 세션은
+// 까닭을 붙여 고를 수 없게 하고, 이 층의 다른 자리에 있으면 고를 때 두 자리를 서로 바꿔요. 지금 앉은 Codex 세션이 목록에 없어도 고른 채로 남겨요(저장해도 빠지지 않게)
+function cxOpts(e, r, c) {
+  const here = new Map(e.rows.filter(x => x.cx && x !== r).map(x => [x.cx, x.role]));
+  let g = r.cx && !cxById(r.cx) ? `<option value="cx:${esc(r.cx)}" selected>${esc(`Codex · ${r.title || CX_UNTITLED}${SU.claude ? ' · 지금 Codex 목록에 없어요' : ''}`)}</option>` : '';
+  for (const x of cxSessions()) {
+    const mine = x.codexId === r.cx, u = c.used.get('cx:' + x.codexId), away = u && u.owner !== c.owner ? u : null;
+    const sat = x.seatedOn && x.seatedOn !== c.fid ? (floorById(x.seatedOn) || {}).name || x.seatedOn : '';
+    const tag = sat ? ` · 이미 ‘${sat}’ 층` : away ? ` · ${away.label} ${away.role || ''} 자리` : here.has(x.codexId) ? ` · 이 층 ${here.get(x.codexId) || '다른'} 자리(고르면 서로 바꿔요)` : '';
+    g += `<option value="cx:${esc(x.codexId)}"${mine ? ' selected' : ''}${(sat || away) && !mine ? ' disabled' : ''}>${esc(cxLabel(x) + tag)}</option>`;
+  }
+  return g ? `<optgroup label="${esc(CX_GROUP)}">${g}</optgroup>` : '';
+}
+const rowNote = (r, j) => ((r.cx || r.sid) && (r.cx || r.sid) === r.auto ? (r.why === 'picked' ? '고른 세션이에요' : r.why === 'title' ? (j ? '제목 보고 역할 이름을 지었어요' : '제목 보고 팀장으로 골랐어요')
+  : r.why === 'rec' ? (r.reason ? `추천한 까닭: ${r.reason}` : '추천한 세션이에요') : '') : '');
 // 팀원 고치기에서 자리 이름을 바꾸면 저장할 때 그 자리의 대화·상태 파일을 새 이름으로 옮겨요(서버 office_server.py의 rename_pairs와 같은 기준):
 // 1) 그 줄의 예전 이름(was) 2) 아니면 같은 세션이 앉아 있던 예전 자리. 예전 이름이 새 목록에 아직 있으면(이름을 서로 바꾼 경우) 옮기지 않아요.
 // 돌려주는 것: 줄 uid → 옮겨 올 예전 자리 이름.
@@ -2506,9 +2696,9 @@ function movePairs(e) {
   const free = new Map([...old].filter(([k]) => !now.has(k)));
   const todo = e.rows.filter((y, j) => j && roleKey(y.role) && !old.has(roleKey(y.role)));
   for (const y of todo) { const k = roleKey(y.was); if (y.was && free.has(k)) { out.set(y.uid, free.get(k).role); free.delete(k); } }
-  for (const y of todo) {
-    if (out.has(y.uid) || !y.sid) continue;
-    const hit = [...free].find(([, m]) => m.sid === y.sid);
+  for (const y of todo) {   // 같은 세션(Codex 자리면 같은 Codex 세션)이 앉아 있던 예전 자리
+    if (out.has(y.uid) || (!y.sid && !y.cx)) continue;
+    const hit = [...free].find(([, m]) => (y.sid ? m.sid === y.sid : m.cx === y.cx));
     if (hit) { out.set(y.uid, hit[1].role); free.delete(hit[0]); }
   }
   return out;
@@ -2536,8 +2726,12 @@ function rowHTML(e, r, j, pre, c) {
     : `<input type="text" id="${id}n" data-su-in="mrole" value="${esc(r.role)}"${lock ? ' readonly aria-readonly="true" title="이름은 층을 만든 뒤 ‘팀원 고치기’에서 바꿔요"' : ' list="suRoleList"'} maxlength="12" placeholder="예: 마케팅" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${j + 1}번째 자리 역할 이름" aria-invalid="${!!r.err && r.errAt === 'n'}" aria-describedby="${id}e ${id}g${lock && c.exHint ? ' ' + c.exHint : ''}">`;
   const del = lead ? '<span aria-hidden="true"></span>' : `<button type="button" class="btn su-mx" id="${id}x" data-su="mdel" aria-label="${esc(nm)} 자리 빼기">×</button>`;
   const nin = `<input type="text" class="su-mname" id="${id}m" data-su-in="mname" value="${esc(r.name)}" maxlength="${NAME_MAX}" placeholder="${esc(nameHolder(e, r, j))}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(nm)} 자리 이름(화면에 보일 이름)" aria-invalid="${!!r.err && r.errAt === 'm'}" aria-describedby="${id}e ${pre}nh">`;
-  return `<div class="su-mrow" data-uid="${r.uid}">${role}<label class="su-mlab" for="${id}m">이름 (선택)</label>${nin}<select id="${id}s" data-su-in="msid" aria-label="${esc(nm)} 자리에 앉힐 세션" aria-invalid="${!!r.err && r.errAt === 's'}" aria-describedby="${id}e ${id}g">${seatOpts(e, r, c)}</select>${del}
+  // 세션 칸: Claude 세션, 또는 ‘Codex (읽기 전용)’ 묶음의 Codex 세션(팀장 자리 빼고). Codex를 고르면 그 줄 아래에 읽기 전용이라고 알려요
+  const cxOn = !!r.cx && !lead;
+  const seat = `<select id="${id}s" data-su-in="msid" aria-label="${esc(nm)} 자리에 앉힐 세션" aria-invalid="${!!r.err && r.errAt === 's'}" aria-describedby="${id}e ${id}g${cxOn ? ` ${id}c` : ''}">${seatOpts(e, r, c)}</select>`;
+  return `<div class="su-mrow" data-uid="${r.uid}">${role}<label class="su-mlab" for="${id}m">이름 (선택)</label>${nin}${seat}${del}
       <p class="err su-mnote" id="${id}e">${esc(r.err || '')}</p>
+      ${cxOn ? `<p class="hint su-mnote su-cxn" id="${id}c"><span class="chip cx">Codex · 읽기 전용</span><span>상태(일하는 중·대기)만 보여 주고, 아직 말을 걸 수는 없어요</span></p>` : ''}
       <small class="${guess ? 'su-guess' : 'hint'} su-mnote" id="${id}g"${note || (lead && !r.sid) ? '' : ' hidden'}>${esc(note || (lead && !r.sid ? '비워 두면 이 층은 회의를 열거나 결재를 받지 못해요' : ''))}</small>${(sk => (sk ? seatBoxHTML(e.id, r.was, 's', ' su-seat su-mnote') : ''))(rowSeat(e, r))}</div>`;
 }
 function membersHTML(e, pre, owner, used) {
@@ -2550,13 +2744,13 @@ function membersHTML(e, pre, owner, used) {
       <div class="su-madd"><button type="button" class="btn" id="${pre}add" data-su="madd"${full ? ' disabled' : ''}>+ 팀원 추가</button>
         <span class="hint" aria-hidden="true">바로 넣기</span>${ROLE_SUGGEST.map((r, k) => `<button type="button" class="btn su-sugg" id="${pre}q${k}" data-su="madd" data-role="${esc(r)}" aria-label="${esc(r)} 자리 더하기"${full ? ' disabled' : ''}>${esc(r)}</button>`).join('')}</div>
       <p class="hint" id="${pre}nh" style="margin-top:6px">${esc(nameHint(e))}</p>
-      <p class="hint" id="${pre}mh" style="margin-top:4px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.${!API ? '' : e.kind === 'floor' ? ' 저장한 빈자리는 [세션 만들기]로 이 층 폴더에서 새 Claude 세션을 열어 바로 앉혀요.' : ' 층을 만든 뒤 빈자리에 [세션 만들기]로 새 Claude 세션을 열어 앉힐 수 있어요.'}</p>
+      <p class="hint" id="${pre}mh" style="margin-top:4px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.${cxSessions().length || e.rows.some(y => y.cx) ? ` Codex 세션은 세션 칸의 ‘${CX_GROUP}’에서 골라 읽기 전용 자리로 앉혀요(팀장 자리는 안 돼요).` : ''}${!API ? '' : e.kind === 'floor' ? ' 저장한 빈자리는 [세션 만들기]로 이 층 폴더에서 새 Claude 세션을 열어 바로 앉혀요.' : ' 층을 만든 뒤 빈자리에 [세션 만들기]로 새 Claude 세션을 열어 앉힐 수 있어요.'}</p>
     </fieldset>`;
 }
 const roleList = () => `<datalist id="suRoleList">${ROLE_SUGGEST.map(r => `<option value="${esc(r)}"></option>`).join('')}</datalist>`;
 function cardHTML(p, used) {
   const i = ix(p.key), pre = 'suM' + i, title = p.name.trim() || '이름 없는 층';
-  const src = p.kind !== 'group' ? `${p.srcGroup ? `‘${p.srcGroup}’의 ` : ''}세션 ‘${p.src}’ 하나에서`
+  const src = p.kind === 'rec' ? '추천 팀에서' : p.kind !== 'group' ? `${p.srcGroup ? `‘${p.srcGroup}’의 ` : ''}세션 ‘${p.src}’ 하나에서`
     : p.srcKind === 'scratch' ? `‘${SCRATCH_NAME}’의 세션 전체에서` : `${KIND_WORD[p.srcKind] || '묶음'} ‘${p.src}’ 전체에서`;
   return `<li class="su-proj on" data-pick="${esc(p.key)}">
     <div class="su-card-h"><h4 class="su-card-t" id="${pre}t">${esc(title)}</h4><small class="hint">${esc(src)}</small><button type="button" class="btn su-to" id="${pre}x" data-su="unpick" data-pick="${esc(p.key)}" aria-label="${esc(title)} 만들 층에서 빼기">빼기</button></div>
@@ -2590,7 +2784,7 @@ function posHint(p, fl) {
 // 고른 세션(세션 하나, 또는 그룹을 통째로 골랐으면 그 그룹에서 rowsFromGroup이 앉혔을 세션) 중 불러온 팀원 자리에 없는 세션. 그릴 때마다 다시 셈해요(앉히면 빠져요).
 function missingSess(p, used) {
   const all = allSessions(), g = p.kind === 'group' ? groupByKey(p.gkey) : null;
-  const cand = p.kind === 'one' ? [all.get(p.sid)].filter(Boolean).map(x => x.s) : g ? g.sessions.filter(s => !s.boss) : [];
+  const cand = p.kind === 'one' ? [all.get(p.sid)].filter(Boolean).map(x => x.s) : p.kind === 'rec' ? (p.recSids || []).map(id => all.get(id)).filter(Boolean).map(x => x.s) : g ? g.sessions.filter(s => !s.boss) : [];
   const here = new Set(p.rows.map(r => r.sid).filter(Boolean)), held = heldOf(p);   // 그대로 두는 줄에 앉은 세션은 이미 이 팀에 있어요
   return cand.filter(s => !s.archived && !isBoss(s.sessionId) && !s.seatedOn && !here.has(s.sessionId) && !held.has(s.sessionId) && !(used.has(s.sessionId) && used.get(s.sessionId).owner !== p.key));
 }
@@ -2611,7 +2805,7 @@ function memberCount(f) {
   const d = state && state.teams && state.teams[f.id];
   return d && d.team && Array.isArray(d.team.members) ? d.team.members.length : null;
 }
-const rowsSig = rows => JSON.stringify(rows.map(r => [roleKey(r.role), r.sid, nameNorm(r.name)]));
+const rowsSig = rows => JSON.stringify(rows.map(r => [roleKey(r.role), r.sid, nameNorm(r.name), r.cx || '']));
 const editDirty = () => Object.values(SU.edit).filter(e => !e.loading && !e.loadErr && rowsSig(e.rows) !== e.orig).length;
 // 층 순서: ↑/↓를 누르면 바로 저장해요(moveFloor). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
 function ordHTML(f, k, n, j) {
@@ -2623,7 +2817,10 @@ function ordHTML(f, k, n, j) {
 function haveHTML(f, used, k, all) {
   const j = ix('floor|' + f.id), e = SU.edit[f.id], n = memberCount(f), note = SU.editNote[f.id];
   const btn = !f.example && API ? `<button type="button" class="btn su-to" id="suEb${j}" data-su="${e ? 'edit-cancel' : 'edit-open'}" data-team="${esc(f.id)}" aria-expanded="${!!e}"${e ? ` aria-controls="suEd${j}"` : ''}>${e ? '접기' : '팀원 고치기'}</button>` : '';
-  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h">${ordHTML(f, k, all, j)}<span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명</small>` : ''}${btn}</div>
+  const rs = SU.rules.res[f.id];   // [규칙 줄 넣기]: 층 폴더의 CLAUDE.local.md에 @.office/RULES.md 한 줄(없을 때만)
+  const rb = !f.example && API ? `<button type="button" class="btn su-to" id="suRh${j}" data-su="link-rules" data-team="${esc(f.id)}" aria-label="${esc(f.name)} 층 폴더의 CLAUDE.local.md에 팀 규칙 줄 넣기" title="층 폴더의 CLAUDE.local.md에 @.office/RULES.md 한 줄을 넣어요(이미 있으면 그대로)"${rs && rs.busy ? ' aria-disabled="true"' : ''}>${rs && rs.busy ? '넣는 중…' : '규칙 줄 넣기'}</button>` : '';
+  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h">${ordHTML(f, k, all, j)}<span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명</small>` : ''}${rb || btn ? `<span class="su-have-b">${rb}${btn}</span>` : ''}</div>
+    ${rs && rs.text ? `<p class="hint su-rlst${rs.bad ? ' bad' : ''}" role="status">${esc(rs.text)}</p>` : ''}
     ${e ? editHTML(f, e, j, used) : ''}${note && note.text && !e ? `<p class="hint su-saved" role="status">${esc(note.text)}</p>${note.away.length ? `<p class="hint">층 폴더 밖에서 연 세션(${esc(note.away.join(', '))})은 그 세션 폴더의 CLAUDE.local.md에 이 줄을 넣거나 세션 창에 한 번 보내야 팀 규칙을 읽어요: <code>${esc(note.rules)}</code> <button type="button" class="btn" id="suEn${j}" data-copy="${esc(note.rules)}">줄 복사</button></p>` : ''}` : ''}</li>`;
 }
 function editHTML(f, e, j, used) {
@@ -2641,6 +2838,7 @@ function bossHTML(all) {
   const sb = SU.claude.suggestedBoss, xs = [...all.values()];
   const likely = xs.filter(x => x.s.boss).sort((a, b) => (b.s.sessionId === sb) - (a.s.sessionId === sb) || msOf(b.s.lastActivityAt) - msOf(a.s.lastActivityAt));
   if (SU.boss && !all.has(SU.boss)) SU.boss = '';
+  if (SU.boss && !SU.bossTouched && SU.st.boss) SU.boss = '';   // 그사이 진짜 총괄이 생겼어요(총괄 만들기 등): 제목 보고 미리 골라 둔 후보는 버려요(지금 총괄을 덮어쓰지 않게)
   if (!SU.boss && !SU.bossTouched && !SU.st.boss && sb && all.has(sb)) SU.boss = sb;
   const auto = !SU.bossTouched && !!SU.boss && SU.boss === sb;
   const o = x => { const sat = x.s.seatedOn && x.s.sessionId !== SU.boss ? seatedName(x.s) : '';   // 층에 앉은 세션은 총괄이 될 수 없어요
@@ -2648,20 +2846,30 @@ function bossHTML(all) {
   const byG = treeGroups().map(g => [g, xs.filter(x => x.g === g && !x.s.boss)]).filter(([, l]) => l.length);
   return `<div class="su-field su-boss"><label for="suBoss">총괄(코디네이터) 세션</label><select id="suBoss" data-su-in="boss" aria-describedby="suBossG suBossH"><option value="">${SU.st.boss ? '그대로 두기' : '나중에 정하기'}</option>${likely.length ? `<optgroup label="제목이 총괄 같은 세션">${likely.map(o).join('')}</optgroup>` : ''}${byG.map(([g, l]) => `<optgroup label="${esc(g.name)}">${l.map(o).join('')}</optgroup>`).join('')}</select>
       <small class="su-guess" id="suBossG"${auto ? '' : ' hidden'}>${auto ? '제목 보고 골랐어요' : ''}</small>
-      <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}${likely.length ? ' 제목이 총괄 같은(총괄·코디네이터) 세션을 맨 위에 뒀어요.' : ''}</small></div>`;
+      <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}${likely.length ? ' 제목이 총괄 같은(총괄·코디네이터) 세션을 맨 위에 뒀어요.' : ''}</small>
+      ${bossMakeHTML('b')}</div>`;
+}
+// 총괄 만들기 상자: 진짜 총괄이 없을 때(또는 방금 정했을 때 ✓를 잠깐). 고를 세션이 없어도 바로 새 총괄 세션을 열어요
+function bossMakeHTML(where) {
+  if (!API || (SU.st && SU.st.boss && !seatGet(seatKey(BOSS_T, BOSS_ROLE)))) return '';
+  const say = where === 'b' ? '고를 세션이 없으면 새로 만들어요.' : `총괄 세션이 아직 없어요. 총괄이 있어야 화면에서 보낸 말이 팀에 전해져요.${where === 'k' && SU.claude && treeGroups().length ? ' 있는 세션을 쓰려면 아래 ‘총괄(코디네이터) 세션’에서 골라요.' : ''}`;
+  return `<div class="su-bossmk">${SU.st && SU.st.boss ? '' : `<p>${esc(say)}</p>`}${seatBoxHTML(BOSS_T, BOSS_ROLE, where)}</div>`;
 }
 // 이번 설정에서 만든 층이 팀 규칙(.office/RULES.md)을 읽게 하는 법(복사 버튼과 함께).
 // Claude Code는 세션 폴더와 그 위 폴더의 CLAUDE.local.md만 읽어요. 층 폴더 안에서 연 세션은 층 폴더의 CLAUDE.local.md에 상대 경로 한 줄이면 되고,
 // 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등)은 절대 경로 한 줄을 그 세션 폴더의 CLAUDE.local.md에 넣거나 세션 창에 한 번 보내요.
+const rulesDir = p => { const f = SU.st.floors.find(x => x.id === p.id); return normDir(f && f.folder ? tilde(f.folder) : p.display); };
 function rulesHTML(id, only) {   // only: 이번에 만든 층 id들(결과 상자). 없으면 이번 설정에서 만든 층 모두(완료 단계)
   const ps = only ? SU.madeRun.filter(p => only.has(p.id)) : SU.madeRun;
   if (!ps.length) return '';
-  const dirOf = p => { const f = SU.st.floors.find(x => x.id === p.id); return normDir(f && f.folder ? tilde(f.folder) : p.display); };
+  const dirOf = rulesDir;
   // noRules: 이미 있던 팀 사무실이라 RULES.md를 만들지 않았고 지금도 없어요(가져올 파일이 없으니 한 줄 안내만)
   const none = ps.filter(p => p.noRules), has = ps.filter(p => !p.noRules);
   const near = has.filter(p => !p.away || !p.away.length || !p.rules), far = has.filter(p => p.away && p.away.length && p.rules);
   const noneHTML = none.length ? `<p class="hint" style="margin-top:8px">${esc(`${none.map(p => `‘${p.name || p.id}’`).join('·')} 층의 팀 사무실에는 RULES.md가 없어요. 이미 있던 사무실이라 만들지 않았어요(팀 규칙은 에이전시티 폴더의 docs/TEAM_RULES.md를 보세요).`)}</p>` : '';
-  const nearHTML = near.length ? `<p class="hint" style="margin-top:8px">각 층 폴더의 CLAUDE.local.md에 이 한 줄을 넣으면 그 폴더 안에서 연 세션들이 팀 규칙을 읽어요: <code>@.office/RULES.md</code> <button type="button" class="btn" id="${id}" data-copy="@.office/RULES.md">복사</button></p>
+  // 로컬 페이지: 층 폴더의 CLAUDE.local.md 한 줄은 서버가 넣어요(/api/floor/link-rules). 결과 상자에서는 5단계를 알려 주고, 5단계에서는 체크 상자와 층마다 단추를 보여요
+  const nearHTML = API && has.length ? (only ? `<p class="hint" style="margin-top:8px">팀 세션들이 팀 규칙을 읽게 하는 한 줄(<code>CLAUDE.local.md</code>)은 5단계 ‘완료’에서 바로 넣어요.</p>` : rulesLinkHTML(has))
+    : near.length ? `<p class="hint" style="margin-top:8px">각 층 폴더의 CLAUDE.local.md에 이 한 줄을 넣으면 그 폴더 안에서 연 세션들이 팀 규칙을 읽어요: <code>@.office/RULES.md</code> <button type="button" class="btn" id="${id}" data-copy="@.office/RULES.md">복사</button></p>
     <ul class="su-rules">${near.map(p => `<li><code>${esc(dirOf(p))}/CLAUDE.local.md</code>${p.fresh ? ' <small>(새 폴더라 이 폴더에서 연 세션부터 읽어요)</small>' : ''}</li>`).join('')}</ul>` : '';
   const farHTML = far.map((p, j) => {
     const msg = `${p.file} 파일을 읽고, 앞으로 이 팀 규칙대로 일해 줘.`;
@@ -2672,40 +2880,337 @@ function rulesHTML(id, only) {   // only: 이번에 만든 층 id들(결과 상�
   }).join('');
   return nearHTML + farHTML + noneHTML;
 }
+// 5단계: 이번에 만든 층마다 그 층 폴더의 CLAUDE.local.md에 ‘@.office/RULES.md’ 한 줄. 체크(기본 켬)하면 ‘사무실 열기’ 때 넣고, 층마다 단추로 바로 넣을 수도 있어요.
+// 서버가 그 줄이 없을 때만 더하고(다른 글은 그대로), git 저장소면 이 파일이 올라가지 않게 .git/info/exclude에 적어요.
+function rulesLinkHTML(ps) {
+  const R = SU.rules, left = ps.filter(p => !(R.res[p.id] && R.res[p.id].done)).length;
+  return `<div class="su-rl" role="group" aria-labelledby="suRlT"><label class="su-check" for="suRlOn"><input type="checkbox" id="suRlOn" data-su-in="rules-on"${R.on ? ' checked' : ''} aria-describedby="suRlH"> <span id="suRlT">팀 세션들이 팀 규칙을 읽도록 각 프로젝트 폴더에 CLAUDE.local.md 한 줄 넣기</span></label>
+    <p class="hint" id="suRlH" style="margin-top:4px">${left ? '‘사무실 열기’를 누를 때 넣어요. ' : ''}넣는 줄은 <code>@.office/RULES.md</code> 하나예요. 이미 있으면 그대로 두고 다른 글은 건드리지 않아요. git 저장소면 이 파일이 커밋되지 않게 해 둬요.</p>
+    <ul>${ps.map(p => { const s = R.res[p.id], nm = p.name || p.id; return `<li><b>${esc(nm)}</b><code>${esc(rulesDir(p))}/CLAUDE.local.md</code><button type="button" class="btn" id="suRl-${esc(p.id)}" data-su="link-rules" data-team="${esc(p.id)}" aria-label="${esc(nm)} 층 폴더에 규칙 줄 넣기"${s && s.busy ? ' aria-disabled="true"' : ''}>${s && s.busy ? '넣는 중…' : s && s.done ? '다시 확인' : '규칙 줄 넣기'}</button>${s && s.text ? `<p class="st${s.bad ? ' bad' : s.done ? ' ok' : ''}" role="status">${esc(s.text)}</p>` : ''}</li>`; }).join('')}</ul></div>`;
+}
+// 한 층에 규칙 줄 넣기. 결과는 SU.rules.res에 적고 설정 화면을 다시 그려요(키보드 위치는 그대로)
+async function linkRules(tid) {
+  const R = SU.rules, cur = R.res[tid];
+  if (cur && cur.busy) return cur;
+  const f = floorById(tid), mr = SU.madeRun.find(x => x.id === tid), nm = (f && f.name) || (mr && mr.name) || tid;
+  const s = R.res[tid] = { busy: true, done: false, bad: false, text: '' };
+  if (SU.open) renderSetup();
+  try {
+    const r = await post('api/floor/link-rules', { team: tid });
+    const g = r.git && typeof r.git === 'object' ? r.git : {};
+    const gt = !g.repo ? '' : g.excluded === true ? ' · git에는 올라가지 않게 해 뒀어요' : g.already === true ? ' · git에는 올라가지 않아요' : typeof g.skipped === 'string' && g.skipped ? ` · ${cut(g.skipped, 80)}` : '';
+    s.done = true;
+    s.text = r.added === false ? `‘${nm}’ 층: 이미 들어 있어요${gt}` : `‘${nm}’ 층: CLAUDE.local.md에 한 줄 넣었어요${r.created === true ? '(새 파일)' : ''}${gt}`;
+  } catch (e) { s.bad = true; s.text = `‘${nm}’ 층: ${seatErr(e, '규칙 줄을 넣지 못했어요')}`; }
+  s.busy = false;
+  if (SU.open) renderSetup();
+  suSay(s.text);
+  return s;
+}
 function floorsHTML() {
   const c = SU.claude, fl = SU.st.floors, used = seatsInUse();
-  // 지금 있는 층을 맨 위에: 순서(↑/↓, 바로 저장)와 팀원 고치기. 그 아래에서 새 층을 골라 만들어요
+  // 맨 위는 추천 팀(한 번에 만들기), 그다음 지금 있는 층(순서 ↑/↓, 바로 저장 · 팀원 고치기), 그 아래 직접 고르기(나무)와 만들 층이에요
   const have = fl.length ? `<h3 class="su-sub">지금 있는 층 <small class="hint">${fl.length > 1 && API ? '↑/↓로 층 순서를 바꾸면 바로 저장돼요' : ''}</small></h3>
     <p class="hint su-saved su-ordnote${ORD.err ? ' bad' : ''}" id="suOrdNote">${esc(ORD.note)}</p>
     <ul class="su-floors">${fl.map((f, k) => haveHTML(f, used, k, fl.length)).join('')}</ul>` : '';
   let pick;
-  if (!c) pick = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
-  else if (!treeGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>`;
+  const bossOnly = () => (bossMakeHTML('b') ? `<h3 class="su-sub">총괄</h3>${bossMakeHTML('b')}` : '');   // 나무가 없어도 총괄은 만들 수 있어요
+  if (!c) pick = SU.claudeErr ? bossOnly() : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
+  else if (!treeGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>${bossOnly()}`;
   else {
     const ps = picksList();
-    pick = `<h3 class="su-sub">층으로 만들 것 고르기</h3>${srcNote()}${toolsHTML()}${treeHTML('pick', used)}
+    pick = `<h3 class="su-sub" id="suPickH" tabindex="-1">직접 고르기</h3>${srcNote()}${toolsHTML()}${treeHTML('pick', used)}
       <section class="su-make" aria-labelledby="suMakeH"><h3 class="su-sub" id="suMakeH" tabindex="-1">만들 층 <small>${ps.length}개</small></h3>
-        ${ps.length ? `<ol class="su-plist">${ps.map(p => cardHTML(p, used)).join('')}</ol>` : '<p class="hint su-make-empty">위에서 ‘층으로’를 누르면 여기에 쌓여요. 층마다 팀원(역할 이름과 앉힐 세션)을 고친 뒤 한 번에 만들어요.</p>'}
+        ${ps.length ? `<ol class="su-plist">${ps.map(p => cardHTML(p, used)).join('')}</ol>` : '<p class="hint su-make-empty">위에서 ‘층으로’를 누르거나 추천 팀의 [고치기]를 누르면 여기에 쌓여요. 층마다 팀원(역할 이름과 앉힐 세션)을 고친 뒤 한 번에 만들어요.</p>'}
         ${bossHTML(allSessions())}
         <div class="su-actions"><button type="button" class="btn primary" data-su="floors-make">층 만들기</button><span class="hint" id="suPickN">${esc(pickCount())}</span></div>
         ${fl.some(f => f.example) ? '<p class="hint" style="margin-top:6px">층을 만들면 예시 팀은 층 안내에서 빠져요(예시 파일은 그대로 남아요).</p>' : ''}
       </section>`;
   }
   const m = SU.made;
-  const res = m ? `<div class="su-res" id="suRes" tabindex="-1"><h3>결과</h3><ul>
+  return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
+    <p class="su-lead"><b>추천 팀</b>을 보고 그대로 만들거나, 아래 <b>직접 고르기</b>에서 Claude 앱 사이드바처럼 보이는 그룹·폴더·세션을 골라 층(팀)을 만들어요. 역할 이름은 개발자·마케팅·기획처럼 <b>마음대로</b> 지어요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채워요.</p>
+    ${roleList()}${recHTML(used)}${have}${claudeErrP()}${pick}${m && m.from !== 'rec' ? resHTML(m) : ''}`;
+}
+// 층 만들기 결과(추천 팀으로 만들었으면 추천 팀 상자 안, 아니면 3단계 맨 아래): 만든 층·못 만든 까닭, 총괄이 없으면 [총괄 만들기], 빈자리마다 [세션 만들기]
+function resHTML(m) {
+  const fl = SU.st.floors;
+  return `<div class="su-res" id="suRes" tabindex="-1"><h3>결과</h3><ul>
       ${m.created.map(x => { const f = fl.find(y => y.id === x.id); return `<li>✓ ${x.floor ? esc(x.floor + '층') + ' · ' : ''}${esc(f ? f.name : x.id)} 만들었어요${x.existing === true ? esc(` · 이미 있던 팀 사무실이라 팀 이름(${String(x.teamName || '없음')})·머리글(${String(x.prefix || '없음')})은 그대로 뒀어요`) : ''}</li>`; }).join('')}
       ${m.errors.map(x => `<li class="bad">✗ ${esc(x.name || x.id)}: ${esc(x.error)}</li>`).join('')}
-      ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : SU.st.boss ? '' : '<li>· 총괄 세션은 아직 정하지 않았어요. 나중에 여기서 고르면 돼요</li>'}</ul>
-      ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}${madeSeatsHTML(m)}</div>` : '';
-  return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
-    <p class="su-lead">Claude 앱 사이드바처럼 보여요. <b>그룹·폴더를 통째로</b>, 또는 그 안의 <b>세션 하나만</b> ‘층으로’ 누르면 층(팀) 하나가 돼요. 고른 층은 아래 ‘만들 층’에 쌓이고, 층마다 팀원을 고쳐요. 역할 이름은 개발자·마케팅·기획처럼 <b>마음대로</b> 지어요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채워요.</p>
-    ${roleList()}${have}${claudeErrP()}${pick}${res}`;
+      ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : ''}</ul>
+      ${m.boss ? '' : bossMakeHTML('k')}
+      ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}${madeSeatsHTML(m)}</div>`;
+}
+/* 추천 팀(3단계 맨 위): 서버(/api/setup/recommend)가 이 맥의 Claude·Codex 세션 목록을 보고 층마다 팀을 나눠 줘요(규칙으로, 이 맥 안에서).
+   대표가 허락하면(consent) 세션마다 첫 메시지 몇 줄에서도 역할 낱말을 찾아요. 그 글은 서버 밖으로 나오지 않고, 화면에는 찾은 낱말과 어디서 찾았는지(reason)만 와요.
+   [추천대로 모두 만들기]는 보이는 추천을 그대로 /api/setup/floors로 보내요. [고치기]는 그 추천을 아래 ‘만들 층’ 카드(같은 팀원 편집기)로 옮기고, [빼기]는 이번 설정에서 감춰요.
+   카드의 자리: 맨 앞은 늘 팀장(제목·첫 메시지에 팀장 같은 말이 있는 Claude 세션, 없으면 빈자리), Codex 세션은 읽기 전용 자리예요(팀장·총괄은 못 돼요). */
+function recNorm(r) {
+  if (!r || typeof r !== 'object') return null;
+  const key = typeof r.key === 'string' || typeof r.key === 'number' ? String(r.key).slice(0, 200) : '';
+  if (!key) return null;
+  const folder = pathOk(r.folder) ? String(r.folder) : '', line = v => cut(String(v == null ? '' : v).replace(/\s+/g, ' ').trim(), 80);
+  const raw = (Array.isArray(r.members) ? r.members : []).filter(m => m && typeof m === 'object').slice(0, 60).map(m => {
+    const cx = !m.sessionId ? cxKey(m.codexId) : '';
+    const sid = !cx && SID_RE.test(String(m.sessionId || '')) ? String(m.sessionId) : '';
+    return { role: typeof m.role === 'string' ? m.role.normalize('NFC').trim() : '', sid, cx, title: line(m.title), reason: cut(line(m.reason), 60), name: typeof m.name === 'string' ? cut(m.name.trim(), 60) : '' };
+  });
+  const lead = raw.find(m => m.role === LEAD && m.sid) || null;
+  const lead0 = raw.find(m => m.role === LEAD) || {};   // 비어 있는 팀장 줄도 이름(이미 있던 팀이면)은 이어요
+  const rows = [lead ? Object.assign({}, lead) : { role: LEAD, sid: '', cx: '', title: '', reason: '', name: lead0.name || '' }], seen = new Set(lead ? [lead.sid] : []);
+  for (const m of raw) {
+    const k = m.cx ? 'cx:' + m.cx : m.sid;
+    if (m === lead || !k || seen.has(k) || rows.length >= MAX_MEMBERS) continue;
+    seen.add(k);
+    rows.push(Object.assign({}, m, { role: uniqueRole(m.role && m.role !== LEAD && roleOk(m.role) ? m.role : '팀원', rows) }));   // 팀장은 맨 앞 한 자리, Codex는 팀장이 될 수 없어요
+  }
+  if (rows.length < 2 && !lead) return null;   // 앉힐 세션이 하나도 없는 추천
+  return { key, folder, display: typeof r.display === 'string' && r.display.trim() ? cut(r.display.trim(), 300) : folder,
+    name: cut(String(r.name == null ? '' : r.name).trim(), 30) || cut(baseName(folder), 30) || '새 팀', sugId: TEAM_ID.test(String(r.suggestedId || '')) ? String(r.suggestedId) : '',
+    source: r.source === 'group' ? 'group' : 'project', existing: exTeam(r.existingTeam), rows, left: Number.isInteger(r.left) && r.left > 0 ? Math.min(r.left, 9999) : 0 };
+}
+function recParse(r) {
+  const seen = new Set(), list = [];
+  for (const x of Array.isArray(r.recommendations) ? r.recommendations : []) { const n = recNorm(x); if (n && !seen.has(n.key) && list.length < 30) { seen.add(n.key); list.push(n); } }
+  const ex = r.extra && typeof r.extra === 'object' ? r.extra : {};
+  const fl = (Array.isArray(ex.folderless) ? ex.folderless : []).map(t => cut(String(typeof t === 'string' ? t : t && typeof t === 'object' ? t.title || '' : '').replace(/\s+/g, ' ').trim(), 40));
+  const num = v => (Number.isInteger(v) && v > 0 ? Math.min(v, 1e5) : 0);
+  return { consent: r.consent === true ? true : r.consent === false ? false : null, list, folderless: fl.filter(Boolean).slice(0, 8), folderlessAll: fl.filter(Boolean).slice(0, 50), folderlessN: Math.max(fl.length, num(ex.folderlessCount)), old: num(ex.old) };
+}
+// extra: { consent: true|false }(허락을 바꿀 때만). focus: 다 읽은 뒤 키보드를 둘 곳
+async function loadRec(extra, focus) {
+  const R = SU.rec, my = ++R.seq;
+  if (!API || R.none) return;
+  R.busy = true;
+  if (SU.open && SU.step === 2) renderSetup();
+  try {
+    const r = await sp('recommend', Object.assign({ includeOld: R.old }, extra || {}));
+    if (my !== R.seq) return;
+    R.data = recParse(r); R.at = Date.now(); R.err = '';
+  } catch (e) {
+    if (my !== R.seq) return;
+    if (/없는 주소/.test(e.message || '')) R.none = true;   // 추천을 모르는 예전 서버: 상자를 보이지 않아요
+    else R.err = e.message || '알 수 없는 오류';
+  }
+  R.busy = false;
+  if (SU.open && SU.step === 2) renderSetup(focus);
+}
+function ensureRec(force) { const R = SU.rec; if (API && !R.none && !R.busy && (force || !R.data || Date.now() - R.at > 60e3)) loadRec(); }
+const recShown = () => { const R = SU.rec, d = R.data; return d ? d.list.filter(r => !R.drop.has(r.key) && !R.done.has(r.key) && !SU.picks['rec|' + r.key]) : []; };
+const recByKey = k => (SU.rec.data ? SU.rec.data.list.find(r => r.key === k) || null : null);
+const recBlock = rec => (rec.folder ? SU.st.floors.find(f => samePath(f.folder, rec.folder)) || null : null);   // 이미 어느 층이 쓰는 폴더
+// 한 번에 만들 수 있는 추천: 이미 층인 폴더가 아니고, 다른 곳에 넣지 않은 세션이 하나라도 남아 있어요
+const recLive = (rec, used) => !recBlock(rec) && recRows(rec, used).some(r => !r.off && (r.sid || r.cx));
+// 추천 카드의 자리들 [{ role, sid, cx, title, reason, off, kept, name }]. off: 이 층에 넣지 않는 까닭(아래 ‘만들 층’·‘팀원 고치기’에 넣은 세션, 고른 총괄).
+// 그 폴더에 이미 팀 사무실이 있으면 서버가 지금 팀원(이름·순서 그대로)을 먼저 주고 새 세션을 뒤에 더해 줘요. kept: 그 팀에 이미 있는 자리(역할 이름은 여기서 안 바꿔요).
+// 서버가 지금 팀원을 빠뜨렸으면 그 자리를 그대로 더해요(팀원 목록을 바꿀 때 빠지지 않게). plain: 그 팀 없이(다른 폴더를 고를 때) 추천한 세션만
+function recRows(rec, used, plain) {
+  const owner = 'rec|' + rec.key, ex = rec.existing;
+  const offOf = r => {
+    if (!r.sid && !r.cx) return '';
+    if (r.sid && isBoss(r.sid)) return '총괄로 고른 세션이라 넣지 않아요';
+    const u = used.get(r.cx ? 'cx:' + r.cx : r.sid);
+    return u && u.owner !== owner ? `${u.label}에 넣어서 여기엔 넣지 않아요` : '';
+  };
+  const kept = new Set(ex ? ex.members.map(m => roleKey(m.role)) : []);
+  const rows = rec.rows.map(r => Object.assign({}, r, { off: offOf(r), kept: kept.has(roleKey(r.role)) }));
+  if (!ex) return rows;
+  const exIds = new Set(ex.members.map(m => m.sid || m.cx).filter(Boolean));
+  if (plain) return rows.filter((r, j) => j === 0 || !r.kept).map((r, j) => Object.assign({}, r, { kept: false }, j === 0 && exIds.has(r.sid) ? { sid: '', title: '', reason: '', off: '' } : {}));
+  const has = new Set(rows.map(r => roleKey(r.role))), all = allSessions();
+  for (const m of ex.members) if (!has.has(roleKey(m.role)) && rows.length < MAX_MEMBERS) {
+    const away = m.sid && (isBoss(m.sid) || (all.get(m.sid) && all.get(m.sid).s.seatedOn));
+    rows.push({ role: m.role, sid: away ? '' : m.sid, cx: m.cx, title: away ? '' : m.title, reason: away ? '다른 층이나 총괄에 앉은 세션이라 비워 뒀어요' : '지금 팀원', off: '', kept: true, name: m.name });
+  }
+  return rows;
+}
+// 보낼 자리: 넣지 않는 세션은 빼되 팀장 자리는 빈자리로 남겨요
+const recSend = rows => rows.map(r => (!r.off ? r : r.role === LEAD ? Object.assign({}, r, { sid: '', cx: '', title: '', reason: '', off: '' }) : null)).filter(Boolean);
+// 보이는 추천마다 팀 id: 서버가 준 id, 이미 있는 층·만들 층·다른 추천과 겹치면 -2, -3…
+function recIds(list) {
+  const taken = new Set([...SU.st.floors.map(f => f.id), ...picksList().map(p => p.id)]), out = new Map();
+  for (const rec of list) {
+    let id = rec.sugId || slugId(rec.name) || slugId(baseName(rec.folder));
+    if (!id) { let n = 1; while (taken.has('team-' + n)) n++; id = 'team-' + n; }
+    for (let n = 2, root = id; taken.has(id); n++) { const suf = '-' + n; id = root.slice(0, 20 - suf.length).replace(/-+$/, '') + suf; }
+    taken.add(id); out.set(rec.key, id);
+  }
+  return out;
+}
+function recSpec(rec, id, used) {
+  const members = recSend(recRows(rec, used)).map(r => (r.cx ? { role: r.role, sessionId: null, codexId: r.cx } : { role: r.role, sessionId: r.sid || null }));
+  return Object.assign({ id, name: rec.name, members, existing: !!rec.existing }, rec.folder ? { folder: rec.folder } : { newFolder: true },
+    rec.source === 'group' && GROUP_KEY_RE.test(rec.key) ? { group: rec.key } : {});
+}
+function recCardHTML(rec, id, used) {
+  const i = ix('rec|' + rec.key), pre = 'suR' + i, rows = recRows(rec, used), on = rows.filter(r => !r.off && (r.sid || r.cx)), bf = recBlock(rec), err = SU.rec.errs[rec.key] || '';
+  const nC = on.filter(r => r.sid).length, nX = on.filter(r => r.cx).length;
+  const where = rec.folder ? `<code title="${esc(rec.folder)}">${esc(tilde(rec.display || rec.folder))}</code>` : `<span>새 폴더 <code>~/agencity-teams/${esc(id)}</code></span>`;
+  const why = (r, j) => (r.off ? r.off : !r.sid && !r.cx ? (j === 0 ? '팀장 같은 세션이 없어 비워 둬요 · 만든 뒤 [세션 만들기]로 채워요' : `${r.reason || '빈자리예요'} · 만든 뒤 [세션 만들기]로 채워요`)
+    : r.reason || (r.kept ? '지금 팀원' : r.role === '팀원' ? '역할 단서가 없어 ‘팀원’으로 넣었어요' : ''));
+  const li = rows.map((r, j) => {
+    const empty = !r.sid && !r.cx;
+    return `<li class="${r.off ? 'off' : empty ? 'empty' : ''}"><b>${esc(r.role)}</b><span class="who"><span>${esc(empty ? '빈자리' : r.title || '(제목 없음)')}</span>${r.cx ? `<span class="chip cx" title="${esc(CX_SEAT_NOTE)}">Codex · 읽기 전용</span>` : ''}<small>${esc(why(r, j))}</small></span></li>`;
+  }).join('');
+  const fix = bf ? (bf.example ? '' : `<button type="button" class="btn" id="${pre}f" data-su="edit-open" data-team="${esc(bf.id)}" aria-label="${esc(bf.name)} 층 팀원 고치기">팀원 고치기</button>`)
+    : SU.claude && treeGroups().length ? `<button type="button" class="btn" id="${pre}f" data-su="rec-fix" data-rec="${esc(rec.key)}" aria-label="${esc(rec.name)} 추천 팀 고치기(아래 만들 층으로 옮겨요)">고치기</button>` : '';
+  return `<li class="su-rc" data-rec="${esc(rec.key)}">
+    <div class="su-rc-h"><h4 class="su-rc-t" id="${pre}t">${esc(rec.name)}</h4>${fix}<button type="button" class="btn" id="${pre}x" data-su="rec-drop" data-rec="${esc(rec.key)}" aria-label="${esc(rec.name)} 추천 팀 빼기">빼기</button></div>
+    <p class="su-rc-meta">${where}<span>${esc([nC ? `Claude ${nC}` : '', nX ? `Codex ${nX}` : ''].filter(Boolean).join(' · ') || '앉힐 세션 없음')}</span></p>
+    ${rec.existing ? `<p class="hint">${esc(`이미 있는 팀 사무실(‘${rec.existing.name || '이름 없음'}’)이에요. 지금 팀원은 그대로 두고 추천한 세션만 더해요.`)}</p>` : ''}
+    <ul class="su-rc-ms" aria-label="${esc(rec.name)} 팀원">${li}</ul>
+    ${rec.left ? `<p class="hint">${esc(`자리가 모자라(팀장까지 ${MAX_MEMBERS}명) 세션 ${rec.left}개는 넣지 않았어요. [고치기]에서 바꿔 넣어요.`)}</p>` : ''}
+    ${bf ? `<p class="hint">${esc(`이 폴더는 이미 ‘${bf.name}’ 층이라 새로 만들지 않아요. 그 층의 ‘팀원 고치기’에서 더해요.`)}</p>` : ''}
+    <p class="err" role="alert" id="${pre}e">${esc(err)}</p></li>`;
+}
+// 추천하지 않은 이름(extra.folderless) 중 폴더 없이 연 Codex 세션: 아직 어느 층에도 앉지 않은 Codex 세션의 제목과 같은 이름이에요(Claude 세션 제목과도 같으면 Claude 쪽으로 봐요).
+// names: 그 이름들, left: 그중 아직 만들 층·팀원 고치기에 넣지 않은 Codex 세션
+function cxFolderless(d, used) {
+  const all = new Set(d.folderlessAll || []), t = x => cut(x.title || CX_UNTITLED, 40);
+  const ct = new Set([...allSessions().values()].map(x => cut(String(x.s.title || '(제목 없음)').replace(/\s+/g, ' ').trim(), 40)));
+  const hit = cxSessions().filter(x => !x.seatedOn && all.has(t(x)) && !ct.has(t(x)));
+  return { names: new Set(hit.map(t)), left: hit.filter(x => !used.has('cx:' + x.codexId)) };
+}
+function recHTML(used) {
+  const R = SU.rec, d = R.data;
+  if (!API || R.none) return '';
+  const shown = recShown(), ids = recIds(shown), live = shown.filter(r => recLive(r, used)), b = (id, act, v, label) => `<button type="button" class="btn" id="${id}" data-su="${act}"${v === undefined ? '' : ` data-v="${v}"`}>${esc(label)}</button>`;
+  const none = !!d && !d.list.length;   // 추천할 팀이 하나도 없어요(세션이 없거나, 모두 앉았거나, ‘이 컴퓨터’ 세션뿐): 허락을 묻지 않고, 없는 ‘직접 고르기’를 가리키지 않아요
+  const head = `<div class="su-rec-h"><h3 id="suRecH" tabindex="-1">추천 팀${d ? ` <small class="hint">${shown.length}개</small>` : ''}</h3><button type="button" class="btn" id="suRecRe" data-su="rec-reload"${R.busy ? ' aria-disabled="true"' : ''}>${R.busy ? '읽는 중…' : '다시 추천'}</button></div>
+    <p class="hint">${none ? '이 맥의 세션 목록을 보고 프로젝트마다 층(팀)을 나눠 줘요. 지금은 팀으로 나눌 새 세션이 없어요.' : '이 맥의 세션 목록을 보고 프로젝트마다 층(팀)을 나눠 봤어요. 마음에 들면 한 번에 만들고, 고칠 팀만 [고치기]를 눌러요.'}</p>`;
+  const res = SU.made && SU.made.from === 'rec' ? resHTML(SU.made) : '';
+  if (!d) return `<section class="su-rec" aria-labelledby="suRecH">${head}${R.err ? `<p class="err" role="alert" style="margin-top:10px">추천 팀을 만들지 못했어요: ${esc(R.err)}</p>` : '<p class="empty" style="margin-top:10px">세션 목록을 보고 팀을 나누는 중이에요…</p>'}${res}</section>`;
+  const tree = !!(SU.claude && treeGroups().length);   // 아래 ‘직접 고르기’(나무)가 보이는지
+  const ask = d.consent === null && !none ? `<div class="su-ask" role="group" aria-labelledby="suAskT"><p id="suAskT">세션마다 첫 메시지 몇 줄을 이 맥 안에서만 읽어 역할을 더 잘 맞춰요. 저장하거나 AI에 보내지 않아요.</p>
+      <div class="su-actions"><button type="button" class="btn primary" id="suAskY" data-su="rec-consent" data-v="1">허락</button>${b('suAskN', 'rec-consent', 0, '목록 정보만')}</div></div>` : '';
+  const cards = shown.length ? `<ol class="su-recs">${shown.map(r => recCardHTML(r, ids.get(r.key), used)).join('')}</ol>`
+    : `<p class="hint su-make-empty" style="margin-top:12px">${!none ? '추천 팀을 모두 만들었거나 뺐어요.' : '추천할 새 팀이 없어요. 세션이 모두 층에 앉았거나, 프로젝트 폴더에서 연 세션이 없어요.'}${tree ? ' 아래 ‘직접 고르기’에서 골라요.' : none ? ' 프로젝트 폴더에서 Claude 세션을 연 뒤 [다시 추천]을 눌러요.' : ''}</p>`;
+  // Codex 자리가 보이는 카드가 있으면 ‘읽기 전용’이 무슨 뜻인지 한 번 알려요
+  const cxNote = shown.some(r => r.rows.some(x => x.cx)) ? `<p class="hint su-cx-note">${esc(CX_SEAT_NOTE)}</p>` : '';
+  const go = shown.length ? `<div class="su-rec-go"><button type="button" class="btn primary" id="suRecGo" data-su="rec-make"${live.length ? '' : ' disabled'}>추천대로 모두 만들기 · 층 ${live.length}개</button><span class="hint">만든 뒤에도 층마다 ‘팀원 고치기’로 바꿔요.</span></div>` : '';
+  const more = [];
+  // 허락은 언제든 바꿀 수 있게 늘 보여요(추천이 없으면 ‘맞췄어요’ 대신 지금 고른 값만)
+  if (d.consent !== null) more.push(`<p>${none ? (d.consent ? '첫 메시지 읽기: 허락했어요.' : '첫 메시지 읽기: 목록 정보만 써요.') : d.consent ? '세션마다 첫 메시지 몇 줄도 이 맥 안에서만 읽어 역할을 맞췄어요.' : '제목·폴더 같은 목록 정보만 보고 맞췄어요.'} ${b('suRecC', 'rec-consent', d.consent ? 0 : 1, d.consent ? '첫 메시지 읽지 않기' : '첫 메시지도 읽기')}</p>`);
+  // 추천하지 않은 세션: Claude의 ‘이 컴퓨터’ 세션은 직접 고르기(나무)로, 폴더 없이(홈 폴더 등에서) 연 Codex 세션은 층 자리의 세션 칸으로 넣어요
+  const cf = cxFolderless(d, used), clN = Math.max(0, d.folderlessN - cf.names.size), cl = d.folderless.filter(t => !cf.names.has(t));
+  const nameList = (ns, n) => (ns.length ? ': ' + ns.map(t => `‘${t}’`).join(', ') + (n > ns.length ? ` 외 ${n - ns.length}개` : '') : '');
+  if (clN) more.push(`<p>${esc(`‘${SCRATCH_NAME}’(폴더 없이 만든) 세션 ${clN}개는 추천하지 않았어요${nameList(cl, clN)}.`)} ${tree ? b('suRecT', 'rec-tree', undefined, '직접 고르기에서 넣기') : ''}</p>`);
+  if (cf.left.length) {
+    const ns = cf.left.slice(0, 8).map(x => cut(x.title || CX_UNTITLED, 40)), can = picksList().length || myFloors().length || tree;
+    more.push(`<p>${esc(`폴더 없이(홈 폴더 등에서) 연 Codex 세션 ${cf.left.length}개${clN ? '도' : '는'} 추천하지 않았어요${nameList(ns, cf.left.length)}. 층 자리의 세션 칸에서 ‘${CX_GROUP}’로 골라 넣어요.`)} ${can ? `<button type="button" class="btn" id="suRecX" data-su="rec-cx" aria-label="폴더 없이 연 Codex 세션을 층 자리에 넣기">층 자리에 넣기</button>` : ''}</p>`);
+  }
+  if (R.old) more.push(`<p>30일 넘게 쓰지 않은 세션도 넣었어요. ${b('suRecO', 'rec-old', 0, '최근 세션만')}</p>`);
+  else if (d.old) more.push(`<p>30일 넘게 쓰지 않은 세션 ${d.old}개는 뺐어요. ${b('suRecO', 'rec-old', 1, '그 세션도 넣기')}</p>`);
+  const moved = d.list.filter(r => SU.picks['rec|' + r.key]), dropped = d.list.filter(r => R.drop.has(r.key) && !R.done.has(r.key)).length;
+  if (moved.length) more.push(`<p>${esc(`아래 ‘만들 층’에서 고치는 중: ${moved.map(r => `‘${r.name}’`).join(', ')}`)}</p>`);
+  if (dropped) more.push(`<p>뺀 추천 ${dropped}개 ${b('suRecU', 'rec-undrop', undefined, '다시 보기')}</p>`);
+  return `<section class="su-rec" aria-labelledby="suRecH" aria-busy="${R.busy}">${head}${ask}${R.err ? `<p class="err" role="alert" style="margin-top:8px">다시 추천하지 못했어요: ${esc(R.err)}</p>` : ''}${res}${cards}${cxNote}${go}${more.length ? `<div class="su-rec-more">${more.join('')}</div>` : ''}</section>`;
+}
+// 이번 설정에서 만든 층을 적어 둬요(완료 단계의 팀 규칙 안내용). away: 층 폴더 밖에서 연 세션(그 세션은 층 폴더의 CLAUDE.local.md를 읽지 않아요)
+function madeRunAdd(made, p) {
+  const away = (Array.isArray(made.away) ? made.away : []).filter(a => a && typeof a === 'object').map(a => ({ role: String(a.role || ''), title: String(a.title || '') }));
+  const rules = typeof made.rules === 'string' && /^@~?\/\S/.test(made.rules) ? made.rules : '';
+  const file = typeof made.rulesFile === 'string' && pathOk(made.rulesFile) ? made.rulesFile : rules ? rules.slice(1).replace(/\\ /g, ' ') : '';
+  const display = pathOk(made.folder) ? String(made.folder) : p.display;
+  if (!SU.madeRun.some(x => x.id === p.id)) SU.madeRun.push({ id: p.id, name: p.name, display, fresh: !!p.fresh, away, rules, file, noRules: made.noRules === true });
+}
+async function recMakeAll() {
+  const R = SU.rec, shown = recShown(), used = seatsInUse(), list = shown.filter(r => recLive(r, used));
+  if (!list.length) throw new Error('만들 추천 팀이 없어요');
+  await flushOrder();   // 층 순서를 저장하는 중이면 끝난 뒤에 보내요
+  // 총괄: 아래 ‘총괄(코디네이터) 세션’에 보이는 값을 ‘층 만들기’처럼 같이 보내요(제목 보고 미리 골라 둔 후보도요. 화면에 고른 것으로 보이니까요).
+  // 진짜 총괄이 이미 있으면 대표가 직접 고른 값만 보내요(미리 골라 둔 후보가 지금 총괄을 덮어쓰지 않게)
+  const ids = recIds(shown), boss = bossPick();
+  const jobs = list.map(rec => ({ rec, id: ids.get(rec.key), spec: recSpec(rec, ids.get(rec.key), used) }));
+  let res;
+  try { res = await sp('floors', { boss, floors: jobs.map(x => x.spec) }); }
+  catch (e) { if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) throw e; res = e.body; }   // 모두 못 만들었어도 추천마다 까닭을 보여 줘요
+  const created = Array.isArray(res.created) ? res.created : [], errors = Array.isArray(res.errors) ? res.errors : [];
+  R.errs = {};
+  for (const x of jobs) {
+    const er = errors.find(y => y.id === x.id), made = created.find(y => y.id === x.id);
+    if (er) R.errs[x.rec.key] = String(er.error || '만들지 못했어요');
+    if (!made) continue;
+    R.done.add(x.rec.key);
+    if (x.rec.source === 'group') SU.madeAt['g:' + x.rec.key] = x.id;   // 직접 고르기 나무에서도 ‘이미 층’으로
+    madeRunAdd(made, { id: x.id, name: x.rec.name, fresh: !x.rec.folder, display: x.rec.folder ? tilde(x.rec.folder) : `~/agencity-teams/${x.id}` });
+  }
+  const nameOf = id => { const j = jobs.find(x => x.id === id); return j ? j.rec.name : id; };
+  SU.made = { created, boss: !!boss, errors: errors.map(x => Object.assign({}, x, { name: nameOf(x.id) })), from: 'rec' };   // 서버는 층을 못 만들어도 보낸 총괄은 정해요
+  if (created.length) { ORD.note = ''; ORD.err = false; }
+  SU.boss = '';
+  SU.skip = false;
+  await refreshSetup().catch(() => {});
+  load();
+  renderSetup('#suRes');
+  suSay(created.length ? `추천 팀으로 층 ${created.length}개를 만들었어요${errors.length ? `, ${errors.length}개는 못 만들었어요` : ''}` : '층을 만들지 못했어요. 결과를 확인해 주세요');
+  loadClaude();   // 세션마다 어느 층에 앉았는지 다시 맞춰 봐요
+  loadRec();      // 앉은 세션은 추천에서 빠져요
+}
+// [층 자리에 넣기](추천하지 않은 Codex 세션): 넣을 층의 빈자리(없으면 새 ‘팀원’ 자리) 세션 칸으로 가요. 그 칸의 ‘Codex (읽기 전용)’ 묶음에서 골라요.
+// 넣을 곳: 만들 층 카드(맨 아래 것) → 열어 둔 ‘팀원 고치기’ → 내 층이 하나면 그 층의 ‘팀원 고치기’를 열어요.
+// 내 층이 여럿이면 층을 고르게 맨 위 층의 [팀원 고치기]로, 층이 없으면 먼저 층을 고르게 직접 고르기로 가요(짐작해서 아무 층에 넣지 않아요)
+async function cxPlace() {
+  const ps = picksList(), mine = myFloors(), ed = mine.map(f => [f, SU.edit[f.id]]).find(([, e]) => e && !e.loading && !e.loadErr);
+  const go = sel => { renderSetup(sel); const el = $(sel); if (el) el.scrollIntoView({ block: 'center' }); };
+  let x = null;
+  if (ps.length) { const p = ps[ps.length - 1]; x = { e: p, pre: 'suM' + ix(p.key), name: p.name.trim() || p.src }; }
+  else if (ed) x = { e: ed[1], pre: 'suE' + ix('floor|' + ed[0].id), name: ed[0].name };
+  else if (mine.length === 1) {
+    await openEdit(mine[0].id);
+    const e = SU.edit[mine[0].id];
+    if (!e || e.loading || e.loadErr || !SU.open || SU.step !== 2) return;   // 못 읽었으면 openEdit가 까닭을 보여 줘요
+    x = { e, pre: 'suE' + ix('floor|' + mine[0].id), name: mine[0].name };
+  } else if (mine.length) {
+    go('#suEb' + ix('floor|' + mine[0].id));
+    suSay(`Codex 세션을 넣을 층의 ‘팀원 고치기’를 눌러요. 자리의 세션 칸에서 ‘${CX_GROUP}’로 골라요`);
+    return;
+  } else {
+    const g = treeGroups().find(y => y.kind === 'scratch');
+    if (g) SU.opened.set(g.key, true);
+    go(g ? '#suTt' + ix(g.key) : '#suPickH');
+    suSay(`먼저 ‘층으로’로 만들 층을 골라요. 그 층 자리의 세션 칸에서 ‘${CX_GROUP}’로 Codex 세션을 골라요`);
+    return;
+  }
+  let r = x.e.rows.find((y, j) => j && !y.sid && !y.cx);
+  if (!r) {
+    if (x.e.rows.length >= MAX_MEMBERS) { go(`#${x.pre}r${x.e.rows[x.e.rows.length - 1].uid}s`); suSay(`‘${x.name}’ 층은 자리가 다 찼어요(팀장까지 ${MAX_MEMBERS}명). 한 자리의 세션을 바꿔 앉혀요`); return; }
+    r = newRow(uniqueRole('팀원', x.e.rows), '', '', '');
+    x.e.rows.push(r);
+  }
+  x.e.seatSnap = null;
+  go(`#${x.pre}r${r.uid}s`);
+  suSay(`‘${x.name}’ 층 ${r.role.trim() || '빈'} 자리의 세션 칸이에요. ‘${CX_GROUP}’ 묶음에서 Codex 세션을 골라요`);
+}
+// [고치기]: 추천을 아래 ‘만들 층’ 카드로 옮겨요(같은 편집기에서 층 이름·폴더·팀원을 고쳐요). 그 카드를 빼면 추천으로 돌아와요
+function pickRec(rec) {
+  const key = 'rec|' + rec.key;
+  if (SU.picks[key]) return SU.picks[key];
+  const used = seatsInUse(), ids = recIds(recShown()), bf = recBlock(rec), ex = rec.existing || null, f = rec.folder && !bf ? rec.folder : '';
+  const exIds = new Set(ex ? ex.members.map(m => m.sid || m.cx).filter(Boolean) : []);
+  const toRow = r => {
+    const mine = !exIds.has(r.sid || r.cx), x = newRow(r.role, r.sid, mine ? 'rec' : '', r.title);
+    x.cx = r.cx || ''; x.reason = r.reason || ''; x.auto = mine ? r.cx || r.sid : '';
+    if (r.kept && ex && f) { x.kept = true; x.name = x.nameOrig = customName({ role: r.role, name: r.name || '' }, [ex.name, rec.name]); }
+    return x;
+  };
+  const plain = recSend(recRows(rec, used, true)).map(toRow);
+  const p = SU.picks[key] = { key, kind: 'rec', recKey: rec.key, gkey: '', tkey: rec.source === 'group' ? 'g:' + rec.key : '', sid: '', sk: rec.source === 'group' && GROUP_KEY_RE.test(rec.key) ? rec.key : '',
+    byFolder: rec.source !== 'group', seq: ++SU.pickSeq, src: rec.name, srcKind: rec.source === 'group' ? 'group' : 'project', srcGroup: '', sugName: rec.name, sugId: ids.get(rec.key) || rec.sugId, name: rec.name, id: '', idEdited: false,
+    folders: rec.folder ? [rec.folder] : [], suggestedFolder: f, newBase: '', fmode: f ? 'path' : 'new', folder: f, custom: '',
+    rows: ex && f ? recSend(recRows(rec, used)).map(toRow) : plain, note: bf ? `이 폴더는 이미 ‘${bf.name}’ 층이라 새 폴더로 골라 뒀어요.` : '', err: '',
+    teams: new Map(rec.folder && ex ? [[rec.folder, ex]] : []), existing: ex && f ? ex : null, guess: ex && f ? { rows: plain, note: '', sugName: rec.name } : null,
+    recSids: rec.rows.map(r => r.sid).filter(Boolean) };
+  p.id = autoId(p);
+  return p;
 }
 // 층 만들기 결과: 이번에 만든 층의 빈자리마다 [세션 만들기](앉힌 자리는 ✓를 잠깐 보여 줘요)
 function madeSeatsHTML(m) {
   if (!API || !m || !Array.isArray(m.created)) return '';
   const fs = m.created.map(x => SU.st.floors.find(f => f.id === x.id)).filter(f => f && !f.example && Array.isArray(f.members));
-  const part = fs.map(f => [f, f.members.filter(x => x && typeof x.role === 'string' && (!x.sessionId || SEAT.has(seatKey(f.id, x.role))))]).filter(([, l]) => l.length);
+  const cxOn = (f, x) => isCx(x) || isCx(memberOf(f.id, x.role));   // Codex 자리는 빈자리가 아니에요(서버 목록에 codexId가 없어도 team.json으로 한 번 더 봐요)
+  const part = fs.map(f => [f, f.members.filter(x => x && typeof x.role === 'string' && ((!x.sessionId && !cxOn(f, x)) || SEAT.has(seatKey(f.id, x.role))))]).filter(([, l]) => l.length);
   if (!part.length) return '';
   return `<div class="su-seats"><p class="hint">빈자리에 새 세션을 바로 앉힐 수 있어요. [세션 만들기]를 누르면 Claude 앱이 그 층 폴더에서 새 세션을 열고 첫 메시지를 채워 둬요. 앱에서 Enter를 누르면 여기에 앉혀요.</p>
     ${part.map(([f, l]) => { const gid = `msg${hash(f.id).toString(36)}`; return `<div role="group" aria-labelledby="${gid}"><p style="margin-top:8px" id="${gid}"><b>${esc((f.floor ? f.floor + '층 ' : '') + f.name)}</b></p><ul>${l.map(x => `<li><b>${seatHTML(f.id, x.role)}</b>${seatBoxHTML(f.id, x.role, 'm', ' su-seat')}</li>`).join('')}</ul></div>`; }).join('')}</div>`;
@@ -2773,18 +3278,19 @@ function visHTML() {
 }
 function doneHTML() {
   const st = SU.st, c = SU.claude || st.claude || {}, n = pubCount(), ps = pubState(false);
-  const left = picksList().length;
+  const left = picksList().length, recLeft = recLeftN();
   return `<h2 class="su-h" id="suHead" tabindex="-1">완료</h2>
     <p class="su-lead">${st.done ? '바꾼 설정으로 사무실에 돌아가요.' : '이제 사무실을 열어요. 바꾸고 싶으면 언제든 위의 ‘설정’을 눌러요.'}</p>
     <dl class="facts">
       <dt>GitHub</dt><dd>${st.github ? `@${esc(st.github.login)} 연결됨` : '연결 안 함 (공개할 때만 필요해요)'}</dd>
       <dt>Claude</dt><dd>${c.app ? 'Claude 앱 찾음' : 'Claude 앱 못 찾음'} · ${esc(stepNote(1))}</dd>
-      <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 층 ${left}개</span>` : ''}</dd>
+      <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 층 ${left}개</span>` : ''}${recLeft ? ` <span class="chip wait">추천만 보고 안 만든 팀 ${recLeft}개</span>` : ''}</dd>
       <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.visDirty || SU.introDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
     </dl>
     ${updSetHTML()}
     ${rulesHTML('suRulesCopy2')}
-    <p class="hint" style="margin-top:12px">사이트에서 보낸 말을 팀 세션에 전하려면 ${st.boss ? '총괄 세션에서' : '총괄 세션을 정하고(3단계) 그 세션에서'} ${coordLink()}대로 전달을 켜요.</p>
+    ${st.boss ? `<p class="hint" style="margin-top:12px">사이트에서 보낸 말을 팀 세션에 전하려면 총괄 세션에서 ${coordLink()}대로 전달을 켜요.</p>`
+      : `${bossMakeHTML('d')}<p class="hint" style="margin-top:8px">[총괄 만들기]로 연 총괄은 ${coordLink()}의 지시를 받아 전달을 바로 켜요. 있는 세션을 총괄로 쓰려면 3단계에서 골라요.</p>`}
     <div class="su-actions"><button type="button" class="btn primary" id="suFinish" data-su="finish">사무실 열기</button></div>`;
 }
 function navHTML() {
@@ -2837,6 +3343,7 @@ function openSetup(step) {
   updRefresh().catch(() => {});   // 5단계의 ‘새 버전 알림’도 새로
   // 열 때마다 세션 목록을 새로 읽어요(앱은 며칠씩 켜 두니 새 프로젝트·터미널에서 만든 층이 보이게). 늦게 온 옛 답은 loadClaude가 버려요.
   loadClaude();
+  if (SU.step === 2) ensureRec(true);
 }
 function closeSetup() {
   ghStop(); SU.gh.flow = null; SU.gh.note = '';
@@ -2853,12 +3360,15 @@ function goStep(i) {
   if (i !== 3) SU.note = '';
   $('#setup').scrollTop = 0;
   renderSetup('#suHead');
+  if (i === 2) ensureRec();   // 추천 팀(1분 넘게 지났으면 다시 읽어요)
 }
+// 처음 설정에서 보기만 하고 만들지 않은 추천 팀(이번 설정에서 층을 하나도 안 만들었을 때만. 다시 연 설정에서는 새 추천이 생길 때마다 붙잡지 않아요)
+const recLeftN = () => (!SU.st.done && !SU.madeRun.length ? recShown().filter(r => recLive(r, seatsInUse())).length : 0);
 async function suNext() {
-  const left = picksList().length, dirty = editDirty();
-  if (SU.step === 2 && (left || dirty) && !SU.skip) {
+  const left = picksList().length, dirty = editDirty(), recLeft = SU.step === 2 ? recLeftN() : 0;
+  if (SU.step === 2 && (left || dirty || recLeft) && !SU.skip) {
     SU.skip = true;
-    SU.err = [left ? `만들 층 ${left}개를 아직 만들지 않았어요(‘층 만들기’)` : '', dirty ? `팀원 고치기 ${dirty}곳을 아직 저장하지 않았어요(‘팀원 저장’)` : ''].filter(Boolean).join(' · ') + '. 그냥 넘어가려면 한 번 더 눌러요.';
+    SU.err = [recLeft ? `추천 팀 ${recLeft}개를 아직 만들지 않았어요(‘추천대로 모두 만들기’)` : '', left ? `만들 층 ${left}개를 아직 만들지 않았어요(‘층 만들기’)` : '', dirty ? `팀원 고치기 ${dirty}곳을 아직 저장하지 않았어요(‘팀원 저장’)` : ''].filter(Boolean).join(' · ') + '. 그냥 넘어가려면 한 번 더 눌러요.';
     renderSetup('#suNext');
     return;
   }
@@ -2967,6 +3477,14 @@ function checkRows(e, owner) {
       const ne = nameCheck(e, r);
       if (ne) { r.err = ne; r.errAt = 'm'; }
     }
+    if (!r.err && r.cx) {   // Codex 자리(읽기 전용): 팀장은 안 되고, 한 Codex 세션은 한 자리·한 층에만
+      const u = used.get('cx:' + r.cx), cs = cxById(r.cx), sat = cs && cs.seatedOn && cs.seatedOn !== fid ? (floorById(cs.seatedOn) || {}).name || cs.seatedOn : '';
+      r.err = j === 0 ? 'Codex 세션은 팀장 자리에 앉힐 수 없어요' : seen.has('cx:' + r.cx) ? '이 Codex 세션은 이 층의 다른 자리에도 있어요'
+        : u && u.owner !== owner ? `이 Codex 세션은 ${u.label}에도 넣었어요. 한 세션은 한 자리에만 앉아요`
+        : sat ? `이 Codex 세션은 이미 ‘${sat}’ 층에 앉아 있어요. 한 세션은 한 층에만 앉아요` : '';
+      r.errAt = r.err ? 's' : '';
+      seen.add('cx:' + r.cx);
+    }
     if (!r.err && r.sid) {
       const u = used.get(r.sid), x = all.get(r.sid);
       r.err = seen.has(r.sid) ? '이 세션은 이 층의 다른 자리에도 있어요'
@@ -2984,10 +3502,12 @@ function checkRows(e, owner) {
 }
 // 서버로 보낼 이름: 불러온 이름에서 바꾼 줄만 보내요(안 보내면 서버가 그 줄의 이름을 그대로 둬요. 비워서 보내면 기본 이름으로 되돌려요)
 const nameField = r => (nameChanged(r) ? { name: nameNorm(r.name) } : {});
+// 보낼 자리: Codex 자리는 sessionId 없이 codexId(읽기 전용), 나머지는 Claude 세션 id(빈자리는 null)
+const memberOut = r => (r.cx ? { role: r.role, sessionId: null, codexId: r.cx } : { role: r.role, sessionId: r.sid || null });
 const quiet = msg => Object.assign(new Error(msg), { quiet: true });   // 고칠 곳으로 키보드를 옮겼으니 오류 글로 화면을 옮기지 않아요
 async function floorsMake() {
   const list = picksList();
-  if (!list.length && !SU.boss) throw new Error('위의 나무에서 ‘층으로’를 눌러 만들 층을 하나 이상 골라 주세요');
+  if (!list.length && !bossPick()) throw new Error('위의 나무에서 ‘층으로’를 눌러 만들 층을 하나 이상 골라 주세요');
   const taken = new Set(SU.st.floors.map(f => f.id)), seen = new Set(), dirs = new Map();
   let bad = null;
   for (const p of list) {
@@ -3008,15 +3528,15 @@ async function floorsMake() {
     if (msg && !bad) bad = at || `#${pre}err`;
   }
   if (bad) { renderSetup(bad); throw quiet('고칠 곳이 있어요. 빨간 글을 확인해 주세요'); }
-  const boss = SU.boss || null;
+  const boss = bossPick();
   // members: 팀장이 맨 앞. newFolder: 서버가 ~/agencity-teams/<id>를 만들어 써요. group: 서버가 준 묶음 key(다음에 그 묶음을 ‘이미 층’으로 보여 주려고, 묶음을 통째로 고른 층만)
   // existing: 이미 있는 팀 사무실의 팀원을 불러왔는지. false로 보냈는데 그 폴더에 팀 사무실이 있으면 서버가 만들지 않고 그 팀원(existingTeam)을 알려 줘요
   // floor: ‘몇 층에 둘까요’에서 고른 층(p.at)의 지금 번호(1부터). 그 층 앞에 넣고 뒤의 층을 한 층씩 올려요. 안 보내면 맨 뒤예요
   await flushOrder();   // 층 순서를 저장하는 중이면 끝난 뒤에(서버와 같은 순서를 기준으로) 보내요
   const mine = myFloors();
   const spec = p => { const k = p.at ? mine.findIndex(f => f.id === p.at) : -1;
-    return Object.assign({ id: p.id, name: p.name.trim(), members: p.rows.map(r => Object.assign({ role: r.role, sessionId: r.sid || null }, nameField(r))), existing: !!p.existing },
-      p.fmode === 'new' ? { newFolder: true } : { folder: folderOf(p) }, p.kind === 'group' && !p.byFolder && GROUP_KEY_RE.test(p.sk) ? { group: p.sk } : {},
+    return Object.assign({ id: p.id, name: p.name.trim(), members: p.rows.map(r => Object.assign(memberOut(r), nameField(r))), existing: !!p.existing },
+      p.fmode === 'new' ? { newFolder: true } : { folder: folderOf(p) }, (p.kind === 'group' || p.kind === 'rec') && !p.byFolder && GROUP_KEY_RE.test(p.sk) ? { group: p.sk } : {},
       k >= 0 ? { floor: k + 1 } : {}); };
   let res;
   try { res = await sp('floors', { boss, floors: list.map(spec) }); }
@@ -3033,12 +3553,9 @@ async function floorsMake() {
     if (!made) continue;
     delete SU.picks[p.key];
     if (p.kind === 'group' && p.srcKind !== 'scratch') SU.madeAt[p.gkey] = p.id;   // ‘이 컴퓨터’는 늘 다시 고를 수 있어요
-    const display = pathOk(made.folder) ? String(made.folder) : p.fmode === 'new' ? newPath(p) : tilde(folderOf(p));
+    if (p.kind === 'rec') { SU.rec.done.add(p.recKey); if (p.tkey) SU.madeAt[p.tkey] = p.id; }   // 추천 팀에서 옮겨 와 만든 층
     // 완료 화면의 팀 규칙 안내용. away: 층 폴더 밖에서 연 세션(그 세션은 층 폴더의 CLAUDE.local.md를 읽지 않아요). 다시 읽은 목록으로 다시 셈하지 않게 여기 적어 둬요
-    const away = (Array.isArray(made.away) ? made.away : []).filter(a => a && typeof a === 'object').map(a => ({ role: String(a.role || ''), title: String(a.title || '') }));
-    const rules = typeof made.rules === 'string' && /^@~?\/\S/.test(made.rules) ? made.rules : '';
-    const file = typeof made.rulesFile === 'string' && pathOk(made.rulesFile) ? made.rulesFile : rules ? rules.slice(1).replace(/\\ /g, ' ') : '';
-    if (!SU.madeRun.some(x => x.id === p.id)) SU.madeRun.push({ id: p.id, name: p.name.trim(), display, fresh: p.fmode === 'new', away, rules, file, noRules: made.noRules === true });
+    madeRunAdd(made, { id: p.id, name: p.name.trim(), fresh: p.fmode === 'new', display: p.fmode === 'new' ? newPath(p) : tilde(folderOf(p)) });
   }
   SU.made = { created, boss: !!boss, errors: errors.map(x => Object.assign({}, x, { name: (list.find(p => p.id === x.id) || {}).name })) };
   if (created.length) { ORD.note = ''; ORD.err = false; }   // 층 번호가 바뀌었을 수 있어서 지난 층 순서 알림은 지워요
@@ -3049,6 +3566,7 @@ async function floorsMake() {
   renderSetup('#suRes');
   suSay(created.length ? `층 ${created.length}개를 만들었어요${errors.length ? `, ${errors.length}개는 못 만들었어요` : ''}` : '층을 만들지 못했어요. 결과를 확인해 주세요');
   loadClaude();   // 세션마다 어느 층에 앉았는지(seatedOn)를 서버에서 다시 맞춰 봐요
+  loadRec();      // 앉은 세션은 추천 팀에서 빠져요
 }
 
 /* 지금 있는 층의 ‘팀원 고치기’: team.json의 팀원을 읽어 같은 편집기로 고치고 /api/setup/members로 바꿔요(팀장이 맨 앞). */
@@ -3069,7 +3587,11 @@ function rowsFromMembers(ms, names) {
   const lead = list.find(x => x.role === LEAD);
   const rows = [newRow(LEAD, lead ? sidOf(lead.m) : '', '', lead ? String(lead.m.title || '') : '')];
   rows[0].name = rows[0].nameOrig = lead ? customName(lead.m, names) : '';
-  for (const x of list) if (x.role !== LEAD) { const r = newRow(x.role, sidOf(x.m), '', String(x.m.title || '')); r.name = r.nameOrig = customName(x.m, names); rows.push(r); }
+  for (const x of list) if (x.role !== LEAD) {
+    const r = newRow(x.role, sidOf(x.m), '', String(x.m.title || ''));
+    if (!r.sid) r.cx = cxKey(x.m.codexId);   // Codex 자리(읽기 전용)는 그대로 이어요(저장할 때 codexId를 다시 보내요)
+    r.name = r.nameOrig = customName(x.m, names); rows.push(r);
+  }
   rows.forEach(r => { r.auto = ''; r.was = r.role; });   // was: team.json의 이름(이름을 바꾸면 저장할 때 서버가 그 자리 파일을 옮겨요)
   return rows;
 }
@@ -3087,7 +3609,7 @@ async function openEdit(id) {
     e.kept = hiddenRows(ms);   // 보여 줄 수 없어서 그대로 두는 줄의 이름들
     e.held = heldSessions(ms);   // 그 줄들에 앉은 세션(다른 자리에 또 앉히지 않아요)
     e.orig = rowsSig(e.rows);
-    e.loaded = e.rows.map(r => ({ role: r.role, sid: r.sid }));   // 불러온 그대로(이름을 바꾼 자리를 알아보려고)
+    e.loaded = e.rows.map(r => ({ role: r.role, sid: r.sid, cx: r.cx || '' }));   // 불러온 그대로(이름을 바꾼 자리를 알아보려고)
   } catch (err) { e.loadErr = '팀원 정보(team.json)를 읽지 못했어요: ' + (err.message || '알 수 없는 오류'); }
   e.loading = false;
   if (SU.edit[id] !== e || !SU.open || SU.step !== 2) return;   // 그사이 닫았거나 다른 단계로 갔어요
@@ -3108,7 +3630,7 @@ async function editSave(id) {
   e.err = rc.msg || '';
   if (rc.msg) { renderSetup(rc.at ? `#${pre}${rc.at}` : `#${pre}err`); return; }
   let res;
-  try { res = await sp('members', { team: id, members: e.rows.map(r => Object.assign({ role: r.role, sessionId: r.sid || null }, r.was ? { was: r.was } : {}, nameField(r))) }); }
+  try { res = await sp('members', { team: id, members: e.rows.map(r => Object.assign(memberOut(r), r.was ? { was: r.was } : {}, nameField(r))) }); }
   catch (err) {
     e.err = err.message || '저장하지 못했어요';
     const b = err.body || {}, nr = b.field === 'name' && typeof b.role === 'string' ? e.rows.find(y => roleKey(y.role) === roleKey(b.role)) : null;   // 어느 팀원의 이름이 문제인지
@@ -3134,6 +3656,7 @@ async function editSave(id) {
   renderSetup('#suEb' + j);
   suSay(`${f ? f.name : id} 층 팀원을 ${n}자리로 저장했어요`);
   loadClaude();   // 세션마다 어느 층에 앉았는지 다시 맞춰 봐요
+  loadRec();
 }
 // 사무실 화면의 ‘팀원 고치기’: 설정의 3단계를 열고 그 층 편집기를 펼쳐요.
 function editTeam(id) {
@@ -3167,12 +3690,19 @@ function delRow(b) {
   renderSetup(next ? `#${x.pre}r${next.uid}x` : `#${x.pre}add`);
   suSay(`${r.role.trim() || '빈'} 자리를 뺐어요${x.owner.startsWith('floor|') ? '. 저장하면 반영돼요(그 자리의 대화·상태 파일은 남아요)' : ''}`);
 }
-function setSeat(x, r, sid) {   // 이 층의 다른 자리에 있는 세션이면 두 자리를 서로 바꿔요
-  const other = sid ? x.e.rows.find(y => y !== r && y.sid === sid) : null, all = allSessions();
-  if (other) { other.sid = r.sid; other.title = r.title; other.err = ''; }
-  r.sid = sid; r.err = '';
-  r.title = sid ? ((all.get(sid) || {}).s || {}).title || r.title : '';
-  return other;
+// 세션 칸에서 고른 값(v): Claude 세션 id, ‘cx:<Codex 세션 id>’(읽기 전용 자리), ''(나중에 연결). Codex를 고르면 sid를 비우고, Claude 세션이나 나중에 연결을 고르면 codexId를 비워요.
+// 이 층의 다른 자리에 있는 세션이면 두 자리를 서로 바꿔요. 팀장 자리에는 Codex를 앉힐 수 없어서, 그 자리로 갈 것이 Codex면 팀장 자리는 비워요(emptied)
+function setSeat(x, r, v) {
+  const cx = String(v).startsWith('cx:') ? cxKey(String(v).slice(3)) : '', sid = cx || String(v).startsWith('cx:') ? '' : String(v);
+  const other = cx ? x.e.rows.find(y => y !== r && y.cx === cx) : sid ? x.e.rows.find(y => y !== r && y.sid === sid) : null;
+  let emptied = false;
+  if (other) {
+    emptied = x.e.rows[0] === other && !!r.cx;
+    other.sid = r.sid; other.cx = emptied ? '' : r.cx || ''; other.title = emptied ? '' : r.title; other.err = '';
+  }
+  r.sid = sid; r.cx = cx; r.err = '';
+  r.title = sid ? ((allSessions().get(sid) || {}).s || {}).title || r.title : cx ? (cxById(cx) || {}).title || '' : '';
+  return { other, emptied };
 }
 async function visSave() {
   const visibility = {};
@@ -3245,10 +3775,45 @@ $('#setup').addEventListener('click', e => {
     const p = SU.picks[b.dataset.pick];
     if (!p) return;
     delete SU.picks[p.key];
-    const tb = p.kind === 'group' ? '#suTg' + ix(p.gkey) : '#suTs' + ix('s|' + p.sid);   // 카드의 ‘빼기’면 나무의 그 단추로 돌아가요
+    const tb = p.kind === 'rec' ? `#suR${ix('rec|' + p.recKey)}f` : p.kind === 'group' ? '#suTg' + ix(p.gkey) : '#suTs' + ix('s|' + p.sid);   // 카드의 ‘빼기’면 나무(추천 팀이면 그 추천 카드)의 단추로 돌아가요
     renderSetup(b.id.startsWith('suT') ? '#' + b.id : $(tb) ? tb : '#suMakeH');
-    suSay(`만들 층에서 뺐어요: ${p.name.trim() || p.src}`);
+    suSay(`만들 층에서 뺐어요: ${p.name.trim() || p.src}${p.kind === 'rec' ? '. 추천 팀으로 돌아갔어요' : ''}`);
   }
+  else if (a === 'rec-reload') { if (b.getAttribute('aria-disabled') !== 'true') loadRec(undefined, '#suRecRe'); }
+  else if (a === 'rec-consent') {   // 첫 메시지 읽기 허락(한 번 묻고, 아래 줄에서 언제든 바꿔요). 서버가 setup.json에 적고 그 기준으로 다시 추천해요
+    const yes = b.dataset.v === '1';
+    if (SU.rec.busy) return;
+    loadRec({ consent: yes }, '#suRecH').then(() => suSay(SU.rec.err ? `다시 추천하지 못했어요: ${SU.rec.err}` : yes ? '첫 메시지 몇 줄도 이 맥 안에서만 읽어 역할을 다시 맞췄어요' : '목록 정보만 보고 추천했어요. 첫 메시지는 읽지 않아요'));
+  }
+  else if (a === 'rec-old') { SU.rec.old = b.dataset.v === '1'; loadRec(undefined, '#suRecH'); }
+  else if (a === 'rec-drop') {
+    const rec = recByKey(b.dataset.rec);
+    if (!rec) return;
+    const sh = recShown(), k = sh.indexOf(rec), next = sh[k + 1] || sh[k - 1];
+    SU.rec.drop.add(rec.key);
+    if (SU.skip) { SU.skip = false; SU.err = ''; }   // ‘아직 만들지 않았어요’ 알림의 개수가 바뀌었어요: 다음을 누르면 새 개수로 다시 알려요
+    renderSetup(next ? `#suR${ix('rec|' + next.key)}x` : $('#suRecGo') && recShown().length ? '#suRecGo' : '#suRecH');
+    suSay(`추천에서 뺐어요: ${rec.name}. 아래 ‘다시 보기’로 되돌려요`);
+  }
+  else if (a === 'rec-undrop') { SU.rec.drop.clear(); if (SU.skip) { SU.skip = false; SU.err = ''; } renderSetup('#suRecH'); suSay('뺀 추천을 다시 보여 줘요'); }
+  else if (a === 'rec-fix') {
+    const rec = recByKey(b.dataset.rec);
+    if (!rec || !SU.claude) return;
+    const p = pickRec(rec);
+    SU.skip = false;
+    renderSetup('#suN' + ix(p.key));
+    suSay(`‘${p.name}’을 아래 ‘만들 층’으로 옮겼어요. 고친 뒤 ‘층 만들기’를 눌러요`);
+  }
+  else if (a === 'rec-make') suRun(b, recMakeAll);
+  else if (a === 'rec-cx') cxPlace();   // 폴더 없이 연 Codex 세션: 층 자리의 세션 칸으로
+  else if (a === 'rec-tree') {   // ‘이 컴퓨터’ 세션은 직접 골라요: 나무의 그 묶음을 펼치고 그리로
+    const g = treeGroups().find(x => x.kind === 'scratch');
+    if (g) SU.opened.set(g.key, true);
+    renderSetup(g ? '#suTt' + ix(g.key) : '#suPickH');
+    const el = g ? $('#suTt' + ix(g.key)) : $('#suPickH');
+    if (el) el.scrollIntoView({ block: 'center' });
+  }
+  else if (a === 'link-rules') { if (b.getAttribute('aria-disabled') !== 'true') linkRules(b.dataset.team); }
   else if (a === 'floor-move') {   // 지금 있는 층의 ↑/↓: 바로 저장하고, 키보드 위치는 옮긴 층의 같은 단추에
     const f = floorById(b.dataset.team), up = b.dataset.dir === 'up';
     if (!f) return;
@@ -3272,6 +3837,12 @@ $('#setup').addEventListener('click', e => {
   else if (a === 'pub-clear-intro') suRun(b, async () => { SU.intro = ''; SU.introDirty = true; await pubAsk(); suSay('소개 한 줄을 지웠어요. 확인 상자를 다시 봐 주세요'); }, 'pub');
   else if (a === 'finish') suRun(b, async () => {
     if (SU.visDirty || SU.introDirty) await visSave();
+    // 팀 규칙 한 줄: 체크했으면 이번에 만든 층 중 아직 넣지 않은 층에 넣어요. 못 넣은 층이 있으면 열지 않고 까닭을 보여 줘요(체크를 끄면 그냥 열려요)
+    const todo = API && SU.rules.on ? SU.madeRun.filter(p => !p.noRules && !(SU.rules.res[p.id] && SU.rules.res[p.id].done)) : [];
+    for (const p of todo) await linkRules(p.id);
+    const bad = todo.filter(p => SU.rules.res[p.id] && SU.rules.res[p.id].bad);
+    if (bad.length) throw new Error(`${bad.map(p => `‘${p.name || p.id}’`).join(', ')} 층에는 규칙 줄을 넣지 못했어요. 위의 까닭을 보고 다시 하거나, 체크를 끄고 열어요`);
+    todo.forEach(p => FNOTE.set(p.id, { text: `${SU.rules.res[p.id].text}. 이 층 세션들은 다음 대화부터 팀 규칙(RULES.md)을 읽어요.`, bad: false, busy: '', at: Date.now() }));
     await sp('done', { done: true });
     SU.st.done = true;
     closeSetup();
@@ -3283,6 +3854,7 @@ function suInput(e) {
   if (!kind) return;
   if (kind === 'upd') { updSetEnabled(t); return; }   // 새 버전 알림 받기(5단계)
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
+  if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 5단계: 팀 규칙 한 줄을 ‘사무실 열기’ 때 넣을지
   if (kind === 'boss') {
     SU.boss = t.value; SU.bossTouched = true;
     // 총괄이 앉아 있는 자리에는 바로 알리고, 총괄이 바뀌어 맞지 않게 된 알림은 지워요
@@ -3327,11 +3899,12 @@ function suInput(e) {
       // 닫힌 고르기 칸에서 화살표·글자 키로 훑으면 누를 때마다 change가 와요. 같은 칸에서 이어 고르는 동안은 처음 고르기 전 자리로 되돌린 뒤
       // 바꿔서, 훑고 나면 마지막에 고른 것만 한 번 바뀌어요(지나간 세션마다 자리가 서로 바뀌지 않게). 다른 칸으로 가면 새로 시작해요.
       const sn = x.e.seatSnap;
-      if (sn && sn.uid === r.uid) sn.rows.forEach(([y, sid, title]) => { if (x.e.rows.includes(y)) { y.sid = sid; y.title = title; } });
-      else x.e.seatSnap = { uid: r.uid, id: t.id, rows: x.e.rows.map(y => [y, y.sid, y.title]) };
-      const other = setSeat(x, r, t.value);
+      if (sn && sn.uid === r.uid) sn.rows.forEach(([y, sid, title, cx]) => { if (x.e.rows.includes(y)) { y.sid = sid; y.title = title; y.cx = cx; } });
+      else x.e.seatSnap = { uid: r.uid, id: t.id, rows: x.e.rows.map(y => [y, y.sid, y.title, y.cx || '']) };
+      const { other, emptied } = setSeat(x, r, t.value);
       renderSetup('#' + CSS.escape(t.id));   // 다른 칸의 ‘이미 앉힌 세션’ 표시와 나무의 표시를 맞춰요
-      if (other) suSay(`${r.role.trim() || '이 자리'}와 ${other.role.trim() || '다른 자리'}의 세션을 서로 바꿨어요`);
+      if (other) suSay(emptied ? `${r.role.trim() || '이 자리'}에 팀장 자리의 세션을 앉혔어요. 팀장 자리에는 Codex를 앉힐 수 없어서 팀장 자리는 비웠어요`
+        : `${r.role.trim() || '이 자리'}와 ${other.role.trim() || '다른 자리'}의 세션을 서로 바꿨어요`);
       return;
     }
     x.e.seatSnap = null;
@@ -3986,6 +4559,12 @@ document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && state) {
     if (act.dataset.act === 'boss-chat') { bossDrawer(); return; }
+    if (act.dataset.act === 'boss-find') {   // 머리말의 ‘총괄 없음’: 층 안내의 총괄 만들기 상자로
+      if (!$('#drawer').hidden) closeDrawer();
+      const box = $('#orgTop [data-seat-box]'), t = box && ($('[data-seat]:not([disabled])', box) || box);
+      if (t) { box.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.focus({ preventScroll: true }); }
+      return;
+    }
     if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
     if (act.dataset.act === 'edit-team') { editTeam(act.dataset.team); return; }
     if (act.dataset.act === 'floor-sidebar' || act.dataset.act === 'floor-rules') { if (act.dataset.act === 'floor-rules' && act.getAttribute('aria-disabled') === 'true') return; floorTool(act); return; }
@@ -4093,5 +4672,18 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 setInterval(() => { if (document.visibilityState !== 'hidden' && $('#drawer').hidden && !UPD.ov) load(); }, 4000);   // 업데이트 중 화면 뒤에서는 쉬어요
 setInterval(() => { if (document.visibilityState !== 'hidden') refreshThread(false); }, 3000);
 setInterval(() => { if (!$('#drawer').hidden) pollRelay(); }, 5000);
+// Codex 자리의 상태: 지금 보는 층에 Codex 자리가 있을 때만 10초마다 /api/codex/status를 물어요(그 주소를 모르는 서버면 20초마다 설정 상태를 새로 읽어요)
+setInterval(async () => {
+  if (!API || SU.open || !state || document.visibilityState === 'hidden' || UPD.ov || CXS.busy) return;
+  const d = state.teams[shownFloor(state.org)];
+  if (!d || !d.team || !Array.isArray(d.team.members) || !d.team.members.some(isCx) || Date.now() - CXS.at < (CXS.none ? 20e3 : 10e3)) return;
+  CXS.busy = true; CXS.at = Date.now();
+  try {
+    if (CXS.none) { if (SU.st) await refreshSetup(); }
+    else { const r = await post('api/codex/status', {}); CXS.seats = Array.isArray(r.seats) ? r.seats : []; }
+    if ($('#drawer').hidden && !NE) render();
+  } catch (e) { if (/없는 주소/.test(e.message || '')) CXS.none = true; }
+  CXS.busy = false;
+}, 3000);
 })();
 </script>

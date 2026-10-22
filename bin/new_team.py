@@ -36,6 +36,8 @@ python3 bin/new_team.py --spec -             # 명세를 표준 입력으로 받
   한 세션은 한 자리에만, 한 층에만 앉혀요. 이미 있던 팀 사무실이면 team.json의 팀원 목록을 이 목록으로 바꿔요
   (그대로 둔 자리는 team.json 순서 그대로, 새 자리는 끝에(새 팀장 자리는 맨 앞에) 넣어요. 보여 줄 수 없던 줄은 그대로 두고 12자리에 세지 않아요.
   빠진 팀원의 대화·상태 파일은 지우지 않고, 이름을 바꾼 자리의 파일도 옮기지 않아요. 옮기기는 설정 화면의 ‘팀원 고치기’가 해요).
+  Codex 자리(읽기 전용): {"role": "개발자2", "codexId": "<Codex 세션 id(uuid)>"}(sessionId는 비워요). 그 줄은 team.json에
+  "sessionId": null, "codexId", "tool": "codex"로 적어요. 한 층에 한 번씩, 팀장 자리에는 못 앉혀요(office_server.py와 같아요).
 - roles: 예전 모양({"팀장": "local_…", "개발자": null, "디자이너": null, "기획": null}). members가 없을 때만 봐요.
   네 자리를 늘 만들고, 이미 있던 팀 사무실이면 다른 자리는 두고 새로 적은 세션 id만 고쳐요.
 - boss: 총괄 세션 id. 적으면 org.json의 총괄을 바꾸고, 비우면 그대로 둬요.
@@ -67,6 +69,7 @@ MAX_MEMBERS = 12
 SHOWN_MAX = 50   # 이미 있던 팀 사무실에서 설정 화면이 불러오는 팀원 줄 수(office_server.py의 SHOWN_MAX와 같아요)
 ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,19}\Z")
 SESSION_RE = re.compile(r"^local_[0-9a-f-]{8,64}\Z")
+CODEX_RE = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\Z")   # Codex 세션 id(office_server.py의 CODEX_ID)
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}-\Z")
 RESERVED = ("J-", "U-", "M-")   # 총괄 지시·사람이 시킨 일·회의 번호(docs/TEAM_RULES.md)
 PLACEHOLDER = "local_00000000"
@@ -242,7 +245,7 @@ def parse_members(raw):
         raise TeamError("members는 목록이어야 하고, 맨 앞은 팀장이에요.")
     if len(raw) > MAX_MEMBERS:
         raise TeamError(f"팀원은 한 층에 {MAX_MEMBERS}명까지예요(팀장 포함).")
-    out, names, sids = [], set(), {}
+    out, names, sids, cids = [], set(), {}, {}
     for m in raw:
         if not isinstance(m, dict):
             raise TeamError("팀원 모양이 이상해요({\"role\": …, \"sessionId\": …}).")
@@ -262,6 +265,19 @@ def parse_members(raw):
         if v:
             sids[v] = r
         row = {"role": r, "sessionId": v}
+        c = m.get("codexId")
+        if c not in (None, ""):   # Codex 자리(읽기 전용)
+            if v:
+                raise TeamError(f"{r} 자리에 Claude 세션과 Codex 세션을 함께 앉혔어요. 한 자리에는 하나만 앉혀요.")
+            if not (isinstance(c, str) and CODEX_RE.match(c)):
+                raise TeamError(f"{r} 자리의 Codex 세션 id 모양이 이상해요.")
+            c = c.lower()
+            if r == LEAD:
+                raise TeamError("Codex 세션은 팀장 자리에 앉힐 수 없어요(읽기 전용 자리예요).")
+            if c in cids:
+                raise TeamError(f"같은 Codex 세션을 {cids[c]}·{r} 두 자리에 앉혔어요. 한 세션은 한 자리에만 앉혀요.")
+            cids[c] = r
+            row["codexId"] = c
         if m.get("name") is not None:
             try:
                 row["name"] = display_name(m["name"])
@@ -295,6 +311,18 @@ def seated_sessions(org):
 
 def member_row(name, role, sid):
     return {"role": role, "name": f"{name} {role}", "title": f"{name} · {role}", "sessionId": sid or None}
+
+
+def set_codex(row, m):
+    """팀원 줄에 Codex 자리(읽기 전용)를 맞춰요: m에 codexId가 있으면 codexId·tool 칸을 넣고 sessionId는 비워요,
+    없으면 예전에 Codex 자리였던 줄의 그 칸들을 빼요."""
+    if m.get("codexId"):
+        row.update(sessionId=None, codexId=m["codexId"], tool="codex")
+    elif "codexId" in row or row.get("tool") == "codex":
+        row.pop("codexId", None)
+        if row.get("tool") == "codex":
+            row.pop("tool")
+    return row
 
 
 def current_boss(org):
@@ -349,7 +377,7 @@ def merged_rows(old_team, name, members, replace):
             row["sessionId"] = m["sessionId"] or None
         if "name" in m:   # 이름을 정했어요: name 칸만 바꿔요(title 같은 다른 칸은 그대로)
             row["name"] = m["name"] or f"{name} {m['role']}"
-        return row
+        return set_codex(row, m)
     if old_team is None:
         return [row_for(m, None) for m in members]
     if replace:
@@ -372,6 +400,7 @@ def merged_rows(old_team, name, members, replace):
             rows.append(member_row(name, m["role"], m["sessionId"]))
         elif m["sessionId"]:
             cur["sessionId"] = m["sessionId"]
+            set_codex(cur, m)   # Codex 자리였으면 Claude 세션 자리로 바꿔요(codexId·tool 칸을 빼요)
     return rows
 
 
