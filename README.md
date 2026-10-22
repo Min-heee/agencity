@@ -16,10 +16,11 @@ Claude Code 세션들을 팀으로 묶어, 팀마다 사무실 한 층으로 보
 ## 이런 걸 해요
 
 - **한눈에 보기**: 층마다 책상·회의실·업무판·보고서가 있어요. 책상에는 세션 상태와 하는 일이 떠요.
-- **팀은 내 마음대로**: 세션을 팀장·팀원 자리에 앉히고, 역할 이름은 직접 지어요.
+- **팀은 내 마음대로**: 세션을 팀장·팀원 자리에 앉히고, 역할 이름은 직접 지어요. 빈자리는 **세션 만들기**로 바로 채워요.
 - **바로 대화**: 책상을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요.
 - **회의**: 내가 같이 하거나(참석), 팀에 맡기고 회의록으로 받아요(위임).
 - **결재**: 팀장이 올린 결재를 결재함에서 고르면 그 팀장에게 바로 전해져요.
+- **팀끼리**: 팀장끼리 다른 층과 이야기해요. 주고받은 말은 화면의 **팀 간 대화**에 남아요.
 
 지금은 Claude Code와 함께 써요. Codex·Gemini CLI는 앞으로 지원해요.
 
@@ -60,7 +61,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 
 ## 안전하게
 
-- 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude 앱에서는 세션 목록과 그룹만 읽고, 대화 내용은 읽지 않아요.
+- 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude 앱에서는 세션 목록과 그룹만 읽고, 대화 내용은 읽지 않아요. 세션 만들기로 연 새 세션만 첫 메시지에서 자리 표시를 찾아요.
 - 화면에서 보낸 말은 승인으로 쓰이지 않아요. 커밋·배포·결제는 그 세션 창에서 내가 직접 확인해요.
 - 도시에는 내가 확인한 것만 올라가요. 대화·결재·보고서 원문은 올리지 않아요.
 
@@ -70,7 +71,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 
 | 문서 | 내용 |
 |---|---|
-| [사용 안내서](docs/GUIDE.md) | 설치·업데이트, 처음 설정, 회의와 결재, 도시, 보안 |
+| [사용 안내서](docs/GUIDE.md) | 설치·업데이트, 처음 설정, 회의와 결재, 세션 만들기와 팀 간 대화, 도시, 보안 |
 | [총괄 세션 설정](docs/COORDINATOR.md) | 화면에서 보낸 말을 팀에 전하는 세션 켜기 |
 | [팀 규칙](docs/TEAM_RULES.md) | 팀 세션이 따르는 규칙 |
 | [도시 계획](docs/VISION.md) | 에이전시티 도시가 나아갈 방향 |
@@ -82,6 +83,7 @@ v0.3.1까지는 클로드 오피스(Claude Office)라는 이름이었어요. 라
 **Agencity**: run your AI agency, and raise it into the skyline.
 A local dashboard that seats your Claude Code desktop sessions as teams, one office floor per team.
 From one page you can message any session, run meetings, and approve what team leads file.
+An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
 Needs macOS or Linux, Python 3.9+, `jq` and the Claude Code desktop app. Codex and Gemini CLI support is planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
 

@@ -416,7 +416,7 @@ def sync_status_name(office, role, name):
         pass
 
 
-def make_office(office, name, prefix, members, boss_sid, old_team, replace=False):
+def make_office(office, name, prefix, members, boss_sid, old_team, replace=False, tid=None):
     """팀 사무실 폴더와 기본 파일을 만들어요. members: [{role, sessionId}](팀장이 맨 앞).
     이미 있던 팀 사무실(old_team: 그 team.json)이면 team.json의 팀 이름(team)·머리글(prefix)과 다른 칸은 그대로 두고 팀원(members)만 고쳐요.
     바뀐 게 없으면 team.json을 다시 쓰지 않아요. RULES.md·board.md·log.jsonl·대화·상태 파일도 건드리지 않고,
@@ -469,6 +469,8 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
             text = f.read()
         text = text.replace("`$O`(팀 사무실 폴더의 절대경로)", f"`$O`(= {office})").replace("`XX-`", f"`{prefix}`").replace("XX-n", f"{prefix}n")
         text = text.replace("<에이전시티>", HERE)
+        if tid:   # 팀 간 대화(bin/tell.sh)에 쓰는 내 층 id
+            text = text.replace("<내 층 id>", tid)
         # 총괄 id는 org.json에서 바뀔 수 있으니 거기를 가리켜요
         now_boss = "" if boss_sid.startswith(PLACEHOLDER) else f", 지금은 {boss_sid}"
         text = text.replace("보낸 세션이 총괄일 때만", f"보낸 세션이 총괄({HERE}/org.json의 boss.sessionId{now_boss})일 때만")
@@ -619,7 +621,7 @@ def main():
         boss = dict(boss, name=boss.get("name") or "총괄", title="총괄", sessionId=boss_sid)
 
     # 여기서부터 파일을 만들어요
-    changed = make_office(office, name, prefix, members, boss_sid, old_team)
+    changed = make_office(office, name, prefix, members, boss_sid, old_team, tid=tid)
     if old_team is not None:
         print("· 이미 있던 팀 사무실이에요. team.json의 팀 이름·머리글은 그대로 뒀어요. "
               + ("새로 적은 세션 id와 새 자리만 더했어요." if changed else "팀원도 바뀐 게 없어서 team.json을 다시 쓰지 않았어요.")
@@ -790,7 +792,7 @@ def run_spec(src):
     created, rows = [], []
     for p in plans:
         try:
-            make_office(p["office"], p["name"], p["prefix"], p["members"], boss_sid, p["old"], p["replace"])
+            make_office(p["office"], p["name"], p["prefix"], p["members"], boss_sid, p["old"], p["replace"], tid=p["id"])
             link_team(p["id"], p["office"])
         except TeamError as e:
             errors.append({"id": p["id"], "error": plain(e)})

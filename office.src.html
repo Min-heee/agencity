@@ -156,7 +156,7 @@ a{color:inherit}
 .plate-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 11px 8px}
 .who{display:flex; flex-direction:column; min-width:0}
 .nm{font-family:var(--font-display); font-size:21px; line-height:1.05; overflow-wrap:anywhere}
-.nm .rl,.d-title .rl,.feed .rl,.msg .rl,.board .rl,.chips .rl,.appr-top .rl,.meet-now .rl,.hint .rl{margin-left:5px; font:500 11px var(--font-body); letter-spacing:0; color:var(--ink-3); white-space:nowrap}
+.nm .rl,.d-title .rl,.feed .rl,.msg .rl,.board .rl,.chips .rl,.appr-top .rl,.meet-now .rl,.hint .rl,.talk-who .rl,.seat .rl{margin-left:5px; font:500 11px var(--font-body); letter-spacing:0; color:var(--ink-3); white-space:nowrap}
 .d-title .rl{margin-left:8px; font-size:14px; color:var(--ink-2)}
 .nm-pen{margin-left:3px; min-width:26px; min-height:26px; padding:1px 5px; border:0; border-radius:5px; background:none; color:var(--ink-3); font:400 13px/1 var(--font-body); letter-spacing:0; vertical-align:middle; cursor:pointer}
 .nm-pen:hover,.nm-pen:focus-visible{color:var(--ink); background:var(--surface-2)}
@@ -545,6 +545,51 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (max-width:559px){ .upd .dot{display:none} .upd-runbox{padding:16px} }
 
+/* 빈자리에 새 세션 앉히기(세션 만들기): 사무실 책상, 설정의 팀원 고치기 줄, 층 만들기 결과에 같은 상자가 보여요(상태는 /api/seat/pending) */
+.seat{display:flex; flex-direction:column; gap:6px; min-width:0; padding:8px 11px 9px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--ink-2)}
+.seat:focus{outline:none}   /* 상태가 바뀌어 단추가 없어질 때 키보드 위치만 맡아 두는 상자라 테두리는 그리지 않아요 */
+.seat-st{margin:0; color:var(--ink); overflow-wrap:anywhere; text-wrap:pretty}
+.seat-st.wait::before{content:""; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:var(--work); vertical-align:1px; animation:pulse 1.2s ease-in-out infinite}
+.seat-st.ok{font-weight:600}
+.seat-st.ok b{color:var(--ok)}
+.seat-st.bad{color:var(--err-ink)}
+.seat .hint{color:var(--ink-2)}
+.seat code{font:500 11.5px var(--font-mono); color:var(--ink-2); overflow-wrap:anywhere}
+.seat-acts{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+.seat-acts .btn,.seat-pick .btn{min-height:30px; padding:4px 10px; font-size:12.5px}
+.seat-pick{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px}
+.seat-pick .btn{width:100%; justify-content:space-between; flex-wrap:wrap; gap:2px 8px; font-weight:500; text-align:left; overflow-wrap:anywhere}
+.seat-pick .btn small{font-weight:400; color:var(--ink-2)}
+.seat-ok{margin:0; padding:5px 11px; border-top:1px solid color-mix(in srgb, var(--ok) 35%, var(--line)); background:color-mix(in srgb, var(--ok) 12%, var(--surface)); color:var(--ink); font-size:12.5px; font-weight:600}
+.setup .su-seat{padding:4px 0 2px; border-top:0}
+.su-seats{margin-top:10px; padding-top:8px; border-top:1px dashed var(--line-2)}
+.su-seats ul{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+.su-seats li{display:grid; grid-template-columns:minmax(6em, 9em) minmax(0,1fr); gap:4px 10px; align-items:start; padding:0}
+.su-seats li > b{padding-top:6px; font-size:13px; overflow-wrap:anywhere}
+@media (max-width:559px){ .su-seats li{grid-template-columns:minmax(0,1fr)} .su-seats li > b{padding-top:0} }
+/* 층 머리의 [섹션 맞추기]·[규칙 맞추기]와 그 결과 한 줄 */
+.room-head button.notion[aria-disabled="true"]{opacity:.62; cursor:not-allowed}
+.room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
+.room-note.bad{border-color:color-mix(in srgb, var(--err) 45%, var(--line)); color:var(--err-ink)}
+/* 팀 간 대화: 팀장끼리 주고받은 [협업] 기록(hq/teams.jsonl). 층 안내 바로 아래에서 접고 펼쳐요 */
+.talk{margin-top:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:0 16px}
+.talk[hidden]{display:none}
+.talk summary{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-height:44px; padding:8px 0; cursor:pointer; list-style:none}
+.talk summary::-webkit-details-marker{display:none}
+.talk summary::before{content:""; flex:none; width:7px; height:7px; margin:0 2px 0 3px; border-right:2px solid var(--ink-2); border-bottom:2px solid var(--ink-2); transform:rotate(-45deg); transition:transform .15s}
+.talk details[open] > summary::before{transform:rotate(45deg)}
+.talk summary h2{margin:0; font-family:var(--font-display); font-weight:400; font-size:20px; line-height:1.1}
+.talk-n{font-size:12.5px; color:var(--ink-2)}
+.talk-body{padding:0 0 14px}
+.talk-body > .hint{color:var(--ink-2)}
+.talk-list{list-style:none; margin:8px 0 0; padding:0; max-height:340px; overflow:auto; overscroll-behavior:contain; border-top:1px solid var(--line)}
+.talk-list li{padding:8px 2px; border-bottom:1px solid var(--line); font-size:13px}
+.talk-who{margin:0; font-size:12px; color:var(--ink-2); overflow-wrap:anywhere}
+.talk-who b{color:var(--ink); font-weight:600}
+.talk-who time{font:500 11.5px var(--font-mono); font-variant-numeric:tabular-nums}
+.talk-tx{margin:3px 0 0; color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere}
+.talk-empty{margin:8px 0 0; font-size:12.5px; color:var(--ink-2)}
+
 @media (max-width:1100px){ .room-grid,.bottom{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:899px){
   .org-branches{grid-template-columns:minmax(0,1fr); width:auto; margin:18px 0 0; padding-left:22px}
@@ -601,6 +646,17 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
     <div class="org-branches" id="orgTeams"></div>
   </section>
 
+  <section class="talk" id="talk" aria-labelledby="talkH" hidden>
+    <details id="talkBox">
+      <summary><h2 id="talkH">팀 간 대화</h2><span class="talk-n" id="talkN"></span></summary>
+      <div class="talk-body">
+        <p class="hint">팀장이 다른 층 팀장과 주고받은 [협업] 기록이에요. 여기서는 읽기만 해요. 다른 팀이 보낸 말은 대표의 승인이 아니에요.</p>
+        <p class="talk-empty" id="talkEmpty">아직 층끼리 주고받은 말이 없어요. 팀장이 다른 층 팀장에게 [협업]을 보내면 여기에 남아요.</p>
+        <ol class="talk-list" id="talkList" role="log" aria-live="off" aria-label="팀 간 대화 기록" tabindex="0" hidden></ol>
+      </div>
+    </details>
+  </section>
+
   <div id="rooms"></div>
 </div>
 
@@ -627,6 +683,7 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 <p class="su-sr" id="updLive" role="status" aria-live="polite"></p>
 
 <p class="su-sr" id="nmLive" role="status" aria-live="polite"></p>
+<p class="su-sr" id="seatLive" role="status" aria-live="polite"></p>
 <script type="application/json" id="snapshot">/*@@SNAPSHOT@@*/</script>
 <script>
 (() => {
@@ -727,10 +784,13 @@ async function load() {
     }
     let hqLast = null;
     if (API) { const l = jsonl(await getText('hq/chat.jsonl').catch(() => '')); hqLast = l.length ? l[l.length - 1] : null; }
+    // 팀 간 대화(팀장끼리 bin/tell.sh로 남긴 기록): 못 읽으면(아직 없으면) 빈 기록, 잠깐 못 읽으면 직전 기록
+    let talk = null;
+    if (API) talk = await getText(TALK_FILE).then(t => jsonl(t).slice(-TALK_MAX), e => (/404/.test(String(e && e.message)) || !state || !state.talk ? [] : state.talk));
     let relay = null;
     if (API) { try { relay = JSON.parse(await getText('api/state')); } catch (e) { relay = null; } }
     if (gen !== orderGen) return;   // 옮긴 순서는 이미 그려져 있고, 저장이 끝나면 flushOrder가 다시 불러와요
-    state = { org, teams, relay, hqLast, at: new Date().toISOString() };
+    state = { org, teams, relay, hqLast, talk, at: new Date().toISOString() };
     mode = 'live';
   } catch (e) {
     if (!state) {
@@ -846,10 +906,14 @@ function nameEditHTML(m, cx) {
 function deskHTML(m, st, tid, newReply, cx) {
   const c = customName(m, cx.names), nm = c ? `${c}(${m.role})` : m.name || m.role;
   if (!m.sessionId) {
+    // 빈자리: [세션 만들기]로 이 층 폴더에서 새 세션을 열어 앉혀요(로컬 페이지, 예시 팀이 아니고 서버가 고칠 수 있는 줄일 때만)
+    const sk = seatKey(tid, m.role), so = seatGet(sk), can = !!(cx.seat && cx.edit && cx.edit.has(m));
+    const msg = so && so.state === 'waiting' ? 'Enter를 기다려요' : so && so.state === 'pick' ? '세션을 골라 주세요' : '곧 합류해요';
     return `<article class="desk is-vacant"><header class="plate-row"><div class="who">${nameBlockHTML(m, tid, false, cx)}<span class="when">합류 전</span></div><span class="status"><i class="sd none"></i>빈자리</span></header>
-      <div class="scene">${sceneSVG(lookOf(m.role, m.role), m.role)}<div class="screen-ui"><div class="screen-call">${esc(m.title)}</div><div class="screen-msg">곧 합류해요</div></div></div>
-      <div class="task">아직 세션이 없어요.</div><div class="desk-foot"><code>—</code></div></article>`;
+      <div class="scene">${sceneSVG(lookOf(m.role, m.role), m.role)}<div class="screen-ui"><div class="screen-call">${esc(m.title)}</div><div class="screen-msg">${esc(msg)}</div></div></div>
+      ${can || so ? seatBoxHTML(tid, m.role, 'r') : '<div class="task">아직 세션이 없어요.</div>'}<div class="desk-foot"><code>—</code></div></article>`;
   }
+  const sj = seatGet(seatKey(tid, m.role)), seatOk = sj && sj.state === 'seated' && sj.sessionId === m.sessionId ? '<p class="seat-ok">자리에 앉혔어요 ✓</p>' : '';
   const s = st || { state: '대기', task: '', say: '', updated: '' };
   const S = ST[s.state] || ST['대기'];
   const L = lookOf(m.sessionId, m.role);
@@ -861,7 +925,7 @@ function deskHTML(m, st, tid, newReply, cx) {
   return `<article class="desk ${S.cls}" data-role="${esc(m.role)}" data-team="${esc(tid)}" tabindex="0" role="button" aria-label="${esc(nm)}, ${esc(s.state)}">
     <header class="plate-row"><div class="who">${nameBlockHTML(m, tid, newReply, cx)}<span class="when">${esc(m.title)}${s.updated ? ' · ' + esc(ago(s.updated)) : ''}</span></div><span class="status"><i class="sd ${stale ? 'block' : S.sd}"></i>${esc(s.state)}${stale ? ' · 응답 없음?' : ''}</span></header>
     <div class="scene">${sceneSVG(L, m.role)}<div class="screen-ui"><div class="screen-call">${esc(s.state)}</div><div class="screen-msg">${esc(s.task || (s.state === '대기' ? '다음 일을 기다리는 중' : ''))}${caret}</div></div>${bubble}${away}</div>
-    <div class="task">${s.task ? `<b>${esc(s.task.split(' ')[0])}</b>${esc(s.task.split(' ').slice(1).join(' '))}` : '<span class="empty">다음 일을 기다리는 중</span>'}</div>
+    ${seatOk}<div class="task">${s.task ? `<b>${esc(s.task.split(' ')[0])}</b>${esc(s.task.split(' ').slice(1).join(' '))}` : '<span class="empty">다음 일을 기다리는 중</span>'}</div>
     <div class="desk-foot"><code>${esc(m.sessionId)}</code><a class="open-chat" href="${chatLink(m.sessionId)}">대화 열기</a></div>
   </article>`;
 }
@@ -980,7 +1044,7 @@ function flushOrder() {
 // 4초마다 다시 그려도 내용이 같으면 DOM을 건드리지 않아요(누르던 버튼·키보드 위치가 그대로 남아요).
 function put(el, html) { if (el._html === html) return false; el._html = html; el.innerHTML = html; return true; }
 const FOCUSABLE = 'a[href], button, [tabindex]';
-const sigOf = n => [n.tagName, n.dataset.goto, n.dataset.move, n.dataset.file, n.dataset.copy, n.dataset.team, n.dataset.role, n.getAttribute('href')].join('|');
+const sigOf = n => [n.tagName, n.dataset.goto, n.dataset.move, n.dataset.file, n.dataset.copy, n.dataset.team, n.dataset.role, n.dataset.act, n.dataset.seat, n.dataset.sid, n.getAttribute('href')].join('|');
 function focusKey(el) {
   if (!el || !el.closest) return null;
   const box = el.closest('#orgTop, #orgTeams, #rooms');
@@ -1053,6 +1117,7 @@ function render() {
   if (put($('#rooms'), !cur ? '' : teams[cur.id] ? roomHTML(cur, teams[cur.id]) : vacantHTML(cur))) {
     $$('#rooms .feed, #rooms .files').forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   }
+  renderTalk();
   document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
   if (nmFocus && nmEl.isConnected === false) { const i = $('#nmIn'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(nmSel[0], nmSel[1]); } catch (e) {} } }
@@ -1071,7 +1136,8 @@ function vacantHTML(t) {
 function roomHTML(t, d) {
   const ms = leadFirst(d.team.members);
   // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
-  const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: API && !String(t.office || '').startsWith('examples/') ? new Set(shownRows(d.team.members).map(x => x.m)) : null };
+  const mine = API && !String(t.office || '').startsWith('examples/');   // 로컬 페이지의 내 층(예시 팀은 고치지도, 세션을 만들지도 않아요)
+  const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: mine ? new Set(shownRows(d.team.members).map(x => x.m)) : null, seat: mine };
   const working = ms.filter(m => d.status[m.role] && d.status[m.role].state === '일하는 중').length;
   const meeting = ms.filter(m => d.status[m.role] && d.status[m.role].state === '회의 중').length;
   const items = parseBoard(d.board);
@@ -1097,7 +1163,8 @@ function roomHTML(t, d) {
        ${API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
   return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
     <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
-      <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}</div></div>
+      <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}${mine ? floorToolsHTML(t) : ''}</div></div>
+    ${mine ? floorNoteHTML(t.id) : ''}
     <div class="room-grid">
       <div class="desks${ms.length > 4 ? ' many' : ''}">${ms.map(m => deskHTML(m, d.status[m.role], t.id, unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]), cx)).join('')}</div>
       <div class="side">
@@ -1234,6 +1301,351 @@ async function saveNameEdit() {
   if (SU.st) refreshSetup().catch(() => {});   // 설정 화면의 팀원 목록도 새 이름으로
   load();
 }
+
+/* ---------- 빈자리에 새 세션 앉히기(세션 만들기) ---------- */
+// [세션 만들기]를 누르면 서버(/api/seat/link)가 자리 표시(AGC-…)를 넣은 첫 메시지와 층 폴더로 claude://code/new 링크를 만들어 줘요.
+// 그 링크를 열면 Claude 앱이 폴더를 확인하는 창을 띄우고 작성창에 첫 메시지를 채워 둬요. 사람이 Enter를 누르면 서버가 새 세션 기록을 찾아 그 자리에 앉혀요.
+// 기다리는 자리가 있는 동안 3초마다 /api/seat/pending을 물어 상태를 보여 줘요: 기다리는 중 → 앉힘 / 고르기(새 세션이 여럿이거나 첫 메시지에 자리 표시가 없으면 제목만 와요) / 시간 지남.
+// 같은 상자(seatBoxHTML)가 책상의 빈자리, 설정의 팀원 고치기 줄, 층 만들기 결과에 보여요. 세션의 대화 내용은 오지도 보이지도 않아요.
+const SEAT = new Map();   // '<층 id>|<역할>' → { team, role, state: ''(아직)|'waiting'|'pick'|'seated'|'expired'|'failed', fail, busy, err, url, marker, folder, started, expires, candidates, sessionId, doneAt, at }
+const SEAT_OK_MS = 120e3;   // ‘자리에 앉혔어요 ✓’를 보여 주는 시간
+const CLAUDE_NEW = /^claude:\/\/code\/new\?/;   // 서버가 준 링크가 이 모양일 때만 열어요
+const seatKey = (tid, role) => `${tid}|${role}`;   // 층 id와 역할 이름에는 |가 들어가지 않아요
+const seatSplit = k => { const s = String(k), i = s.indexOf('|'); return [s.slice(0, i), s.slice(i + 1)]; };
+const seatSay = t => { const el = $('#seatLive'); if (el) { el.textContent = ''; setTimeout(() => { el.textContent = t; }, 30); } };
+// 단추 이름(aria-label)·알림에 쓰는 자리 이름: ‘<층 이름> <자리>’(같은 역할이 여러 층에 있어도 구분돼요). 막 만든 층은 아직 state에 없어서 설정의 층 목록에서 찾아요
+function seatWho(tid, role) {
+  const t = state && state.org && Array.isArray(state.org.teams) ? state.org.teams.find(x => x.id === tid) : null;
+  const f = SU.st && Array.isArray(SU.st.floors) ? SU.st.floors.find(x => x.id === tid) : null;
+  const n = String((t && t.name) || (f && f.name) || '').trim();
+  return n ? `${n} ${seatText(tid, role)}` : seatText(tid, role);
+}
+const seatErr = (e, d) => (e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : (e && e.message) || d);
+function seatGet(k) {   // 지금 보여 줄 상태(앉힌 지 오래됐으면 지우고, 기다릴 시간이 지났으면 서버가 알려 주기 전에도 ‘시간 지남’)
+  const s = SEAT.get(k);
+  if (!s) return null;
+  if (!s.busy && s.state === 'seated' && Date.now() - (s.doneAt || 0) > SEAT_OK_MS) { SEAT.delete(k); return null; }
+  if (!s.busy && (s.state === 'waiting' || s.state === 'pick') && s.expires && Date.now() > s.expires + 5000) { s.state = 'expired'; s.candidates = []; }
+  return s;
+}
+// 링크 열기: 숨긴 링크를 눌러요. 맥 앱은 127.0.0.1이 아닌 주소를 시스템(Claude 앱)으로 넘기고, 브라우저는 열지 물어봐요.
+function openClaude(url) {
+  if (!CLAUDE_NEW.test(String(url || ''))) return false;
+  const a = document.createElement('a');
+  a.href = url; a.hidden = true;
+  document.body.appendChild(a);
+  try { a.click(); } finally { a.remove(); }
+  return true;
+}
+function seatBoxHTML(tid, role, where, cls = '') {   // where: 'r' 사무실 책상 · 's' 설정의 팀원 고치기 줄 · 'm' 층 만들기 결과(같은 자리가 여러 곳에 있어도 id가 겹치지 않게)
+  const k = seatKey(tid, role);
+  return `<div class="seat${cls}" id="${where}sb${hash(k).toString(36)}" data-seat-box="${esc(k)}" data-team="${esc(tid)}" data-role="${esc(role)}" tabindex="-1">${seatInner(tid, role, where)}</div>`;
+}
+function seatInner(tid, role, where) {
+  const k = seatKey(tid, role), s = seatGet(k), h = hash(k).toString(36), who = seatWho(tid, role), busy = !!(s && s.busy), st = s ? s.state : '';
+  const b = (act, label, aria, cls = '') => `<button type="button" class="btn${cls}" id="${where}sb${h}${act}" data-seat="${act}" data-team="${esc(tid)}" data-role="${esc(role)}"${aria ? ` aria-label="${esc(aria)}"` : ''}${busy ? ' disabled' : ''}>${esc(label)}</button>`;
+  const err = s && s.err ? `<p class="seat-st bad" role="alert">${esc(s.err)}</p>` : '';
+  const cancel = b('cancel', s && s.busy === 'cancel' ? '취소하는 중…' : '취소', s && s.busy === 'cancel' ? '' : `${who} 자리 세션 만들기 취소`);
+  if (st === 'seated') return `<p class="seat-st ok">자리에 앉혔어요 <b aria-hidden="true">✓</b></p>`;
+  if (st === 'waiting') {
+    const till = s.expires ? hm(new Date(s.expires).toISOString()) : '';
+    const line = [s.folder ? `폴더 <code>${esc(tilde(s.folder))}</code>` : '', till ? `${esc(till)}까지 기다려요` : ''].filter(Boolean).join(' · ');
+    return `<p class="seat-st wait">Claude 앱에서 폴더를 확인하고 Enter를 눌러 주세요 · 기다리는 중…</p>${line ? `<p class="hint">${line}</p>` : ''}
+      <div class="seat-acts">${b('retry', '다시 열기', `${who} 자리 링크 다시 열기`)}${cancel}</div>${err}`;
+  }
+  if (st === 'pick') {
+    const cs = s.candidates || [];
+    return `<p class="seat-st">${cs.length === 1 ? '자리 표시가 없는 새 세션이 보여요. 이 자리에 앉힐 세션이 맞으면 골라 주세요' : '새 세션이 여럿 보여요. 이 자리에 앉힐 세션을 골라 주세요'}</p>
+      <ul class="seat-pick" aria-label="${esc(who)} 자리에 앉힐 세션">${cs.map(c => `<li><button type="button" class="btn" id="${where}sb${h}p${hash(c.sessionId).toString(36)}" data-seat="pick" data-sid="${esc(c.sessionId)}" data-team="${esc(tid)}" data-role="${esc(role)}"${busy ? ' disabled' : ''}><span>${esc(c.title || '(제목 없음)')}</span>${agoAt(c.createdAt) ? `<small>${esc(agoAt(c.createdAt))} 만듦</small>` : ''}</button></li>`).join('') || '<li class="hint">고를 세션을 읽는 중이에요…</li>'}</ul>
+      <div class="seat-acts">${cancel}</div>${err}`;
+  }
+  if (st === 'expired' || st === 'failed') return `<p class="seat-st${st === 'failed' ? ' bad' : ''}">${esc(st === 'failed' ? s.fail || '자리에 앉히지 못했어요. 다시 열어 주세요' : '시간이 지나 다시 열어야 해요')}</p><div class="seat-acts">${b('retry', s.busy === 'link' ? '여는 중…' : '다시 열기', s.busy === 'link' ? '' : `${who} 자리 링크 다시 열기`, ' primary')}${cancel}</div>${err}`;
+  // 아직 링크가 없어요(또는 만드는 중이거나 못 만들었어요)
+  return `${where === 'r' ? '<p class="seat-st">아직 세션이 없어요.</p>' : ''}<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '세션 만들기', busy ? '' : `${who} 자리에 새 세션 만들기`, ' primary')}</div>${err}${where === 'r' ? '<p class="hint">이 층 폴더에서 새 Claude 세션을 열어요. Claude 앱에서 Enter를 누르면 이 자리에 앉혀요.</p>' : ''}`;
+}
+// 상태가 바뀐 자리를 다시 그려요: 사무실은 render()(같은 글이면 그대로), 설정 화면은 그 상자만(쓰던 칸이 그대로 남게).
+// 키보드가 그 상자 안에 있었으면(누른 단추가 꺼지거나 없어져도) 같은 상자의 알맞은 단추로 돌려줘요. 상자 id의 첫 글자가 그 상자가 있는 곳이에요.
+let SEATF = null;   // 마지막으로 누른 자리 단추: { k: 자리 열쇠, box: 그 상자의 id }
+function seatPaint(k, prefer) {
+  const a = document.activeElement, cur = a && a.closest ? a.closest('[data-seat-box]') : null;
+  const boxId = cur && cur.dataset.seatBox === k ? cur.id : SEATF && SEATF.k === k && (!a || a === document.body) ? SEATF.box : '';
+  const was = boxId && a && a.dataset ? a.dataset.seat || '' : '';
+  if (state) { if ($('#drawer').hidden) render(); else pending = true; }
+  const [tid, role] = seatSplit(k);
+  for (const el of $$('#setup [data-seat-box]')) if (el.dataset.seatBox === k) el.innerHTML = seatInner(tid, role, el.id.charAt(0));
+  const el = boxId ? document.getElementById(boxId) : null;
+  if (!el) return;
+  const now = document.activeElement;
+  if (now && now !== el && el.contains(now) && !now.disabled) return;   // 같은 단추가 그대로 있어요
+  const t = [prefer, was, 'retry', 'cancel', 'link'].filter(Boolean).map(x => el.querySelector(`[data-seat="${x}"]:not([disabled])`)).find(Boolean);
+  (t || el).focus({ preventScroll: true });
+}
+async function seatLink(tid, role) {
+  const k = seatKey(tid, role), s = SEAT.get(k) || { team: tid, role, state: '', busy: '', err: '', url: '', folder: '', candidates: [], sessionId: '', doneAt: 0, at: 0 };
+  if (s.busy) return;
+  SEAT.set(k, s);
+  s.busy = 'link'; s.err = ''; s.at = Date.now();
+  seatPaint(k);
+  try {
+    const r = await post('api/seat/link', { team: tid, role });
+    const url = String(r.url || '');
+    if (!CLAUDE_NEW.test(url)) throw new Error('서버가 준 링크 모양이 이상해서 열지 않았어요. 다시 해 주세요');
+    Object.assign(s, { busy: '', state: 'waiting', fail: '', url, marker: String(r.marker || ''), folder: typeof r.display === 'string' && r.display ? r.display : typeof r.folder === 'string' ? r.folder : '',
+      started: Date.now(), expires: msOf(r.expires) || Date.now() + 30 * 60e3, candidates: [], sessionId: '', doneAt: 0, at: Date.now() });
+    seatPaint(k, 'retry');
+    openClaude(url);
+    seatSay(`Claude 앱을 열었어요. 폴더를 확인하고 Enter를 누르면 ${seatWho(tid, role)} 자리에 앉혀요`);
+  } catch (e) {
+    s.busy = ''; s.err = seatErr(e, '링크를 만들지 못했어요'); s.at = Date.now();
+    seatPaint(k, s.state === 'expired' || s.state === 'failed' ? 'retry' : 'link');
+    seatSay(s.err);
+  }
+  seatSchedule();
+}
+// 다시 열기: 이 화면에서 만든 링크가 아직 쓸 수 있으면 그 링크를, 아니면(시간이 지났거나 다시 불러온 화면) 새 링크를 만들어 열어요
+function seatRetry(tid, role) {
+  const s = seatGet(seatKey(tid, role));
+  if (s && s.state === 'waiting' && s.url && Date.now() < (s.expires || 0) - 10e3) {
+    s.err = '';
+    openClaude(s.url);
+    seatSay(`${seatWho(tid, role)} 자리 링크를 다시 열었어요. Claude 앱에서 폴더를 확인하고 Enter를 눌러 주세요`);
+    return;
+  }
+  seatLink(tid, role);
+}
+async function seatPick(tid, role, sid) {
+  const k = seatKey(tid, role), s = SEAT.get(k);
+  if (!s || s.busy || !SID_RE.test(String(sid || '')) || !(s.candidates || []).some(c => c.sessionId === sid)) return;
+  s.busy = 'pick'; s.err = ''; s.at = Date.now();
+  seatPaint(k);
+  try {
+    await post('api/seat/pick', { team: tid, role, sessionId: sid });
+    Object.assign(s, { busy: '', state: 'seated', sessionId: sid, doneAt: Date.now(), at: Date.now() });
+    seatPaint(k);
+    seatSeated(s);
+  } catch (e) {
+    s.busy = ''; s.err = seatErr(e, '이 세션을 앉히지 못했어요'); s.at = Date.now();
+    seatPaint(k, 'cancel');
+    seatSay(s.err);
+    seatPoll();   // 고를 세션이 그사이 바뀌었을 수 있어요
+  }
+}
+async function seatCancel(tid, role) {
+  const k = seatKey(tid, role), s = SEAT.get(k);
+  if (!s || s.busy) return;
+  if (s.state) {
+    s.busy = 'cancel'; s.err = ''; s.at = Date.now();
+    seatPaint(k);
+    try { await post('api/seat/cancel', { team: tid, role }); }
+    catch (e) { if (e instanceof TypeError) { s.busy = ''; s.err = seatErr(e); seatPaint(k, 'cancel'); return; } }   // 서버가 이미 치운 자리(없어요 등)면 화면에서도 지워요
+  }
+  SEAT.delete(k);
+  seatPaint(k, 'link');
+  seatSay(`${seatWho(tid, role)} 자리 세션 만들기를 ${s.state ? '취소했어요' : '닫았어요'}`);
+  seatSchedule();
+}
+// 서버가 알려 준 한 줄을 이 화면이 쓰는 모양으로(모양이 틀리면 null). state: 'waiting'(그 밖의 이름) · 'pick' · 'seated' · 'expired' · 'failed'(error) · 'gone'(취소됨)
+function seatNorm(p) {
+  if (!p || typeof p !== 'object' || typeof p.team !== 'string' || typeof p.role !== 'string' || !p.team || !p.role) return null;
+  const st = String(p.state || ''), expires = msOf(p.expires);
+  let state = ['seated', 'pick', 'expired', 'failed'].includes(st) ? st : /^cancel/.test(st) ? 'gone' : 'waiting';
+  if ((state === 'waiting' || state === 'pick') && expires && Date.now() > expires + 5000) state = 'expired';   // 서버가 아직 치우지 않았어도
+  const candidates = (Array.isArray(p.candidates) ? p.candidates : []).filter(c => c && typeof c === 'object' && SID_RE.test(String(c.sessionId || ''))).slice(0, 12)
+    .map(c => ({ sessionId: String(c.sessionId), title: cut(String(c.title == null ? '' : c.title).trim(), 80), createdAt: c.createdAt }));
+  return { team: p.team, role: p.role.normalize('NFC'), state, candidates, marker: typeof p.marker === 'string' ? p.marker : '', folder: typeof p.folder === 'string' ? p.folder : '',
+    sessionId: typeof p.sessionId === 'string' && SID_RE.test(p.sessionId) ? p.sessionId : '', started: msOf(p.started), expires,
+    error: state === 'failed' ? cut(String(p.error || '').trim(), 200) : '' };
+}
+// at: 이 물음을 보낸 때. 그 뒤에 이 화면에서 바꾼 자리(링크를 새로 만들었거나 골랐거나)는 다음 답부터 맞춰요.
+function seatMerge(list, at) {
+  const seen = new Set(), changed = new Set(), seated = [];
+  for (const raw of list) {
+    const p = seatNorm(raw);
+    if (!p) continue;
+    const k = seatKey(p.team, p.role);
+    seen.add(k);
+    let s = SEAT.get(k);
+    if (s && (s.busy || s.at > at)) continue;
+    if (!s) {
+      if (p.state !== 'waiting' && p.state !== 'pick') continue;   // 다른 곳에서 시작해 이미 끝난 자리는 보여 주지 않아요
+      s = { team: p.team, role: p.role, state: '', busy: '', err: '', url: '', folder: '', candidates: [], sessionId: '', doneAt: 0, at: 0 };
+      SEAT.set(k, s);
+    }
+    if (p.state === 'gone') { SEAT.delete(k); changed.add(k); continue; }
+    const before = JSON.stringify([s.state, s.sessionId, s.candidates, s.fail]), who = seatWho(s.team, s.role);
+    if (p.marker && s.marker && p.marker !== s.marker) s.url = '';   // 다른 곳에서 링크를 새로 만들었어요(이 화면의 옛 링크는 다시 열지 않아요)
+    if (p.marker) s.marker = p.marker;
+    if (p.folder) s.folder = p.folder;
+    if (p.started) s.started = p.started;
+    if (p.expires) s.expires = p.expires;
+    s.candidates = p.state === 'pick' ? p.candidates : [];
+    s.sessionId = p.sessionId;
+    if (p.state === 'seated' && s.state !== 'seated') { s.doneAt = Date.now(); s.err = ''; seated.push(s); }
+    if (p.state === 'pick' && s.state !== 'pick') seatSay(`${who} 자리: ${p.candidates.length === 1 ? '자리 표시가 없는 새 세션이 보여요. 맞으면 골라 주세요' : '새 세션이 여럿 보여요. 앉힐 세션을 골라 주세요'}`);
+    if (p.state === 'expired' && s.state !== 'expired') seatSay(`${who} 자리: 시간이 지나 다시 열어야 해요`);
+    if (p.state === 'failed' && (s.state !== 'failed' || s.fail !== p.error)) seatSay(`${who} 자리: ${p.error || '자리에 앉히지 못했어요'}`);
+    s.fail = p.state === 'failed' ? p.error : '';
+    if (p.state !== s.state) s.err = '';   // 지난 단계의 오류 글은 지워요
+    s.state = p.state;
+    if (JSON.stringify([s.state, s.sessionId, s.candidates, s.fail]) !== before) changed.add(k);
+  }
+  // 이 화면이 기다리던 자리가 목록에서 빠졌어요(다른 곳에서 취소했거나 서버가 치웠어요)
+  for (const [k, s] of SEAT) if (!seen.has(k) && !s.busy && s.at <= at && (s.state === 'waiting' || s.state === 'pick')) { SEAT.delete(k); changed.add(k); }
+  changed.forEach(k => seatPaint(k));
+  seated.forEach(seatSeated);
+}
+let seatTimer = 0, seatAsking = false;
+const seatWaiting = () => [...SEAT.values()].some(s => s.state === 'waiting' || s.state === 'pick');
+function seatSchedule() { clearTimeout(seatTimer); seatTimer = 0; if (API && seatWaiting()) seatTimer = setTimeout(() => seatPoll(), 3000); }
+async function seatPoll(first) {
+  if (!API || seatAsking) return;
+  if (!first && document.visibilityState === 'hidden') { seatSchedule(); return; }   // 보이지 않는 동안은 쉬어요(다시 보이면 바로 물어요)
+  seatAsking = true;
+  const at = Date.now();
+  let r = null;
+  try { r = await post('api/seat/pending', {}); } catch (e) { r = null; }   // 잠깐 못 물었으면 그대로 두고 다음에 다시 물어요
+  seatAsking = false;
+  if (r && Array.isArray(r.pending)) seatMerge(r.pending, at);
+  for (const [k, s] of [...SEAT]) { const was = s.state; if (seatGet(k) !== s || s.state !== was) seatPaint(k); }   // 시간이 지난 자리·오래된 ✓
+  seatSchedule();
+}
+// 앉혔어요: 사무실(team.json)과 설정의 층 정보·세션 목록을 새로 읽어요. 열어 둔 ‘팀원 고치기’의 그 빈자리도 새 세션으로 맞춰요(저장하면 비우지 않게).
+async function seatSeated(s) {
+  seatSay(`${seatWho(s.team, s.role)} 자리에 새 세션을 앉혔어요`);
+  seatPatchEditor(s);
+  const k = seatKey(s.team, s.role), a = document.activeElement, box = a && a.closest ? a.closest('#rooms [data-seat-box]') : null;
+  await load();
+  const now = document.activeElement;
+  if (box && box.dataset.seatBox === k && !box.isConnected && (!now || now === document.body || $('#rooms').contains(now))) {   // 빈자리가 책상이 됐어요: 키보드는 그 책상으로
+    const d = $$('#rooms .desk[data-role]').find(x => x.dataset.team === s.team && x.dataset.role === s.role);
+    if (d) d.focus({ preventScroll: true });
+  }
+  if (SU.st) {
+    await refreshSetup().catch(() => {});
+    if (SU.open && SU.step === 2) loadClaude();   // 새 세션이 나무와 자리 고르기에 보이게(다 읽으면 다시 그려요)
+  }
+}
+function seatPatchEditor(s) {
+  const e = SU.edit[s.team], k = roleKey(s.role);
+  if (!e || e.loading || e.loadErr || !Array.isArray(e.loaded) || !s.sessionId) return;
+  const L = e.loaded.find(m => roleKey(m.role) === k);
+  if (!L || L.sid) return;
+  L.sid = s.sessionId;
+  try { const o = JSON.parse(e.orig), x = o.find(v => v[0] === k && !v[1]); if (x) { x[1] = s.sessionId; e.orig = JSON.stringify(o); } } catch (err) {}
+  const r = e.rows.find(y => y.was && roleKey(y.was) === k && roleKey(y.role) === k);
+  if (r && !r.sid) { const c = (s.candidates || []).find(x => x.sessionId === s.sessionId); r.sid = s.sessionId; r.auto = ''; r.err = ''; r.title = c ? c.title : ''; }
+  if (SU.open && SU.step === 2) renderSetup();
+}
+// 팀원 고치기의 한 줄이 서버에도 저장된 빈자리면 그 자리 열쇠(역할 이름을 바꾸는 중이거나 새로 더한 줄, 세션을 고른 줄은 저장한 뒤에)
+function rowSeat(e, r) {
+  if (!API || e.kind !== 'floor' || !r.was || roleKey(r.was) !== roleKey(r.role) || !Array.isArray(e.loaded)) return '';
+  const k = seatKey(e.id, r.was), L = e.loaded.find(m => roleKey(m.role) === roleKey(r.was));
+  return (L && !L.sid && !r.sid) || SEAT.has(k) ? k : '';
+}
+
+/* ---------- 층 머리: 섹션 맞추기 · 규칙 맞추기 ---------- */
+// [섹션 맞추기]: Claude 앱 사이드바에 층 이름의 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요(/api/floor/sidebar).
+//   사이드바는 Claude 세션만 고칠 수 있어서 총괄 세션이 해요. 진짜 총괄(org.json의 boss, 자리 표시용 id 말고)이 없으면 누를 수 없어요.
+// [규칙 맞추기]: 층의 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 덧붙여요(/api/floor/rules-sync, 다른 글은 건드리지 않아요).
+const FNOTE = new Map();   // 층 id → { text, bad, busy: ''|'sidebar'|'rules', at }: 층 머리 아래 한 줄 알림
+const FNOTE_MS = 60e3;
+const NO_BOSS = '총괄 세션이 없어서 쓸 수 없어요. 설정(3단계)에서 총괄 세션을 정하면 돼요';
+const realBoss = () => { const b = state && state.org && state.org.boss, sid = b && typeof b.sessionId === 'string' ? b.sessionId : ''; return SID_RE.test(sid) && !sid.startsWith('local_00000000'); };
+function floorToolsHTML(t) {
+  const n = FNOTE.get(t.id), busy = !!(n && n.busy), boss = realBoss(), id = esc(t.id);
+  return `<button type="button" class="notion" data-act="floor-sidebar" data-team="${id}" aria-describedby="fh-${id}"${!boss || busy ? ' aria-disabled="true"' : ''} title="${esc(boss ? `Claude 앱 사이드바에 ‘${t.name}’ 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요` : NO_BOSS)}">섹션 맞추기</button>`
+    + `<button type="button" class="notion" data-act="floor-rules" data-team="${id}"${busy ? ' aria-disabled="true"' : ''} title="이 층 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 넣어요">규칙 맞추기</button>`
+    + `<span class="su-sr" id="fh-${id}">${esc(boss ? '사이드바 정리는 총괄 세션이 해요' : NO_BOSS)}</span>`;
+}
+function floorNoteHTML(tid) {
+  const n = FNOTE.get(tid);
+  if (!n || (!n.busy && Date.now() - n.at > FNOTE_MS)) return '';
+  return `<p class="room-note${n.bad ? ' bad' : ''}">${esc(n.text)}</p>`;
+}
+async function floorTool(btn) {
+  const tid = btn.dataset.team, kind = btn.dataset.act === 'floor-sidebar' ? 'sidebar' : 'rules', t = state && state.org.teams.find(x => x.id === tid);
+  const cur = FNOTE.get(tid);
+  if (!t || (cur && cur.busy)) return;
+  const note = (text, bad) => { FNOTE.set(tid, { text, bad: !!bad, busy: '', at: Date.now() }); render(); seatSay(text); };
+  if (kind === 'sidebar' && !realBoss()) { note(NO_BOSS, true); return; }
+  FNOTE.set(tid, { text: kind === 'sidebar' ? '총괄에게 맡기는 중…' : '규칙을 확인하는 중…', bad: false, busy: kind, at: Date.now() });
+  render();
+  try {
+    if (kind === 'sidebar') {
+      const r = await post('api/floor/sidebar', { team: tid });
+      if (r.queued === false) throw new Error('총괄에게 맡기지 못했어요. 잠시 뒤 다시 해 주세요');
+      if (state && typeof r.relayAge !== 'undefined') state.relay = Object.assign({}, state.relay || {}, { pending: r.pending, oldestAge: r.oldestAge, relayAge: r.relayAge });
+      const rl = state && state.relay, down = !rl || rl.relayAge == null || rl.relayAge >= 15;
+      note(`총괄에게 사이드바 정리를 맡겼어요. Claude 앱 사이드바에 ‘${t.name}’ 그룹(섹션)이 없으면 만들고, 이 층 세션들을 그리로 옮겨요.${down ? ' 지금은 총괄 연결이 끊겨 있어서 총괄이 돌아오면 해요.' : ''}`);
+    } else {
+      const r = await post('api/floor/rules-sync', { team: tid });
+      note(r.added === true ? `${t.name} 층 RULES.md에 ‘팀 간 대화’ 규칙을 넣었어요. 새로 여는 세션은 바로 따라요. 지금 켜져 있는 팀장에게는 책상을 눌러 “RULES.md의 ‘팀 간 대화’ 부분을 다시 읽어 줘”라고 한 번 보내 주세요.` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
+    }
+  } catch (e) { note(seatErr(e, kind === 'sidebar' ? '총괄에게 맡기지 못했어요' : '규칙을 맞추지 못했어요'), true); }
+}
+
+/* ---------- 팀 간 대화(hq/teams.jsonl) ---------- */
+// 팀장이 bin/tell.sh로 남기고 SendMessage로 직접 보낸 [협업] 기록이에요. load()가 4초마다 다시 읽고, 새 줄만 아래에 덧붙여요
+// (읽던 자리가 그대로고, 화면 읽기 프로그램은 새 줄만 읽어요). 가장 새 말이 맨 아래예요. 모든 글은 esc()를 거쳐요.
+const TALK_FILE = 'hq/teams.jsonl', TALK_MAX = 60, TALK_KEY = 'agencity.talk';
+const TALK = { html: null, liveT: 0 };
+function talkOf(l) {   // {t, from:{floor, role, name, floorName?}, to:{floor, role, floorName?}, text}. 모양이 틀린 줄은 빼요
+  if (!l || typeof l !== 'object' || !l.from || typeof l.from !== 'object' || !l.to || typeof l.to !== 'object') return null;
+  const s = v => (typeof v === 'string' ? v : '');
+  const text = s(l.text).trim();
+  if (!text) return null;
+  const who = x => ({ floor: s(x.floor), role: s(x.role) || LEAD, floorName: cut(s(x.floorName).trim(), 60) });   // floorName: 보낼 때의 층 이름(층이 없어졌을 때 써요)
+  return { t: s(l.t), from: who(l.from), to: who(l.to), text: cut(text, 4000) };
+}
+function talkWho(x) {   // ‘<층 이름> 팀장’(팀원 이름을 따로 정했으면 이름 + 작은 역할)
+  const t = state.org.teams.find(y => y.id === x.floor);
+  return `<b>${esc(t ? t.name : x.floorName || x.floor || '알 수 없는 층')}</b> ${t ? seatHTML(x.floor, x.role) : esc(x.role)}`;
+}
+const KDAY = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric' });
+function whenAt(iso) {   // 오늘이면 시각만, 아니면 날짜도
+  const ms = Date.parse(iso);
+  if (!isFinite(ms)) return '';
+  const d = KDAY.format(new Date(ms));
+  return d === KDAY.format(new Date()) ? hm(iso) : `${d} ${hm(iso)}`;
+}
+const talkItemHTML = x => `<li><p class="talk-who">${talkWho(x.from)} <span aria-hidden="true">→</span><span class="su-sr">, 받는 사람:</span> ${talkWho(x.to)}${x.t ? ` · <time datetime="${esc(x.t)}">${esc(whenAt(x.t))}</time>` : ''}</p><p class="talk-tx">${esc(x.text)}</p></li>`;
+function renderTalk() {
+  const sec = $('#talk'), box = $('#talkBox'), list = $('#talkList');
+  const on = API && !!state && Array.isArray(state.talk) && (mode === 'live' || mode === 'lost');
+  sec.hidden = !on;
+  if (!on) return;
+  const items = state.talk.map(talkOf).filter(Boolean).slice(-TALK_MAX), html = items.map(talkItemHTML), old = TALK.html;
+  const atEnd = list.hidden || list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+  // 앞의 몇 줄이 빠지고(오래된 줄) 뒤에 새 줄이 붙은 것뿐이면 그만큼만 바꿔요. 아니면 통째로 다시 그리되 읽어 주지는 않아요.
+  let d = -1;
+  if (old) for (let i = 0; i < old.length; i++) if (old.length - i <= html.length && old.slice(i).every((h, j) => h === html[j])) { d = i; break; }
+  let grew = false;
+  if (old && d >= 0) {
+    for (let i = 0; i < d; i++) if (list.firstElementChild) list.firstElementChild.remove();
+    const add = html.slice(old.length - d);
+    if (add.length) { list.insertAdjacentHTML('beforeend', add.join('')); grew = true; }
+  } else if (!old || old.join('') !== html.join('')) {
+    list.setAttribute('aria-live', 'off');
+    list.innerHTML = html.join('');
+    grew = true;
+    clearTimeout(TALK.liveT);
+    TALK.liveT = setTimeout(() => list.setAttribute('aria-live', 'polite'), 1500);
+  }
+  TALK.html = html;
+  list.hidden = !items.length;
+  $('#talkEmpty').hidden = !!items.length;
+  const last = items.length ? items[items.length - 1].t : '';
+  if (box.open && last && document.visibilityState !== 'hidden') markSeen(TALK_FILE, last);   // 펼쳐서 보고 있으면 읽은 걸로
+  const seen = seenMap()[TALK_FILE] || '', fresh = items.filter(x => x.t && (!seen || x.t > seen)).length;
+  put($('#talkN'), items.length ? `최근 ${items.length}개${fresh ? `<span class="new-dot">새 ${fresh}</span>` : ''}` : '아직 없어요');
+  if (grew && atEnd) list.scrollTop = list.scrollHeight;
+}
+$('#talkBox').addEventListener('toggle', () => {
+  const box = $('#talkBox');
+  try { localStorage.setItem(TALK_KEY, box.open ? '1' : '0'); } catch (e) {}
+  if (box.open && state) { renderTalk(); const l = $('#talkList'); l.scrollTop = l.scrollHeight; }
+});
+try { if (localStorage.getItem(TALK_KEY) === '1') $('#talkBox').open = true; } catch (e) {}
 
 /* ---------- 쓰던 글 보관 ---------- */
 // 서랍을 닫거나 다시 그려도 쓰던 글이 남아요. 보내면 지워요.
@@ -2130,7 +2542,7 @@ function rowHTML(e, r, j, pre, c) {
   const nin = `<input type="text" class="su-mname" id="${id}m" data-su-in="mname" value="${esc(r.name)}" maxlength="${NAME_MAX}" placeholder="${esc(nameHolder(e, r, j))}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(nm)} 자리 이름(화면에 보일 이름)" aria-invalid="${!!r.err && r.errAt === 'm'}" aria-describedby="${id}e ${pre}nh">`;
   return `<div class="su-mrow" data-uid="${r.uid}">${role}<label class="su-mlab" for="${id}m">이름 (선택)</label>${nin}<select id="${id}s" data-su-in="msid" aria-label="${esc(nm)} 자리에 앉힐 세션" aria-invalid="${!!r.err && r.errAt === 's'}" aria-describedby="${id}e ${id}g">${seatOpts(e, r, c)}</select>${del}
       <p class="err su-mnote" id="${id}e">${esc(r.err || '')}</p>
-      <small class="${guess ? 'su-guess' : 'hint'} su-mnote" id="${id}g"${note || (lead && !r.sid) ? '' : ' hidden'}>${esc(note || (lead && !r.sid ? '비워 두면 이 층은 회의를 열거나 결재를 받지 못해요' : ''))}</small></div>`;
+      <small class="${guess ? 'su-guess' : 'hint'} su-mnote" id="${id}g"${note || (lead && !r.sid) ? '' : ' hidden'}>${esc(note || (lead && !r.sid ? '비워 두면 이 층은 회의를 열거나 결재를 받지 못해요' : ''))}</small>${(sk => (sk ? seatBoxHTML(e.id, r.was, 's', ' su-seat su-mnote') : ''))(rowSeat(e, r))}</div>`;
 }
 function membersHTML(e, pre, owner, used) {
   const full = e.rows.length >= MAX_MEMBERS, c = seatCtx(e, owner, used);
@@ -2142,7 +2554,7 @@ function membersHTML(e, pre, owner, used) {
       <div class="su-madd"><button type="button" class="btn" id="${pre}add" data-su="madd"${full ? ' disabled' : ''}>+ 팀원 추가</button>
         <span class="hint" aria-hidden="true">바로 넣기</span>${ROLE_SUGGEST.map((r, k) => `<button type="button" class="btn su-sugg" id="${pre}q${k}" data-su="madd" data-role="${esc(r)}" aria-label="${esc(r)} 자리 더하기"${full ? ' disabled' : ''}>${esc(r)}</button>`).join('')}</div>
       <p class="hint" id="${pre}nh" style="margin-top:6px">${esc(nameHint(e))}</p>
-      <p class="hint" id="${pre}mh" style="margin-top:4px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.</p>
+      <p class="hint" id="${pre}mh" style="margin-top:4px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.${!API ? '' : e.kind === 'floor' ? ' 저장한 빈자리는 [세션 만들기]로 이 층 폴더에서 새 Claude 세션을 열어 바로 앉혀요.' : ' 층을 만든 뒤 빈자리에 [세션 만들기]로 새 Claude 세션을 열어 앉힐 수 있어요.'}</p>
     </fieldset>`;
 }
 const roleList = () => `<datalist id="suRoleList">${ROLE_SUGGEST.map(r => `<option value="${esc(r)}"></option>`).join('')}</datalist>`;
@@ -2288,10 +2700,19 @@ function floorsHTML() {
       ${m.created.map(x => { const f = fl.find(y => y.id === x.id); return `<li>✓ ${x.floor ? esc(x.floor + '층') + ' · ' : ''}${esc(f ? f.name : x.id)} 만들었어요${x.existing === true ? esc(` · 이미 있던 팀 사무실이라 팀 이름(${String(x.teamName || '없음')})·머리글(${String(x.prefix || '없음')})은 그대로 뒀어요`) : ''}</li>`; }).join('')}
       ${m.errors.map(x => `<li class="bad">✗ ${esc(x.name || x.id)}: ${esc(x.error)}</li>`).join('')}
       ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : SU.st.boss ? '' : '<li>· 총괄 세션은 아직 정하지 않았어요. 나중에 여기서 고르면 돼요</li>'}</ul>
-      ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}</div>` : '';
+      ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}${madeSeatsHTML(m)}</div>` : '';
   return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
     <p class="su-lead">Claude 앱 사이드바처럼 보여요. <b>그룹·폴더를 통째로</b>, 또는 그 안의 <b>세션 하나만</b> ‘층으로’ 누르면 층(팀) 하나가 돼요. 고른 층은 아래 ‘만들 층’에 쌓이고, 층마다 팀원을 고쳐요. 역할 이름은 개발자·마케팅·기획처럼 <b>마음대로</b> 지어요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채워요.</p>
     ${roleList()}${have}${claudeErrP()}${pick}${res}`;
+}
+// 층 만들기 결과: 이번에 만든 층의 빈자리마다 [세션 만들기](앉힌 자리는 ✓를 잠깐 보여 줘요)
+function madeSeatsHTML(m) {
+  if (!API || !m || !Array.isArray(m.created)) return '';
+  const fs = m.created.map(x => SU.st.floors.find(f => f.id === x.id)).filter(f => f && !f.example && Array.isArray(f.members));
+  const part = fs.map(f => [f, f.members.filter(x => x && typeof x.role === 'string' && (!x.sessionId || SEAT.has(seatKey(f.id, x.role))))]).filter(([, l]) => l.length);
+  if (!part.length) return '';
+  return `<div class="su-seats"><p class="hint">빈자리에 새 세션을 바로 앉힐 수 있어요. [세션 만들기]를 누르면 Claude 앱이 그 층 폴더에서 새 세션을 열고 첫 메시지를 채워 둬요. 앱에서 Enter를 누르면 여기에 앉혀요.</p>
+    ${part.map(([f, l]) => { const gid = `msg${hash(f.id).toString(36)}`; return `<div role="group" aria-labelledby="${gid}"><p style="margin-top:8px" id="${gid}"><b>${esc((f.floor ? f.floor + '층 ' : '') + f.name)}</b></p><ul>${l.map(x => `<li><b>${seatHTML(f.id, x.role)}</b>${seatBoxHTML(f.id, x.role, 'm', ' su-seat')}</li>`).join('')}</ul></div>`; }).join('')}</div>`;
 }
 const pickCount = () => { const n = picksList().length; return n ? `만들 층 ${n}개` : '아직 고른 층이 없어요'; };
 // 저장한 설정과 도시에 올라간 것의 관계(서버가 마지막으로 올린 설정의 지문과 지금 public.json을 비교해 알려 줘요). here: 4단계 안에서 보여 줄 때
@@ -3543,6 +3964,17 @@ document.addEventListener('click', e => {
     try { navigator.clipboard.writeText(cp.dataset.copy).then(() => done(true), () => done(false)); } catch (err) { done(false); }
     return;
   }
+  const sb = e.target.closest('[data-seat]');   // 빈자리의 세션 만들기·다시 열기·고르기·취소(사무실 책상과 설정 화면 같이)
+  if (sb) {
+    if (sb.disabled || !API) return;
+    const { team, role } = sb.dataset, k = seatKey(team, role);
+    SEATF = { k, box: (sb.closest('[data-seat-box]') || {}).id || '' };
+    if (sb.dataset.seat === 'link') seatLink(team, role);
+    else if (sb.dataset.seat === 'retry') seatRetry(team, role);
+    else if (sb.dataset.seat === 'pick') seatPick(team, role, sb.dataset.sid);
+    else if (sb.dataset.seat === 'cancel') seatCancel(team, role);
+    return;
+  }
   const pen = e.target.closest('[data-nm-edit]');
   if (pen) { if (state && API) openNameEdit(pen.dataset.team, pen.dataset.role); return; }
   const nb = e.target.closest('[data-nm]');
@@ -3560,6 +3992,7 @@ document.addEventListener('click', e => {
     if (act.dataset.act === 'boss-chat') { bossDrawer(); return; }
     if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
     if (act.dataset.act === 'edit-team') { editTeam(act.dataset.team); return; }
+    if (act.dataset.act === 'floor-sidebar' || act.dataset.act === 'floor-rules') { if (act.dataset.act === 'floor-rules' && act.getAttribute('aria-disabled') === 'true') return; floorTool(act); return; }
     if (/^meet-(mode|end|close)$/.test(act.dataset.act)) { meetAction(act); return; }
   }
   const mo = e.target.closest('[data-meet-open]');
@@ -3659,6 +4092,8 @@ if (API) { document.documentElement.classList.add('su-wait'); setTimeout(() => d
 load();
 initSetup();
 updInit();
+seatPoll(true);   // 이 화면을 다시 불러오기 전에 시작한 ‘세션 만들기’가 있으면 이어서 보여 줘요
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && seatWaiting()) seatPoll(); });
 setInterval(() => { if (document.visibilityState !== 'hidden' && $('#drawer').hidden && !UPD.ov) load(); }, 4000);   // 업데이트 중 화면 뒤에서는 쉬어요
 setInterval(() => { if (document.visibilityState !== 'hidden') refreshThread(false); }, 3000);
 setInterval(() => { if (!$('#drawer').hidden) pollRelay(); }, 5000);
