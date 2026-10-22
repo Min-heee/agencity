@@ -101,10 +101,20 @@ a{color:inherit}
 .hq-node small{display:block; font-size:12px; color:#AEB8C7}
 .hq-node a{margin-left:6px; padding:5px 10px; border-radius:5px; background:rgba(255,255,255,.12); color:var(--plate-ink); font-size:12px; font-weight:600; text-decoration:none; white-space:nowrap}
 .hq-node a:hover{background:rgba(255,255,255,.22)}
-.org-branches{position:relative; margin-top:40px; display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:12px}
-.org-branches::before{content:""; position:absolute; top:-20px; left:calc((100% - 48px) / 10); right:calc((100% - 48px) / 10); border-top:2px solid var(--line-2)}
+/* 층 카드는 한 줄에 다섯 칸까지(--cols: 층 수, 다섯까지)이고 넘으면 다음 줄로 넘어가요. 총괄에서 내려온 줄기는 층 묶음 전체를 덮는 지붕 선에 닿고,
+   카드마다 선을 따로 긋지 않아서 몇 층이든 줄이 깨지지 않아요. 899px 아래에서는 한 줄씩, 왼쪽 줄기에서 카드마다 ㄴ자 가지를 그어요. */
+.org-branches{position:relative; margin:40px auto 0; display:grid; grid-template-columns:repeat(var(--cols, 5), minmax(0, 220px)); justify-content:center; gap:12px; width:fit-content; max-width:100%}
+.org-branches::before{content:""; position:absolute; top:-20px; left:0; right:0; height:14px; border:2px solid var(--line-2); border-bottom:0; border-radius:9px 9px 0 0}
+.ot-cell{position:relative; display:flex; flex-direction:column; gap:6px; min-width:0}
+.ot-cell > .org-team{flex:1 1 auto}
+.ot-move{display:flex; justify-content:center; gap:6px}
+.mv{width:36px; height:32px; padding:0; justify-content:center; font-size:16px; line-height:1}
+.mv[aria-disabled="true"]{opacity:.4; cursor:default}
+.org-tools{margin-left:auto; display:flex; align-items:center; gap:8px}
+.org-note{margin:-4px 0 10px}
+.org-note:empty{display:none}
+.org-note.bad,.setup .su-ordnote.bad{color:var(--err-ink)}
 .org-team{position:relative; display:flex; flex-direction:column; gap:5px; width:100%; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:9px; background:var(--surface); color:var(--ink); font:inherit; text-align:left; cursor:pointer; transition:box-shadow .2s, border-color .2s}
-.org-team::before{content:""; position:absolute; left:50%; top:-21px; height:20px; border-left:2px solid var(--line-2)}
 .org-team:hover{border-color:var(--ink-3)}
 .org-team.on{border-color:var(--ta); background:color-mix(in srgb, var(--tw) 45%, var(--surface))}
 .org-team[aria-pressed="true"]{border-color:var(--ta); box-shadow:0 0 0 3px color-mix(in srgb, var(--ta) 38%, transparent)}
@@ -145,7 +155,16 @@ a{color:inherit}
 .desk.is-vacant{border-style:dashed; cursor:default}
 .plate-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 11px 8px}
 .who{display:flex; flex-direction:column; min-width:0}
-.nm{font-family:var(--font-display); font-size:21px; line-height:1.05}
+.nm{font-family:var(--font-display); font-size:21px; line-height:1.05; overflow-wrap:anywhere}
+.nm .rl,.d-title .rl,.feed .rl,.msg .rl,.board .rl,.chips .rl,.appr-top .rl,.meet-now .rl,.hint .rl{margin-left:5px; font:500 11px var(--font-body); letter-spacing:0; color:var(--ink-3); white-space:nowrap}
+.d-title .rl{margin-left:8px; font-size:14px; color:var(--ink-2)}
+.nm-pen{margin-left:3px; min-width:26px; min-height:26px; padding:1px 5px; border:0; border-radius:5px; background:none; color:var(--ink-3); font:400 13px/1 var(--font-body); letter-spacing:0; vertical-align:middle; cursor:pointer}
+.nm-pen:hover,.nm-pen:focus-visible{color:var(--ink); background:var(--surface-2)}
+.nm-edit{display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; min-width:0; font:400 13px/1.35 var(--font-body); cursor:default}
+.nm-edit .nm-in{flex:1 1 7em; min-width:0; padding:5px 8px; border:1px solid var(--line-2); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; font-size:14px}
+.nm-edit .nm-in[aria-invalid="true"]{border-color:var(--err)}
+.nm-edit .btn{padding:4px 10px; font-size:12.5px}
+.nm-edit .hint,.nm-edit .err{flex:1 1 100%}
 .when{font:500 11px var(--font-mono); color:var(--ink-3); margin-top:2px}
 .status{display:inline-flex; align-items:center; gap:5px; flex:none; padding:3px 8px; border-radius:4px; background:var(--surface-2); color:var(--ink-2); font-size:11.5px; font-weight:500; white-space:nowrap}
 .sd{width:8px; height:8px; border-radius:50%; flex:none; display:inline-block; background:var(--rest)}
@@ -271,6 +290,25 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .composer textarea,.composer input[type="text"]{width:100%; padding:9px 10px; border:1px solid var(--line-2); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:14px}
 .composer textarea{min-height:76px; resize:vertical}
 .composer .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
+.composer .row .hint{flex:1 1 220px}
+.keys{color:var(--ink-2); font-weight:600}
+/* 대화 서랍(총괄·팀원·회의): 제목(d-head)은 맨 위에, 작성창은 맨 아래에 붙어 있고, 그 사이(d-main)만 스크롤해요. 대화(thread)는 d-main 맨 아래에서 남는 자리를 채워요. */
+.drawer-panel.chat{display:flex; flex-direction:column; overflow:hidden; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))}
+.drawer-panel.chat .d-bar{flex:none}
+.drawer-panel.chat #drawerBody{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+.drawer-panel.chat #drawerBody > :not(.d-main){flex:none}
+.d-head{padding-bottom:2px}
+.d-main{position:relative; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overscroll-behavior:contain; margin:0 -4px; padding:0 4px 4px}
+.d-main > *{flex-shrink:0}
+.drawer-panel.chat .thread{flex:1 0 min(40vh, 300px); max-height:none}
+.drawer-panel.chat .composer{margin-top:0; padding-top:10px; border-top:1px solid var(--line); background:var(--surface)}
+.drawer-panel.chat .composer textarea{max-height:30vh}
+.d-links{margin-top:12px}
+.d-links .btn-primary{margin-top:0}
+.d-more{margin-top:14px; border:1px solid var(--line); border-radius:8px; padding:0 10px}
+.d-more summary{padding:8px 0; font-size:13px; font-weight:600; cursor:pointer}
+.d-more h3{margin:10px 0 6px; font-size:13px}
+.d-more[open]{padding-bottom:10px}
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; border:0; min-width:0}
 .chips legend{padding:0; margin-bottom:4px; font-size:12px; color:var(--ink-3)}
 .chips label{display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:12.5px; cursor:pointer}
@@ -389,8 +427,10 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .su-mem{margin:14px 0 0; padding:0; border:0; min-width:0}
 .su-mem legend{padding:0; margin-bottom:6px; font-size:12.5px; font-weight:600; color:var(--ink)}
 .su-mem legend small{font-weight:400; color:var(--ink-2)}
-.su-mhead,.su-mrow{display:grid; grid-template-columns:minmax(7.5em, 10.5em) minmax(0,1fr) 34px; gap:4px 8px; align-items:center}
-.su-mhead{padding:0 2px 4px; font-size:11.5px; color:var(--ink-2)}
+.su-mhead,.su-mrow{display:grid; grid-template-columns:minmax(7.5em, 10.5em) minmax(8em, 13em) minmax(0,1fr) 34px; gap:4px 8px; align-items:center}
+.su-mhead{padding:0 2px 4px; color:var(--ink-2)}   /* 칸 너비가 em이라 머리글도 줄(.su-mrow)과 같은 글자 크기(상속)를 바탕으로 하고, 글자만 작게 해요 */
+.su-mhead span{font-size:11.5px}
+.su-mlab{display:none}
 .su-mrow + .su-mrow{margin-top:6px}
 .su-lead-role{display:flex; align-items:center; gap:6px; min-height:34px; padding:0 9px; border:1px solid var(--line); border-radius:7px; background:var(--surface-2); font-size:13.5px; font-weight:600}
 .su-lead-role small{font-weight:400; font-size:11.5px; color:var(--ink-2)}
@@ -404,6 +444,11 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .su-floors li.su-have{display:block}
 .su-have-h{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px}
 .su-have-h .su-to{margin-left:auto}
+.su-ord{display:inline-flex; gap:4px; margin-right:2px}
+.su-ord .mv{width:32px; height:30px; font-size:15px}
+.su-ordnote{margin-top:6px}
+.su-ordnote:empty{display:none}
+.su-pos{margin-top:10px; max-width:560px}
 .su-floors li.su-have.on{border-style:solid; border-color:var(--focus); background:var(--surface)}
 .su-edit{margin-top:8px; padding-top:4px; border-top:1px dashed var(--line-2)}
 .su-saved{margin-top:4px}
@@ -438,11 +483,21 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   .su-levels{grid-template-columns:repeat(2, minmax(0,1fr))}
   .su-steps small{display:none}
 }
+@media (min-width:560px) and (max-width:760px){   /* 이름 칸이 더해져서 이 폭에서는 세션 고르기를 둘째 줄로 내려요 */
+  .su-mhead,.su-mrow{grid-template-columns:minmax(7em, 10em) minmax(0,1fr) 34px}
+  .su-mhead span:nth-child(3){display:none}
+  .su-mrow select{grid-column:1 / -1; grid-row:2}
+  .su-mrow > .su-mx,.su-mrow > span[aria-hidden="true"]{grid-column:3; grid-row:1}
+}
 @media (max-width:559px){
   .su-grid,.su-levels,.su-frow.two{grid-template-columns:minmax(0,1fr)}
   .su-mhead{display:none}
   .su-mrow{grid-template-columns:minmax(0,1fr) 34px}
-  .su-mrow select{grid-column:1 / -1; grid-row:2}
+  .su-mrow > :first-child{grid-column:1; grid-row:1}
+  .su-mrow > .su-mlab{display:block; grid-column:1 / -1; grid-row:2; margin-top:2px; font-size:11.5px; color:var(--ink-2)}   /* 머리글이 숨겨지는 폭에서는 칸마다 이름표를 보여요 */
+  .su-mrow > .su-mname{grid-column:1 / -1; grid-row:3}
+  .su-mrow select{grid-column:1 / -1; grid-row:4}
+  .su-mrow > .su-mx{grid-column:2; grid-row:1}
   .su-mrow .su-lead-role{grid-column:1 / -1}
   .su-mrow > span[aria-hidden="true"]{display:none}
   .su-mrow + .su-mrow{margin-top:12px}
@@ -458,11 +513,13 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 
 @media (max-width:1100px){ .room-grid,.bottom{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:899px){
-  .org-branches{grid-template-columns:minmax(0,1fr); margin-top:18px; padding-left:22px}
-  .org-branches::before{left:8px; right:auto; top:-18px; bottom:auto; height:18px; border-top:0; border-left:2px solid var(--line-2)}
+  .org-branches{grid-template-columns:minmax(0,1fr); width:auto; margin:18px 0 0; padding-left:22px}
+  .org-branches::before{left:8px; right:auto; top:-18px; height:18px; border:0; border-left:2px solid var(--line-2); border-radius:0}
   /* 카드마다 위 틈에서 자기 가지까지 ㄴ자 선을 긋고, 마지막 카드가 아니면 아래로 줄기를 이어요. 카드 높이와 상관없이 줄기가 마지막 가지에서 끝나요. */
-  .org-team::before{left:-15px; top:-13px; width:15px; height:35px; border-top:0; border-left:2px solid var(--line-2); border-bottom:2px solid var(--line-2)}
-  .org-team:not(:last-child)::after{content:""; position:absolute; left:-15px; top:22px; bottom:-1px; border-left:2px solid var(--line-2)}
+  .ot-cell{flex-direction:row; align-items:stretch}
+  .ot-cell::before{content:""; position:absolute; left:-15px; top:-13px; width:15px; height:35px; border-left:2px solid var(--line-2); border-bottom:2px solid var(--line-2)}
+  .ot-cell:not(:last-child)::after{content:""; position:absolute; left:-15px; top:22px; bottom:-1px; border-left:2px solid var(--line-2)}
+  .ot-move{flex:none; align-items:center}
   .org-top{justify-content:flex-start} .org-top::after{left:8px; bottom:-18px; height:18px}
   .room-head .meta{margin-left:0; width:100%}
 }
@@ -471,11 +528,13 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   .desks{grid-template-columns:minmax(0,1fr)}
   .org-team{flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 10px; padding:9px 12px}
   .org-team .ot-row{display:none}
-  .org-team::before{height:calc(50% + 12px)}
-  .org-team:not(:last-child)::after{top:50%}
+  .ot-cell::before{height:calc(50% + 12px)}
+  .ot-cell:not(:last-child)::after{top:50%}
   .hq-node{flex-wrap:wrap}
   .drawer{align-items:flex-end}
   .drawer-panel{height:auto; max-height:88%; border-radius:14px 14px 0 0; padding-left:max(18px, env(safe-area-inset-left, 0px)); padding-right:max(18px, env(safe-area-inset-right, 0px)); animation-name:slideup}
+  .drawer-panel.chat{height:88%}
+  .drawer-panel.chat .composer textarea{min-height:56px}
 }
 @keyframes pulse{50%{opacity:.35}}
 @keyframes blink{50%{opacity:.25}}
@@ -501,7 +560,9 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   </header>
 
   <section class="org" aria-label="층 안내">
-    <div class="sec-title"><h2>층 안내</h2><p>층을 누르면 그 팀 사무실만 아래에 보여요. 팀원을 뽑은 팀부터 층이 생겨요.</p></div>
+    <div class="sec-title"><h2>층 안내</h2><p>층을 누르면 그 팀 사무실만 아래에 보여요. 팀원을 뽑은 팀부터 층이 생겨요.</p>
+      <span class="org-tools"><button type="button" class="btn" id="orderBtn" aria-pressed="false" hidden>층 순서 바꾸기</button></span></div>
+    <p class="hint org-note" id="orderNote" role="status"></p>
     <div class="org-top" id="orgTop"></div>
     <div class="org-branches" id="orgTeams"></div>
   </section>
@@ -527,6 +588,7 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
   </div>
 </div>
 
+<p class="su-sr" id="nmLive" role="status" aria-live="polite"></p>
 <script type="application/json" id="snapshot">/*@@SNAPSHOT@@*/</script>
 <script>
 (() => {
@@ -537,6 +599,29 @@ const chatLink = id => `claude://claude.ai/epitaxy/${encodeURIComponent(String(i
 // 팀장 자리만 이름이 정해져 있어요. 다른 역할 이름(개발자·마케팅·QA…)과 사람 수는 층마다 달라요.
 const LEAD = '팀장';
 const leadFirst = ms => [...ms.filter(m => m.role === LEAD), ...ms.filter(m => m.role !== LEAD)];   // 팀장 먼저, 나머지는 team.json 순서
+// 팀원 표시 이름: 역할(role)은 대화·상태 파일 이름이자 회의·결재·전달의 열쇠라 그대로고, team.json의 name은 화면에 보이는 이름이에요(서버 office_server.py와 같은 규칙).
+// 이름을 비우면 기본 이름 ‘<팀 이름> <역할>’이고, 기본 이름은 화면에서 역할만 보여 줘요(지금처럼). 따로 정한 이름이 있으면 그 이름을 크게, 역할을 작게 같이 보여요.
+// 이름은 어디서나 esc()를 거쳐 그려요(< > 도 그대로 글자로 보여요). 글 안의 이름 표시는 seatHTML(팀 id, 역할)로 해요.
+const NAME_MAX = 20;
+const NAME_BAD = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u;   // 제어·서식(글 방향 표시 포함)·짝 없는 반쪽·줄/문단 나누기 문자
+const nameNorm = v => String(v == null ? '' : v).normalize('NFC').trim();
+// 따로 정한 이름(없거나 기본 이름이면 ''). names: 기본 이름을 지을 때 썼을 팀 이름들(team.json의 team, org.json의 층 이름). 예전에 title과 함께 지은 이름('<층> · <역할>' → '<층> <역할>')도 기본이에요.
+function customName(m, names) {
+  if (!m || typeof m.name !== 'string' || typeof m.role !== 'string') return '';
+  const n = nameNorm(m.name), role = m.role.normalize('NFC'), nfc = x => String(x).normalize('NFC');   // 층·팀 이름이 NFD(예전 맥 폴더 이름)여도 기본 이름을 알아보게 NFC로 맞춰 견줘요
+  if (!n || n === role || (names || []).some(t => t && n === nfc(`${t} ${role}`))) return '';
+  return typeof m.title === 'string' && n === nfc(m.title.split(' · ').join(' ')) ? '' : n;
+}
+const teamNames = tid => {
+  const d = state && state.teams[tid], t = state && state.org.teams.find(x => x.id === tid);
+  return [d && d.team && d.team.team, t && t.name].filter(x => typeof x === 'string' && x);
+};
+const memberOf = (tid, role) => { const d = state && state.teams[tid]; return d && d.team && Array.isArray(d.team.members) ? d.team.members.find(x => x && x.role === role) || null : null; };
+function seatHTML(tid, role) {   // 따로 정한 이름이 있으면 ‘이름 + 작은 역할’, 아니면 역할
+  const m = memberOf(tid, role), c = m ? customName(m, teamNames(tid)) : '';
+  return c ? `${esc(c)}<small class="rl">${esc(role)}</small>` : esc(role);
+}
+function seatText(tid, role) { const m = memberOf(tid, role), c = m ? customName(m, teamNames(tid)) : ''; return c ? `${c}(${role})` : String(role); }
 // 로컬 서버(office_server.py)가 페이지를 줄 때 이 자리에 열쇠를 넣어요. 스냅샷(artifact)에서는 그대로 남아서 보내기 기능이 꺼져요.
 const TOKEN = '@@OFFICE_TOKEN@@';
 const API = /^[A-Za-z0-9_-]{20,}$/.test(TOKEN);
@@ -593,8 +678,10 @@ async function loadTeam(t) {
   return { team, status, board, log, meetings, reports, meeting, metas, active, activeChat, approvals, lastChat, base };
 }
 async function load() {
+  const gen = orderGen;   // 이 사이에 층을 옮기면(또는 그 저장이 끝나면) 이번 결과는 옛 순서라서 버려요
   try {
     const org = await getJSON('org.json');
+    if (ORD.want) { const n = orderTeams(org.teams, ORD.want); if (n) org.teams = n; }   // 저장 중인 층 순서는 바로 보여요(저장이 끝나면 서버 순서와 같아요)
     const teams = {};
     // 한 팀 파일이 깨져도 나머지 층과 총괄·결재함은 그대로 보여요(그 팀은 직전 상태를 써요)
     for (const t of org.teams) if (t.office) {
@@ -604,6 +691,7 @@ async function load() {
     if (API) { const l = jsonl(await getText('hq/chat.jsonl').catch(() => '')); hqLast = l.length ? l[l.length - 1] : null; }
     let relay = null;
     if (API) { try { relay = JSON.parse(await getText('api/state')); } catch (e) { relay = null; } }
+    if (gen !== orderGen) return;   // 옮긴 순서는 이미 그려져 있고, 저장이 끝나면 flushOrder가 다시 불러와요
     state = { org, teams, relay, hqLast, at: new Date().toISOString() };
     mode = 'live';
   } catch (e) {
@@ -612,7 +700,9 @@ async function load() {
       if (!state) mode = 'none';
     } else if (mode === 'live') mode = 'lost';
   }
-  if (!$('#drawer').hidden) { pending = true; return; }   // 서랍이 열려 있으면 닫을 때 다시 그려요
+  // 서랍이 열려 있거나, 책상에서 이름을 저장하는 중이거나, 이름 입력칸에 키보드가 있는 동안에는 다시 그리지 않고 닫을 때 그려요.
+  // 입력칸을 떠난 채 펼쳐만 둔 때(다른 곳을 누르거나 창을 옮긴 때)는 계속 갱신하고, 쓰던 글은 render가 남겨요.
+  if (!$('#drawer').hidden || (NE && (NE.busy || (document.activeElement === $('#nmIn') && document.hasFocus())))) { pending = true; return; }
   render();
 }
 
@@ -699,9 +789,26 @@ try { for (const k of ['seen', 'floor']) { const v = localStorage.getItem('claud
 function seenMap() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch (e) { return {}; } }
 function markSeen(file, t) { if (!t) return; try { const m = seenMap(); if (!m[file] || m[file] < t) { m[file] = t; localStorage.setItem(SEEN_KEY, JSON.stringify(m)); } } catch (e) {} }
 const unread = (file, last) => { if (!last || last.from === '대표' || !last.t) return false; const s = seenMap()[file]; return !s || s < last.t; };
-function deskHTML(m, st, tid, newReply) {
+// 책상의 이름 줄: 이름(따로 정했으면 이름 + 작은 역할), 새 답 표시, ✎(이름 바꾸기). 고치는 중이면 입력칸이에요.
+function nameBlockHTML(m, tid, newReply, cx) {
+  const c = customName(m, cx.names);
+  if (NE && NE.tid === tid && NE.role === m.role) return nameEditHTML(m, cx);
+  const pen = cx.edit && cx.edit.has(m) ? `<button type="button" class="nm-pen" data-nm-edit data-team="${esc(tid)}" data-role="${esc(m.role)}" aria-label="${esc(c || m.role)} 이름 바꾸기" title="이름 바꾸기">✎</button>` : '';
+  return `<span class="nm">${c ? `${esc(c)}<small class="rl">${esc(m.role)}</small>` : esc(m.role)}${newReply ? '<span class="new-dot">새 답</span>' : ''}${pen}</span>`;
+}
+const defaultName = (names, role) => `${names[0] || ''} ${role}`.trim();
+function nameEditHTML(m, cx) {
+  const e = NE, ph = defaultName(cx.names, m.role);
+  return `<div class="nm-edit" role="group" aria-label="${esc(m.role)} 이름 바꾸기">
+    <input type="text" id="nmIn" class="nm-in" maxlength="${NAME_MAX}" value="${esc(e.value)}" placeholder="${esc(ph)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(m.role)} 이름" aria-describedby="nmHint nmErr" aria-invalid="${!!e.err}"${e.busy ? ' disabled' : ''}>
+    <button type="button" class="btn primary" data-nm="save"${e.busy ? ' disabled' : ''}>저장</button><button type="button" class="btn" data-nm="cancel"${e.busy ? ' disabled' : ''}>취소</button>
+    <small class="hint" id="nmHint">Enter 저장 · Esc 취소 · 비워 두면 ‘${esc(ph)}’로 불러요</small>
+    <p class="err" id="nmErr" role="alert">${esc(e.err)}</p></div>`;
+}
+function deskHTML(m, st, tid, newReply, cx) {
+  const c = customName(m, cx.names), nm = c ? `${c}(${m.role})` : m.name || m.role;
   if (!m.sessionId) {
-    return `<article class="desk is-vacant"><header class="plate-row"><div class="who"><span class="nm">${esc(m.role)}</span><span class="when">합류 전</span></div><span class="status"><i class="sd none"></i>빈자리</span></header>
+    return `<article class="desk is-vacant"><header class="plate-row"><div class="who">${nameBlockHTML(m, tid, false, cx)}<span class="when">합류 전</span></div><span class="status"><i class="sd none"></i>빈자리</span></header>
       <div class="scene">${sceneSVG(lookOf(m.role, m.role), m.role)}<div class="screen-ui"><div class="screen-call">${esc(m.title)}</div><div class="screen-msg">곧 합류해요</div></div></div>
       <div class="task">아직 세션이 없어요.</div><div class="desk-foot"><code>—</code></div></article>`;
   }
@@ -713,15 +820,15 @@ function deskHTML(m, st, tid, newReply) {
   const away = s.state === '회의 중' ? `<span class="away-note">회의실에 있어요</span>` : '';
   const caret = s.state === '일하는 중' ? '<span class="caret"></span>' : '';
   const stale = (s.state === '일하는 중' || s.state === '회의 중') && s.updated && (Date.now() - Date.parse(s.updated)) > 30 * 60e3;
-  return `<article class="desk ${S.cls}" data-role="${esc(m.role)}" data-team="${esc(tid)}" tabindex="0" role="button" aria-label="${esc(m.name)}, ${esc(s.state)}">
-    <header class="plate-row"><div class="who"><span class="nm">${esc(m.role)}${newReply ? '<span class="new-dot">새 답</span>' : ''}</span><span class="when">${esc(m.title)}${s.updated ? ' · ' + esc(ago(s.updated)) : ''}</span></div><span class="status"><i class="sd ${stale ? 'block' : S.sd}"></i>${esc(s.state)}${stale ? ' · 응답 없음?' : ''}</span></header>
+  return `<article class="desk ${S.cls}" data-role="${esc(m.role)}" data-team="${esc(tid)}" tabindex="0" role="button" aria-label="${esc(nm)}, ${esc(s.state)}">
+    <header class="plate-row"><div class="who">${nameBlockHTML(m, tid, newReply, cx)}<span class="when">${esc(m.title)}${s.updated ? ' · ' + esc(ago(s.updated)) : ''}</span></div><span class="status"><i class="sd ${stale ? 'block' : S.sd}"></i>${esc(s.state)}${stale ? ' · 응답 없음?' : ''}</span></header>
     <div class="scene">${sceneSVG(L, m.role)}<div class="screen-ui"><div class="screen-call">${esc(s.state)}</div><div class="screen-msg">${esc(s.task || (s.state === '대기' ? '다음 일을 기다리는 중' : ''))}${caret}</div></div>${bubble}${away}</div>
     <div class="task">${s.task ? `<b>${esc(s.task.split(' ')[0])}</b>${esc(s.task.split(' ').slice(1).join(' '))}` : '<span class="empty">다음 일을 기다리는 중</span>'}</div>
     <div class="desk-foot"><code>${esc(m.sessionId)}</code><a class="open-chat" href="${chatLink(m.sessionId)}">대화 열기</a></div>
   </article>`;
 }
 // 회의실 의자: 팀원 수만큼 탁자 둘레에 둘러요(4명이면 위·왼쪽·아래·오른쪽, 많으면 작게). 회의 중인 사람만 앉아 있어요.
-function meetingSVG(members, status) {
+function meetingSVG(members, status, names) {
   const ms = leadFirst(members).slice(0, 12), n = Math.max(4, ms.length), k = n > 6 ? 0.78 : 1;
   const seats = Array.from({ length: n }, (_, i) => { const a = -Math.PI / 2 - i * 2 * Math.PI / n, c = Math.cos(a); return { x: Math.round(160 + 98 * c), y: Math.round(96 + 62 * Math.sin(a)), c }; });
   const chair = p => `<rect x="${p.x - 16 * k}" y="${p.y - 14 * k}" width="${32 * k}" height="${28 * k}" rx="${8 * k}" style="fill:var(--chair)"/>`;
@@ -730,7 +837,7 @@ function meetingSVG(members, status) {
   const people = seats.map((p, i) => {
     const m = ms[i], s = m && status[m.role];
     if (!m || !s || s.state !== '회의 중') return `<g opacity=".5">${chair(p)}</g>`;
-    const L = lookOf(m.sessionId || m.role, m.role), label = Array.from(String(m.role)).slice(0, n > 6 ? 5 : 8).join(''), t = tag(p);
+    const L = lookOf(m.sessionId || m.role, m.role), label = Array.from(customName(m, names) || String(m.role)).slice(0, n > 6 ? 5 : 8).join(''), t = tag(p);
     return `<g>${chair(p)}<circle cx="${p.x}" cy="${p.y}" r="${13 * k}" style="fill:var(--ta)"/><circle cx="${p.x}" cy="${p.y}" r="${9 * k}" fill="${L.hair}"/><text x="${t.x}" y="${t.y}" text-anchor="${t.a}" font-size="${n > 6 ? 9 : 11}" font-weight="600" font-family="IBM Plex Sans KR, sans-serif" style="fill:var(--ink)">${esc(label)}</text></g>`;
   }).join('');
   // 칠판: 자리가 많으면 오른쪽 위 의자와 겹치지 않게 작게 구석으로
@@ -772,11 +879,70 @@ function goFloor(id) {
   if (r.getBoundingClientRect().top > window.innerHeight * 0.7) r.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
 
+/* ---------- 층 순서 ---------- */
+// 층 안내의 ‘층 순서 바꾸기’와 설정 3단계의 ‘지금 있는 층’이 같이 써요. ↑/↓를 누르면 화면부터 바로 바꾸고(층 번호·색·주소의 팀은 그대로 따라가요)
+// /api/setup/floor-order로 저장해요. 저장하는 동안 또 누르면 마지막 순서만 이어서 저장해요. 못 하면 서버의 순서로 되돌려요.
+let orderMode = false;
+const ORD = { want: null, busy: null, note: '', err: false };
+// 층을 옮길 때와 그 저장이 끝날 때 하나씩 올려요. 그 전에 시작한 load()·refreshSetup()이 늦게 끝나도 옛 순서로 덮지 않아요.
+let orderGen = 0;
+const officeIds = org => (org && Array.isArray(org.teams) ? org.teams.filter(t => t && t.office).map(t => t.id) : []);
+// list의 사무실 층(on)을 ids 순서로 세우고 1층부터 다시 매겨요. 나머지(입주 예정 자리)는 뒤에. 층이 그사이 바뀌어 맞지 않으면 null
+function orderTeams(list, ids, on = t => t && t.office) {
+  if (!Array.isArray(list)) return null;
+  const rooms = list.filter(on), by = new Map(rooms.map(t => [t.id, t]));
+  if (rooms.length !== ids.length || by.size !== ids.length || !ids.every(id => by.has(id))) return null;
+  return [...ids.map((id, i) => Object.assign({}, by.get(id), { floor: i + 1 })), ...list.filter(t => !on(t))];
+}
+function applyOrder(ids) {
+  if (state && state.org) { const n = orderTeams(state.org.teams, ids); if (n) state.org.teams = n; }
+  if (SU.st) { const n = orderTeams(SU.st.floors, ids, () => true); if (n) SU.st.floors = n; }
+}
+const moveBtn = (dir, t, label, edge) => `<button type="button" class="btn mv" data-move="${dir}" data-team="${esc(t.id)}" aria-label="${esc(label)} ${dir === 'up' ? '위로' : '아래로'}"${edge ? ' aria-disabled="true"' : ''}>${dir === 'up' ? '↑' : '↓'}</button>`;
+// from: 'office'(층 안내) 또는 'setup'(설정 3단계). 옮긴 층의 같은 쪽 단추에 키보드 위치가 남아요(다시 그려도 data-move·data-team으로 찾아요).
+function moveFloor(id, dir, from) {
+  const ids = ORD.want ? ORD.want.slice() : from === 'setup' && SU.st ? SU.st.floors.map(f => f.id) : officeIds(state && state.org);
+  const i = ids.indexOf(id), j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return '';
+  if (state) floor = shownFloor(state.org);   // 아무 층도 고르지 않아 첫 층을 보던 중이어도, 지금 보던 팀을 그대로 보여 줘요(저장은 하지 않아요)
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  ORD.want = ids; orderGen++;
+  applyOrder(ids);
+  const t = (state && state.org.teams.find(x => x.id === id)) || (SU.st && SU.st.floors.find(x => x.id === id)) || { name: id };
+  ORD.last = `‘${t.name || id}’ → ${j + 1}층`;
+  ORD.note = `${ORD.last} · 저장하는 중…`; ORD.err = false;
+  if (state) render();
+  flushOrder();
+  return ORD.note;
+}
+function flushOrder() {
+  if (ORD.busy) return ORD.busy;   // 저장 중이면 그 저장이 끝난 뒤 마지막 순서(ORD.want)를 이어서 저장해요
+  if (!ORD.want) return Promise.resolve();
+  ORD.busy = (async () => {
+    while (ORD.want) {
+      let err = null;
+      while (ORD.want) {
+        const ids = ORD.want;
+        try { await post('api/setup/floor-order', { order: ids }); err = null; if (ORD.want === ids) ORD.want = null; }
+        catch (e) { err = e; ORD.want = null; }
+      }
+      orderGen++;   // 저장 전에 읽기 시작한 결과는 버리고, 아래에서 저장된 순서로 다시 불러와요
+      ORD.err = !!err;
+      ORD.note = err ? `층 순서를 저장하지 못했어요: ${err.message || '알 수 없는 오류'}. 저장된 순서로 다시 보여 줘요` : `${ORD.last} · 순서를 저장했어요`;
+      if (SU.st) await refreshSetup().catch(() => {});
+      await load();   // 층 안내·사무실을 저장된 순서로(그사이 또 옮겼으면 그 순서로 보여 주고 이어서 저장해요)
+      if (SU.open && SU.step === 2) { renderSetup(); suSay(ORD.note); }
+    }
+    ORD.busy = null;
+  })();
+  return ORD.busy;
+}
+
 /* ---------- 그리기 ---------- */
 // 4초마다 다시 그려도 내용이 같으면 DOM을 건드리지 않아요(누르던 버튼·키보드 위치가 그대로 남아요).
 function put(el, html) { if (el._html === html) return false; el._html = html; el.innerHTML = html; return true; }
 const FOCUSABLE = 'a[href], button, [tabindex]';
-const sigOf = n => [n.tagName, n.dataset.goto, n.dataset.file, n.dataset.copy, n.dataset.team, n.dataset.role, n.getAttribute('href')].join('|');
+const sigOf = n => [n.tagName, n.dataset.goto, n.dataset.move, n.dataset.file, n.dataset.copy, n.dataset.team, n.dataset.role, n.getAttribute('href')].join('|');
 function focusKey(el) {
   if (!el || !el.closest) return null;
   const box = el.closest('#orgTop, #orgTeams, #rooms');
@@ -798,6 +964,10 @@ function render() {
   const { org, teams } = state;
   const shown = shownFloor(org);
   const cur = org.teams.find(t => t.id === shown);
+  if (NE && (shown !== NE.tid || !memberOf(NE.tid, NE.role))) NE = null;   // 다른 층으로 갔거나 그 팀원이 없어졌으면 이름 고치기는 접어요
+  // 이름 입력칸이 열려 있으면 쓰던 글을 NE에 옮겨 두고(칸이 새로 그려져도 남아요), 키보드가 거기 있었으면 그리고 나서 되돌려요
+  const nmEl = NE && !NE.busy ? $('#nmIn') : null, nmFocus = !!nmEl && document.activeElement === nmEl, nmSel = nmEl ? [nmEl.selectionStart, nmEl.selectionEnd] : null;
+  if (nmEl) NE.value = nmEl.value;
   const was = document.activeElement, keep = focusKey(was);
   const nl = $('#notionLink'); if (org.notion) { nl.href = org.notion; nl.hidden = false; }
   // 결재함: 모든 팀의 '결재 대기'·'보류'
@@ -815,17 +985,30 @@ function render() {
     put(rl, ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${esc(r.pending)}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : ''}`);
   }
   put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a></div>`);
-  put($('#orgTeams'), org.teams.map(t => {
+  // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(입주 예정 자리는 늘 맨 뒤). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
+  const ids = officeIds(org), ob = $('#orderBtn');
+  const canOrder = API && !!SU.st && ids.length > 1;
+  if (!canOrder) orderMode = false;
+  ob.hidden = !canOrder;
+  ob.setAttribute('aria-pressed', String(orderMode));
+  put(ob, orderMode ? '순서 바꾸기 끝' : '층 순서 바꾸기');
+  put($('#orderNote'), orderMode || ORD.err ? esc(ORD.note) : '');
+  $('#orderNote').classList.toggle('bad', ORD.err);
+  const tb = $('#orgTeams');
+  tb.style.setProperty('--cols', String(Math.max(1, Math.min(5, org.teams.length))));
+  put(tb, org.teams.map(t => {
     const d = teams[t.id];
     const on = !!d;
     const ms = on ? d.team.members : [];
     const lead = on ? ms.find(m => m.role === LEAD) : t.lead;
     const others = ms.filter(m => m.role !== LEAD);
-    return `<button type="button" class="org-team${on ? ' on' : ''}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms">
+    const k = t.office ? ids.indexOf(t.id) : -1, label = `${floorLabel(t)} ${t.name}`;
+    const mv = orderMode && k >= 0 ? `<span class="ot-move" role="group" aria-label="${esc(label)} 순서">${moveBtn('up', t, label, k === 0)}${moveBtn('down', t, label, k === ids.length - 1)}</span>` : '';
+    return `<div class="ot-cell"><button type="button" class="org-team${on ? ' on' : ''}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms">
       <span class="ot-head"><span class="fl-no">${esc(floorLabel(t))}</span><span class="ot-name">${esc(t.name)}</span></span><span class="badge">${esc(t.state)}</span>
-      <span class="ot-row">팀장 <b>${lead ? esc(lead.title) : '없음'}</b></span>
+      <span class="ot-row">팀장 <b>${lead ? esc((on && customName(lead, [d.team.team, t.name])) || lead.title) : '없음'}</b></span>
       <span class="ot-row">${on ? `팀원 <b>${others.filter(m => m.sessionId).length}</b>/${others.length}명` : '팀원 아직 없음'}</span>
-    </button>`;
+    </button>${mv}</div>`;
   }).join(''));
   // 방을 다시 그려도 활동 기록·파일 목록을 보던 위치는 그대로
   const scrolls = $$('#rooms .feed, #rooms .files').map(el => el.scrollTop);
@@ -834,6 +1017,7 @@ function render() {
   }
   document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
+  if (nmFocus && nmEl.isConnected === false) { const i = $('#nmIn'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(nmSel[0], nmSel[1]); } catch (e) {} } }
 }
 function vacantHTML(t) {
   return `<section class="room" data-team="hq" data-tone="hq" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 입주 예정">
@@ -848,14 +1032,16 @@ function vacantHTML(t) {
 }
 function roomHTML(t, d) {
   const ms = leadFirst(d.team.members);
+  // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
+  const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: API && !String(t.office || '').startsWith('examples/') ? new Set(shownRows(d.team.members).map(x => x.m)) : null };
   const working = ms.filter(m => d.status[m.role] && d.status[m.role].state === '일하는 중').length;
   const meeting = ms.filter(m => d.status[m.role] && d.status[m.role].state === '회의 중').length;
   const items = parseBoard(d.board);
   const open = items.filter(i => !i.done);
   const done = items.filter(i => i.done);
   const log = [...d.log].reverse().slice(0, 40);
-  const boardHTML = items.length ? `<ul class="board">${[...open, ...done.slice(-4).reverse()].map(i => `<li class="${i.done ? 'done' : ''}"><span class="ck"></span><span class="bt">${esc(i.title)}</span><span class="bm"><code>${esc(i.id)}</code><span>${esc(i.who)}</span>${i.st ? `<span class="chip${/결정 대기|막힘/.test(i.st) ? ' wait' : ''}">${esc(i.st)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="empty">업무판이 비어 있어요.</p>';
-  const feed = log.length ? `<ul class="feed">${log.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 기록이 없어요.</p>';
+  const boardHTML = items.length ? `<ul class="board">${[...open, ...done.slice(-4).reverse()].map(i => `<li class="${i.done ? 'done' : ''}"><span class="ck"></span><span class="bt">${esc(i.title)}</span><span class="bm"><code>${esc(i.id)}</code><span>${seatHTML(t.id, i.who)}</span>${i.st ? `<span class="chip${/결정 대기|막힘/.test(i.st) ? ' wait' : ''}">${esc(i.st)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="empty">업무판이 비어 있어요.</p>';
+  const feed = log.length ? `<ul class="feed">${log.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${seatHTML(t.id, e.from)}</b> → <b>${seatHTML(t.id, e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 기록이 없어요.</p>';
   const reports = d.reports.length ? `<ul class="files">${[...d.reports].reverse().slice(0, 12).map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 보고서가 없어요.</p>';
   const meets = d.meetings.length ? `<ul class="files">${[...d.meetings].reverse().slice(0, 6).map(f => `<li><button type="button" data-file="${esc(d.base + 'meetings/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '';
   const cmds = [
@@ -867,7 +1053,7 @@ function roomHTML(t, d) {
   const amLast = am ? (d.activeChat || []).filter(l => !l.kind).slice(-3) : [];
   const meetPanel = am
     ? `<div class="meet-now"><b>${am.status === '정리 중' ? '회의록 정리 중' : am.mode === '참석' ? '대표와 회의 중' : '팀끼리 회의 중'}</b> · ${esc(am.topic)}
-        ${amLast.length ? `<ol>${amLast.map(l => `<li>${esc(l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
+        ${amLast.length ? `<ol>${amLast.map(l => `<li>${seatHTML(t.id, l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
        <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
     : `${d.meeting ? `<div class="meet-state"><i class="sd ${meeting ? 'meet' : 'none'}"></i><b>${meeting ? '지금 회의 중' : '마지막 회의'}</b></div><button class="meet-file" type="button" data-file="${esc(d.base + 'meetings/' + d.meeting.file)}">${esc(d.meeting.file)}</button>` : '<p class="empty" style="margin-top:8px">아직 회의를 하지 않았어요.</p>'}
        ${API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
@@ -875,9 +1061,9 @@ function roomHTML(t, d) {
     <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
       <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}</div></div>
     <div class="room-grid">
-      <div class="desks${ms.length > 4 ? ' many' : ''}">${ms.map(m => deskHTML(m, d.status[m.role], t.id, unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]))).join('')}</div>
+      <div class="desks${ms.length > 4 ? ' many' : ''}">${ms.map(m => deskHTML(m, d.status[m.role], t.id, unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]), cx)).join('')}</div>
       <div class="side">
-        <div class="panel"><h3>회의실 <span>${am ? esc(am.mode) + ' 회의' : meeting ? '회의 중' : '비어 있음'}</span></h3>${meetingSVG(ms, d.status)}
+        <div class="panel"><h3>회의실 <span>${am ? esc(am.mode) + ' 회의' : meeting ? '회의 중' : '비어 있음'}</span></h3>${meetingSVG(ms, d.status, cx.names)}
           ${meetPanel}</div>
         <div class="panel"><h3>업무판 <span>열린 일 ${open.length}</span></h3>${boardHTML}</div>
       </div>
@@ -897,9 +1083,13 @@ function roomHTML(t, d) {
 
 /* ---------- 서랍 ---------- */
 let lastFocus = null, lastKey = null, pending = false;
-function openDrawer(html, team) {
+let NE = null;   // 책상에서 이름을 고치는 중: { tid, role, value, orig, err, busy }. 고치는 동안은 4초마다 다시 그리지 않아요(pending으로 미뤄 둬요)
+// chat: 대화 서랍(제목은 맨 위, 작성창은 맨 아래에 붙고 그 사이만 스크롤해요). html은 <div class="d-head">제목</div><div class="d-main">…</div> 다음에 작성창을 둬요.
+function openDrawer(html, team, chat) {
+  if (NE) { NE = null; pending = true; }   // 서랍을 열면 책상의 이름 고치기는 접어요(서랍을 닫을 때 다시 그려요)
   $('#drawerBody').innerHTML = html;
   const p = $('.drawer-panel');
+  p.classList.toggle('chat', !!chat);
   if (team) p.dataset.team = team; else delete p.dataset.team;
   const tt = team && state && state.org.teams.find(x => x.id === team);
   if (tt) p.dataset.tone = toneOf(tt); else delete p.dataset.tone;
@@ -923,6 +1113,90 @@ function armButtons() {
   setTimeout(() => bs.forEach(b => { if (b.isConnected && !b.closest('form[data-busy]')) b.disabled = false; }), 600);
 }
 
+/* ---------- 책상에서 이름 고치기 ---------- */
+// ✎를 누르면 책상의 이름 자리가 입력칸이 돼요(Enter 저장 · Esc 취소). 서버(/api/setup/member-name)가 그 팀원의 name 칸만 바꾸고, 역할·대화·상태 파일은 그대로예요.
+// 한글을 조합하는 중의 Enter/Esc는 글자를 확정하는 키라 건드리지 않아요(isComposing, 맥 앱의 keyCode 229, 조합이 끝난 직후 IME_GAP 안의 Enter).
+const nameClash = (v, taken) => (hit => (!hit ? '' : hit.what === 'name' ? `‘${v}’ 이름은 이 층의 ‘${hit.role}’ 자리가 이미 써요. 다른 이름을 써 주세요` : `‘${v}’ 이름은 이 층의 ‘${hit.role}’ 자리 역할 이름과 같아요. 다른 이름을 써 주세요`))(taken && taken.get(fold(v)));
+const nameErr = (v, taken) => !v ? ''
+  : glen(v) > NAME_MAX ? `이름은 ${NAME_MAX}자까지예요(지금 ${glen(v)}자)`
+  : NAME_BAD.test(v) ? '이름에는 줄바꿈이나 눈에 보이지 않는 글자(제어·서식 문자)를 쓸 수 없어요'
+  : ROLE_BAN.has(v) ? '‘대표’와 ‘총괄’은 이름으로 쓸 수 없어요'
+  : nameClash(v, taken);
+// 설정 화면의 줄: 이름 칸을 불러온 이름에서 바꿨는지(바꾼 이름만 서버로 보내요), 자리(역할)가 이번에 새로 생겼는지(새 자리·바꾼 역할)
+const nameChanged = r => nameNorm(r.name) !== nameNorm(r.nameOrig);
+const roleFresh = r => (r.was ? roleKey(r.role) !== roleKey(r.was) : !r.kept);
+// 다른 줄들이 쓰는 이름·역할: fold(글) → { role: 그 줄의 역할, what: 'name'|'role' }. rows: [{ role, name }](지금 입력한 이름. 비었으면 기본 이름 ‘<팀 이름> <역할>’)
+// fresh: 이번 고치기에서 새로 생긴 것만(바꾼 이름, 새 자리·바꾼 역할)
+function takenNames(rows, self, tname, fresh) {
+  const m = new Map();
+  for (const x of rows) {
+    if (x === self || !x || typeof x !== 'object') continue;
+    const role = String(x.role == null ? '' : x.role), nm = nameNorm(x.name), n = nm || (role && tname ? `${tname} ${role}` : '');
+    const rf = !fresh || roleFresh(x), nf = !fresh || nameChanged(x) || (!nm && rf);
+    if (n && nf && !m.has(fold(n))) m.set(fold(n), { role, what: 'name' });
+    if (role && rf && !m.has(fold(role))) m.set(fold(role), { role, what: 'role' });
+  }
+  return m;
+}
+// 한 줄의 이름 검사(서버도 같은 것을 다시 봐요). 바꾼 이름은 전부 봐요(길이·글자·대표/총괄·겹침).
+// 바꾸지 않은 이름은 예전 규칙으로 지었을 수 있고 서버로도 안 보내서(그대로 둬요) 길이·글자는 보지 않고, 이번에 새로 생긴 이름·역할과 겹칠 때만 막아요.
+function nameCheck(e, r, raw) {
+  const v = nameNorm(raw === undefined ? r.name : raw);
+  if (!v) return '';
+  return v !== nameNorm(r.nameOrig) ? nameErr(v, takenNames(e.rows, r, tnameOf(e))) : nameClash(v, takenNames(e.rows, r, tnameOf(e), true));
+}
+const nmLive = t => { const el = $('#nmLive'); if (el) { el.textContent = ''; setTimeout(() => { el.textContent = t; }, 30); } };
+function openNameEdit(tid, role) {
+  const m = memberOf(tid, role);
+  if (!m || !state) return;
+  const v = customName(m, teamNames(tid));
+  NE = { tid, role, value: v, orig: v, err: '', busy: false };
+  render();
+  const i = $('#nmIn');
+  if (i) { i.focus(); i.select(); }
+}
+function closeNameEdit(focus) {
+  const e = NE;
+  if (!e) return;
+  NE = null;
+  pending = false;
+  render();
+  if (focus) { const b = $$('#rooms [data-nm-edit]').find(x => x.dataset.team === e.tid && x.dataset.role === e.role); if (b) b.focus(); }
+}
+function nameEditMsg(msg) {   // 입력칸은 다시 그리지 않고 오류 글만 바꿔요(쓰던 글·커서가 그대로 남게)
+  if (NE) NE.err = msg;
+  const i = $('#nmIn'), er = $('#nmErr');
+  if (er) er.textContent = msg;
+  if (i) i.setAttribute('aria-invalid', String(!!msg));
+}
+async function saveNameEdit() {
+  const e = NE;
+  if (!e || e.busy) return;
+  const m = memberOf(e.tid, e.role), inp = $('#nmIn');
+  if (!m) { closeNameEdit(false); return; }
+  const v = nameNorm(inp ? inp.value : e.value);
+  e.value = v;
+  if (v === e.orig) { closeNameEdit(true); return; }   // 바뀐 게 없어요
+  const d = state.teams[e.tid], err = nameErr(v, takenNames(d.team.members, m, teamNames(e.tid)[0] || ''));
+  if (err) { nameEditMsg(err); if (inp) inp.focus(); return; }
+  e.busy = true; nameEditMsg('');
+  $$('.nm-edit input, .nm-edit button').forEach(x => { x.disabled = true; });
+  try {
+    const res = await sp('member-name', { team: e.tid, role: e.role, name: v });
+    m.name = typeof res.name === 'string' ? res.name : v;   // 화면에 바로 반영(다시 불러오지 않아도 돼요)
+    nmLive(`${e.role} 이름을 ${customName(m, teamNames(e.tid)) || '기본 이름'}(으)로 바꿨어요`);
+  } catch (x) {
+    e.busy = false;
+    $$('.nm-edit input, .nm-edit button').forEach(el => { el.disabled = false; });
+    nameEditMsg(x.message || '저장하지 못했어요');
+    const i = $('#nmIn'); if (i) i.focus();
+    return;
+  }
+  if (NE === e) closeNameEdit(true);
+  if (SU.st) refreshSetup().catch(() => {});   // 설정 화면의 팀원 목록도 새 이름으로
+  load();
+}
+
 /* ---------- 쓰던 글 보관 ---------- */
 // 서랍을 닫거나 다시 그려도 쓰던 글이 남아요. 보내면 지워요.
 const drafts = new Map();
@@ -933,12 +1207,13 @@ document.addEventListener('input', e => { if (e.target.matches && e.target.match
 /* ---------- 대화(사이트 → 총괄 → 세션, 답은 대화 파일로) ---------- */
 // live: 지금 열린 서랍의 대화 파일. 3초마다 다시 읽어 말풍선만 바꿔요(쓰던 글은 그대로).
 let live = null;
-function threadHTML(lines) {
+function threadHTML(lines, tid) {   // tid: 대화하는 층(있으면 보낸·받는 사람을 팀원 이름으로도 보여 줘요. 파일에는 역할 그대로 남아요)
   if (!lines.length) return '<li class="msg sys">아직 주고받은 말이 없어요.</li>';
+  const nm = x => (tid ? seatHTML(tid, x) : esc(x));
   return lines.map(l => {
     if (l.kind && l.kind !== '말') return `<li class="msg sys">${esc(hm(l.t))} · ${esc(l.text)}</li>`;
-    const to = Array.isArray(l.to) && l.to.length ? ` → ${l.to.map(esc).join(', ')}` : '';
-    return `<li class="msg${l.from === '대표' ? ' me' : ''}"><span class="who">${esc(l.from)}${to} · ${esc(hm(l.t))}</span>${esc(l.text)}</li>`;
+    const to = Array.isArray(l.to) && l.to.length ? ` → ${l.to.map(nm).join(', ')}` : '';
+    return `<li class="msg${l.from === '대표' ? ' me' : ''}"><span class="who">${nm(l.from)}${to} · ${esc(hm(l.t))}</span>${esc(l.text)}</li>`;
   }).join('');
 }
 async function refreshThread(force) {
@@ -961,8 +1236,11 @@ async function refreshThread(force) {
   cur.last = text;
   const lines = jsonl(text);
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  el.innerHTML = threadHTML(lines);
+  el.innerHTML = threadHTML(lines, cur.tid);
   if (atBottom || force) el.scrollTop = el.scrollHeight;
+  // 대화 서랍을 열거나 보낸 뒤: 위쪽(d-main)도 맨 아래로 내려서 마지막 말이 작성창 바로 위에 보이게 해요
+  const main = force && el.closest('.d-main');
+  if (main) main.scrollTop = main.scrollHeight;
   if (lines.length) markSeen(cur.file, lines[lines.length - 1].t);
 }
 function relayWarn() {
@@ -972,11 +1250,12 @@ function relayWarn() {
   if (r.pending && r.oldestAge > 90) return `총괄이 ${r.pending}개를 아직 전하지 못하고 있어요(가장 오래된 것 ${Math.round(r.oldestAge / 60)}분).`;
   return '';
 }
-function composerHTML(form, extra = '', placeholder = '여기에 쓰고 보내기 (⌘/Ctrl + Enter)', key = '') {
+// 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
+function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '') {
   if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
   return `<form class="composer" data-form="${form}" data-key="${esc(key)}">${extra}
-    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말"></textarea>
-    <div class="row"><p class="hint">총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><button type="submit" class="btn primary">보내기</button></div>
+    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"></textarea>
+    <div class="row"><p class="hint"><span class="keys" id="sayKeys">Enter 보내기 · Shift+Enter 줄바꿈</span><br>총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><button type="submit" class="btn primary">보내기</button></div>
     <p class="relay-note" role="status">${esc(relayWarn())}</p>
     <p class="err" role="alert"></p></form>`;
 }
@@ -985,35 +1264,37 @@ function openThread(file, opts = {}) {
   refreshThread(true);
 }
 function bossDrawer() {
-  openDrawer(`<p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">총괄과 대화</h2>
-    <p class="hint" style="margin-top:6px">무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.</p>
-    <ul class="thread" id="thread" aria-live="polite"></ul>
-    ${composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`);
+  openDrawer(`<div class="d-head"><p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">총괄과 대화</h2></div>
+    <div class="d-main"><p class="hint" style="margin-top:6px">무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.</p>
+    <ul class="thread" id="thread" aria-live="polite"></ul></div>
+    ${composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`, null, true);
   openThread('hq/chat.jsonl');
 }
 function memberDrawer(tid, role) {
   const d = state.teams[tid], m = d.team.members.find(x => x.role === role), s = d.status[role] || {};
   const mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
   const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
-  openDrawer(`
-    <p class="d-eyebrow">${esc(d.team.team)} 팀</p>
-    <h2 class="d-title" id="dTitle">${esc(role)}</h2>
-    <dl class="facts">
-      <dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
+  const cn = customName(m, teamNames(tid));
+  // 대화가 서랍의 주인공이라 작성창은 맨 아래에 붙고, 주고받은 메시지·보고서는 접어 둔 칸에 넣어요(누르면 펼쳐져요).
+  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀</p>
+    <h2 class="d-title" id="dTitle">${seatHTML(tid, role)}</h2></div>
+    <div class="d-main"><dl class="facts">
+      ${cn ? `<dt>역할</dt><dd>${esc(role)}</dd>` : ''}<dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
       <dt>상태</dt><dd>${esc(s.state || '—')}${s.updated ? ` · ${esc(ago(s.updated))}` : ''}</dd>
       <dt>맡은 일</dt><dd>${esc(s.task || '없음')}</dd>
       <dt>한마디</dt><dd>${esc(s.say || '—')}</dd>
     </dl>
+    <div class="d-links"><a class="btn-primary" href="${esc(chatLink(m.sessionId))}">세션 창 열기</a>
+      <p class="hint" style="margin-top:6px">커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.</p></div>
+    <details class="d-more"><summary>주고받은 메시지 ${mine.length}개 · 보고서 ${reps.length}개</summary>
+      <h3>주고받은 메시지</h3>
+      ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${seatHTML(tid, e.from)}</b> → <b>${seatHTML(tid, e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
+      <h3>보고서</h3>
+      ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}</details>
     <h3 class="d-sec">바로 대화</h3>
-    <ul class="thread" id="thread" aria-live="polite"></ul>
-    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${role}에게 바로 말 걸기`, `${tid}:${role}`)}
-    <a class="btn-primary" href="${esc(chatLink(m.sessionId))}">세션 창 열기</a>
-    <p class="hint" style="margin-top:6px">커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.</p>
-    <h3 style="margin:20px 0 6px; font-size:13px">주고받은 메시지</h3>
-    ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${esc(e.from)}</b> → <b>${esc(e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
-    <h3 style="margin:20px 0 6px; font-size:13px">보고서</h3>
-    ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}`, tid);
-  openThread(d.base + 'chat/' + role + '.jsonl');
+    <ul class="thread" id="thread" aria-live="polite"></ul></div>
+    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`)}`, tid, true);
+  openThread(d.base + 'chat/' + role + '.jsonl', { tid });
 }
 
 /* ---------- 회의(대표만 시작) ---------- */
@@ -1029,7 +1310,7 @@ function meetStartDrawer(tid, preset = {}) {
       <fieldset class="chips"><legend>방식</legend>
         <label><input type="radio" name="mode" value="참석"${mode === '참석' ? ' checked' : ''}> 내가 같이 해요 (참석)</label>
         <label><input type="radio" name="mode" value="위임"${mode === '위임' ? ' checked' : ''}> 너희끼리 해요 (위임)</label></fieldset>
-      <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${esc(r)}</label>`).join('')}</fieldset>
+      <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>
       <textarea name="note" maxlength="2000" placeholder="안건이나 메모 (선택)" aria-label="회의 메모">${esc(preset.note || '')}</textarea>
       <div class="row"><p class="hint">참석: 내 말이 참석자에게 바로 가요. 위임: 팀장이 진행하고 결과를 회의록·결재로 올려요. 중간에 빠지면 나머지는 팀이 이어서 해요.</p><button type="submit" class="btn primary">회의 시작</button></div>
       <p class="relay-note" role="status">${esc(relayWarn())}</p>
@@ -1044,7 +1325,7 @@ function meetDrawer(tid, id) {
     const box = $('#meetCtl');
     if (!box) return;
     const going = meta.status === '진행 중';
-    put(box, `<p class="hint">${esc(meta.id)} · ${going ? (meta.mode === '참석' ? '대표 참석 중' : '대표 없이 진행 중(위임)') : esc(meta.status)} · 참석 ${(meta.participants || []).map(esc).join(', ')}</p>
+    put(box, `<p class="hint">${esc(meta.id)} · ${going ? (meta.mode === '참석' ? '대표 참석 중' : '대표 없이 진행 중(위임)') : esc(meta.status)} · 참석 ${(meta.participants || []).map(r => seatHTML(tid, r)).join(', ')}</p>
       ${API && going ? `<div class="meet-actions">${meta.mode === '참석'
         ? `<button type="button" class="btn" data-arm data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="위임">나는 빠질게 (나머지는 너희끼리)</button>`
         : `<button type="button" class="btn primary" data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="참석">회의에 참석하기</button>`}
@@ -1054,15 +1335,16 @@ function meetDrawer(tid, id) {
     const f = $('#meetSay');
     if (f) f.hidden = !(API && going && meta.mode === '참석');
   };
-  openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">${esc(am.topic)}</h2>
-    <div id="meetCtl"></div>
-    <ul class="thread" id="thread" aria-live="polite"></ul>
+  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">${esc(am.topic)}</h2></div>
+    <div class="d-main"><div id="meetCtl"></div>
+    <ul class="thread" id="thread" aria-live="polite"></ul></div>
     <div id="meetSay">${composerHTML('say', `<input type="hidden" name="thread" value="meeting:${esc(am.id)}"><input type="hidden" name="team" value="${esc(tid)}">
-      <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}" checked> ${esc(r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid);
+      <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}" checked> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid, true);
   drawControls(am);
   // 회의 정보(진행 중·정리 중·끝, 참석/위임)와 회의록 여부는 대화와 따로 3초마다 확인해요.
   let busy = false;
   openThread(d.base + 'meetings/' + am.id + '.chat.jsonl', {
+    tid,
     fallback: !API ? (am.id === (d.active && d.active.id) ? d.activeChat : null) : null,
     tick: async () => {
       if (!API || busy) return;
@@ -1100,7 +1382,7 @@ function apprCard(tid, d, a) {
   const rp = reportPath(d, a.report);
   const meetingAsk = a.kind === 'meeting';
   return `<article class="appr${open ? '' : ' done'}" data-team="${esc(tid)}">
-    <div class="appr-top"><span class="chip">${esc(d.team.team)}</span><span>${esc(a.from || '팀장')}</span>${a.related ? `<code>${esc(a.related)}</code>` : ''}<span>${esc(a.created ? ago(a.created) : '')}</span><span class="chip${open ? ' wait' : ''}">${esc(a.status || '')}</span></div>
+    <div class="appr-top"><span class="chip">${esc(d.team.team)}</span><span>${seatHTML(tid, a.from || '팀장')}</span>${a.related ? `<code>${esc(a.related)}</code>` : ''}<span>${esc(a.created ? ago(a.created) : '')}</span><span class="chip${open ? ' wait' : ''}">${esc(a.status || '')}</span></div>
     <h4>${meetingAsk ? '회의 요청 · ' : ''}${esc(a.title || a.id)}</h4>
     ${a.summary ? `<p class="sum">${esc(a.summary)}</p>` : ''}
     ${a.risky ? `<p class="risk">위험한 일이에요. 결재는 ‘하기로 정함’이고, 실제 실행은 ${esc(a.where || '그 일을 할 세션 창')}에서 마지막으로 한 번 더 확인해요.</p>` : ''}
@@ -1152,7 +1434,7 @@ async function submitForm(form, submitter) {
     } else if (form.dataset.form === 'meet-start') {
       const parts = [LEAD, ...fd.getAll('p')];
       const mode = String(fd.get('mode'));
-      if (!confirm(`‘${String(fd.get('topic') || '').trim()}’ 회의를 ${mode === '참석' ? '내가 참석해서' : '팀에 맡겨서(위임)'} 시작할까요?\n참석: ${parts.join(', ')}`)) throw new Error('');
+      if (!confirm(`‘${String(fd.get('topic') || '').trim()}’ 회의를 ${mode === '참석' ? '내가 참석해서' : '팀에 맡겨서(위임)'} 시작할까요?\n참석: ${parts.map(r => seatText(String(fd.get('team')), r)).join(', ')}`)) throw new Error('');
       const res = await post('api/meeting/start', { team: fd.get('team'), topic: String(fd.get('topic') || ''), mode, participants: parts, note: String(fd.get('note') || ''), approval: String(fd.get('approval') || '') });
       $$('textarea', form).forEach(ta => drafts.delete(draftKey(ta)));
       await load(); pending = false; render();
@@ -1232,9 +1514,12 @@ async function sp(path, body) {
   catch (e) { throw Object.assign(new Error(e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : (e.message || '안 됐어요')), { body: e.body }); }
 }
 async function refreshSetup() {
-  const st = await sp('state');
+  const gen = orderGen, st = await sp('state');
+  // 읽는 사이에 층을 옮겼으면 받은 층 목록은 옛 순서예요: 지금 보이는 순서(저장 중이면 그 순서)를 지켜요
+  const keep = ORD.want || (gen !== orderGen && SU.st && Array.isArray(SU.st.floors) ? SU.st.floors.map(f => f.id) : null);
   SU.st = Object.assign({ floors: [], visibility: {}, claude: { app: false, sessions: 0 } }, st);
   if (!Array.isArray(SU.st.floors)) SU.st.floors = [];
+  if (keep) { const n = orderTeams(SU.st.floors, keep, () => true); if (n) SU.st.floors = n; }   // 저장 중인 층 순서
   if (!SU.st.claude || typeof SU.st.claude !== 'object') SU.st.claude = { app: false, sessions: 0 };
   if (!SU.visDirty) SU.vis = Object.assign({}, SU.st.visibility || {});
   if (!SU.introDirty && typeof st.intro === 'string') SU.intro = st.intro;
@@ -1329,7 +1614,7 @@ function keptLine(kept, n) {
 // 이미 팀 사무실(.office/team.json)이 있는 폴더: 서버가 알려 준 팀 이름·머리글·팀원(team.json 순서)·그대로 두는 줄(kept). 모양이 틀리면 없는 걸로 봐요(층을 만들 때 서버가 다시 봐요).
 function exTeam(v) {
   if (!v || typeof v !== 'object') return null;
-  const ms = shownRows(v.members).map(x => ({ role: x.role, sid: typeof x.m.sessionId === 'string' && SID_RE.test(x.m.sessionId) ? x.m.sessionId : '' }));
+  const ms = shownRows(v.members).map(x => ({ role: x.role, sid: typeof x.m.sessionId === 'string' && SID_RE.test(x.m.sessionId) ? x.m.sessionId : '', name: cut(String(x.m.name == null ? '' : x.m.name).trim(), 60) }));
   const kept = (Array.isArray(v.kept) ? v.kept : []).filter(x => typeof x === 'string').slice(0, 20).map(x => cut(x.trim(), 20) || '(빈 이름)');
   const keptCount = Number.isInteger(v.keptCount) && v.keptCount >= kept.length ? Math.min(v.keptCount, 1e6) : kept.length;
   const held = new Map(Object.entries(v.keptSessions && typeof v.keptSessions === 'object' ? v.keptSessions : {})
@@ -1438,7 +1723,8 @@ function autoId(p) {
   for (let n = 2, root = id; taken.has(id); n++) { const suf = '-' + n; id = root.slice(0, 20 - suf.length).replace(/-+$/, '') + suf; }
   return id;
 }
-const newRow = (role, sid, why, title) => ({ uid: ++SU.rowSeq, role: role || '', sid: sid || '', why: why || '', auto: sid || '', title: title || '', err: '' });
+// name: 입력칸의 이름(화면에 보일 이름, 비면 기본 이름), nameOrig: 불러온 이름(바꾼 줄만 서버로 보내요)
+const newRow = (role, sid, why, title) => ({ uid: ++SU.rowSeq, role: role || '', sid: sid || '', why: why || '', auto: sid || '', title: title || '', err: '', name: '', nameOrig: '' });
 function uniqueRole(base, rows) {   // 같은 이름이 있으면 숫자를 붙여요(개발자 → 개발자2). 12자를 넘지 않게
   const has = r => rows.some(x => roleKey(x.role) === roleKey(r));
   if (!has(base)) return base;
@@ -1501,11 +1787,12 @@ function pickOne(s, g) {
 // 고른 폴더에 이미 팀 사무실이 있으면 그 팀의 지금 팀원(팀장이 맨 앞, 나머지는 team.json 순서)을 불러와요. 층 이름은 그 팀 이름이 기본이에요.
 // 그 팀의 이름·머리글은 서버가 그대로 둬요. 다른 폴더로 바꾸면 처음에 지어 둔 팀원으로 돌아가요. ex: 쓸 팀(없으면 지금 고른 폴더에서 찾아요). 바뀌었으면 true.
 const teamAt = (p, f) => { if (!f) return null; for (const [k, t] of p.teams || []) if (samePath(k, f)) return t; return null; };
-function rowsFromTeam(ex) {
+function rowsFromTeam(ex, names) {
   const all = allSessions(), title = sid => { const x = sid && all.get(sid); return x ? x.s.title : ''; };
   const lead = ex.members.find(m => m.role === LEAD);
   const rows = [newRow(LEAD, lead ? lead.sid : '', '', title(lead && lead.sid))];
   for (const m of ex.members) if (m.role !== LEAD) rows.push(newRow(m.role, m.sid, '', title(m.sid)));
+  rows.forEach(r => { const m = ex.members.find(x => x.role === r.role); r.name = r.nameOrig = m ? customName({ role: m.role, name: m.name }, names) : ''; });   // 따로 정한 이름은 칸에, 기본 이름은 빈 칸으로
   rows.forEach(r => { r.auto = ''; r.kept = true; });   // kept: 불러온 자리(역할 이름은 여기서 못 바꿔요. 바꾸면 그 자리의 이름·상태·대화가 따라오지 않아요)
   return rows;
 }
@@ -1515,7 +1802,7 @@ function useFolderTeam(p, ex) {
   const auto = p.name.trim() === p.sugName;   // 층 이름을 아직 고치지 않았으면 따라 바꿔요
   if (!p.existing) p.guess = { rows: p.rows, note: p.note, sugName: p.sugName };
   if (ex) {
-    p.rows = rowsFromTeam(ex); p.note = '';
+    p.rows = rowsFromTeam(ex, [ex.name, p.name.trim()]); p.note = '';
     const n = cut(ex.name, 30).trim();
     if (n) { if (auto) p.name = n; p.sugName = n; }
   } else {
@@ -1790,6 +2077,10 @@ function syncMoveNotes(x) {   // 역할 이름을 치는 중에는 칸을 다시
     el.textContent = t; el.hidden = !t; el.className = 'hint su-mnote';
   });
 }
+// 이름 칸의 기본 이름 ‘<팀 이름> <역할>’의 팀 이름: 이미 있던 팀 사무실이면 그 팀 이름(team.json), 새 층이면 지금 적은 층 이름, 지금 있는 층이면 team.json의 팀 이름
+const tnameOf = e => (e.kind === 'floor' ? ((e.names && e.names[0]) || (floorById(e.id) || {}).name || '') : (e.existing && e.existing.name) || e.name.trim());
+const nameHint = e => `‘이름 (선택)’ 칸은 화면에 보일 이름이에요(${NAME_MAX}자까지). 역할(대화·상태 파일 이름)은 그대로예요. 비워 두면 ‘${tnameOf(e) || '층 이름'} <역할>’로 불러요.`;
+const nameHolder = (e, r, j) => defaultName([tnameOf(e)], j ? (r.role.trim() || '역할') : LEAD);
 function rowHTML(e, r, j, pre, c) {
   const id = `${pre}r${r.uid}`, lead = j === 0, nm = lead ? LEAD : (r.role.trim() || `${j + 1}번째`);
   const guess = r.err ? '' : rowNote(r, j), note = guess || (r.err ? '' : moveNote(c.moves.get(r.uid)));
@@ -1798,7 +2089,8 @@ function rowHTML(e, r, j, pre, c) {
   const role = lead ? `<span class="su-lead-role" id="${id}n">${LEAD} <small>맨 위 고정</small></span>`
     : `<input type="text" id="${id}n" data-su-in="mrole" value="${esc(r.role)}"${lock ? ' readonly aria-readonly="true" title="이름은 층을 만든 뒤 ‘팀원 고치기’에서 바꿔요"' : ' list="suRoleList"'} maxlength="12" placeholder="예: 마케팅" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${j + 1}번째 자리 역할 이름" aria-invalid="${!!r.err && r.errAt === 'n'}" aria-describedby="${id}e ${id}g${lock && c.exHint ? ' ' + c.exHint : ''}">`;
   const del = lead ? '<span aria-hidden="true"></span>' : `<button type="button" class="btn su-mx" id="${id}x" data-su="mdel" aria-label="${esc(nm)} 자리 빼기">×</button>`;
-  return `<div class="su-mrow" data-uid="${r.uid}">${role}<select id="${id}s" data-su-in="msid" aria-label="${esc(nm)} 자리에 앉힐 세션" aria-invalid="${!!r.err && r.errAt === 's'}" aria-describedby="${id}e ${id}g">${seatOpts(e, r, c)}</select>${del}
+  const nin = `<input type="text" class="su-mname" id="${id}m" data-su-in="mname" value="${esc(r.name)}" maxlength="${NAME_MAX}" placeholder="${esc(nameHolder(e, r, j))}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${esc(nm)} 자리 이름(화면에 보일 이름)" aria-invalid="${!!r.err && r.errAt === 'm'}" aria-describedby="${id}e ${pre}nh">`;
+  return `<div class="su-mrow" data-uid="${r.uid}">${role}<label class="su-mlab" for="${id}m">이름 (선택)</label>${nin}<select id="${id}s" data-su-in="msid" aria-label="${esc(nm)} 자리에 앉힐 세션" aria-invalid="${!!r.err && r.errAt === 's'}" aria-describedby="${id}e ${id}g">${seatOpts(e, r, c)}</select>${del}
       <p class="err su-mnote" id="${id}e">${esc(r.err || '')}</p>
       <small class="${guess ? 'su-guess' : 'hint'} su-mnote" id="${id}g"${note || (lead && !r.sid) ? '' : ' hidden'}>${esc(note || (lead && !r.sid ? '비워 두면 이 층은 회의를 열거나 결재를 받지 못해요' : ''))}</small></div>`;
 }
@@ -1807,11 +2099,12 @@ function membersHTML(e, pre, owner, used) {
   c.moves = movePairs(e);
   c.exHint = e.existing ? `${pre}xh` : '';   // 불러온 자리의 역할 이름 칸이 가리킬 안내(existHTML)
   return `<fieldset class="su-mem" aria-describedby="${pre}mh"><legend>팀원 <small>${e.rows.length}/${MAX_MEMBERS}명 · 역할 이름은 마음대로 지어요</small></legend>
-      <div class="su-mhead" aria-hidden="true"><span>역할</span><span>앉힐 세션</span></div>
+      <div class="su-mhead" aria-hidden="true"><span>역할</span><span>이름 <small>(선택)</small></span><span>앉힐 세션</span></div>
       ${e.rows.map((r, j) => rowHTML(e, r, j, pre, c)).join('')}
       <div class="su-madd"><button type="button" class="btn" id="${pre}add" data-su="madd"${full ? ' disabled' : ''}>+ 팀원 추가</button>
         <span class="hint" aria-hidden="true">바로 넣기</span>${ROLE_SUGGEST.map((r, k) => `<button type="button" class="btn su-sugg" id="${pre}q${k}" data-su="madd" data-role="${esc(r)}" aria-label="${esc(r)} 자리 더하기"${full ? ' disabled' : ''}>${esc(r)}</button>`).join('')}</div>
-      <p class="hint" id="${pre}mh" style="margin-top:6px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.</p>
+      <p class="hint" id="${pre}nh" style="margin-top:6px">${esc(nameHint(e))}</p>
+      <p class="hint" id="${pre}mh" style="margin-top:4px">${full ? `팀장까지 ${MAX_MEMBERS}명까지예요. ` : ''}한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘나중에 연결’로 두면 빈자리로 보여요.</p>
     </fieldset>`;
 }
 const roleList = () => `<datalist id="suRoleList">${ROLE_SUGGEST.map(r => `<option value="${esc(r)}"></option>`).join('')}</datalist>`;
@@ -1826,11 +2119,27 @@ function cardHTML(p, used) {
       <div class="su-field"><label for="suI${i}">팀 id <small>영문 소문자·숫자·-</small></label><input type="text" id="suI${i}" data-su-in="id" maxlength="20" value="${esc(p.id)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suIh${i}"><small class="hint" id="suIh${i}">화면 주소(#id)와 teams/ 폴더 이름에 써요</small></div>
     </div>
     ${folderHTML(p, i)}
+    ${posHTML(p, i)}
     ${p.existing ? existHTML(p, i, used) : ''}
     ${p.note ? `<p class="hint" style="margin-top:8px">${esc(p.note)}</p>` : ''}
     ${membersHTML(p, pre, p.key, used)}
     <p class="err" role="alert" data-err id="${pre}err" tabindex="-1" style="margin-top:8px">${esc(p.err)}</p>
   </li>`;
+}
+// 몇 층에 둘까요: 맨 아래(기본, 지금 있는 층 다음) 또는 지금 있는 층 사이. p.at은 ‘이 층 앞에’ 넣을 층의 id라서 그사이 순서를 바꿔도 고른 자리가 그대로예요.
+// 층을 만들면 예시 팀은 빠지니(서버의 dropDemo) 예시 팀은 세지 않아요. 내 층이 없으면 고를 게 없어서 보이지 않아요.
+function posHTML(p, i) {
+  const fl = myFloors();
+  if (p.at && !fl.some(f => f.id === p.at)) p.at = '';
+  if (!fl.length) return '';
+  const opts = fl.map((f, k) => `<option value="${esc(f.id)}"${p.at === f.id ? ' selected' : ''}>${esc(k ? `${k + 1}층 · ‘${fl[k - 1].name}’ 뒤, ‘${f.name}’ 앞` : `1층 · 맨 위, 지금 1층 ‘${f.name}’ 앞`)}</option>`).join('');
+  return `<div class="su-field su-pos"><label for="suP${i}">몇 층에 둘까요</label>
+      <select id="suP${i}" data-su-in="pos" aria-describedby="suPh${i}"><option value=""${p.at ? '' : ' selected'}>맨 아래(기본) · 지금 있는 층 다음</option>${opts}</select>
+      <small class="hint" id="suPh${i}">${esc(posHint(p, fl))}</small></div>`;
+}
+function posHint(p, fl) {
+  const k = p.at ? fl.findIndex(f => f.id === p.at) : -1;
+  return k < 0 ? `지금 있는 층(${fl.length}개) 다음에 들어가요.` : `‘${fl[k].name}’ 앞에 넣어요. ‘${fl[k].name}’부터 뒤의 층은 층을 만들 때 번호가 하나씩 커져요.`;
 }
 // 고른 세션(세션 하나, 또는 그룹을 통째로 골랐으면 그 그룹에서 rowsFromGroup이 앉혔을 세션) 중 불러온 팀원 자리에 없는 세션. 그릴 때마다 다시 셈해요(앉히면 빠져요).
 function missingSess(p, used) {
@@ -1856,12 +2165,19 @@ function memberCount(f) {
   const d = state && state.teams && state.teams[f.id];
   return d && d.team && Array.isArray(d.team.members) ? d.team.members.length : null;
 }
-const rowsSig = rows => JSON.stringify(rows.map(r => [roleKey(r.role), r.sid]));
+const rowsSig = rows => JSON.stringify(rows.map(r => [roleKey(r.role), r.sid, nameNorm(r.name)]));
 const editDirty = () => Object.values(SU.edit).filter(e => !e.loading && !e.loadErr && rowsSig(e.rows) !== e.orig).length;
-function haveHTML(f, used) {
+// 층 순서: ↑/↓를 누르면 바로 저장해요(moveFloor). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
+function ordHTML(f, k, n, j) {
+  if (n < 2 || !API) return '';
+  const label = `${f.floor ? f.floor + '층' : `${k + 1}번째`} ${f.name}`;
+  const b = (dir, edge) => `<button type="button" class="btn mv" id="suO${dir === 'up' ? 'u' : 'd'}${j}" data-su="floor-move" data-dir="${dir}" data-team="${esc(f.id)}" aria-label="${esc(label)} ${dir === 'up' ? '위로' : '아래로'}"${edge ? ' aria-disabled="true"' : ''}>${dir === 'up' ? '↑' : '↓'}</button>`;
+  return `<span class="su-ord" role="group" aria-label="${esc(label)} 순서">${b('up', k === 0)}${b('down', k === n - 1)}</span>`;
+}
+function haveHTML(f, used, k, all) {
   const j = ix('floor|' + f.id), e = SU.edit[f.id], n = memberCount(f), note = SU.editNote[f.id];
   const btn = !f.example && API ? `<button type="button" class="btn su-to" id="suEb${j}" data-su="${e ? 'edit-cancel' : 'edit-open'}" data-team="${esc(f.id)}" aria-expanded="${!!e}"${e ? ` aria-controls="suEd${j}"` : ''}>${e ? '접기' : '팀원 고치기'}</button>` : '';
-  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h"><span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명</small>` : ''}${btn}</div>
+  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h">${ordHTML(f, k, all, j)}<span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명</small>` : ''}${btn}</div>
     ${e ? editHTML(f, e, j, used) : ''}${note && note.text && !e ? `<p class="hint su-saved" role="status">${esc(note.text)}</p>${note.away.length ? `<p class="hint">층 폴더 밖에서 연 세션(${esc(note.away.join(', '))})은 그 세션 폴더의 CLAUDE.local.md에 이 줄을 넣거나 세션 창에 한 번 보내야 팀 규칙을 읽어요: <code>${esc(note.rules)}</code> <button type="button" class="btn" id="suEn${j}" data-copy="${esc(note.rules)}">줄 복사</button></p>` : ''}` : ''}</li>`;
 }
 function editHTML(f, e, j, used) {
@@ -1912,7 +2228,10 @@ function rulesHTML(id, only) {   // only: 이번에 만든 층 id들(결과 상�
 }
 function floorsHTML() {
   const c = SU.claude, fl = SU.st.floors, used = seatsInUse();
-  const have = fl.length ? `<h3 class="su-sub">지금 있는 층</h3><ul class="su-floors">${fl.map(f => haveHTML(f, used)).join('')}</ul>` : '';
+  // 지금 있는 층을 맨 위에: 순서(↑/↓, 바로 저장)와 팀원 고치기. 그 아래에서 새 층을 골라 만들어요
+  const have = fl.length ? `<h3 class="su-sub">지금 있는 층 <small class="hint">${fl.length > 1 && API ? '↑/↓로 층 순서를 바꾸면 바로 저장돼요' : ''}</small></h3>
+    <p class="hint su-saved su-ordnote${ORD.err ? ' bad' : ''}" id="suOrdNote">${esc(ORD.note)}</p>
+    <ul class="su-floors">${fl.map((f, k) => haveHTML(f, used, k, fl.length)).join('')}</ul>` : '';
   let pick;
   if (!c) pick = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
   else if (!treeGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>`;
@@ -1934,7 +2253,7 @@ function floorsHTML() {
       ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}</div>` : '';
   return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
     <p class="su-lead">Claude 앱 사이드바처럼 보여요. <b>그룹·폴더를 통째로</b>, 또는 그 안의 <b>세션 하나만</b> ‘층으로’ 누르면 층(팀) 하나가 돼요. 고른 층은 아래 ‘만들 층’에 쌓이고, 층마다 팀원을 고쳐요. 역할 이름은 개발자·마케팅·기획처럼 <b>마음대로</b> 지어요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채워요.</p>
-    ${roleList()}${claudeErrP()}${pick}${res}${have}`;
+    ${roleList()}${have}${claudeErrP()}${pick}${res}`;
 }
 const pickCount = () => { const n = picksList().length; return n ? `만들 층 ${n}개` : '아직 고른 층이 없어요'; };
 // 저장한 설정과 도시에 올라간 것의 관계(서버가 마지막으로 올린 설정의 지문과 지금 public.json을 비교해 알려 줘요). here: 4단계 안에서 보여 줄 때
@@ -2051,6 +2370,7 @@ function openSetup(step) {
   SU.open = true;
   if (typeof step === 'number') SU.step = step;
   SU.err = ''; SU.pubErr = ''; SU.confirm = false; SU.skip = false;
+  if (!ORD.busy) { ORD.note = ''; ORD.err = false; }   // 지난번 층 순서 알림은 다시 열 때 지워요
   $('.wrap').inert = true;
   document.body.style.overflow = 'hidden';
   $('#setup').hidden = false;
@@ -2183,6 +2503,11 @@ function checkRows(e, owner) {
     r.role = j === 0 ? LEAD : String(r.role || '').normalize('NFC').trim();
     r.err = j === 0 ? '' : roleErr(r.role, names); r.errAt = r.err ? 'n' : '';
     names.add(roleKey(r.role));
+    if (!r.err) {   // 이름: 서버와 같은 검사(1~20자, 제어·서식 문자·대표·총괄 불가, 이 층의 다른 이름·역할과 겹치지 않게)
+      r.name = nameNorm(r.name);
+      const ne = nameCheck(e, r);
+      if (ne) { r.err = ne; r.errAt = 'm'; }
+    }
     if (!r.err && r.sid) {
       const u = used.get(r.sid), x = all.get(r.sid);
       r.err = seen.has(r.sid) ? '이 세션은 이 층의 다른 자리에도 있어요'
@@ -2198,6 +2523,8 @@ function checkRows(e, owner) {
   if (e.rows.length > MAX_MEMBERS) return { msg: `팀원은 팀장까지 ${MAX_MEMBERS}명까지예요. 자리를 줄여 주세요`, at: 'add' };
   return first ? { msg: first.err, at: `r${first.uid}${first.errAt}` } : {};
 }
+// 서버로 보낼 이름: 불러온 이름에서 바꾼 줄만 보내요(안 보내면 서버가 그 줄의 이름을 그대로 둬요. 비워서 보내면 기본 이름으로 되돌려요)
+const nameField = r => (nameChanged(r) ? { name: nameNorm(r.name) } : {});
 const quiet = msg => Object.assign(new Error(msg), { quiet: true });   // 고칠 곳으로 키보드를 옮겼으니 오류 글로 화면을 옮기지 않아요
 async function floorsMake() {
   const list = picksList();
@@ -2225,8 +2552,13 @@ async function floorsMake() {
   const boss = SU.boss || null;
   // members: 팀장이 맨 앞. newFolder: 서버가 ~/agencity-teams/<id>를 만들어 써요. group: 서버가 준 묶음 key(다음에 그 묶음을 ‘이미 층’으로 보여 주려고, 묶음을 통째로 고른 층만)
   // existing: 이미 있는 팀 사무실의 팀원을 불러왔는지. false로 보냈는데 그 폴더에 팀 사무실이 있으면 서버가 만들지 않고 그 팀원(existingTeam)을 알려 줘요
-  const spec = p => Object.assign({ id: p.id, name: p.name.trim(), members: p.rows.map(r => ({ role: r.role, sessionId: r.sid || null })), existing: !!p.existing },
-    p.fmode === 'new' ? { newFolder: true } : { folder: folderOf(p) }, p.kind === 'group' && !p.byFolder && GROUP_KEY_RE.test(p.sk) ? { group: p.sk } : {});
+  // floor: ‘몇 층에 둘까요’에서 고른 층(p.at)의 지금 번호(1부터). 그 층 앞에 넣고 뒤의 층을 한 층씩 올려요. 안 보내면 맨 뒤예요
+  await flushOrder();   // 층 순서를 저장하는 중이면 끝난 뒤에(서버와 같은 순서를 기준으로) 보내요
+  const mine = myFloors();
+  const spec = p => { const k = p.at ? mine.findIndex(f => f.id === p.at) : -1;
+    return Object.assign({ id: p.id, name: p.name.trim(), members: p.rows.map(r => Object.assign({ role: r.role, sessionId: r.sid || null }, nameField(r))), existing: !!p.existing },
+      p.fmode === 'new' ? { newFolder: true } : { folder: folderOf(p) }, p.kind === 'group' && !p.byFolder && GROUP_KEY_RE.test(p.sk) ? { group: p.sk } : {},
+      k >= 0 ? { floor: k + 1 } : {}); };
   let res;
   try { res = await sp('floors', { boss, floors: list.map(spec) }); }
   catch (e) { if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) throw e; res = e.body; }   // 모두 못 만들었어도 층마다 까닭을 보여 줘요
@@ -2234,6 +2566,8 @@ async function floorsMake() {
   for (const p of list) {
     const er = errors.find(x => x.id === p.id);
     p.err = er ? String(er.error || '만들지 못했어요') : '';
+    const nr = er && er.field === 'name' && typeof er.role === 'string' ? p.rows.find(y => roleKey(y.role) === roleKey(er.role)) : null;   // 어느 팀원의 이름이 문제인지
+    if (nr) { nr.err = p.err; nr.errAt = 'm'; }
     const ex = er && exTeam(er.existingTeam);   // 다른 폴더를 적었더니 이미 팀 사무실이 있었어요: 그 팀원을 불러와 다시 확인하게 해요
     if (ex) { ex.at = folderOf(p) || newPath(p); useFolderTeam(p, ex); }
     const made = created.find(x => x.id === p.id);
@@ -2248,6 +2582,7 @@ async function floorsMake() {
     if (!SU.madeRun.some(x => x.id === p.id)) SU.madeRun.push({ id: p.id, name: p.name.trim(), display, fresh: p.fmode === 'new', away, rules, file, noRules: made.noRules === true });
   }
   SU.made = { created, boss: !!boss, errors: errors.map(x => Object.assign({}, x, { name: (list.find(p => p.id === x.id) || {}).name })) };
+  if (created.length) { ORD.note = ''; ORD.err = false; }   // 층 번호가 바뀌었을 수 있어서 지난 층 순서 알림은 지워요
   SU.boss = '';
   SU.skip = false;
   await refreshSetup().catch(() => {});
@@ -2258,23 +2593,24 @@ async function floorsMake() {
 }
 
 /* 지금 있는 층의 ‘팀원 고치기’: team.json의 팀원을 읽어 같은 편집기로 고치고 /api/setup/members로 바꿔요(팀장이 맨 앞). */
-async function floorMembersOf(f) {   // team.json(세션 제목도 있어요)을 새로 읽고, 못 읽으면 서버가 알려 준 팀원 목록
+async function floorMembersOf(f) {   // team.json(세션 제목도 있어요)을 새로 읽고, 못 읽으면 서버가 알려 준 팀원 목록. { ms: 팀원 줄들, names: 기본 이름을 지을 때 썼을 팀 이름들 }
   try {
     const org = await getJSON('org.json');
     const t = (Array.isArray(org.teams) ? org.teams : []).find(x => x && x.id === f.id && typeof x.office === 'string' && x.office);
     if (!t) throw new Error('org.json에 이 층이 없어요');
     const team = await getJSON(t.office.replace(/\/$/, '') + '/team.json');
     if (!Array.isArray(team.members)) throw new Error('team.json에 members 목록이 없어요');
-    return team.members;
-  } catch (e) { if (Array.isArray(f.members)) return f.members; throw e; }
+    return { ms: team.members, names: [team.team, f.name].filter(x => typeof x === 'string' && x) };
+  } catch (e) { if (Array.isArray(f.members)) return { ms: f.members, names: [f.name].filter(Boolean) }; throw e; }
 }
 // 보여 줄 수 있는 줄(shownRows)만 자리로 불러와요. 나머지 줄은 저장해도 서버가 그대로 둬요(editHTML이 알려 줘요).
-function rowsFromMembers(ms) {
+function rowsFromMembers(ms, names) {
   const list = shownRows(ms);
   const sidOf = m => (typeof m.sessionId === 'string' && SID_RE.test(m.sessionId) ? m.sessionId : '');
   const lead = list.find(x => x.role === LEAD);
   const rows = [newRow(LEAD, lead ? sidOf(lead.m) : '', '', lead ? String(lead.m.title || '') : '')];
-  for (const x of list) if (x.role !== LEAD) rows.push(newRow(x.role, sidOf(x.m), '', String(x.m.title || '')));
+  rows[0].name = rows[0].nameOrig = lead ? customName(lead.m, names) : '';
+  for (const x of list) if (x.role !== LEAD) { const r = newRow(x.role, sidOf(x.m), '', String(x.m.title || '')); r.name = r.nameOrig = customName(x.m, names); rows.push(r); }
   rows.forEach(r => { r.auto = ''; r.was = r.role; });   // was: team.json의 이름(이름을 바꾸면 저장할 때 서버가 그 자리 파일을 옮겨요)
   return rows;
 }
@@ -2286,8 +2622,9 @@ async function openEdit(id) {
   const e = SU.edit[id] = { kind: 'floor', id, gkey: '', rows: [], loading: true, loadErr: '', err: '', orig: '' };
   if (SU.open && SU.step === 2) renderSetup('#suEb' + j);
   try {
-    const ms = await floorMembersOf(f);
-    e.rows = rowsFromMembers(ms);
+    const { ms, names } = await floorMembersOf(f);
+    e.names = names;   // 이름 칸의 기본 이름(‘<팀 이름> <역할>’)에 써요
+    e.rows = rowsFromMembers(ms, names);
     e.kept = hiddenRows(ms);   // 보여 줄 수 없어서 그대로 두는 줄의 이름들
     e.held = heldSessions(ms);   // 그 줄들에 앉은 세션(다른 자리에 또 앉히지 않아요)
     e.orig = rowsSig(e.rows);
@@ -2312,8 +2649,13 @@ async function editSave(id) {
   e.err = rc.msg || '';
   if (rc.msg) { renderSetup(rc.at ? `#${pre}${rc.at}` : `#${pre}err`); return; }
   let res;
-  try { res = await sp('members', { team: id, members: e.rows.map(r => Object.assign({ role: r.role, sessionId: r.sid || null }, r.was ? { was: r.was } : {})) }); }
-  catch (err) { e.err = err.message || '저장하지 못했어요'; renderSetup(`#${pre}err`); return; }
+  try { res = await sp('members', { team: id, members: e.rows.map(r => Object.assign({ role: r.role, sessionId: r.sid || null }, r.was ? { was: r.was } : {}, nameField(r))) }); }
+  catch (err) {
+    e.err = err.message || '저장하지 못했어요';
+    const b = err.body || {}, nr = b.field === 'name' && typeof b.role === 'string' ? e.rows.find(y => roleKey(y.role) === roleKey(b.role)) : null;   // 어느 팀원의 이름이 문제인지
+    if (nr) { nr.err = e.err; nr.errAt = 'm'; }
+    renderSetup(nr ? `#${pre}r${nr.uid}m` : `#${pre}err`); return;
+  }
   delete SU.edit[id];
   const n = Array.isArray(res.members) ? res.members.length : e.rows.length;
   // 층 폴더 밖에서 연 세션을 새로 앉혔으면 팀 규칙을 읽게 하는 한 줄도 같이 알려 줘요(층 만들기 결과와 같은 안내)
@@ -2448,6 +2790,14 @@ $('#setup').addEventListener('click', e => {
     renderSetup(b.id.startsWith('suT') ? '#' + b.id : $(tb) ? tb : '#suMakeH');
     suSay(`만들 층에서 뺐어요: ${p.name.trim() || p.src}`);
   }
+  else if (a === 'floor-move') {   // 지금 있는 층의 ↑/↓: 바로 저장하고, 키보드 위치는 옮긴 층의 같은 단추에
+    const f = floorById(b.dataset.team), up = b.dataset.dir === 'up';
+    if (!f) return;
+    if (b.getAttribute('aria-disabled') === 'true') { suSay(up ? `${f.name} 층은 이미 맨 위예요` : `${f.name} 층은 이미 맨 아래예요`); return; }
+    const note = moveFloor(f.id, up ? -1 : 1, 'setup');
+    renderSetup(`#suO${up ? 'u' : 'd'}${ix('floor|' + f.id)}`);
+    if (note) suSay(note);
+  }
   else if (a === 'edit-open') openEdit(b.dataset.team);
   else if (a === 'edit-cancel') closeEdit(b.dataset.team);
   else if (a === 'edit-save') suRun(b, () => editSave(b.dataset.team));
@@ -2501,6 +2851,13 @@ function suInput(e) {
     return;
   }
   if (kind === 'q') { SU.q = t.value; applyFilter(); return; }
+  if (kind === 'mname') {   // 팀원의 표시 이름(칸은 다시 그리지 않아요)
+    const x = editorOf(t), r = x && rowOf(x.e, t);
+    if (!r) return;
+    r.name = t.value;
+    if (r.err && r.errAt === 'm') showRowErr(t.closest('.su-mrow'), r, '', 'm');
+    return;
+  }
   if (kind === 'mrole' || kind === 'msid') {   // 팀원 자리(만들 층 카드·팀원 고치기 같이)
     const x = editorOf(t), r = x && rowOf(x.e, t);
     if (!r) return;
@@ -2523,6 +2880,14 @@ function suInput(e) {
     if (del) del.setAttribute('aria-label', `${nm} 자리 빼기`);
     if (r.err && r.errAt === 'n' && !roleErr(String(t.value).normalize('NFC').trim(), new Set(x.e.rows.filter(y => y !== r).map(y => roleKey(y.role))))) showRowErr(row, r, '');
     if (x.e.loaded) syncMoveNotes(x);
+    syncNamePh(x);
+    return;
+  }
+  if (kind === 'pos') {   // 만들 층 카드의 ‘몇 층에 둘까요’
+    const li = t.closest('li[data-pick]'), p = li && SU.picks[li.dataset.pick], h = li && $('.su-pos .hint', li);
+    if (!p) return;
+    p.at = t.value;
+    if (h) h.textContent = posHint(p, myFloors());
     return;
   }
   if (kind === 'fmode' || kind === 'fcustom' || kind === 'name' || kind === 'id') {   // 만들 층 카드의 층 이름·팀 id·폴더
@@ -2536,6 +2901,7 @@ function suInput(e) {
     };
     if (kind === 'name') {
       p.name = t.value;
+      syncNamePh({ e: p, pre: 'suM' + ix(p.key) });
       const tt = $('.su-card-t', li); if (tt) tt.textContent = t.value.trim() || '이름 없는 층';
       if (!p.idEdited) { p.id = autoId(p); if (idBox) idBox.value = p.id; syncFolder(); }
     } else if (kind === 'id') {
@@ -2554,11 +2920,28 @@ function suInput(e) {
     } else { p.custom = t.value; syncFolder(); }
   }
 }
-function showRowErr(row, r, msg) {
-  r.err = msg; r.errAt = msg ? 'n' : '';
-  const er = row && $('.err', row), inp = row && $('input[data-su-in="mrole"]', row);
+function showRowErr(row, r, msg, at = 'n') {   // at: 'n' 역할 이름 칸, 'm' 이름 칸
+  r.err = msg; r.errAt = msg ? at : '';
+  const er = row && $('.err', row), inp = row && $(`input[data-su-in="${at === 'm' ? 'mname' : 'mrole'}"]`, row);
   if (er) er.textContent = msg;
   if (inp) inp.setAttribute('aria-invalid', String(!!msg));
+}
+// 이름 칸을 떠날 때 그 칸만 검사해요(다른 칸의 오류는 그 칸이 지워요)
+function nameBlur(t) {
+  const x = editorOf(t), r = x && rowOf(x.e, t);
+  if (!r || (r.err && r.errAt !== 'm')) return;
+  showRowErr(t.closest('.su-mrow'), r, nameCheck(x.e, r, t.value), 'm');
+}
+// 역할 이름이나 층 이름을 치면 이름 칸의 기본 이름(placeholder)과 안내도 따라 바꿔요(칸은 다시 그리지 않아요)
+function syncNamePh(x) {
+  x.e.rows.forEach((y, j) => {
+    const el = document.getElementById(`${x.pre}r${y.uid}m`);
+    if (!el) return;
+    el.placeholder = nameHolder(x.e, y, j);
+    el.setAttribute('aria-label', `${j ? (y.role.trim() || `${j + 1}번째`) : LEAD} 자리 이름(화면에 보일 이름)`);
+  });
+  const h = document.getElementById(`${x.pre}nh`);
+  if (h) h.textContent = nameHint(x.e);
 }
 // 역할 이름 칸을 떠날 때 그 칸만 검사해요(빈칸은 ‘층 만들기’·‘팀원 저장’ 때 봐요)
 function roleBlur(t) {
@@ -2571,6 +2954,7 @@ $('#setup').addEventListener('input', e => { if (e.target.type === 'text' || e.t
 $('#setup').addEventListener('change', e => {
   if (e.target.type !== 'text' && e.target.type !== 'search') suInput(e);
   else if (e.target.dataset.suIn === 'mrole') roleBlur(e.target);
+  else if (e.target.dataset.suIn === 'mname') nameBlur(e.target);
   else if (e.target.dataset.suIn === 'fcustom') {   // 직접 적은 폴더를 바꿨으면 그 폴더에서 불러온 팀원은 내려놓아요(다른 팀 사무실이면 ‘층 만들기’ 때 서버가 알려 줘요)
     const li = e.target.closest('li[data-pick]'), p = li && SU.picks[li.dataset.pick];
     if (p && p.existing && p.existing.at && !samePath(p.existing.at, p.custom.trim()) && useFolderTeam(p, null)) renderSetup();
@@ -2598,6 +2982,7 @@ async function initSetup() {
   try {
     await refreshSetup();
     $('#setupBtn').hidden = false;
+    if (state) render();   // 층 안내의 ‘층 순서 바꾸기’는 설정 주소가 있는 서버에서만 보여요
     if (!SU.st.done) openSetup(0);
   } catch (e) {
     // 예전 서버라 설정 주소가 없으면(404) 설정 없이 지금처럼 사무실만 보여요
@@ -2615,8 +3000,16 @@ document.addEventListener('click', e => {
     try { navigator.clipboard.writeText(cp.dataset.copy).then(() => done(true), () => done(false)); } catch (err) { done(false); }
     return;
   }
+  const pen = e.target.closest('[data-nm-edit]');
+  if (pen) { if (state && API) openNameEdit(pen.dataset.team, pen.dataset.role); return; }
+  const nb = e.target.closest('[data-nm]');
+  if (nb) { if (!nb.disabled) { if (nb.dataset.nm === 'save') saveNameEdit(); else closeNameEdit(true); } return; }
+  if (e.target.closest('.nm-edit')) return;   // 이름 입력칸 안을 눌러도 서랍이 열리지 않게
   const f = e.target.closest('[data-file]');
   if (f) { fileDrawer(f.dataset.file); return; }
+  const mv = e.target.closest('#orgTeams [data-move]');
+  if (mv) { if (mv.getAttribute('aria-disabled') !== 'true') moveFloor(mv.dataset.team, mv.dataset.move === 'up' ? -1 : 1, 'office'); return; }
+  if (e.target.closest('#orderBtn')) { orderMode = !orderMode; ORD.note = ''; ORD.err = false; render(); return; }
   const g = e.target.closest('[data-goto]');
   if (g) { goFloor(g.dataset.goto); return; }
   const act = e.target.closest('[data-act]');
@@ -2642,16 +3035,51 @@ document.addEventListener('submit', e => {
   const form = e.target.closest('form[data-form]');
   if (!form) return;
   e.preventDefault();
-  // 진짜 버튼을 눌렀거나 ⌘/Ctrl+Enter일 때만 보내요(입력칸에서 엔터만 눌렀을 때 저절로 보내지지 않게)
+  // 진짜 버튼을 눌렀거나 아래 keydown이 보낼 때만 보내요(한 줄 입력칸에서 엔터만 눌렀을 때 저절로 보내지지 않게)
   if (!e.submitter || e.submitter.type !== 'submit') return;
   submitForm(form, e.submitter);
 });
+// 대화 작성창(총괄·팀원·회의)은 Enter로 보내고 Shift+Enter로 줄을 바꿔요. 결재 메모는 버튼으로만, 회의 열기 메모는 예전처럼 버튼(또는 ⌘/Ctrl+Enter)으로 보내요.
+// 한글 입력: 조합 중인 키(isComposing, 또는 맥 앱의 WKWebView·Safari가 주는 keyCode 229)는 글자를 확정하는 키라 건드리지 않고,
+// 조합이 끝난 바로 뒤(IME_GAP 안)에 오는 Enter도 보내지 않아요(그 Enter가 줄바꿈으로 들어가지도 않게 막아요). 빈 글은 보내지 않고, 보내는 중에는 다시 보내지 않아요.
+const SAY_BOX = 'form[data-form="say"] textarea';
+const IME_GAP = 100;
+document.addEventListener('compositionend', e => { const t = e.target; if (t && t.matches && (t.matches(SAY_BOX) || t.id === 'nmIn')) t._imeEnd = performance.now(); }, true);
+// 책상의 이름 입력칸: Enter 저장, Esc 취소(조합 중이면 건드리지 않아요). 다른 Enter·Esc 처리보다 먼저 받아서 서랍·설정이 같이 닫히지 않게 해요.
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (!t || t.id !== 'nmIn' || (e.key !== 'Enter' && e.key !== 'Escape')) return;
+  if (e.isComposing || e.keyCode === 229) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.key === 'Escape') { closeNameEdit(true); return; }
+  if (e.repeat || performance.now() - (t._imeEnd || -Infinity) < IME_GAP) return;
+  saveNameEdit();
+}, true);
+// 입력칸을 떠났는데 고친 게 없으면 저절로 접어요(펼쳐 둔 채로 두면 책상이 새로 그려지지 않아서)
+document.addEventListener('focusout', e => {
+  if (!e.target || e.target.id !== 'nmIn') return;
+  setTimeout(() => {
+    const a = document.activeElement, i = $('#nmIn');
+    if (NE && !NE.busy && i && !(a && a.closest && a.closest('.nm-edit')) && nameNorm(i.value) === NE.orig && !NE.err) closeNameEdit(false);
+  }, 160);
+});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.matches) return;
-  if (e.target.matches('form[data-form] input')) { if (!e.isComposing) e.preventDefault(); return; }
-  if ((e.metaKey || e.ctrlKey) && !e.isComposing && !e.repeat && e.target.matches('form[data-form] textarea')) {
+  const t = e.target;
+  if (t.matches('form[data-form] input')) { if (!e.isComposing) e.preventDefault(); return; }
+  if (t.matches(SAY_BOX)) {
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.shiftKey) return;   // 줄바꿈
     e.preventDefault();
-    const form = e.target.form, btn = form && form.querySelector('button[type="submit"]');
+    if (e.repeat || performance.now() - (t._imeEnd || -Infinity) < IME_GAP) return;
+    const form = t.form, btn = form && form.querySelector('button[type="submit"]');
+    if (!t.value.trim() || !btn || btn.disabled || form.dataset.busy) return;
+    form.requestSubmit(btn);
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && !e.isComposing && !e.repeat && t.matches('form[data-form] textarea')) {
+    e.preventDefault();
+    const form = t.form, btn = form && form.querySelector('button[type="submit"]');
     if (btn && !btn.disabled && !form.dataset.busy && form.dataset.form !== 'decide') form.requestSubmit(btn);
   }
 });
