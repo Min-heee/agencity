@@ -1728,7 +1728,13 @@ async function floorTool(btn) {
       const r = await post('api/floor/rules-sync', { team: tid });
       const sf = SU.st && SU.st.floors.find(f => f.id === tid);
       if (sf) sf.talkRules = true;   // 이제 들어 있어요: 층 안내 아래 알림에서 빠지고, 알림이 사라지면 단추도 숨어요
-      note(r.added === true ? `${t.name} 층 RULES.md에 ‘팀 간 대화’ 규칙을 넣었어요. 새로 여는 세션은 바로 따라요. 지금 켜져 있는 팀장에게는 책상을 눌러 “RULES.md의 ‘팀 간 대화’ 부분을 다시 읽어 줘”라고 한 번 보내 주세요.` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
+      if (r.added === true) {   // 모두 맞추기처럼 층 안내 아래에 [팀장 N명에게 보내기]가 뜨게 맞춘 층에 더해요
+        if (Date.now() - RUL.at > RULES_MS) Object.assign(RUL, { done: null, sent: null, bad: [], err: '' });
+        if (!(RUL.done || []).some(x => x.id === tid)) RUL.done = [...(RUL.done || []), { id: tid, name: sf ? sf.name : t.name }];
+        Object.assign(RUL, { sent: null, err: '', at: Date.now() });   // 앞서 보낸 결과 대신 ‘맞췄어요’ 줄과 보내기 단추를 보여요
+      }
+      const leads = (RUL.done || []).filter(f => leadOn(f.id)).length;
+      note(r.added === true ? `${t.name} 층에 ‘팀 간 대화’ 규칙을 넣었어요.${leadOn(tid) ? ` 켜져 있는 팀장에게는 층 안내 아래 ‘팀장 ${leads}명에게 보내기’로 알려요.` : ''}` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
     }
   } catch (e) { note(seatErr(e, kind === 'sidebar' ? '총괄에게 맡기지 못했어요' : '규칙을 맞추지 못했어요'), true); }
 }
@@ -3114,9 +3120,10 @@ async function loadRec(extra, focus) {
 function ensureRec(force) { const R = SU.rec; if (API && !R.none && !R.busy && (force || !R.data || Date.now() - R.at > 60e3)) loadRec(); }
 const recShown = () => { const R = SU.rec, d = R.data; return d ? d.list.filter(r => !R.drop.has(r.key) && !R.done.has(r.key) && !SU.picks['rec|' + r.key]) : []; };
 const recByKey = k => (SU.rec.data ? SU.rec.data.list.find(r => r.key === k) || null : null);
-// 이미 있는 층: 서버가 알려 준 층(그 층의 그룹·같은 이름) → 그 폴더를 쓰는 층 → 이름이 같은 층(예시 팀 빼고). 그 추천은 새로 만들지 않아요
+// 이미 있는 층: 서버가 알려 준 층(그 층의 그룹·같은 이름) → 그 폴더를 쓰는 층 → 사이드바 그룹이면 이름이 같은 층(예시 팀 빼고). 그 추천은 새로 만들지 않아요
+// 프로젝트 추천의 이름은 폴더 이름이라, 다른 폴더의 같은 이름(~/a/api와 ~/b/api)은 다른 팀으로 봐요
 const recBlock = rec => (rec.floor && SU.st.floors.find(f => f.id === rec.floor)) || (rec.folder && SU.st.floors.find(f => samePath(f.folder, rec.folder)))
-  || SU.st.floors.find(f => !f.example && roleKey(f.name) === roleKey(rec.name)) || null;
+  || (rec.source === 'group' && SU.st.floors.find(f => !f.example && roleKey(f.name) === roleKey(rec.name))) || null;
 const REC_PAGE = 20, FLOORS_MAX = 20;   // 추천은 최근 것부터 20개씩 보여요. 한 번에 만드는 층은 서버(/api/setup/floors)가 받는 20개까지
 // 한 번에 만들 수 있는 추천: 이미 층인 폴더가 아니고, 다른 곳에 넣지 않은 세션이 하나라도 남아 있어요
 const recLive = (rec, used) => !recBlock(rec) && recRows(rec, used).some(r => !r.off && (r.sid || r.cx));
