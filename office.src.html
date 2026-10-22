@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
 <style>
-/* Layout: 회사 건물. 맨 위 층 안내(건물처럼 총괄 → 입주 예정 → 높은 층부터 1층까지), 그 아래에는 고른 층 하나의 사무실만.
+/* Layout: 회사 건물. 맨 위 층 안내(총괄 아래로, 좁은 창에서는 건물처럼 입주 예정 → 높은 층 → 1층, 넓은 창에서는 왼쪽부터 1층·2층…), 그 아래에는 고른 층 하나의 사무실만.
    사무실 왼쪽은 책상(팀장과 팀원들, 역할 이름은 층마다 달라요), 오른쪽은 회의실과 업무판, 아래는 활동 기록과 보고서.
    고른 층은 주소 끝(#<팀 id>)과 브라우저에 기억한다.
    모든 상태는 팀 사무실 폴더(.office)의 파일에서 몇 초마다 다시 읽는다. */
@@ -1160,6 +1160,9 @@ function refocus(k) {
   const el = list.find(n => sigOf(n) === k.sig) || (k.i >= 0 ? list[k.i] : null);
   if (el) el.focus({ preventScroll: true });
 }
+// 층 안내가 한 줄씩 쌓이는 너비(CSS의 max-width:899px과 같아요). 이 너비를 넘나들면 층 순서를 다시 그려요.
+const TALL = matchMedia('(max-width: 899px)');
+TALL.addEventListener('change', () => { if (state) render(); });
 function render() {
   const live = $('#live'), lt = $('#liveText');
   live.className = 'live' + (mode === 'snap' ? ' snap' : mode === 'lost' || mode === 'none' ? ' lost' : '');
@@ -1194,7 +1197,7 @@ function render() {
   }
   const bossBox = noBoss || (bs && bs.state === 'seated') ? `<div class="boss-mk">${noBoss ? '<p>아직 총괄 세션이 없어요. 총괄이 있어야 여기서 보낸 말이 팀에 전해져요.</p>' : ''}${seatBoxHTML(BOSS_T, BOSS_ROLE, 'h')}</div>` : '';
   put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
-  // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(↑는 한 층 위로. 층 안내는 건물처럼 위가 높은 층이고 입주 예정 자리는 맨 위). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
+  // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(↑는 한 층 위로. 좁은 창에서는 건물처럼 위가 높은 층이고 입주 예정 자리는 맨 위, 넓은 창에서는 왼쪽부터 1층). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
   const ids = officeIds(org), ob = $('#orderBtn');
   const canOrder = API && !!SU.st && ids.length > 1;
   if (!canOrder) orderMode = false;
@@ -1205,7 +1208,7 @@ function render() {
   $('#orderNote').classList.toggle('bad', ORD.err);
   const tb = $('#orgTeams');
   tb.style.setProperty('--cols', String(Math.max(1, Math.min(5, org.teams.length))));
-  put(tb, [...org.teams.filter(t => !t.office), ...org.teams.filter(t => t.office).reverse()].map(t => {   // 건물처럼: 입주 예정 → 높은 층 → 맨 아래 1층
+  put(tb, (TALL.matches ? [...org.teams.filter(t => !t.office), ...org.teams.filter(t => t.office).reverse()] : org.teams).map(t => {   // 쌓이면 건물처럼(입주 예정 → 높은 층 → 맨 아래 1층), 옆으로 놓이면 왼쪽부터 1층
     const d = teams[t.id];
     const on = !!d;
     const ms = on ? d.team.members : [];
