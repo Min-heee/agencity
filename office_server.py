@@ -1994,16 +1994,17 @@ def recommend(read, inc_old):
             pool.append(e)
         if not pool:
             continue
-        # 이미 있는 층의 그룹: 세션이 가장 많은 폴더가 층 폴더이거나, (쓸 폴더가 없는 그룹이면) 그룹 세션이 앉은 층이 있으면 그 층이에요
-        # (절반 넘게 앉지 않아 g["team"]이 비어도). 새 층으로 만들지 않고(같은 팀이 층 둘이 되지 않게) 앉지 않은 세션을
-        # 그 층의 ‘팀원 고치기’로 더할 세션으로 알려요(floor: 그 층 id). 제 폴더가 따로 있는 그룹은 세션 몇 개가 다른 층에 앉아도 새 층 추천이에요
-        own = None
+        # 이미 있는 층의 그룹: 세션이 가장 많은 폴더가 층 폴더이거나, 그룹 세션이 가장 많이 앉은 층에 둘 이상 앉았으면(쓸 폴더가 없는 그룹은 하나라도)
+        # 그 층이에요(절반 넘게 앉지 않아 g["team"]이 비어도, 층 폴더가 그룹 폴더와 달라도). 새 층으로 만들지 않고(같은 팀이 층 둘이 되지 않게)
+        # 앉지 않은 세션을 그 층의 ‘팀원 고치기’로 더할 세션으로 알려요(floor: 그 층 id). 세션 하나만 따로 층으로 만든 그룹은 새 층 추천이에요
+        own = top = None
         if g["kind"] == "group":
             top = (g.get("folders") or [None])[0]
             own = by_folder.get(os.path.realpath(top)) if top else None
-            if not top:
-                hit = Counter(seated[x["sessionId"]] for x in g["sessions"] if x["sessionId"] in seated)
-                own = next((t for t, _ in hit.most_common() if t in rooms), None)
+            hit = Counter(seated[x["sessionId"]] for x in g["sessions"] if seated.get(x["sessionId"]) in rooms)
+            if own not in rooms and hit:
+                most, k = hit.most_common(1)[0]
+                own = most if k >= 2 or not top else None
         if own in rooms:
             t = rooms[own]
             office = os.path.realpath(os.path.join(HERE, t["office"]))
@@ -2011,6 +2012,8 @@ def recommend(read, inc_old):
             f = t.get("folder") if isinstance(t.get("folder"), str) and t["folder"] else None
             recs.append({"key": g["key"], "name": clean_name(g["name"], 30) or clean_name(t.get("name"), 30) or own, "folder": f, "source": "group", "pool": pool,
                          "existingTeam": None, "floor": own, "_floorTeam": fex})
+            if top and os.path.realpath(top) not in at:   # 그 폴더의 그룹 밖 세션·Codex도 새 층이 아니라 이 층에 더할 세션이에요
+                at[os.path.realpath(top)] = recs[-1]
             continue
         folder = g.get("suggestedFolder")
         real = os.path.realpath(folder) if folder else None

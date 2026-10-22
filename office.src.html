@@ -1721,21 +1721,24 @@ async function floorTool(btn) {
 // 층 안내 아래 한 줄: RULES.md에 ‘팀 간 대화’가 없는 층(0.5.x 이하로 만든 층)이 있으면 [모두 맞추기]로 그 층들에 규칙 맞추기를 차례로 해요.
 // 맞춘 뒤에는 켜져 있는 팀장이 RULES.md를 다시 읽게 [팀장에게 보내기]로 팀장마다 한 줄을 보내요(바로 말 걸기와 같은 전달, outbox).
 // 층마다 있는지는 설정 상태(/api/setup/state의 floors[].talkRules)로 알아요. 그 값을 모르는 서버면 보이지 않아요.
-const RUL = { busy: false, done: null, sent: null, err: '', at: 0 };   // done: 이번에 맞춘 층들, sent: 보낸 팀장 수
+const RUL = { busy: false, done: null, sent: null, bad: [], err: '', at: 0 };   // done: 맞췄지만 아직 팀장에게 안 보낸 층들, sent: 보낸 팀장 수
+// bad: 못 맞춘 층들 [{id, text}](아직 없는 층만 보여요, [다시 맞추기]), err: 못 보낸 층
 const RULES_MS = 5 * 60e3, RULES_TELL = '[규칙] RULES.md를 다시 읽어 주세요';
 const rulesMiss = () => (API && SU.st && mode !== 'snap' ? SU.st.floors.filter(f => !f.example && f.talkRules === false) : []);
 const leadOn = id => { const d = state && state.teams[id], m = d && d.team.members.find(x => x.role === LEAD); return !!m && SID_RE.test(String(m.sessionId || '')) && !m.sessionId.startsWith('local_00000000'); };
 function rulesNoteHTML() {
-  const err = RUL.err ? ` <span class="bad">${esc(RUL.err)}</span>` : '';
-  if (RUL.busy) return `<span>${RUL.done ? '팀장에게 보내는 중…' : '규칙을 맞추는 중…'}</span>`;
-  if ((RUL.done || RUL.err) && Date.now() - RUL.at > RULES_MS) { RUL.done = RUL.sent = null; RUL.err = ''; }
-  if (RUL.sent !== null) return `<span>${RUL.sent ? esc(`팀장 ${RUL.sent}명에게 보냈어요.`) : ''}</span>${err}`;
-  if (RUL.done) {
-    const leads = RUL.done.filter(f => leadOn(f.id)).length;
-    return `<span>${esc(`${RUL.done.length}개 층 규칙을 맞췄어요.${leads ? ' 켜져 있는 팀장은 RULES.md를 다시 읽어야 해요.' : ''}`)}</span>${leads ? `<button type="button" class="btn" id="rulesTell" data-act="rules-tell">팀장 ${leads}명에게 보내기</button>` : ''}${err}`;
-  }
-  const n = rulesMiss().length;
-  return n ? `<span>${esc(`${n}개 층 규칙에 팀 간 대화가 없어요`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">모두 맞추기</button>${err}` : err;
+  if (RUL.busy) return `<span>${RUL.busy === 'tell' ? '팀장에게 보내는 중…' : '규칙을 맞추는 중…'}</span>`;
+  if ((RUL.done || RUL.sent !== null || RUL.bad.length || RUL.err) && Date.now() - RUL.at > RULES_MS) Object.assign(RUL, { done: null, sent: null, bad: [], err: '' });
+  const out = [], done = RUL.done || [], leads = done.filter(f => leadOn(f.id)).length, miss = rulesMiss();
+  const tell = `<button type="button" class="btn" id="rulesTell" data-act="rules-tell">팀장 ${leads}명에게 보내기</button>`;
+  if (RUL.sent) out.push(`<span>${esc(`팀장 ${RUL.sent}명에게 보냈어요.`)}</span>`);
+  if (RUL.err) out.push(`<span class="bad">${esc(RUL.err)}</span>`);
+  if (RUL.sent === null && done.length) out.push(`<span>${esc(`${done.length}개 층 규칙을 맞췄어요.${leads ? ' 켜져 있는 팀장은 RULES.md를 다시 읽어야 해요.' : ''}`)}</span>`);
+  if (leads) out.push(tell);   // 보내기 전이거나, 못 보낸 팀장에게 다시
+  const bad = RUL.bad.filter(b => miss.some(f => f.id === b.id));   // 그새 맞춘 층(층 머리글 단추)은 빼요
+  if (bad.length) out.push(`<span class="bad">${esc(`못 맞춘 층: ${bad.map(b => b.text).join(' / ')}`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">다시 맞추기</button>`);
+  else if (miss.length) out.push(`<span>${esc(`${miss.length}개 층 규칙에 팀 간 대화가 없어요`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">모두 맞추기</button>`);
+  return out.join('');
 }
 function renderRules() {
   const el = $('#rulesNote'), html = rulesNoteHTML();
@@ -1745,35 +1748,38 @@ function renderRules() {
 async function rulesAll() {
   const miss = rulesMiss();
   if (RUL.busy || !miss.length) return;
-  Object.assign(RUL, { busy: true, done: null, sent: null, err: '' });
+  // 앞서 맞추고 아직 팀장에게 안 보낸 층은 그대로 두고 이어서 더해요(다시 맞추기)
+  const done = (RUL.done || []).slice(), bad = [];
+  Object.assign(RUL, { busy: 'sync', sent: null, err: '' });
   renderRules();
-  const done = [], bad = [];
   for (const f of miss) {   // 같은 규칙 맞추기를 층마다(이미 들어 있으면 아무것도 하지 않아요)
-    try { const r = await post('api/floor/rules-sync', { team: f.id }); f.talkRules = true; if (r.added === true) done.push({ id: f.id, name: f.name }); }
-    catch (e) { bad.push(`${f.name} — ${seatErr(e, '규칙을 맞추지 못했어요')}`); }
+    try {
+      const r = await post('api/floor/rules-sync', { team: f.id });
+      f.talkRules = true;
+      if (r.added === true && !done.some(x => x.id === f.id)) done.push({ id: f.id, name: f.name });
+    } catch (e) { bad.push({ id: f.id, text: `${f.name} — ${seatErr(e, '규칙을 맞추지 못했어요')}` }); }
   }
-  Object.assign(RUL, { busy: false, done, err: bad.length ? `못 맞춘 층: ${bad.join(' / ')}` : '', at: Date.now() });
-  if (!done.length && !bad.length) RUL.done = null;
+  Object.assign(RUL, { busy: false, done: done.length ? done : null, bad, at: Date.now() });
   render();
-  const b = $('#rulesTell');
-  (b || $('#rulesNote')).focus();
-  const leads = done.filter(f => leadOn(f.id)).length;
-  seatSay(!done.length ? RUL.err || '‘팀 간 대화’ 규칙이 이미 들어 있어요' : [`${done.length}개 층 규칙을 맞췄어요`, leads ? '켜져 있는 팀장은 RULES.md를 다시 읽어야 해요' : '', RUL.err].filter(Boolean).join('. '));
+  ($('#rulesTell') || $('#rulesAll') || $('#rulesNote')).focus();
+  const leads = done.filter(f => leadOn(f.id)).length, why = bad.length ? `못 맞춘 층: ${bad.map(b => b.text).join(' / ')}` : '';
+  seatSay(!done.length ? why || '‘팀 간 대화’ 규칙이 이미 들어 있어요' : [`${done.length}개 층 규칙을 맞췄어요`, leads ? '켜져 있는 팀장은 RULES.md를 다시 읽어야 해요' : '', why].filter(Boolean).join('. '));
 }
 async function rulesTell() {
   const list = (RUL.done || []).filter(f => leadOn(f.id));
   if (RUL.busy || !list.length) return;
-  RUL.busy = true; RUL.err = '';
+  RUL.busy = 'tell';
   renderRules();
   let n = 0;
-  const bad = [];
+  const bad = [], left = [];
   for (const f of list) {
     try { const r = await post('api/say', { team: f.id, thread: 'chat:' + LEAD, text: RULES_TELL }); n++; if (state) state.relay = Object.assign({}, state.relay || {}, r); }
-    catch (e) { bad.push(`${f.name} — ${seatErr(e, '보내지 못했어요')}`); }
+    catch (e) { bad.push(`${f.name} — ${seatErr(e, '보내지 못했어요')}`); left.push(f); }
   }
-  Object.assign(RUL, { busy: false, sent: n, err: bad.length ? `못 보낸 층: ${bad.join(' / ')}` : '', at: Date.now() });
+  // 보낸 층은 빼고 못 보낸 층만 남겨요(그 팀장에게 다시 보내기). 못 맞춘 층(bad)은 그대로 보여요
+  Object.assign(RUL, { busy: false, done: left.length ? left : null, sent: (RUL.sent || 0) + n, err: bad.length ? `못 보낸 층: ${bad.join(' / ')}` : '', at: Date.now() });
   render();
-  $('#rulesNote').focus();
+  ($('#rulesTell') || $('#rulesNote')).focus();
   seatSay([n ? `팀장 ${n}명에게 보냈어요` : '', RUL.err].filter(Boolean).join('. '));
 }
 
