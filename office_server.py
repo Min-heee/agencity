@@ -90,12 +90,17 @@ def office_page_origin(o):
 TOKEN = secrets.token_urlsafe(24)
 KST = timezone(timedelta(hours=9))
 LOCK = threading.Lock()
+# 총괄을 바꾸는 동안(org.json·outbox/.retired·쌓인 항목 새 이름) 감시기 확인과 총괄에게 가는 새 항목은 잠깐 기다려요. 순서: BOSS_SWAP → LOCK
+BOSS_SWAP = threading.Lock()
 OUTBOX = os.path.join(HERE, "outbox")
 SAY = os.path.join(HERE, "bin", "say.sh")
 HQ = os.path.join(HERE, "hq")
 HQ_CHAT = os.path.join(HQ, "chat.jsonl")
 PORT_FILE = os.path.join(OUTBOX, ".port")   # relay_watch.py가 이 서버의 포트를 찾는 곳
 RETIRED = os.path.join(OUTBOX, ".retired")   # 바뀌기 전 총괄 id(한 줄에 하나, 최근 20개). relay_watch가 예전 총괄 창의 감시를 알아봐요
+# 감시기가 1초마다 고치는 파일. .heartbeat는 모든 판이, .watching은 0.7.0부터의 감시기만 고쳐요(총괄을 바꾼 뒤엔 .watching만 봐요)
+HEARTBEAT = os.path.join(OUTBOX, ".heartbeat")
+WATCHING = os.path.join(OUTBOX, ".watching")
 HOME_ID = hashlib.sha256(HERE.encode("utf-8")).hexdigest()[:12]   # 어느 설치 폴더의 서버인지(경로 대신 해시)
 try:
     with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as _f:
@@ -150,7 +155,8 @@ TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")
 # 서버를 끌 때 아직 outbox에 있는 항목의 id·해시를 다음 서버에 넘기는 파일(0600, 설치 폴더마다 하나). 다음 서버가 한 번 읽고 지워요
 HANDOFF = os.path.join(CONFIG_DIR, f"outbox-{HOME_ID}.json")
 HANDOFF_TTL = 300         # 이보다 오래된 넘김 파일은 받지 않아요(초)
-LOST_TEXT = "서버가 다시 켜져서 {}에 보낸 말을 전하지 못했어요. 다시 보내 주세요."
+# 총괄이 그 전에 받아 둔 항목이면 전할 수도 있어요. 전하면 relay_done.sh가 그 대화에 '전했어요' 줄을 이어서 남겨요
+LOST_TEXT = "서버가 다시 켜져서 {}에 보낸 말을 못 전했을 수 있어요. 뒤에 ‘총괄이 전했어요’ 줄이 없으면 다시 보내 주세요."
 # 이 폴더들(로그인 토큰이 있는 곳) 안의 파일은 어떤 경로로 와도 보여 주지 않아요(설치 폴더를 그 안에 둔 드문 경우엔 토큰 파일만)
 SECRET_DIRS = tuple({os.path.realpath(CONFIG_DIR), os.path.realpath(os.path.join(HOME_RAW, ".config", "agencity"))})
 SECRET_FILES = tuple({os.path.join(d, "github-token.json") for d in SECRET_DIRS})
@@ -584,12 +590,13 @@ def api_say(body):
     thread = body.get("thread")
     text = text_of(body)
     if thread == "boss":
-        boss = boss_sid()   # 자리 표시용 총괄(예시)은 빼요
-        if not boss:
-            raise ApiError(404, "아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요")
-        check_rate(1)
-        append_line(HQ_CHAT, {"t": now(), "from": "대표", "text": text})
-        enqueue(boss, "총괄", f"[대표·사이트] 총괄에게\n{text}{reply_hint(HQ_CHAT, '총괄')}", HQ_CHAT)
+        with BOSS_SWAP:   # 총괄을 바꾸는 중이면 다 바꾼 뒤의 총괄에게
+            boss = boss_sid()   # 자리 표시용 총괄(예시)은 빼요
+            if not boss:
+                raise ApiError(404, "아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요")
+            check_rate(1)
+            append_line(HQ_CHAT, {"t": now(), "from": "대표", "text": text})
+            enqueue(boss, "총괄", f"[대표·사이트] 총괄에게\n{text}{reply_hint(HQ_CHAT, '총괄')}", HQ_CHAT)
         return {"ok": True}
     t, base, members = team_info(body.get("team"))
     if isinstance(thread, str) and thread.startswith("chat:"):
@@ -811,8 +818,8 @@ def api_state():
                 except OSError:
                     pass
     age = None
-    try:
-        age = max(0, round(time.time() - os.path.getmtime(os.path.join(OUTBOX, ".heartbeat"))))
+    try:   # 총괄을 바꾼 뒤엔 0.7.0부터의 감시기(지금 총괄의 것)가 고치는 .watching만 봐요. 0.7.0 전에 켠 예전 총괄의 감시기도 .heartbeat는 계속 고쳐요
+        age = max(0, round(time.time() - os.path.getmtime(WATCHING if os.path.exists(RETIRED) else HEARTBEAT)))
     except OSError:
         pass
     return {"ok": True, "pending": pending, "oldestAge": oldest, "relayAge": age}
@@ -820,20 +827,27 @@ def api_state():
 
 def api_outbox_check(q):
     """{ok, sha}. boss는 감시기가 기억하는 총괄(0.7.0부터, 모르면 '-')이에요. 그게 지금 총괄이 아니거나, 총괄을 바꾼 뒤(outbox/.retired)
-    boss 없이 묻는 감시기(0.7.0 전에 켠 것)면 None이에요(409). 감시기는 그 항목을 건너뛰어서, 예전 총괄 창이 더 전하지 않아요."""
+    boss 없이 묻는 감시기(0.7.0 전에 켠 것)면 None이에요(409). 감시기는 그 항목을 건너뛰어서, 예전 총괄 창이 더 전하지 않아요.
+    0.7.0 전 감시기는 이미 알린 항목은 다시 묻지 않고 RELAY-STALE로 알려서, 총괄을 바꿀 때 쌓인 항목은 새 이름으로 다시 내요(outbox_reissue)."""
     oid = (q.get("id") or [""])[0]
     b = (q.get("boss") or [""])[0]
-    if (b and b != "-" and b != boss_sid()) or (not b and os.path.exists(RETIRED)):
+    if not BOSS_SWAP.acquire(timeout=2):   # 총괄을 바꾸는 중이에요. 감시기는 다음에 다시 물어요
         return None
-    with LOCK:
-        h = ISSUED.get(oid)
+    try:
+        if (b and b != "-" and b != boss_sid()) or (not b and os.path.exists(RETIRED)):
+            return None
+        with LOCK:
+            h = ISSUED.get(oid)
+    finally:
+        BOSS_SWAP.release()
     return {"ok": h is not None, "sha": h}
 
 
 # 서버를 다시 켤 때(업데이트 포함) 전달 항목 이어 주기 ------------------------------
 # ISSUED는 메모리에만 있어서, 끌 때 아직 outbox에 남은 항목만 넘김 파일(HANDOFF)에 적고 다음 서버가 켤 때 받아요.
 # 넘김 파일에 없거나 내용(해시)이 바뀐 항목은 받지 않아요(다른 프로그램이 outbox에 넣은 항목은 지금처럼 전하지 않아요).
-# 받지 못한 항목은 outbox/rejected/로 옮기고, 그 대화(사이트 대화 파일일 때만)에 '다시 보내 주세요' 줄을 남겨요.
+# 받지 못한 항목은 outbox/rejected/로 옮기고, 그 대화(사이트 대화 파일일 때만)에 '못 전했을 수 있어요' 줄을 남겨요.
+# 0.7.0 전 서버는 넘김 파일을 쓰지 않아서 처음 업데이트할 때도 그래요. 그 전에 감시기가 알린 항목은 총괄이 전할 수 있어서(relay_done.sh가 '전했어요'를 이어 남겨요) '못 전했어요'라고 하지 않아요.
 
 def handoff_save():
     """끌 때: 아직 outbox에 있는 내 항목의 {id: 해시}를 설정 폴더의 0600 파일에 적어요. 없으면 쓰지 않아요."""
@@ -932,9 +946,9 @@ def outbox_resume():
             told.add((th, t))
             m = re.match(r"^\d{4}-\d\d-\d\dT(\d\d:\d\d)", t)
             append_line(th, {"t": now(), "from": "총괄", "kind": "전달",
-                             "text": LOST_TEXT.format(m.group(1)) if m else "서버가 다시 켜져서 이 말은 전하지 못했어요. 다시 보내 주세요."})
+                             "text": LOST_TEXT.format(m.group(1)) if m else "서버가 다시 켜져서 이 말은 못 전했을 수 있어요. 뒤에 ‘총괄이 전했어요’ 줄이 없으면 다시 보내 주세요."})
     if lost:
-        print(f"· 앞 서버가 넘기지 않은 전달 항목 {lost}개는 outbox/rejected/로 옮겼어요(그 대화에 다시 보내 달라고 남겼어요).", flush=True)
+        print(f"· 앞 서버가 넘기지 않은 전달 항목 {lost}개는 outbox/rejected/로 옮겼어요(그 대화에 ‘못 전했을 수 있어요’를 남겼어요).", flush=True)
 
 
 # ---------- 처음 설정(앱의 로그인 화면) ----------
@@ -2055,7 +2069,7 @@ def api_setup_recommend(body):
     """추천 팀: {consent?: true|false, includeOld?: bool} → {ok, consent, recommendations: [...], extra: {folderless, old}, suggestedBoss, currentBoss}.
     consent를 보내면 setup.json의 readFirstMessages에 적어요(나중에 바꿀 수 있어요). 허락(true)일 때만 첫 메시지 앞부분에서 역할 낱말을 찾아요.
     아직 안 물었으면(null) 목록 정보로만 추천하고 consent: null을 돌려줘요(화면이 한 번 물어요). 첫 메시지 글은 어디에도 내지 않아요.
-    추천은 최근에 쓴 것부터(lastActivityAt)예요. 이미 있는 층의 그룹과 층 이름이 같은 추천에는 floor(그 층 id)가 붙어요(새로 만들지 않고 그 층의 팀원 고치기로 더해요)."""
+    추천은 최근에 쓴 것부터(lastActivityAt)예요. 이미 있는 층의 그룹과, 층 이름과 이름이 같은 사이드바 그룹 추천에는 floor(그 층 id)가 붙어요(새로 만들지 않고 그 층의 팀원 고치기로 더해요)."""
     want = body.get("consent")
     if want is not None and not isinstance(want, bool):
         raise ApiError(400, "consent는 true나 false예요")
@@ -2225,7 +2239,9 @@ def recommend(read, inc_old):
         # 팀 id 후보: 층 이름(영문이면) → 폴더 이름 → team-<n>, 이미 쓰는 id·앞의 추천과 겹치지 않게
         r["suggestedId"] = unique_id(slug(r["name"]) or slug(os.path.basename(idf or "")), taken)
         f = r["folder"]
-        same = next((t for t in rooms if name_key(clean_name(rooms[t].get("name"), 30)) == name_key(r["name"])), None)
+        # 사이드바 그룹 이름이 층 이름과 같으면(섹션 맞추기가 층 이름으로 그룹을 만들어요) 그 층이에요. 프로젝트 추천의 이름은 폴더 이름이라
+        # 다른 폴더의 같은 이름(~/a/api와 ~/b/api)은 다른 팀이에요: 이름만으로 그 층에 붙이지 않아요
+        same = next((t for t in rooms if name_key(clean_name(rooms[t].get("name"), 30)) == name_key(r["name"])), None) if r["source"] == "group" else None
         out.append(dict(r, folder=f, display=show_path(f) if f else f"~/{NEW_HOME}/{r['suggestedId']}",
                         newFolder=None if f else f"~/{NEW_HOME}/{r['suggestedId']}",
                         tools={"claude": sum(1 for x in rows if x["tool"] == "claude" and x["sessionId"]),
@@ -2560,20 +2576,28 @@ def setup_floors(body):
     created = []
     try:
         if good or boss:
-            prev = boss_sid()
             spec = {"boss": boss or None, "dropDemo": drop_demo, "floors": good}
+            swap = bool(boss) and boss != boss_sid()   # 총괄을 바꾸면 org.json을 쓰는 동안부터 쌓인 항목을 다시 낼 때까지 감시기 확인을 기다리게 해요
+            if swap:
+                BOSS_SWAP.acquire()
             try:
-                r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
-                                   input=json.dumps(spec, ensure_ascii=False), capture_output=True, text=True, timeout=60)
-            except (OSError, UnicodeError, subprocess.TimeoutExpired):
-                raise ApiError(500, "층을 만드는 도우미(bin/new_team.py)를 실행하지 못했어요")
+                prev = boss_sid()
+                try:
+                    r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
+                                       input=json.dumps(spec, ensure_ascii=False), capture_output=True, text=True, timeout=60)
+                except (OSError, UnicodeError, subprocess.TimeoutExpired):
+                    raise ApiError(500, "층을 만드는 도우미(bin/new_team.py)를 실행하지 못했어요")
+                if boss and boss_sid() == boss:
+                    boss_retire(prev, boss)   # 예전 총괄 창의 감시기는 더 전하지 않아요(쌓인 항목도 새 총괄에게)
+            finally:
+                if swap:
+                    BOSS_SWAP.release()
             res = last_json(r.stdout)
             if not isinstance(res, dict):
                 raise ApiError(500, "층을 만들지 못했어요: " + (last_line(r.stderr) or "알 수 없는 오류"))
             if not res.get("ok"):
                 raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
             if boss and boss_sid() == boss:
-                boss_retire(prev, boss)   # 예전 총괄 창의 감시기는 더 전하지 않아요
                 boss_rules(boss)   # 총괄을 바꿨으면 이미 있던 층의 RULES.md에 적힌 총괄 id도 고쳐요
             for c in res.get("created") or []:
                 if isinstance(c, dict):
@@ -4233,7 +4257,7 @@ def boss_prompt(marker, prev=None):
         "",
         (f"내 세션 id는 {org_json}의 boss.sessionId예요. 지금은 예전 총괄의 id({prev})가 적혀 있고, 에이전시티가 몇 초 안에 내 id로 바꿔요. "
          "바뀌면" if prev else f"내 세션 id는 {org_json}의 boss.sessionId예요(에이전시티가 몇 초 안에 채워요). 채워지면")
-        + " 1)의 감시를 켜고 \"준비됐어요\" 한 줄로 답한 뒤 알림을 기다려요.",
+        + " 그 id를 기억해 두고 1)의 감시를 --boss <그 id>로 켠 뒤 \"준비됐어요\" 한 줄로 답하고 알림을 기다려요.",
     ])
 
 
@@ -4251,25 +4275,25 @@ def api_boss_link(body):
     if any(unicodedata.category(ch) in NAME_BAD for ch in HERE):   # 경로는 첫 메시지에 그대로 들어가요
         raise ApiError(409, "설치 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요")
     marker = "AGC-" + secrets.token_hex(4)
-    prev = boss_sid()
-    url = boss_url(marker, prev)
+    boss_url(marker, boss_sid())   # 첫 메시지가 너무 길면 setup.json을 고치기 전에 알려요
     t0 = time.time()
     with SETUP_LOCK:
         s = load_setup()
         boss_tidy(s, pending_boss(s), t0)
+        prev = boss_sid()   # 정리한 뒤의 지금 총괄(다시 쓰는 자리 표시도 이 id로 첫 메시지를 다시 만들어요)
         entry = pending_boss(s)
         if entry and entry["state"] == "expired" and entry["folder"] == HERE:
             seat_revive(entry, t0)
             entry["prev"] = prev
         elif entry and entry["state"] in SEAT_LIVE:
             entry["expires"] = iso_at(t0 + SEAT_TTL)
+            entry["prev"] = prev
         else:
             entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
             s["pendingBoss"] = entry   # 끝난 앞의 것은 바꿔요
         write_json(SETUP, s)
-    if entry["marker"] != marker:
-        marker = entry["marker"]
-        url = boss_url(marker, entry.get("prev"))
+    marker = entry["marker"]
+    url = boss_url(marker, entry.get("prev"))
     seat_kick()
     return {"ok": True, "url": url, "marker": marker, "folder": HERE, "display": show_path(HERE), "expires": entry["expires"],
             "replaces": prev is not None}
@@ -4282,22 +4306,24 @@ def set_boss(sid):
     if not isinstance(cur, dict):
         raise ValueError("org.json")
     b = cur.get("boss") if isinstance(cur.get("boss"), dict) else {}
-    prev = boss_sid()
     cur["boss"] = dict(b, name=b.get("name") or "총괄", title="총괄", sessionId=sid)
     if os.path.exists(path):
         shutil.copy(path, path + ".bak")
-    write_json(path, cur)
-    boss_retire(prev, sid)
+    with BOSS_SWAP:   # org.json·.retired·쌓인 항목을 한 번에 바꿔요(그사이 감시기 확인은 기다려요)
+        prev = boss_sid()
+        write_json(path, cur)
+        boss_retire(prev, sid)
     boss_rules(sid)
 
 
 def boss_retire(prev, sid):
-    """총괄이 prev에서 sid로 바뀌면 prev를 outbox/.retired에 더해요(최근 20개, 임시 파일을 쓰고 바꿔치기). 예전 총괄 창의 감시기가 더 전하지 않게요."""
+    """총괄이 prev에서 sid로 바뀌면 prev를 outbox/.retired에 더하고(최근 20개, 임시 파일을 쓰고 바꿔치기) 쌓인 항목을 새 이름으로 다시 내요.
+    예전 총괄 창의 감시기가 더 전하지 않게요. BOSS_SWAP을 쥔 채 org.json을 고친 바로 뒤에 불러요."""
     if not prev or prev == sid:
         return
     try:
         with open(RETIRED, encoding="utf-8") as f:
-            ids = [x for x in f.read().split() if SESSION_ID.match(x) and x != prev]
+            ids = [x for x in f.read().split() if SESSION_ID.match(x) and x not in (prev, sid)]   # 다시 총괄이 된 세션은 빼요
     except (OSError, UnicodeDecodeError):
         ids = []
     try:
@@ -4305,6 +4331,44 @@ def boss_retire(prev, sid):
         write_text(RETIRED, "\n".join(ids[-19:] + [prev]) + "\n")
     except OSError:
         pass
+    outbox_reissue(prev, sid)
+
+
+def outbox_reissue(prev, sid):
+    """총괄이 바뀔 때 아직 outbox에 있는 내 항목을 새 id(새 파일 이름)로 다시 내요. 예전 총괄에게 가던 항목(to가 prev: 총괄에게·사이드바 정리)은
+    새 총괄에게로 바꿔요. 0.7.0 전 감시기는 이미 알린 이름을 서버에 묻지 않고 90초마다 RELAY-STALE로 다시 알려서, 이름이 바뀌어야 멈춰요
+    (새 이름은 그 감시기에 409). 새 파일을 쓰고 예전 파일을 지운 뒤 ISSUED에서 빼요. 다시 낸 수."""
+    try:
+        names = sorted(n for n in os.listdir(OUTBOX) if n.endswith(".json"))
+    except OSError:
+        return 0
+    n = 0
+    for name in names:
+        p = os.path.join(OUTBOX, name)
+        try:
+            item = load_json(p)
+        except (OSError, ValueError):
+            continue
+        oid = item.get("id") if isinstance(item, dict) else None
+        with LOCK:
+            h = ISSUED.get(oid) if isinstance(oid, str) else None
+        if h is None or name != oid + ".json" or h != sha(item.get("to"), item.get("text")):
+            continue   # 서버가 만든 그대로가 아닌 항목은 감시기가 rejected/로 옮겨요
+        to = sid if item.get("to") == prev else item.get("to")
+        new = dict(item, id=f"{oid.split('-')[0]}-{secrets.token_hex(3)}", to=to)   # 앞 숫자(만든 시각)는 그대로: 순서가 같아요
+        with LOCK:
+            ISSUED[new["id"]] = sha(to, item.get("text"))
+        try:
+            write_json(os.path.join(OUTBOX, new["id"] + ".json"), new)
+            os.remove(p)
+        except OSError:
+            with LOCK:
+                ISSUED.pop(new["id"], None)
+            continue
+        with LOCK:
+            ISSUED.pop(oid, None)
+        n += 1
+    return n
 
 
 # bin/new_team.py가 RULES.md에 쓴 '…/org.json의 boss.sessionId, 지금은 local_…)일 때만' 조각(총괄을 정하기 전에 만든 층은 ', 지금은 …'이 없어요)
@@ -4499,6 +4563,12 @@ def api_floor_link_rules(body):
 def api_floor_sidebar(body):
     """층의 세션들을 Claude 앱 사이드바의 '층 이름' 그룹으로 모아 달라고 총괄에게 맡겨요(사이드바 도구는 세션 안에서만 쓸 수 있어요)."""
     t, base = floor_of(body.get("team"), "예시 팀은 사이드바를 맞출 수 없어요")
+    with BOSS_SWAP:   # 총괄을 바꾸는 중이면 다 바꾼 뒤의 총괄에게(맨 끝 enqueue까지)
+        return floor_sidebar(t, base)
+
+
+def floor_sidebar(t, base):
+    """api_floor_sidebar의 본문(BOSS_SWAP을 쥔 채)."""
     boss = boss_sid()
     if not boss:
         raise ApiError(409, "총괄 세션이 아직 없어요. 설정에서 총괄을 정한 뒤 해 주세요")

@@ -3,13 +3,16 @@
 outbox/에 새 '전달할 메시지'가 생기면, 서버가 만든 항목인지(/api/outbox/check, 내용 해시 비교) 확인한 뒤
 `RELAY <파일>`을 찍어요. 서버가 만든 게 아니면 outbox/rejected/로 옮기고 `RELAY-REJECT <파일>`을 찍어요.
 90초 넘게 남아 있는 항목은 `RELAY-STALE <파일>`로 다시 알려요(총괄이 놓쳤을 때).
-서버에 닿을 때만 1초마다 outbox/.heartbeat를 고쳐서, 사이트가 '총괄 연결됨'을 알 수 있게 해요.
+서버에 닿을 때만 1초마다 outbox/.heartbeat와 .watching(내 총괄 id)을 고쳐서, 사이트가 '총괄 연결됨'을 알 수 있게 해요.
+총괄을 바꾼 뒤(outbox/.retired)에는 사이트가 .watching만 봐요(0.7.0 전에 켠 예전 총괄의 감시기도 .heartbeat는 계속 고쳐서요).
 서버에 5초 넘게 닿지 않으면 `RELAY-ERROR 서버에 연결 못 함`을 한 번 찍어요.
 포트는 OFFICE_PORT가 있으면 그것, 없으면 서버가 켜질 때 적어 두는 outbox/.port를 매번 다시 읽어요.
 총괄은 RELAY 파일을 읽고 SendMessage로 전한 뒤 bin/relay_done.sh로 outbox/sent/에 옮겨요.
 켤 때 org.json의 boss.sessionId를 내 총괄로 기억하고(총괄 바꾸기를 기다리는 중이어도 지금 총괄), 그 총괄이 다른 세션으로 바뀌면
 `RELAY-ERROR 총괄이 바뀌었어요. 감시를 멈춰요.`를 찍고 끝나요(예전 총괄이 계속 전하지 않게). 총괄이 없을 때 켰으면 처음 정해진 총괄이에요.
 --boss <세션 id>로 켜면 그 세션이 총괄이 될 때까지 알리지 않아요(기다리는 총괄 바꾸기도 없으면 끝나요).
+총괄을 한 번이라도 바꾼 뒤(outbox/.retired가 있으면)에는 --boss도 CLAUDE_CODE_HOST_SESSION_ID도 없이 켠 감시는 바로 끝내요.
+누가 켰는지 모르면 예전 총괄 창이 다시 켠 것일 수 있어서요(켤 때의 총괄을 내 총괄로 알면 새 총괄 몫을 가져가요).
 감시기는 하나만 돌아요(outbox/.watch.lock). 이미 돌고 있으면 `RELAY-ERROR 전달 감시가 이미 켜져 있어요…`를 찍고 끝나요.
 Claude 앱이 명령에 넘겨주는 CLAUDE_CODE_HOST_SESSION_ID(이 창의 local_… id, 문서로 정해진 값이 아니라 없을 수도 있어요)가 있으면
 예전 총괄(outbox/.retired) 창에서 다시 켠 감시는 바로 끝내고, 총괄이 이 창으로 바뀌었을 때는 멈추지 않아요.
@@ -37,6 +40,7 @@ HOST_SID = os.environ.get("CLAUDE_CODE_HOST_SESSION_ID", "")   # 이 감시기�
 HOST_SID = HOST_SID if SESSION_ID.match(HOST_SID) else None
 RETIRED = os.path.join(OUT, ".retired")   # 바뀌기 전 총괄 id(한 줄에 하나). 서버가 총괄을 바꿀 때 적어요
 CHANGED = "RELAY-ERROR 총괄이 바뀌었어요. 감시를 멈춰요."
+WATCHING = os.path.join(OUT, ".watching")   # 0.7.0부터의 감시기만 고치는 heartbeat(내용은 내 총괄 id)
 os.makedirs(OUT, exist_ok=True)
 announced = {}   # 파일 이름 -> 마지막으로 알린 시각
 
@@ -164,6 +168,9 @@ me = args.boss or HOST_SID   # 이 감시기를 켠 창(알 때만)
 if cur and me and me != cur and me in retired():   # 바뀌기 전 총괄 창이 감시를 다시 켰어요
     print(CHANGED, flush=True)
     sys.exit(0)
+if not me and retired():   # 총괄을 바꾼 뒤, 누가 켰는지 모르는 감시(예전 지시로 다시 켠 예전 총괄 창일 수 있어요)
+    print("RELAY-ERROR 총괄이 바뀌었어요. --boss 없이 켠 감시는 멈춰요.", flush=True)
+    sys.exit(0)
 mine = args.boss or cur or None   # 내 총괄(아직 모르면 None). 총괄 바꾸기를 기다리는 중이어도 지금 총괄이에요
 active = not args.boss            # --boss면 그 세션이 총괄이 될 때까지 알리지도, heartbeat를 고치지도 않아요
 if active and not take_lock():
@@ -212,6 +219,8 @@ while True:
         if t - last_ok <= 5:
             with open(os.path.join(OUT, ".heartbeat"), "w") as f:
                 f.write(str(t))
+            with open(WATCHING, "w") as f:
+                f.write(mine or "-")
         names = sorted(n for n in os.listdir(OUT) if n.endswith(".json"))
         for n in names:
             p = os.path.join(OUT, n)
