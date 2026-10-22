@@ -497,7 +497,8 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
         with open(os.path.join("docs", "TEAM_RULES.md"), encoding="utf-8") as f:
             text = f.read()
         text = text.replace("`$O`(팀 사무실 폴더의 절대경로)", f"`$O`(= {office})").replace("`XX-`", f"`{prefix}`").replace("XX-n", f"{prefix}n")
-        text = text.replace("<에이전시티>", HERE)
+        # 명령 줄의 '<에이전시티>/…'(따옴표 안)는 설치 폴더에 빈칸·따옴표가 있어도 되게 셸 따옴표로 감싸요(office_server.py의 fill_here와 같아요)
+        text = re.sub(r"'<에이전시티>([^'\s]*)'", lambda x: shlex.quote(HERE + x.group(1)), text).replace("<에이전시티>", HERE)
         if tid:   # 팀 간 대화(bin/tell.sh)에 쓰는 내 층 id
             text = text.replace("<내 층 id>", tid)
         # 총괄 id는 org.json에서 바뀔 수 있으니 거기를 가리켜요

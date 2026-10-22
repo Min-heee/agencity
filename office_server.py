@@ -3986,6 +3986,12 @@ def boss_tidy(s, p, t):
     return False
 
 
+def fill_here(text):
+    """docs의 <에이전시티>를 설치 폴더로 바꿔요. 명령 줄의 '<에이전시티>/…'(따옴표 안)는 설치 폴더에 빈칸·따옴표가 있어도 되게 셸 따옴표로 다시 감싸요."""
+    text = re.sub(r"'<에이전시티>([^'\s]*)'", lambda x: shlex.quote(HERE + x.group(1)), text)
+    return text.replace("<에이전시티>", HERE)
+
+
 def coordinator_text():
     """docs/COORDINATOR.md의 '총괄 세션에 처음 한 번 붙여 넣을 지시'(```text 블록)에서 <에이전시티>를 설치 폴더로 바꾼 글."""
     try:
@@ -3996,9 +4002,7 @@ def coordinator_text():
     m = re.search(r"^## 총괄 세션에 처음 한 번 붙여 넣을 지시[^\n]*\n.*?^```text\n(.*?)^```", doc, re.S | re.M)
     if not m:
         raise ApiError(500, "docs/COORDINATOR.md에서 총괄 지시를 찾지 못했어요")
-    # 명령 줄의 '<에이전시티>/…'(따옴표 안)는 설치 폴더에 빈칸·따옴표가 있어도 되게 셸 따옴표로 다시 감싸요
-    text = re.sub(r"'<에이전시티>([^'\s]*)'", lambda x: shlex.quote(HERE + x.group(1)), m.group(1).strip())
-    return text.replace("<에이전시티>", HERE)
+    return fill_here(m.group(1).strip())
 
 
 def boss_prompt(marker):
@@ -4246,7 +4250,7 @@ def talk_block(tid):
     j = doc.find(TALK_CLOSE, i + 1) if i >= 0 else -1
     if i < 0 or j < 0:
         raise ApiError(500, "docs/TEAM_RULES.md에서 ‘팀 간 대화’ 부분을 찾지 못했어요")
-    return doc[i:j + len(TALK_CLOSE)].replace("<에이전시티>", HERE).replace("<내 층 id>", tid)
+    return fill_here(doc[i:j + len(TALK_CLOSE)]).replace("<내 층 id>", tid)
 
 
 def api_floor_rules_sync(body):

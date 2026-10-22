@@ -1177,8 +1177,8 @@ function render() {
   if (nmEl) NE.value = nmEl.value;
   const was = document.activeElement, keep = focusKey(was);
   const nl = $('#notionLink'); if (org.notion) { nl.href = org.notion; nl.hidden = false; }
-  // 결재함: 모든 팀의 '결재 대기'·'보류'
-  const waiting = Object.values(teams).reduce((n, d) => n + (d.approvals || []).filter(a => a.status === '결재 대기' || a.status === '보류').length, 0);
+  // 결재함: 모든 팀의 '결재 대기'·'보류'(예시 팀 것은 고를 수 없어서 세지 않아요)
+  const waiting = Object.entries(teams).reduce((n, [tid, d]) => n + (exampleTeam(tid) ? 0 : (d.approvals || []).filter(a => a.status === '결재 대기' || a.status === '보류').length), 0);
   const ab = $('#apprBtn');
   ab.hidden = !Object.values(teams).some(d => (d.approvals || []).length);
   ab.className = 'live' + (waiting ? ' alert' : '');
@@ -1271,9 +1271,9 @@ function roomHTML(t, d) {
   const meetPanel = am
     ? `<div class="meet-now"><b>${am.status === '정리 중' ? '회의록 정리 중' : am.mode === '참석' ? '대표와 회의 중' : '팀끼리 회의 중'}</b> · ${esc(am.topic)}
         ${amLast.length ? `<ol>${amLast.map(l => `<li>${seatHTML(t.id, l.from)}: ${esc(String(l.text).slice(0, 80))}</li>`).join('')}</ol>` : ''}</div>
-       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
+       <div class="meet-actions"><button type="button" class="btn primary" data-meet-open="${esc(t.id)}" data-meet-id="${esc(am.id)}">회의실 들어가기</button>${API && am.status !== '진행 중' && !exampleTeam(t.id) ? `<button type="button" class="btn" data-meet-new="${esc(t.id)}">새 회의 시작</button>` : ''}</div>`
     : `${d.meeting ? `<div class="meet-state"><i class="sd ${meeting ? 'meet' : 'none'}"></i><b>${meeting ? '지금 회의 중' : '마지막 회의'}</b></div><button class="meet-file" type="button" data-file="${esc(d.base + 'meetings/' + d.meeting.file)}">${esc(d.meeting.file)}</button>` : '<p class="empty" style="margin-top:8px">아직 회의를 하지 않았어요.</p>'}
-       ${API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
+       ${API && exampleTeam(t.id) ? `<p class="hint" style="margin-top:8px">${EX_NO_MEET}</p>` : API ? `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
   return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
     <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
       <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}${mine ? floorToolsHTML(t) : ''}</div></div>
@@ -1824,9 +1824,12 @@ function relayWarn() {
   if (r.pending && r.oldestAge > 90) return `총괄이 ${r.pending}개를 아직 전하지 못하고 있어요(가장 오래된 것 ${Math.round(r.oldestAge / 60)}분).`;
   return '';
 }
-// 예시 팀·자리 표시용 세션(local_00000000…)에는 전할 세션이 없어요. 작성창 대신 이 안내를 보여요(서버도 받지 않아요)
+// 예시 팀·자리 표시용 세션(local_00000000…)에는 전할 세션이 없어요. 작성창·결재·회의 단추 대신 이 안내를 보여요(서버도 받지 않아요)
 const EX_NO_TALK = '예시 팀이에요. 설정에서 내 층을 만들면 말을 걸 수 있어요.';
-const exampleSeat = (tid, sid) => String(((state.org.teams.find(t => t.id === tid) || {}).office) || '').startsWith('examples/') || String(sid || '').startsWith('local_00000000');
+const EX_NO_DECIDE = '예시 팀이에요. 설정에서 내 층을 만들면 결재할 수 있어요.';
+const EX_NO_MEET = '예시 팀이에요. 설정에서 내 층을 만들면 회의를 열 수 있어요.';
+function exampleTeam(tid) { return String(((state.org.teams.find(t => t.id === tid) || {}).office) || '').startsWith('examples/'); }
+const exampleSeat = (tid, sid) => exampleTeam(tid) || String(sid || '').startsWith('local_00000000');
 // 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
 function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '') {
   if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
@@ -1969,7 +1972,7 @@ function apprCard(tid, d, a) {
   const shown = opts.length ? opts : [{ key: '승인', label: '' }];
   const rec = String(a.recommend == null ? '' : a.recommend);
   const rp = reportPath(d, a.report);
-  const meetingAsk = a.kind === 'meeting';
+  const meetingAsk = a.kind === 'meeting', ex = open && API && exampleTeam(tid);
   return `<article class="appr${open ? '' : ' done'}" data-team="${esc(tid)}">
     <div class="appr-top"><span class="chip">${esc(d.team.team)}</span><span>${seatHTML(tid, a.from || '팀장')}</span>${a.related ? `<code>${esc(a.related)}</code>` : ''}<span>${esc(a.created ? ago(a.created) : '')}</span><span class="chip${open ? ' wait' : ''}">${esc(a.status || '')}</span></div>
     <h4>${meetingAsk ? '회의 요청 · ' : ''}${esc(a.title || a.id)}</h4>
@@ -1977,10 +1980,11 @@ function apprCard(tid, d, a) {
     ${a.risky ? `<p class="risk">위험한 일이에요. 결재는 ‘하기로 정함’이고, 실제 실행은 ${esc(a.where || '그 일을 할 세션 창')}에서 마지막으로 한 번 더 확인해요.</p>` : ''}
     ${rp ? `<button type="button" class="meet-file" data-file="${esc(rp)}">보고서 보기</button>` : ''}
     ${a.decision ? `<p class="hint" style="margin-top:8px">결정: ${esc(a.decision.choice)}${a.decision.meeting ? ` (${esc(a.decision.meeting)})` : ''}${a.decision.comment ? ` · “${esc(a.decision.comment)}”` : ''} · ${esc(ago(a.decision.t))}</p>` : ''}
-    ${open && API && meetingAsk ? `<div class="meet-actions"><button type="button" class="btn primary" data-arm data-meet-new="${esc(tid)}" data-approval="${esc(a.id)}">이 주제로 회의 열기</button></div>
+    ${ex ? `<p class="hint" style="margin-top:8px">${EX_NO_DECIDE}</p>` : ''}
+    ${open && API && !ex && meetingAsk ? `<div class="meet-actions"><button type="button" class="btn primary" data-arm data-meet-new="${esc(tid)}" data-approval="${esc(a.id)}">이 주제로 회의 열기</button></div>
       <form class="composer" data-form="decide" data-key="${esc(tid + ':' + a.id)}" data-risky="0"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="id" value="${esc(a.id)}">
       <div class="opts"><button type="submit" class="btn warn" data-arm name="choice" value="반려">반려</button><button type="submit" class="btn" data-arm name="choice" value="보류">보류</button></div><p class="err" role="alert"></p></form>` : ''}
-    ${open && API && !meetingAsk ? `<form class="composer" data-form="decide" data-key="${esc(tid + ':' + a.id)}" data-risky="${a.risky ? 1 : 0}"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="id" value="${esc(a.id)}">
+    ${open && API && !ex && !meetingAsk ? `<form class="composer" data-form="decide" data-key="${esc(tid + ':' + a.id)}" data-risky="${a.risky ? 1 : 0}"><input type="hidden" name="team" value="${esc(tid)}"><input type="hidden" name="id" value="${esc(a.id)}">
       <textarea name="comment" maxlength="2000" placeholder="메모 (선택)" aria-label="결재 메모" style="min-height:52px"></textarea>
       <div class="opts">${shown.map(o => `<button type="submit" class="btn primary${rec === o.key ? ' rec' : ''}" data-arm name="choice" value="${esc(o.key)}">${esc(o.key)}${o.label ? ' · ' + esc(o.label) : ''}</button>`).join('')}
         <button type="submit" class="btn warn" data-arm name="choice" value="반려">반려</button><button type="submit" class="btn" data-arm name="choice" value="보류">보류</button></div>

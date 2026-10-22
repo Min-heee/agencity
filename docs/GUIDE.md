@@ -105,7 +105,7 @@ git clone https://github.com/Min-heee/agencity.git && cd agencity && python3 sta
 
 ### 예시 팀 기록 지우기
 
-예시 팀은 둘러보기만 해요. 말 걸기·회의·결재는 받지 않아요. 예전 판에서 예시 팀에 말을 걸었다면 `examples/teams/demo/`에 기록이 남아 있어요.
+예시 팀은 둘러보기만 해요. 말 걸기·회의·결재는 받지 않고, 예시 결재는 결재함 숫자에 세지 않아요. 예전 판에서 예시 팀에 말을 걸었다면 `examples/teams/demo/`에 기록이 남아 있어요.
 
 - git으로 받았다면:
 
