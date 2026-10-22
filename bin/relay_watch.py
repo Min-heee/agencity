@@ -15,7 +15,8 @@ outbox/에 새 '전달할 메시지'가 생기면, 서버가 만든 항목인지
 누가 켰는지 모르면 예전 총괄 창이 다시 켠 것일 수 있어서요(켤 때의 총괄을 내 총괄로 알면 새 총괄 몫을 가져가요).
 감시기는 하나만 돌아요(outbox/.watch.lock). 이미 돌고 있으면 `RELAY-ERROR 전달 감시가 이미 켜져 있어요…`를 찍고 끝나요.
 Claude 앱이 명령에 넘겨주는 CLAUDE_CODE_HOST_SESSION_ID(이 창의 local_… id, 문서로 정해진 값이 아니라 없을 수도 있어요)가 있으면
-예전 총괄(outbox/.retired) 창에서 다시 켠 감시는 바로 끝내고, 총괄이 이 창으로 바뀌었을 때는 멈추지 않아요.
+예전 총괄(outbox/.retired) 창에서 다시 켠 감시는 --boss에 무엇을 적었든 바로 끝내고, --boss가 이 창이 아니어도 끝내요.
+총괄이 이 창으로 바뀌었을 때는 멈추지 않아요.
 """
 import argparse
 import fcntl
@@ -164,12 +165,18 @@ args = ap.parse_args()
 if args.boss is not None and not SESSION_ID.match(args.boss):
     ap.error("--boss는 local_… 모양의 세션 id예요")
 cur = org_boss()
+if HOST_SID and HOST_SID in retired():   # 이 창이 바뀌기 전 총괄이에요(--boss에 새 총괄 id를 적었어도)
+    print(CHANGED, flush=True)
+    sys.exit(0)
+if HOST_SID and args.boss and args.boss != HOST_SID:   # --boss에는 이 창의 id만 적어요
+    print("RELAY-ERROR --boss에는 이 창의 세션 id를 적어요. 감시를 멈춰요.", flush=True)
+    sys.exit(0)
 me = args.boss or HOST_SID   # 이 감시기를 켠 창(알 때만)
 if cur and me and me != cur and me in retired():   # 바뀌기 전 총괄 창이 감시를 다시 켰어요
     print(CHANGED, flush=True)
     sys.exit(0)
 if not me and retired():   # 총괄을 바꾼 뒤, 누가 켰는지 모르는 감시(예전 지시로 다시 켠 예전 총괄 창일 수 있어요)
-    print("RELAY-ERROR 총괄이 바뀌었어요. --boss 없이 켠 감시는 멈춰요.", flush=True)
+    print("RELAY-ERROR 총괄이 바뀌었어요. --boss 없이 켠 감시는 멈춰요. 내가 지금 총괄이면 --boss <내 세션 id>로 다시 켜요.", flush=True)
     sys.exit(0)
 mine = args.boss or cur or None   # 내 총괄(아직 모르면 None). 총괄 바꾸기를 기다리는 중이어도 지금 총괄이에요
 active = not args.boss            # --boss면 그 세션이 총괄이 될 때까지 알리지도, heartbeat를 고치지도 않아요

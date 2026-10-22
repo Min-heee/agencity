@@ -1731,7 +1731,7 @@ async function floorTool(btn) {
       if (r.added === true) {   // 모두 맞추기처럼 층 안내 아래에 [팀장 N명에게 보내기]가 뜨게 맞춘 층에 더해요
         if (Date.now() - RUL.at > RULES_MS) Object.assign(RUL, { done: null, sent: null, bad: [], err: '' });
         if (!(RUL.done || []).some(x => x.id === tid)) RUL.done = [...(RUL.done || []), { id: tid, name: sf ? sf.name : t.name }];
-        RUL.at = Date.now();
+        Object.assign(RUL, { sent: null, err: '', at: Date.now() });   // 앞서 보낸 결과 대신 ‘맞췄어요’ 줄과 보내기 단추를 보여요
       }
       const leads = (RUL.done || []).filter(f => leadOn(f.id)).length;
       note(r.added === true ? `${t.name} 층에 ‘팀 간 대화’ 규칙을 넣었어요.${leadOn(tid) ? ` 켜져 있는 팀장에게는 층 안내 아래 ‘팀장 ${leads}명에게 보내기’로 알려요.` : ''}` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
