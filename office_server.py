@@ -13,10 +13,13 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
 - 처음 설정(/api/setup/*, 앱의 로그인 화면): GitHub 로그인(기기 코드, 또는 이미 로그인된 gh), 이 맥의 Claude Code 세션 중
   층으로 만들 것 고르기(bin/new_team.py --spec), 층별 공개 범위(public.json)와 공개하기(bin/office_public.py --publish --yes).
   설정은 setup.json(토큰 없음)에, 기기 로그인 토큰은 <설정 폴더>/github-token.json(0600)에만 두고 어떤 응답에도 넣지 않아요.
+  세션은 Claude 앱 사이드바처럼 묶어 보여 줘요: 앱 설정 파일에서 내가 만든 그룹 두 항목(dframe-group-scopes·dframe-code-sections)만 읽고,
+  나머지 세션은 프로젝트 폴더별, 폴더 없이 만든 세션(scratch-workspaces)은 한 묶음으로요. 설정 파일의 다른 내용은 읽어 쓰지 않아요.
 """
 import glob
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
@@ -28,6 +31,7 @@ import subprocess
 import sys
 import threading
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -69,7 +73,7 @@ SETUP = os.path.join(HERE, "setup.json")      # {done, github: {login, via}, vis
 PUBLIC = os.path.join(HERE, "public.json")    # bin/office_public.py가 읽는 공개 설정
 HOME_RAW = os.path.expanduser("~")
 HOME = os.path.realpath(HOME_RAW)
-# 아래 넷은 시험용 가짜 서버·가짜 폴더를 쓸 때만 바꿔요(주소는 http·https만)
+# 아래 다섯은 시험용 가짜 서버·가짜 폴더·가짜 파일을 쓸 때만 바꿔요(주소는 http·https만)
 GITHUB_BASE = (os.environ.get("AGENCITY_GITHUB_BASE") or "https://github.com").rstrip("/")
 GITHUB_API = (os.environ.get("AGENCITY_GITHUB_API") or "https://api.github.com").rstrip("/")
 GITHUB_BASE = GITHUB_BASE if re.match(r"^https?://[^/\s]+", GITHUB_BASE) else "https://github.com"
@@ -77,6 +81,9 @@ GITHUB_API = GITHUB_API if re.match(r"^https?://[^/\s]+", GITHUB_API) else "http
 CONFIG_DIR = os.environ.get("AGENCITY_CONFIG_DIR") or os.path.join(HOME_RAW, ".config", "agencity")
 SESSIONS_DIR = (os.environ.get("AGENCITY_CLAUDE_SESSIONS_DIR")
                 or os.path.join(HOME_RAW, "Library", "Application Support", "Claude", "claude-code-sessions"))
+# Claude 앱 설정 파일. 사이드바 그룹(preferences.epitaxyPrefs의 두 항목)만 꺼내 쓰고, 다른 내용은 페이지·기록에 내지 않아요
+CLAUDE_CONFIG = (os.environ.get("AGENCITY_CLAUDE_CONFIG")
+                 or os.path.join(HOME_RAW, "Library", "Application Support", "Claude", "claude_desktop_config.json"))
 TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")
 # 이 폴더들(로그인 토큰이 있는 곳) 안의 파일은 어떤 경로로 와도 보여 주지 않아요(설치 폴더를 그 안에 둔 드문 경우엔 토큰 파일만)
 SECRET_DIRS = tuple({os.path.realpath(CONFIG_DIR), os.path.realpath(os.path.join(HOME_RAW, ".config", "agencity"))})
@@ -89,7 +96,14 @@ LOGIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
 GIST_RE = re.compile(r"^[0-9a-f]{5,64}$", re.I)
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_.-]{10,255}$")
 WORKTREE = re.compile(r"/\.claude/worktrees/[^/]+(?:/.*)?$")   # worktree 세션은 원래 프로젝트 폴더로 묶어요
+SCRATCH = re.compile(r"/Claude/scratch-workspaces(?:/|$)")      # 폴더 없이 만든 세션이 쓰는 앱의 임시 작업 폴더
+SURROGATE = re.compile("[\ud800-\udfff]")   # 짝 없는 UTF-16 반쪽 글자: UTF-8로 못 바꿔서 응답·new_team.py 입력을 깨요
 MAX_SESSIONS = 2000       # 세션 기록은 최근 것부터 이만큼만 읽어요
+MAX_CONFIG = 8 * 1024 * 1024   # Claude 앱 설정 파일이 이보다 크면 그룹을 읽지 않고 폴더별로 묶어요
+TEAM_ID = re.compile(r"^[a-z][a-z0-9-]{0,19}$")   # bin/new_team.py의 팀 id 규칙과 같아요
+GROUP_KEY = re.compile(r"^(?:[gp]-[0-9a-f]{12}|scratch)$")
+NEW_HOME = "agencity-teams"   # 폴더가 없는 그룹을 층으로 만들 때 새 폴더를 두는 곳(~/agencity-teams/<팀 id>)
+SCRATCH_NAME = "폴더 없이 만든 세션"
 DEVICE = {}               # 진행 중인 GitHub 기기 로그인. device_code는 이 메모리에만 둬요
 SETUP_LOCK = threading.Lock()
 LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # 127.0.0.1(시험용 가짜 서버)은 프록시를 거치지 않게
@@ -767,8 +781,8 @@ def epoch_ms(v):
     """lastActivityAt(초·밀리초 숫자나 ISO 시각)를 밀리초 숫자로. 모르면 None."""
     if isinstance(v, str) and v.strip().isdigit():
         v = int(v.strip())
-    if isinstance(v, bool):
-        return None
+    if isinstance(v, bool) or (isinstance(v, float) and not math.isfinite(v)):
+        return None   # Infinity·1e400은 int로 못 바꿔요
     if isinstance(v, (int, float)):
         return int(v if v > 1e11 else v * 1000) if v > 0 else None
     if isinstance(v, str):
@@ -781,7 +795,9 @@ def epoch_ms(v):
 
 
 def claude_sessions(include_archived=False):
-    """Claude 데스크톱 앱의 Code 세션 기록(<세션 폴더>/*/*/local_*.json)에서 sessionId·title·cwd·originCwd·isArchived·lastActivityAt만 써요."""
+    """Claude 데스크톱 앱의 Code 세션 기록(<세션 폴더>/<계정>/<조직>/local_*.json)에서
+    sessionId·title·cwd·originCwd·isArchived·lastActivityAt만 써요.
+    scope(<계정>/<조직>, 기록이 있던 폴더)는 앱 그룹을 맞춰 보는 데만 쓰고 응답에는 넣지 않아요."""
     files = glob.glob(os.path.join(glob.escape(SESSIONS_DIR), "*", "*", "local_*.json"))
 
     def mtime(p):
@@ -803,43 +819,350 @@ def claude_sessions(include_archived=False):
         archived = rec.get("isArchived") is True
         if archived and not include_archived:
             continue
-        cwd = rec.get("cwd") if isinstance(rec.get("cwd"), str) and rec["cwd"].startswith("/") else ""
-        origin = rec.get("originCwd") if isinstance(rec.get("originCwd"), str) and rec["originCwd"].startswith("/") else ""
+        cwd, origin = (rec.get(k) if isinstance(rec.get(k), str) and rec[k].startswith("/") and not SURROGATE.search(rec[k]) else ""
+                       for k in ("cwd", "originCwd"))
         if not (origin or cwd):
             continue
         folder = WORKTREE.sub("", os.path.normpath(origin or cwd)) or "/"
-        s = {"sessionId": rec["sessionId"], "title": one_line(rec.get("title") if isinstance(rec.get("title"), str) else "", 120),
+        s = {"sessionId": rec["sessionId"], "title": clean_name(rec.get("title"), 120),
              "cwd": os.path.normpath(cwd or folder), "lastActivityAt": epoch_ms(rec.get("lastActivityAt")), "archived": archived,
-             "folder": folder}
+             "folder": folder, "scratch": bool(SCRATCH.search(folder)),
+             "scope": os.path.relpath(os.path.dirname(p), SESSIONS_DIR).replace(os.sep, "/")}
         old = seen.get(s["sessionId"])
         if old is None or (s["lastActivityAt"] or 0) > (old["lastActivityAt"] or 0):
             seen[s["sessionId"]] = s
     return list(seen.values())
 
 
-def claude_projects(include_archived=False):
-    """세션을 프로젝트 폴더별로 묶어요. 최근에 쓴 프로젝트·세션이 먼저예요."""
+def recent(s):
+    return s["lastActivityAt"] or 0
+
+
+def floor_folders():
+    """이미 층인 프로젝트 폴더(실제 경로) → 팀 id."""
     teams = {}
     for t in real_teams():
         if isinstance(t.get("folder"), str) and t["folder"]:
             teams[os.path.realpath(os.path.expanduser(t["folder"]))] = t["id"]
+    return teams
+
+
+def claude_projects(include_archived=False, sessions=None):
+    """세션을 프로젝트 폴더별로 묶어요(‘폴더별 보기’). 최근에 쓴 프로젝트·세션이 먼저예요."""
+    teams = floor_folders()
     groups = {}
-    for s in claude_sessions(include_archived):
-        groups.setdefault(s.pop("folder"), []).append(s)
+    for s in claude_sessions(include_archived) if sessions is None else sessions:
+        groups.setdefault(s["folder"], []).append({k: s[k] for k in ("sessionId", "title", "cwd", "lastActivityAt", "archived")})
     out = []
     for folder, ss in groups.items():
-        ss.sort(key=lambda s: s["lastActivityAt"] or 0, reverse=True)
+        ss.sort(key=recent, reverse=True)
         out.append({"folder": folder, "display": show_path(folder), "exists": os.path.isdir(folder),
-                    "team": teams.get(os.path.realpath(folder)), "sessions": ss})
-    out.sort(key=lambda p: p["sessions"][0]["lastActivityAt"] or 0, reverse=True)
+                    "team": teams.get(os.path.realpath(folder)), "scratch": bool(SCRATCH.search(folder)), "sessions": ss})
+    out.sort(key=lambda p: recent(p["sessions"][0]), reverse=True)
     return out
+
+
+# Claude 앱 사이드바의 그룹 ---------------------------------------------------
+# 앱이 문서로 정하지 않은 내부 설정이라 모양이 조금이라도 다르면 그 부분은 버리고 폴더별로 묶어요.
+
+def as_obj(v):
+    """dict, 또는 dict를 담은 JSON 글. 아니면 {}."""
+    if isinstance(v, str) and len(v) <= MAX_CONFIG:
+        try:
+            v = json.loads(v)
+        except (ValueError, RecursionError):
+            return {}
+    return v if isinstance(v, dict) else {}
+
+
+def as_list(v):
+    if isinstance(v, str) and len(v) <= MAX_CONFIG:
+        try:
+            v = json.loads(v)
+        except (ValueError, RecursionError):
+            return []
+    return v if isinstance(v, list) else []
+
+
+def clean_name(v, limit):
+    """설정 파일에서 온 이름: 제어 문자·글 방향 바꾸는 문자를 빼고 한 줄로."""
+    if not isinstance(v, str):
+        return ""
+    v = "".join(ch for ch in v[:1000] if unicodedata.category(ch) not in ("Cc", "Cs")
+                and not 0x202A <= ord(ch) <= 0x202E and not 0x2066 <= ord(ch) <= 0x2069)
+    return one_line(v, limit)
+
+
+def num(v):
+    """순서 숫자. 아주 큰 정수도 float로 바꾸지 않고 그대로 비교해요(math.isfinite(큰 int)는 OverflowError)."""
+    if isinstance(v, bool):
+        return None
+    return v if isinstance(v, int) or (isinstance(v, float) and math.isfinite(v)) else None
+
+
+def app_sidebar():
+    """Claude 앱 설정 파일에서 사이드바 그룹 두 항목만 꺼내요: (dframe-group-scopes, dframe-code-sections).
+    파일이 없거나 크거나 깨졌거나 항목이 없으면 None이에요. 다른 항목은 쓰지 않고, 무엇이 틀렸는지도 기록에 남기지 않아요."""
+    try:
+        if os.path.getsize(CLAUDE_CONFIG) > MAX_CONFIG:
+            return None
+        raw = load_json(CLAUDE_CONFIG)
+    except (OSError, ValueError, UnicodeDecodeError, RecursionError):
+        return None
+    ep = as_obj(as_obj(as_obj(raw).get("preferences")).get("epitaxyPrefs"))
+    scopes, sections = as_obj(ep.get("dframe-group-scopes")), as_obj(ep.get("dframe-code-sections"))
+    del raw, ep
+    return (scopes, sections) if scopes else None
+
+
+def scope_groups(gs, secs):
+    """한 계정(scope)의 내가 만든 그룹. ({그룹 id: 정보}, {세션 id: 그룹 id}, {세션 id: 그룹 안 순서})
+    없어진 그룹을 가리키는 배정, local_… 모양이 아닌 세션은 버려요."""
+    gs, secs = as_obj(gs), as_obj(secs)
+    groups = {}
+    for i, g in enumerate(as_list(gs.get("groups"))[:500]):
+        gid = g.get("id") if isinstance(g, dict) else None
+        if isinstance(gid, str) and 0 < len(gid) <= 200 and gid not in groups:
+            groups[gid] = {"id": gid, "name": clean_name(g.get("name"), 60), "idx": i, "order": None, "hidden": False, "collapsed": False}
+    for sec in as_list(secs.get("sections"))[:1000]:
+        if not isinstance(sec, dict) or sec.get("kind") != "manual" or not isinstance(sec.get("id"), str):
+            continue
+        g = groups.get(sec["id"])
+        if g is None or g["order"] is not None:
+            continue
+        g["order"] = num(sec.get("order"))
+        g["hidden"] = sec.get("shown") is False
+        g["collapsed"] = sec.get("collapsed") is True
+        if not g["name"]:
+            g["name"] = clean_name(sec.get("name"), 60)
+    assign = {}
+    for k, v in list(as_obj(gs.get("assignments")).items())[:20000]:
+        if isinstance(k, str) and k.startswith("code:") and SESSION_ID.match(k[5:]) and isinstance(v, str) and v in groups:
+            assign[k[5:]] = v
+    pos = {}
+    for gid, lst in list(as_obj(gs.get("order")).items())[:500]:
+        if gid not in groups:
+            continue
+        for j, k in enumerate(as_list(lst)[:20000]):
+            if isinstance(k, str) and k.startswith("code:") and assign.get(k[5:]) == gid:
+                pos.setdefault(k[5:], j)
+    return groups, assign, pos
+
+
+def _w(x):
+    """영문 낱말은 앞뒤가 영문자가 아닐 때만 맞춰요(ui가 build·guide에, dev가 device에 걸리지 않게). 한글·숫자는 붙어 있어도 돼요."""
+    return rf"(?<![a-z]){x}(?![a-z])"
+
+
+# 세션 제목으로 자리 짐작하기: 위에서부터 처음 맞는 자리 하나(대소문자 무시). '그리드'의 '리드'는 팀장이 아니에요.
+ROLE_WORDS = (
+    ("팀장", re.compile("팀장|(?<!그)리드|" + _w("lead(?:er|ers|s)?"), re.I)),
+    ("개발자", re.compile("개발|엔지니어|코딩|" + _w("dev(?:s|elop(?:er|ers|ment|ing)?)?") + "|"
+                        + _w("engineer(?:s|ing)?") + "|" + _w("cod(?:e|es|er|ers|ing)"), re.I)),
+    ("디자이너", re.compile("디자인|디자이너|" + _w("design(?:er|ers|s|ing)?") + "|" + _w("ui") + "|" + _w("ux"), re.I)),
+    ("기획", re.compile("기획|" + _w("plan(?:s|ner|ners|ning)?") + "|" + _w("pms?"), re.I)),
+)
+BOSS_WORDS = re.compile("총괄|코디네이터|" + _w("coordinator"), re.I)   # 자리가 아니라 총괄(코디네이터) 후보예요
+
+
+def guess_role(title):
+    """'boss'(총괄 후보), 자리 이름, 또는 None."""
+    t = str(title or "")
+    if BOSS_WORDS.search(t):
+        return "boss"
+    return next((r for r, rx in ROLE_WORDS if rx.search(t)), None)
+
+
+def usable_folder(f):
+    """층 폴더로 고를 수 있는 진짜 프로젝트 폴더면 실제 경로, 아니면 None.
+    앱의 임시 작업 폴더, 없어진 폴더, 홈 폴더 자체, 에이전시티 폴더·설정 폴더 안은 빼요(check_folder와 같은 기준)."""
+    if not f or SCRATCH.search(f) or not os.path.isdir(f):
+        return None
+    real = os.path.realpath(f)
+    if SCRATCH.search(real) or real in (HOME, "/") or under(real, HERE) or any(under(real, d) for d in SECRET_DIRS):
+        return None
+    return real
+
+
+def slug(s):
+    """영문 소문자·숫자·- 로만 된 팀 id 후보(로마자로 바꾸지는 않아요: 한글 이름이면 빈 글)."""
+    s = "".join(ch for ch in unicodedata.normalize("NFKD", str(s or "")) if unicodedata.category(ch) != "Mn")   # é → e
+    s = re.sub(r"[^a-z0-9]+", "-", s.lower())
+    return re.sub(r"^[^a-z]+", "", s)[:20].rstrip("-")
+
+
+def unique_id(base, taken):
+    if base:
+        tid, n = base, 2
+        while tid in taken:
+            suf = f"-{n}"
+            tid, n = base[:20 - len(suf)].rstrip("-") + suf, n + 1
+    else:
+        n = 1
+        while f"team-{n}" in taken:
+            n += 1
+        tid = f"team-{n}"
+    taken.add(tid)
+    return tid
+
+
+def taken_ids():
+    """이미 쓰는 팀 id: org.json의 층과 teams/ 아래 이름."""
+    ids = {t["id"] for t in real_teams()}
+    try:
+        ids |= {t.get("id") for t in org().get("teams", []) if isinstance(t, dict) and isinstance(t.get("id"), str)}
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    try:
+        ids |= set(os.listdir(os.path.join(HERE, "teams")))
+    except OSError:
+        pass
+    return ids
+
+
+def floor_members():
+    """내 층(예시 팀 빼고)의 team.json에 앉힌 세션 id → 팀 id."""
+    out = {}
+    for t in real_teams():
+        if is_example(t):
+            continue
+        try:
+            team = load_json(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json"))
+            for m in team.get("members", []):
+                if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_ID.match(m["sessionId"]):
+                    out.setdefault(m["sessionId"], t["id"])
+        except (OSError, ValueError, AttributeError, TypeError):
+            continue
+    return out
+
+
+def group_floors(teams):
+    """이 화면에서 그룹으로 만든 층(setup.json의 groupFloors: 그룹 key → 팀 id). 지금도 있는 층만."""
+    m = load_setup().get("groupFloors")
+    ids = {t["id"] for t in teams}
+    return {k: v for k, v in m.items() if isinstance(k, str) and GROUP_KEY.match(k) and v in ids} if isinstance(m, dict) else {}
+
+
+def claude_groups(sessions):
+    """Claude 앱 사이드바처럼 묶어요: 내가 만든 그룹(앱 순서) → 나머지는 프로젝트 폴더별(최근 순) → 폴더 없이 만든 세션 한 묶음.
+    (groupSource, groups, suggestedBoss)를 돌려줘요. 그룹을 못 읽으면 groupSource는 'folder'예요."""
+    scopes = {}
+    try:
+        side = app_sidebar()
+        if side:
+            for sc in {s["scope"] for s in sessions}:
+                g, a, p = scope_groups(side[0].get(sc), side[1].get(sc))
+                if g:
+                    scopes[sc] = (g, a, p)
+    except Exception:  # noqa: BLE001 — 앱 내부 설정이라 생각 못 한 모양이면 그룹 없이(폴더별로) 보여 줘요
+        scopes = {}
+    # 그룹이 있고 세션 배정도 읽었을 때만 'app'이에요(배정을 못 읽으면 결국 폴더별과 같아요)
+    source = "app" if any(a for _, a, _ in scopes.values()) else "folder"
+
+    custom, folders, scratch = {}, {}, []
+    for s in sessions:
+        sc = scopes.get(s["scope"])
+        gid = sc[1].get(s["sessionId"]) if sc else None
+        if gid:
+            custom.setdefault((s["scope"], gid), []).append(s)
+        elif s["scratch"]:
+            scratch.append(s)
+        else:
+            folders.setdefault(s["folder"], []).append(s)
+
+    rank = {}   # 계정이 여럿이면 최근에 쓴 계정의 그룹이 먼저
+    for s in sessions:
+        rank[s["scope"]] = max(rank.get(s["scope"], 0), recent(s))
+    raw = []
+    for (sc, gid), ss in custom.items():
+        g, pos = scopes[sc][0][gid], scopes[sc][2]
+        ss.sort(key=lambda s: (s["sessionId"] not in pos, pos.get(s["sessionId"], 0), -recent(s)))
+        raw.append(({"key": "g-" + hashlib.sha256(f"{sc}\0{gid}".encode("utf-8")).hexdigest()[:12], "kind": "group",
+                     "name": g["name"] or "이름 없는 그룹", "hidden": g["hidden"], "collapsed": g["collapsed"]}, ss,
+                    (-rank[sc], g["hidden"], g["order"] is None, g["order"] or 0, g["idx"])))
+    raw.sort(key=lambda x: x[2])
+    projects = []
+    for folder, ss in folders.items():
+        ss.sort(key=recent, reverse=True)
+        home = os.path.realpath(folder) == HOME   # 홈 폴더에서 연 세션(홈 폴더 자체는 층 폴더로 못 써요)
+        projects.append(({"key": "p-" + hashlib.sha256(folder.encode("utf-8")).hexdigest()[:12], "kind": "project",
+                          "name": "홈 폴더" if home else clean_name(os.path.basename(folder), 60) or folder,
+                          "folder": folder, "display": show_path(folder), "exists": os.path.isdir(folder), "home": home}, ss, None))
+    projects.sort(key=lambda x: recent(x[1][0]), reverse=True)
+    raw = [(g, ss) for g, ss, _ in raw] + [(g, ss) for g, ss, _ in projects]
+    if scratch:
+        scratch.sort(key=recent, reverse=True)
+        raw.append(({"key": "scratch", "kind": "scratch", "name": SCRATCH_NAME}, scratch))
+
+    teams = real_teams()
+    by_folder, by_member, by_group, taken = floor_folders(), floor_members(), group_floors(teams), taken_ids()
+    out, boss = [], None
+    for i, (g, ss) in enumerate(raw):
+        roles, sess = {r: None for r in ROLES}, []
+        guess = {s["sessionId"]: guess_role(s["title"]) for s in ss}
+        # 다툼이 있으면 보관하지 않은 세션, 그중 최근 세션이 그 자리를 가져요. 이미 다른 층에 앉은 세션은 짐작하지 않아요(한 세션은 한 층에만)
+        for s in sorted(ss, key=lambda s: (s["archived"], -recent(s))):
+            r = guess[s["sessionId"]]
+            if r in roles and roles[r] is None and s["sessionId"] not in by_member:
+                roles[r] = s["sessionId"]
+            if r == "boss" and not s["archived"] and (boss is None or recent(s) > recent(boss)):
+                boss = s
+        mine = {sid: r for r, sid in roles.items() if sid}
+        for s in ss:
+            sess.append({"sessionId": s["sessionId"], "title": s["title"], "cwd": s["cwd"], "folder": s["folder"],
+                         "lastActivityAt": s["lastActivityAt"], "archived": s["archived"], "scratch": s["scratch"],
+                         "role": mine.get(s["sessionId"]), "guess": guess[s["sessionId"]] if guess[s["sessionId"]] in ROLES else None,
+                         "coordinator": guess[s["sessionId"]] == "boss", "seatedOn": by_member.get(s["sessionId"])})
+        count, last, shown = {}, {}, {}
+        for s in ss:
+            real = usable_folder(s["folder"])
+            if real:
+                count[real] = count.get(real, 0) + 1
+                last[real] = max(last.get(real, 0), recent(s))
+                shown.setdefault(real, s["folder"])
+        fs = [shown[r] for r in sorted(count, key=lambda r: (-count[r], -last[r]))]
+        sug = fs[0] if fs else None
+        # 이미 층인지: 이 화면에서 이 그룹으로 만든 층 → 그 폴더를 쓰는 층 → (폴더 없는 그룹이면) 그룹 세션을 앉힌 층
+        team = by_group.get(g["key"])
+        if team is None and g["kind"] == "project":
+            team = by_folder.get(os.path.realpath(g["folder"]))
+        elif team is None and g["kind"] == "group" and sug:
+            t = by_folder.get(os.path.realpath(sug))
+            team = t if t and (t not in by_group.values() or any(by_member.get(s["sessionId"]) == t for s in ss)) else None
+        elif team is None and g["kind"] == "group":
+            hits = {}
+            for s in ss:
+                if s["sessionId"] in by_member:
+                    hits[by_member[s["sessionId"]]] = hits.get(by_member[s["sessionId"]], 0) + 1
+            team = max(hits, key=hits.get) if hits else None
+        if team is None and g["kind"] == "group":
+            # 아직 층이 아닌 그룹에는 다른 층이 쓰는 폴더를 추천하지 않아요(모두 쓰이면 새 폴더). 고르기 목록(fs)에는 그대로 둬요
+            sug = next((f for f in fs if os.path.realpath(f) not in by_folder), None)
+        name = "새 팀" if g["kind"] == "scratch" or g.get("home") else clean_name(g["name"], 30)
+        g.update(order=i, sessions=sess, roles=roles, folders=fs, suggestedFolder=sug, suggestedDisplay=show_path(sug) if sug else None,
+                 suggestedName=name or "새 팀", team=team, lastActivityAt=max((recent(s) for s in ss), default=0) or None)
+        out.append(g)
+    # 팀 id 후보(이미 층이면 그 층 id): 이름으로 만든 id를 먼저 나눠 주고, 한글 이름처럼 못 만든 그룹은 폴더 이름 → team-<n> 순서로
+    for g in out:
+        if g["team"]:
+            g["suggestedId"] = g["team"]
+        elif slug(g["name"]):
+            g["suggestedId"] = unique_id(slug(g["name"]), taken)
+    for g in out:
+        if not g.get("suggestedId"):
+            g["suggestedId"] = unique_id(slug(os.path.basename(g["suggestedFolder"] or "")), taken)
+        g["newFolder"] = None if g["suggestedFolder"] else f"~/{NEW_HOME}/{g['suggestedId']}"
+    return source, out, boss["sessionId"] if boss else None
 
 
 def api_setup_claude(body):
     inc = body.get("includeArchived", False)
     if not isinstance(inc, bool):
         raise ApiError(400, "includeArchived는 true나 false예요")
-    return {"ok": True, "app": claude_app(), "projects": claude_projects(inc)}
+    ss = claude_sessions(inc)
+    source, groups, boss = claude_groups(ss)
+    return {"ok": True, "app": claude_app(), "projects": claude_projects(inc, ss),
+            "groupSource": source, "groups": groups, "suggestedBoss": boss}
 
 
 # 층 만들기 -----------------------------------------------------------------
@@ -861,6 +1184,101 @@ def check_folder(v, detected):
     return real
 
 
+def new_folder_path(tid):
+    """폴더가 없는 그룹의 새 층 폴더 ~/agencity-teams/<팀 id>가 쓸 만한지 봐요(여기서는 만들지 않아요).
+    홈 폴더 안이어야 하고, 에이전시티 폴더·설정 폴더 안(이나 그 폴더들을 품는 곳)은 안 돼요. 이미 있으면 링크가 아닌 폴더여야 해요."""
+    base = os.path.join(HOME_RAW, NEW_HOME)
+    path = os.path.join(base, tid)
+    shown = f"~/{NEW_HOME}/{tid}"
+    if os.path.islink(path):
+        raise ApiError(400, f"{shown} 가 링크예요. 다른 팀 id를 써 주세요")
+    for p in (base, path):
+        if os.path.lexists(p) and not os.path.isdir(p):
+            raise ApiError(400, f"{show_path(p)} 가 폴더가 아니에요. 다른 팀 id를 쓰거나 그 파일을 옮겨 주세요")
+    real = os.path.realpath(path)
+    if (not under(real, HOME) or real == HOME or under(real, HERE) or under(HERE, real)
+            or any(under(real, d) or under(d, real) for d in SECRET_DIRS)):
+        raise ApiError(400, f"새 폴더({shown})는 홈 폴더 안, 에이전시티 폴더와 설정 폴더 밖에만 만들 수 있어요")
+    return path
+
+
+def plan_new_folder(f, taken, here):
+    """newFolder로 보낸 층: 폴더를 만들기 전에 팀 id·이름·머리글을 new_team.py와 같은 기준으로 먼저 봐요(안 될 층에 빈 폴더를 남기지 않게)."""
+    tid = f.get("id")
+    if not isinstance(tid, str) or not TEAM_ID.match(tid):
+        raise ApiError(400, "팀 id는 영문 소문자로 시작하는 20자 이내예요(소문자·숫자·하이픈). 새 폴더 이름으로도 써요")
+    if tid in taken or tid in here:
+        raise ApiError(400, f"'{tid}'는 이미 있는 팀 id예요. 다른 id를 써 주세요")
+    prefix = f.get("prefix")
+    if prefix not in (None, "") and not (isinstance(prefix, str) and re.match(r"^[A-Z]{1,4}-$", prefix) and prefix not in ("J-", "U-", "M-")):
+        raise ApiError(400, "업무 번호 머리글은 영문 대문자 1~4자 + 하이픈이에요. J-·U-·M-은 못 써요")
+    if os.path.lexists(os.path.join(HERE, "teams", tid)):
+        raise ApiError(400, f"teams/{tid} 가 이미 있어요. 다른 id를 써 주세요")
+    return new_folder_path(tid)
+
+
+def make_new_folder(path):
+    """새 층 폴더를 만들어요(0755). 이번에 새로 만든 폴더들을 돌려줘요(층을 못 만들면 빈 폴더만 다시 지워요)."""
+    made = []
+    try:
+        for d in (os.path.dirname(path), path):
+            try:
+                os.mkdir(d, 0o755)
+            except FileExistsError:
+                continue
+            made.append(d)
+            os.chmod(d, 0o755)
+        st = os.lstat(path)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid():
+            raise ApiError(400, f"{show_path(path)} 가 내 폴더가 아니에요")
+        new_folder_path(os.path.basename(path))   # 만드는 사이에 링크로 바뀌지 않았는지 한 번 더
+    except BaseException:
+        drop_dirs(made)
+        raise
+    return made
+
+
+def drop_dirs(made):
+    for d in reversed(made):
+        try:
+            os.rmdir(d)   # 비어 있을 때만 지워져요
+        except OSError:
+            pass
+
+
+def remember_groups(ids, pairs):
+    """그룹으로 만든 층을 setup.json의 groupFloors에 적어 둬요(다음에 그 그룹을 ‘이미 층’으로 보여 주려고).
+    ids: 이번에 만든 팀 id 모두. 같은 id를 가리키던 예전 줄(지운 층의 id를 다시 쓴 경우)은 지우고, 없어진 층의 줄도 치워요."""
+    if not ids:
+        return
+    with SETUP_LOCK:
+        s = load_setup()
+        m = s.get("groupFloors") if isinstance(s.get("groupFloors"), dict) else {}
+        m = {k: v for k, v in m.items() if v not in ids}
+        live = taken_ids()
+        if ids <= live:   # org.json을 제대로 읽었을 때만 없어진 층의 줄을 치워요
+            m = {k: v for k, v in m.items() if v in live}
+        m.update(pairs)
+        s["groupFloors"] = m
+        write_json(SETUP, s)
+
+
+def away_of(g, office, where):
+    """만든 층에 앉힌 세션 중 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등).
+    Claude Code는 세션 폴더와 그 위 폴더의 CLAUDE.local.md만 읽어서, 이 세션들은 층 폴더의 CLAUDE.local.md를 읽지 않아요.
+    {rules: 절대 경로로 가져오는 한 줄(@~/…/.office/RULES.md), rulesFile: 그 파일 경로, away: [{role, sessionId, title}]}"""
+    if not g or not office:
+        return {}
+    home = os.path.realpath(os.path.dirname(office))
+    away = []
+    for r in ROLES:
+        s = where.get(g["roles"].get(r) or "")
+        if s and not under(os.path.realpath(s["cwd"]), home):
+            away.append({"role": r, "sessionId": s["sessionId"], "title": s["title"]})
+    shown = show_path(os.path.join(office, "RULES.md"))
+    return {"rules": "@" + shown.replace(" ", "\\ "), "rulesFile": shown, "away": away}   # 가져오기 줄의 빈칸은 '\ '로 적어요
+
+
 def api_setup_floors(body):
     floors, boss, drop_demo = body.get("floors", []), body.get("boss"), body.get("dropDemo", True)
     if not isinstance(floors, list) or len(floors) > 20:
@@ -871,14 +1289,27 @@ def api_setup_floors(body):
         raise ApiError(400, "dropDemo는 true나 false예요")
     if not floors and not boss:
         raise ApiError(400, "만들 층을 골라 주세요")
-    detected = {os.path.realpath(p["folder"]) for p in claude_projects(True)}
-    good, errors, order = [], [], {}
+    projs = claude_projects(True)
+    detected = {os.path.realpath(p["folder"]) for p in projs}
+    where = {s["sessionId"]: s for p in projs for s in p["sessions"]}   # 세션 id → 기록(제목·cwd): 층 폴더 밖에서 연 세션을 알려 주려고
+    taken = taken_ids()
+    names = {t["id"]: t.get("name") or t["id"] for t in real_teams()}
+    seated = {sid: names.get(tid, tid) for sid, tid in floor_members().items()}   # 이미 다른 층에 앉은 세션 → 그 층 이름
+    seats = {}   # 이번 요청에서 앉힌 세션 → 층(같은 세션을 두 층에 앉히지 않게)
+    good, errors, order, fresh, groups = [], [], {}, [], {}
     for i, f in enumerate(floors):
         label = f["id"][:40] if isinstance(f, dict) and isinstance(f.get("id"), str) and f["id"] else f"{i + 1}번째 층"
         order.setdefault(label, i)
         try:
             if not isinstance(f, dict):
                 raise ApiError(400, "층 정보 모양이 이상해요")
+            name = f.get("name").strip() if isinstance(f.get("name"), str) else ""
+            if SURROGATE.search(name):
+                raise ApiError(400, "팀 이름에 쓸 수 없는 글자가 있어요(잘린 이모지 같은 글자). 이름을 고쳐 주세요")
+            if not 0 < len(name) <= 30 or any(ord(ch) < 32 or ord(ch) == 127 for ch in name):
+                raise ApiError(400, "팀 이름은 한 줄로 1~30자예요")
+            if any(isinstance(v, str) and SURROGATE.search(v) for v in (f.get("id"), f.get("folder"), f.get("prefix"), f.get("group"))):
+                raise ApiError(400, "층 정보에 쓸 수 없는 글자가 있어요")
             roles = f.get("roles") if f.get("roles") is not None else {}
             if not isinstance(roles, dict):
                 raise ApiError(400, "역할(roles) 모양이 이상해요")
@@ -888,26 +1319,69 @@ def api_setup_floors(body):
             for r, v in roles.items():
                 if v not in (None, "") and not (isinstance(v, str) and SESSION_ID.match(v)):
                     raise ApiError(400, f"{r} 세션 id가 local_… 모양이 아니에요")
+                if v and v in seated:
+                    raise ApiError(400, f"{r} 세션은 이미 '{seated[v]}' 층에 앉아 있어요. 한 세션은 한 층에만 앉혀요")
+                if v and v in seats:
+                    raise ApiError(400, f"{r} 세션은 '{seats[v]}' 층에도 앉혔어요. 한 세션은 한 층에만 앉혀요")
+            new = f.get("newFolder")
+            if new not in (None, True, False):
+                raise ApiError(400, "newFolder는 true나 false예요")
+            grp = f.get("group")
+            if grp not in (None, "") and not (isinstance(grp, str) and GROUP_KEY.match(grp)):
+                raise ApiError(400, "group(그룹 key) 모양이 이상해요")
+            # newFolder: true면 folder 대신 ~/agencity-teams/<id>를 새로 만들어 써요(층을 실제로 만들 때만 만들어요)
+            folder = plan_new_folder(f, taken, {g["id"] for g in good}) if new is True else check_folder(f.get("folder"), detected)
             # id·이름·머리글·이미 있는 층인지는 new_team.py가 물어볼 때와 같은 기준으로 봐요
-            good.append({"id": f.get("id"), "name": f.get("name"), "folder": check_folder(f.get("folder"), detected),
-                         "prefix": f.get("prefix") or None, "roles": {r: roles.get(r) or None for r in ROLES}})
+            g = {"id": f.get("id"), "name": f.get("name"), "folder": folder,
+                 "prefix": f.get("prefix") or None, "roles": {r: roles.get(r) or None for r in ROLES}}
+            good.append(g)
+            for v in g["roles"].values():
+                if v:
+                    seats.setdefault(v, name)
+            if new is True:
+                fresh.append((g, label))
+            # 같은 id가 여럿이면 new_team.py는 앞의 것만 만들어요. 폴더 없이 만든 세션 묶음은 늘 다시 고를 수 있게 적지 않아요
+            groups.setdefault(label, grp if grp and grp != "scratch" else None)
         except ApiError as e:
             errors.append({"id": label, "error": e.msg})
-    created = []
-    if good or boss:
-        spec = {"boss": boss or None, "dropDemo": drop_demo, "floors": good}
+    made = {}
+    for g, label in fresh:
         try:
-            r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
-                               input=json.dumps(spec, ensure_ascii=False), capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.TimeoutExpired):
-            raise ApiError(500, "층을 만드는 도우미(bin/new_team.py)를 실행하지 못했어요")
-        res = last_json(r.stdout)
-        if not isinstance(res, dict):
-            raise ApiError(500, "층을 만들지 못했어요: " + (last_line(r.stderr) or "알 수 없는 오류"))
-        if not res.get("ok"):
-            raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
-        created = [{"id": c.get("id"), "floor": c.get("floor")} for c in res.get("created") or [] if isinstance(c, dict)]
-        errors += [{"id": str(e.get("id"))[:40], "error": str(e.get("error"))} for e in res.get("errors") or [] if isinstance(e, dict)]
+            made[label] = make_new_folder(g["folder"])
+        except (ApiError, OSError) as e:
+            good.remove(g)
+            msg = e.msg if isinstance(e, ApiError) else f"새 폴더(~/{NEW_HOME}/{g['id']})를 만들지 못했어요({e.strerror or type(e).__name__})"
+            errors.append({"id": label, "error": msg})
+    created = []
+    try:
+        if good or boss:
+            spec = {"boss": boss or None, "dropDemo": drop_demo, "floors": good}
+            try:
+                r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
+                                   input=json.dumps(spec, ensure_ascii=False), capture_output=True, text=True, timeout=60)
+            except (OSError, UnicodeError, subprocess.TimeoutExpired):
+                raise ApiError(500, "층을 만드는 도우미(bin/new_team.py)를 실행하지 못했어요")
+            res = last_json(r.stdout)
+            if not isinstance(res, dict):
+                raise ApiError(500, "층을 만들지 못했어요: " + (last_line(r.stderr) or "알 수 없는 오류"))
+            if not res.get("ok"):
+                raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
+            spec_of = {}
+            for g in good:
+                spec_of.setdefault(g["id"], g)   # 같은 id면 new_team.py가 만든 앞의 것
+            for c in res.get("created") or []:
+                if isinstance(c, dict):
+                    o = c.get("office")
+                    o = o if isinstance(o, str) and o.startswith("/") else None
+                    created.append(dict({"id": c.get("id"), "floor": c.get("floor"), "folder": show_path(os.path.dirname(o)) if o else None},
+                                        **away_of(spec_of.get(c.get("id")), o, where)))
+            errors += [{"id": str(e.get("id"))[:40], "error": str(e.get("error"))} for e in res.get("errors") or [] if isinstance(e, dict)]
+    finally:
+        done = {c["id"] for c in created}
+        for label, dirs in made.items():
+            if label not in done:
+                drop_dirs(dirs)
+    remember_groups({c["id"] for c in created if c.get("id")}, {groups[c["id"]]: c["id"] for c in created if groups.get(c["id"])})
     errors.sort(key=lambda e: order.get(e["id"], len(floors)))   # 보낸 순서대로
     out = {"ok": True, "created": created, "errors": errors}
     if errors:

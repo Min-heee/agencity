@@ -351,13 +351,35 @@ label.su-pick{cursor:pointer}
 .su-pick > span{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0}
 .su-pick > .chip{flex:none; white-space:nowrap}
 .su-proj-body{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line)}
+/* 그룹 고르기: Claude 앱 사이드바 순서(내 그룹 → 폴더별 → 폴더 없이 만든 세션). 찾기는 다시 그리지 않고 hidden만 바꿔요(한글 입력이 끊기지 않게). */
+.su-tools{display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 18px; margin-top:12px}
+.su-tools .su-q{flex:1 1 260px; max-width:400px}
+.su-tools .su-check{min-height:34px}
+.su-src{margin-top:4px}
+.su-count{margin-top:6px}
+.su-sec{margin-top:14px}
+.su-sec + .su-sec{margin-top:20px}
+.su-sec-h{margin:0; font-size:13px; font-weight:600; color:var(--ink)}
+.su-sec-h small{font-weight:400; font-size:12px; color:var(--ink-2)}
+.su-peek,.su-where{margin:3px 0 0 21px; font-size:12px; line-height:1.45; color:var(--ink-2); word-break:keep-all; overflow-wrap:anywhere}
+.su-where code,.su-pick code{font-size:11.5px}
+.su-proj.done .su-pick > span{gap:2px 8px}
+.su-folder{margin-top:10px}
+.su-frow{display:grid; grid-template-columns:minmax(0,1fr); gap:8px}
+.su-frow.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.su-folder .hint{display:block; margin-top:2px}
+.su-newf{padding:6px 9px; border-radius:7px; border:1px solid color-mix(in srgb, var(--focus) 32%, var(--line)); background:color-mix(in srgb, var(--focus) 8%, var(--surface)); color:var(--ink)}
+.su-newf code{color:var(--ink)}
+.su-guess{font-size:11.5px; color:var(--ink-2)}
+.su-guess::before{content:"✓ "; color:var(--ok)}
+.su-sess li.empty{display:block; color:var(--ink-2)}
 .su-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 12px}
 .su-roles{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px 12px; margin:12px 0 0; padding:0; border:0; min-width:0}
 .su-roles legend{padding:0; margin-bottom:6px; font-size:12px; color:var(--ink-3)}
 .su-field{display:flex; flex-direction:column; gap:4px; min-width:0}
 .su-field label{font-size:12.5px; font-weight:600; color:var(--ink-2)}
 .su-field label small{font-weight:400; color:var(--ink-3)}
-.setup input[type="text"],.setup select{width:100%; min-width:0; padding:7px 9px; border:1px solid var(--line-2); border-radius:7px; background:var(--surface); color:var(--ink); font:inherit; font-size:13.5px}
+.setup input[type="text"],.setup input[type="search"],.setup select{width:100%; min-width:0; padding:7px 9px; border:1px solid var(--line-2); border-radius:7px; background:var(--surface); color:var(--ink); font:inherit; font-size:13.5px}
 .su-boss{margin-top:16px; max-width:560px}
 .su-intro-f{margin-top:16px; max-width:560px}
 .su-res{margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2)}
@@ -376,6 +398,7 @@ label.su-pick{cursor:pointer}
 .su-lv:has(input:checked){border-color:var(--ink); background:color-mix(in srgb, var(--focus) 8%, var(--surface))}
 /* 설정 화면의 작은 설명 글(무엇이 공개되는지, 로그인 방법)은 --ink-3로는 대비가 모자라서 --ink-2로(6:1 이상). 지금 단계 표시는 더 구체적인 규칙이 그대로 이겨요. */
 .setup .hint,.su-lv small,.su-steps .n,.su-steps small,.su-field label small,.su-roles legend,.su-projects summary small,.su-pick small,.su-sess small{color:var(--ink-2)}
+.setup .su-newf{color:var(--ink)}
 .su-pubstate{margin-top:6px; font-weight:600}
 .su-rules{list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:2px; font-size:12.5px}
 .su-confirm{margin-top:14px; padding:14px; border:2px solid var(--err); border-radius:10px; background:color-mix(in srgb, var(--err) 8%, var(--surface))}
@@ -389,7 +412,8 @@ label.su-pick{cursor:pointer}
   .su-steps small{display:none}
 }
 @media (max-width:559px){
-  .su-grid,.su-roles,.su-levels{grid-template-columns:minmax(0,1fr)}
+  .su-grid,.su-roles,.su-levels,.su-frow.two{grid-template-columns:minmax(0,1fr)}
+  .su-tools .su-q{max-width:none; flex-basis:100%}
   .su-steps{gap:4px}
   .su-steps button{align-items:center; padding:6px 4px; text-align:center}
   .su-steps b{font-size:13.5px}
@@ -1156,9 +1180,9 @@ const SU_OUT = new Set(['names', 'tour']);   // 실제로 도시에 층 정보�
 const TEAM_ID = /^[a-z][a-z0-9-]{0,19}$/;   // bin/new_team.py와 같은 규칙
 const SU = {
   open: false, step: 0, st: null, back: null, err: '',
-  claude: null, claudeErr: '', claudeBusy: false, claudeSeq: 0, archived: false, home: '', shut: new Set(),
+  claude: null, claudeErr: '', claudeBusy: false, claudeSeq: 0, archived: false, byFolder: false, q: '', home: '', opened: new Map(),
   gh: { flow: null, seq: 0, timer: 0, fails: 0, note: '' },
-  picks: {}, boss: '', made: null, madeAt: {}, madeRun: [], skip: false,
+  picks: {}, boss: '', bossTouched: false, made: null, madeAt: {}, madeRun: [], skip: false,
   vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: ''
 };
 async function sp(path, body) {
@@ -1181,36 +1205,150 @@ const levelOf = id => SU.vis[id] || 'private';
 const myFloors = () => SU.st.floors.filter(f => !f.example);   // 예시 팀은 공개 범위에서 빼요(늘 비공개)
 const countSess = c => (c.projects || []).reduce((n, p) => n + p.sessions.length, 0);
 // 세션 기록의 시각은 ISO 글이나 숫자(밀리초·초) 둘 다 받아요.
-function agoAt(v) {
+function msOf(v) {
   let ms = typeof v === 'number' ? v : /^\d+$/.test(String(v == null ? '' : v)) ? Number(v) : Date.parse(v);
-  if (!isFinite(ms) || !ms) return '';
-  if (ms < 1e12) ms *= 1000;
-  return ago(new Date(ms).toISOString());
+  if (!isFinite(ms) || !ms || ms < 0) return 0;
+  return ms < 1e12 ? ms * 1000 : ms;
 }
-// 이미 층인 프로젝트: 층의 폴더가 프로젝트 폴더(또는 ~로 줄인 모양)와 같거나, 여기서 만든 층이에요(서버가 경로를 실제 경로로 바꿔 적어도 알아봐요).
-function floorOf(p) {
-  const norm = s => String(s || '').replace(/\/+$/, ''), mine = p.team || SU.madeAt[p.folder];   // team: 서버가 실제 경로로 맞춰 본 층 id
-  return SU.st.floors.find(f => (mine && f.id === mine) || (f.folder && [norm(p.folder), norm(p.display)].includes(norm(f.folder)))) || null;
+function agoAt(v) { const ms = msOf(v); return ms ? ago(new Date(ms).toISOString()) : ''; }
+
+/* 층으로 만들 묶음(그룹). Claude 앱 사이드바처럼: 내가 만든 그룹(사이드바 순서) → 폴더별 세션 → 폴더 없이 만든 세션 한 묶음.
+   서버(/api/setup/claude)의 groups를 그대로 쓰고, ‘폴더별 보기’나 groups를 모르는 예전 서버면 projects(폴더별)로 묶어요.
+   묶음 키: 앱 그룹 g:<id>, 폴더 p:<프로젝트 폴더>(두 보기가 같은 키라 고른 게 이어져요), 폴더 없이 만든 세션 s:<id>. */
+// 제목으로 자리 짐작: 서버(office_server.py ROLE_WORDS·BOSS_WORDS)가 세션마다 guess로 주고, 이건 guess를 모르는 예전 서버용이에요.
+// 서버와 같은 규칙: 앞에서부터 처음 맞는 자리, 영어 낱말은 앞뒤가 영문자가 아닐 때만(build의 ui, device의 dev, codex의 code는 아니에요), '그리드'의 '리드'는 팀장이 아니에요.
+const RW = (pre, en) => new RegExp(pre + '(^|[^a-z])(' + en + ')(?![a-z])', 'i');
+const ROLE_GUESS = [
+  ['팀장', RW('팀장|(^|[^그])리드|', 'lead(er|ers|s)?')],
+  ['개발자', RW('개발|엔지니어|코딩|', 'dev(s|elop(er|ers|ment|ing)?)?|engineer(s|ing)?|cod(e|es|er|ers|ing)')],
+  ['디자이너', RW('디자인|디자이너|', 'design(er|ers|s|ing)?|ui|ux')],
+  ['기획', RW('기획|', 'plan(s|ner|ners|ning)?|pms?')]
+];
+const BOSS_RE = RW('총괄|코디네이터|', 'coordinator');   // 총괄은 층의 자리가 아니라 총괄 고르기에서 맨 위에 보여요
+const SCRATCH_RE = /\/scratch-workspaces\//;   // 폴더 없이 만든 세션(앱이 만든 임시 폴더). 서버가 scratch를 주면 그걸 써요
+const guessRole = t => { t = String(t || ''); if (BOSS_RE.test(t)) return null; const m = ROLE_GUESS.find(([, re]) => re.test(t)); return m ? m[0] : null; };
+const GROUP_RANK = { group: 0, project: 1, scratch: 2 };
+const GROUP_KEY_RE = /^(?:[gp]-[0-9a-f]{12}|scratch)$/;   // 서버가 주는 묶음 key 모양(층을 만들 때 group으로 돌려줘요)
+const SU_IX = new Map();
+const ix = key => { if (!SU_IX.has(key)) SU_IX.set(key, SU_IX.size); return SU_IX.get(key); };   // 다시 그려도 같은 묶음은 같은 id(키보드 위치를 지켜요)
+const fold = s => String(s == null ? '' : s).normalize('NFC').toLowerCase();
+const pathOk = p => typeof p === 'string' && p.length < 1024 && (p.startsWith('/') || p.startsWith('~/'));
+const normDir = p => String(p || '').replace(/\/+$/, '');
+const samePath = (a, b) => !!a && !!b && (normDir(a) === normDir(b) || normDir(tilde(a)) === normDir(tilde(b)));
+const cut = (s, n) => Array.from(String(s == null ? '' : s)).slice(0, n).join('');   // 글자(코드 포인트) 단위로 잘라요: 이모지를 반으로 자르면 서버가 받지 못해요
+const glen = s => Array.from(String(s == null ? '' : s)).length;   // 서버(len)와 같은 글자 수
+// role: 서버가 그 묶음에서 그 자리로 고른 세션이면 그 자리(서버가 role을 안 주면 제목으로 짐작). 폴더별 보기는 묶음이 달라서 늘 제목으로 짐작해요.
+// guess: 제목으로 짐작한 자리(서버가 준 것, 폴더별 보기는 그룹 쪽 정보 info에서). seatedOn: 이미 앉아 있는 층 id(그 세션은 다른 층에 미리 앉히지 않아요).
+function sessOf(s, info) {
+  const title = String(s.title || ''), folder = pathOk(s.folder) ? String(s.folder) : '', cwd = String(s.cwd || ''), i = info && info.get(String(s.sessionId));
+  const guess = 'guess' in s ? (ROLE_ORDER.includes(s.guess) ? s.guess : null) : i ? i.guess : guessRole(title);
+  const role = !info && 'role' in s ? (ROLE_ORDER.includes(s.role) ? s.role : null) : guess;
+  const seatedOn = typeof s.seatedOn === 'string' && s.seatedOn ? s.seatedOn : i ? i.seatedOn : '';
+  return { sessionId: String(s.sessionId), title, cwd, folder, lastActivityAt: s.lastActivityAt, archived: s.archived === true, role, guess, seatedOn,
+    boss: s.coordinator === true || (i ? i.boss : BOSS_RE.test(title)),
+    scratch: typeof s.scratch === 'boolean' ? s.scratch : i ? i.scratch : SCRATCH_RE.test(folder || cwd) };
+}
+function parseClaude(r) {
+  const arr = v => (Array.isArray(v) ? v : []), keep = s => SU.archived || !s.archived;   // 보관한 세션은 서버가 거르지만 한 번 더
+  const raw = Array.isArray(r.groups) ? r.groups.filter(g => g && typeof g === 'object') : null;
+  const info = new Map();   // 그룹 쪽 세션 정보(짐작한 자리·폴더 없음)를 폴더별 보기에도 써요
+  if (raw) for (const g of raw) for (const s of arr(g.sessions)) if (s && s.sessionId) info.set(String(s.sessionId), sessOf(s));
+  const projects = arr(r.projects).filter(p => p && p.folder).map(p => ({
+    folder: String(p.folder), display: String(p.display || p.folder), team: p.team ? String(p.team) : '', exists: p.exists !== false,
+    sessions: arr(p.sessions).filter(s => s && s.sessionId).map(s => sessOf(Object.assign({ folder: String(p.folder) }, s), info)).filter(keep)
+  })).filter(p => p.sessions.length);
+  const last = ss => Math.max(0, ...ss.map(s => msOf(s.lastActivityAt)));
+  const fgroups = projects.map((p, i) => {
+    const scratch = SCRATCH_RE.test(p.folder) || p.sessions.every(s => s.scratch), real = !scratch && p.exists;
+    return { key: 'p:' + p.folder, kind: scratch ? 'scratch' : 'project', byFolder: true, name: baseName(p.folder), order: i, i, sessions: p.sessions,
+      folder: p.folder, display: p.display, folders: real ? [p.folder] : [], suggestedFolder: real ? p.folder : '', newBase: '',
+      suggestedName: cut(scratch ? (p.sessions[0].title || '새 층') : baseName(p.folder), 30), suggestedId: '', team: p.team, last: last(p.sessions) };
+  });
+  let groups = null;
+  if (raw) {
+    const seen = new Set();
+    groups = raw.map((g, i) => {
+      const kind = GROUP_RANK[g.kind] === undefined ? 'project' : g.kind;
+      const sessions = arr(g.sessions).filter(s => s && s.sessionId).map(s => sessOf(s)).filter(keep);
+      const sf = pathOk(g.suggestedFolder) ? String(g.suggestedFolder) : '';
+      const folder = kind === 'project' ? (pathOk(g.folder) ? String(g.folder) : (sessions.find(s => s.folder) || {}).folder || sf) : '';
+      let key = kind === 'project' && folder ? 'p:' + folder : (kind === 'scratch' ? 's:' : 'g:') + String(g.key == null ? i : g.key);
+      while (seen.has(key)) key += '+';
+      seen.add(key);
+      const name = String(g.name || '').trim() || (kind === 'scratch' ? '폴더 없이 만든 세션' : baseName(folder) || '이름 없는 그룹');
+      const nb = typeof g.newFolder === 'string' && /^~?\/.+\/[^/]+$/.test(g.newFolder) ? g.newFolder.replace(/[^/]+$/, '') : '';
+      const folders = [...new Set([sf, ...arr(g.folders).filter(pathOk).map(String)].filter(Boolean))];   // 서버가 추천한 폴더는 늘 고를 수 있게
+      return { key, sk: String(g.key == null ? '' : g.key), kind, name, order: typeof g.order === 'number' && isFinite(g.order) ? g.order : 1e9 + i, i, sessions, folder,
+        hidden: g.hidden === true, collapsed: g.collapsed === true, display: folder, folders, suggestedFolder: sf, newBase: nb,
+        suggestedName: cut(String(g.suggestedName || '').trim(), 30), suggestedId: TEAM_ID.test(String(g.suggestedId || '')) ? String(g.suggestedId) : '',
+        team: g.team ? String(g.team) : '', last: msOf(g.lastActivityAt) || last(sessions) };
+    }).filter(g => g.kind === 'group' || g.sessions.length)
+      .sort((a, b) => GROUP_RANK[a.kind] - GROUP_RANK[b.kind] || a.order - b.order || a.i - b.i);
+    // 새 폴더로 만든 층(없어진 폴더·홈 폴더 묶음)은 서버가 묶음 쪽 team으로만 알려 줘요. 같은 폴더 묶음(같은 키)이라 폴더별 보기에서도 ‘이미 층’으로 보여요
+    const madeAs = new Map(groups.filter(g => g.kind === 'project' && g.team).map(g => [g.key, g.team]));
+    for (const f of fgroups) if (!f.team && madeAs.has(f.key)) f.team = madeAs.get(f.key);
+  }
+  // 총괄 후보: 서버가 고른 세션(suggestedBoss), 없으면 제목이 총괄 같은 세션 중 가장 최근(보관 안 한) 세션
+  const pool = projects.flatMap(p => p.sessions).filter(s => s.boss && !s.archived).sort((a, b) => msOf(b.lastActivityAt) - msOf(a.lastActivityAt));
+  const sb = typeof r.suggestedBoss === 'string' && /^local_[0-9a-f-]{8,64}$/.test(r.suggestedBoss) ? r.suggestedBoss : pool.length ? pool[0].sessionId : '';
+  return { app: !!r.app, groupSource: r.groupSource === 'app' ? 'app' : 'folder', projects, fgroups, groups, suggestedBoss: sb };
+}
+const hasGroups = () => !!(SU.claude && SU.claude.groups);
+const viewGroups = () => (!SU.claude ? [] : hasGroups() && !SU.byFolder ? SU.claude.groups : SU.claude.fgroups);
+const otherView = () => (!SU.claude || !hasGroups() ? [] : SU.byFolder ? SU.claude.groups : SU.claude.fgroups);
+const word = () => (hasGroups() && !SU.byFolder ? '그룹' : '폴더');
+function viewSessions() {   // 지금 보기의 모든 세션(묶음 순서대로): id → { s, g }
+  const m = new Map();
+  for (const g of viewGroups()) for (const s of g.sessions) if (!m.has(s.sessionId)) m.set(s.sessionId, { s, g });
+  return m;
+}
+// 이미 층인 묶음: 서버가 맞춰 본 층(team: 그 폴더를 쓰는 층, 또는 그 그룹으로 만든 층), 이번에 여기서 만든 층, 폴더가 같은 층(서버가 경로를 실제 경로로 바꿔 적어도 알아봐요)
+function doneFloor(g) {
+  const fl = SU.st.floors, id = g.team || SU.madeAt[g.key];
+  return (id && fl.find(f => f.id === id)) || (g.kind === 'project' && g.folder && fl.find(f => samePath(f.folder, g.folder) || samePath(f.folder, g.display))) || null;
 }
 function slugId(s) { return String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^[^a-z]+/, '').slice(0, 20).replace(/-+$/, ''); }
-function autoId(name, folder) {
-  const base = slugId(name) || slugId(baseName(folder)) || 'team';
-  const taken = new Set([...SU.st.floors.map(f => f.id), ...Object.entries(SU.picks).filter(([k, p]) => k !== folder && p.on).map(([, p]) => p.id)]);
-  let id = base, n = 2;
-  while (taken.has(id)) { const suf = '-' + n++; id = base.slice(0, 20 - suf.length).replace(/-+$/, '') + suf; }
+// 팀 id: 서버가 추천한 id, 아니면 층 이름(영문)에서, 한글 이름이면 폴더 이름이나 team-<n>. 있는 층·같이 고른 층과 겹치지 않게(-2, -3…).
+function autoId(g, k) {
+  const taken = new Set([...SU.st.floors.map(f => f.id), ...Object.entries(SU.picks).filter(([key, p]) => key !== g.key && p.on).map(([, p]) => p.id)]);
+  const fromName = slugId(k.name);
+  let id = (k.name.trim() === g.suggestedName || !fromName) && g.suggestedId ? g.suggestedId
+    : fromName || slugId(baseName(k.fmode === 'path' ? k.folder : g.suggestedFolder)) || 'team-1';
+  const root = /^team-\d+$/.test(id) ? 'team' : id;
+  for (let n = 2; taken.has(id); n++) { const suf = '-' + n; id = root.slice(0, 20 - suf.length).replace(/-+$/, '') + suf; }
   return id;
 }
-function pickOf(p) {
-  let k = SU.picks[p.folder];
+// 자리 미리 채우기: 제목으로 짐작한 자리(겹치면 가장 최근 세션), 팀장이 비면 가장 최근 세션(폴더 없이 만든 세션 묶음은 빼요). 총괄 같은 세션, 이미 다른 층에 앉은 세션은 앉히지 않아요.
+function seatGuess(g, k) {
+  const ss = g.sessions.filter(s => !s.archived && !s.boss && !s.seatedOn).sort((a, b) => msOf(b.lastActivityAt) - msOf(a.lastActivityAt)), used = new Set();
+  for (const r of ROLE_ORDER) {
+    const s = ss.find(x => x.role === r && !used.has(x.sessionId));
+    if (s) { k.roles[r] = k.guessed[r] = s.sessionId; k.why[r] = 'title'; used.add(s.sessionId); }
+  }
+  if (!k.roles['팀장'] && g.kind !== 'scratch') {
+    const s = ss.find(x => !x.role && !used.has(x.sessionId));
+    if (s) { k.roles['팀장'] = k.guessed['팀장'] = s.sessionId; k.why['팀장'] = 'recent'; }
+  }
+}
+function pickOf(g) {
+  let k = SU.picks[g.key];
   if (!k) {
-    k = SU.picks[p.folder] = { on: false, name: baseName(p.folder).slice(0, 30), id: '', idEdited: false, roles: { '팀장': '', '개발자': '', '디자이너': '', '기획': '' }, err: '' };
-    const lead = p.sessions.find(s => !s.archived);   // 팀장 자리는 가장 최근 세션으로 먼저 채워 둬요(바꿀 수 있어요)
-    if (lead) k.roles['팀장'] = lead.sessionId;
+    const empty = () => ({ '팀장': '', '개발자': '', '디자이너': '', '기획': '' });
+    k = SU.picks[g.key] = { on: false, name: cut(g.suggestedName || g.name, 30), id: '', idEdited: false,
+      fmode: g.suggestedFolder ? 'path' : 'new', folder: g.suggestedFolder, custom: '', roles: empty(), guessed: empty(), why: {}, err: '' };
+    seatGuess(g, k);
   }
   return k;
 }
-const pendingPicks = () => ((SU.claude && SU.claude.projects) || []).filter(p => !floorOf(p) && p.exists && SU.picks[p.folder] && SU.picks[p.folder].on);
-const sessLabel = s => `${s.title || '(제목 없음)'}${s.archived ? ' (보관됨)' : ''} · ${agoAt(s.lastActivityAt) || '—'}`;
+const folderOf = k => (k.fmode === 'new' ? '' : k.fmode === 'custom' ? k.custom.trim() : k.folder);
+const newPath = (g, k) => (g.newBase || '~/agencity-teams/') + (k.id || '<팀 id>');
+const pendingPicks = () => viewGroups().filter(g => SU.picks[g.key] && SU.picks[g.key].on && !doneFloor(g)).map(g => ({ g, k: SU.picks[g.key] }));
+function otherPicks() {   // 다른 보기에서만 보이는 묶음 중 고른 것(지금 보기에서는 만들지 않아요)
+  const here = new Set(viewGroups().map(g => g.key));
+  return otherView().filter(g => !here.has(g.key) && SU.picks[g.key] && SU.picks[g.key].on && !doneFloor(g)).length;
+}
+const pickCount = () => `고른 ${word()} ${pendingPicks().length}개` + (otherPicks() ? ` · ${SU.byFolder ? '그룹' : '폴더별'} 보기에서 고른 ${otherPicks()}개는 그 보기에서 만들어요` : '');
+const sessLabel = (s, where) => `${s.title || '(제목 없음)'}${s.archived ? ' (보관됨)' : ''}${where ? ' · ' + where : ''} · ${agoAt(s.lastActivityAt) || '—'}`;
 const worktree = s => { const m = String(s.cwd || '').match(/\/\.claude\/worktrees\/([^/]+)/); return m ? m[1] : ''; };
 const pubCount = () => myFloors().filter(f => SU_OUT.has(levelOf(f.id))).length;   // '공개'는 층 정보가 나가는 층만 세요
 const withdraw = () => pubCount() === 0;   // 공개할 층이 없으면 올리기 = 도시에서 내리기(층 정보를 비워 올려요)
@@ -1274,61 +1412,198 @@ function loginHTML() {
   return `<h2 class="su-h" id="suHead" tabindex="-1">로그인</h2>
     <p class="su-lead">GitHub 계정은 <b>에이전시티 도시에 내 건물과 공개한 층을 올릴 때만</b> 써요. 사무실은 로그인 없이도 이 맥에서 다 돼요.</p>${body}`;
 }
+/* 묶음 목록(2·3단계 같이 써요): 찾기·보관한 세션·폴더별 보기, 사이드바 순서의 구역 */
+function toolsHTML() {
+  return `<div class="su-tools">
+      <div class="su-field su-q"><label for="suQ">찾기 <small>그룹 이름이나 세션 제목</small></label><input type="search" id="suQ" data-su-in="q" value="${esc(SU.q)}" placeholder="예: 정산" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-describedby="suQN"></div>
+      <label class="su-check"><input type="checkbox" id="suArch" data-su-in="archived"${SU.archived ? ' checked' : ''}> 보관한 세션도 보기</label>
+      ${hasGroups() ? `<label class="su-check"><input type="checkbox" id="suByF" data-su-in="byfolder"${SU.byFolder ? ' checked' : ''}> 폴더별 보기</label>` : ''}
+    </div>
+    <p class="hint su-count" id="suQN" aria-live="polite">${esc(countLine())}</p>`;
+}
+function countLine() {
+  const gs = viewGroups(), n = k => gs.filter(g => g.kind === k).length, ss = viewSessions().size;
+  if (!hasGroups() || SU.byFolder) return `폴더 ${gs.length}개 · 세션 ${ss}개`;
+  const sc = gs.find(g => g.kind === 'scratch');
+  return [n('group') ? `내가 만든 그룹 ${n('group')}개` : '', n('project') ? `폴더 ${n('project')}개` : '', sc ? `폴더 없이 만든 세션 ${sc.sessions.length}개` : ''].filter(Boolean).join(' · ') + ` · 세션 모두 ${ss}개`;
+}
+function srcNote() {
+  if (!hasGroups()) return '';
+  const mine = SU.claude.groups.some(g => g.kind === 'group');
+  const t = SU.byFolder ? '세션을 시작한 폴더마다 따로 묶었어요(예전 방식). 폴더 없이 만든 세션은 앱이 만든 임시 폴더마다 따로 나와요.'
+    : SU.claude.groupSource !== 'app' ? 'Claude 앱의 그룹을 읽지 못해서 폴더별로 묶었어요. 폴더 없이 만든 세션은 한 묶음으로 모았어요.'
+    : mine ? 'Claude 앱 사이드바와 같은 순서예요. 내가 만든 그룹이 먼저, 그다음 폴더별 세션, 마지막에 폴더 없이 만든 세션이에요.'
+    : 'Claude 앱에 만든 그룹이 없어서 폴더별로 묶고, 폴더 없이 만든 세션은 한 묶음으로 모았어요. 앱 사이드바에서 그룹을 만들면 여기에도 그대로 나와요.';
+  return `<p class="hint su-src">${t}</p>`;
+}
+function sectionsHTML(item, ulClass) {
+  const gs = viewGroups(), mine = gs.filter(g => g.kind === 'group'), rest = gs.filter(g => g.kind !== 'group');
+  const secs = !hasGroups() || SU.byFolder ? [{ id: 'f', title: '폴더별', note: '세션을 시작한 폴더마다 한 묶음', items: gs }]
+    : [mine.length && { id: 'g', title: 'Claude 앱에서 만든 그룹', note: '사이드바 순서', items: mine },
+       rest.length && { id: 'o', title: mine.length ? '그 밖의 세션' : '세션', note: '폴더별 · 폴더 없이 만든 세션은 한 묶음', items: rest }].filter(Boolean);
+  return secs.map(s => `<div class="su-sec" data-sec="${s.id}"><h4 class="su-sec-h">${esc(s.title)} <small>· ${esc(s.note)}</small></h4><ul class="${ulClass}">${s.items.map(item).join('')}</ul></div>`).join('')
+    + '<p class="empty" id="suNone" style="margin-top:12px" hidden>찾는 그룹이나 세션이 없어요. 다른 낱말로 찾아봐요.</p>';
+}
+const isOpen = g => (SU.opened.has(g.key) ? SU.opened.get(g.key) : !g.collapsed && g.sessions.length <= 8);   // 앱에서 접어 둔 그룹은 접어서
+const projPath = g => (g.kind === 'project' && g.folder ? ` <code title="${esc(g.folder)}">${esc(tilde(g.folder))}</code>` : '');
+const groupMeta = g => `세션 ${g.sessions.length}개${g.last ? ' · 마지막 ' + agoAt(g.last) : ''}`;
+const scratchChip = g => (g.byFolder && g.kind === 'scratch' ? ' <span class="chip">폴더 없이 만든 세션</span>' : '') + (g.hidden ? ' <span class="chip">앱 사이드바에서 숨긴 그룹</span>' : '');
+function sessLi(s, g) {
+  const where = g.kind === 'group' && s.folder && !s.scratch ? ` <span class="chip" title="${esc(s.folder)}">${esc(baseName(s.folder))}</span>` : '';
+  return `<li data-sid="${esc(s.sessionId)}"><span>${esc(s.title || '(제목 없음)')}${s.archived ? ' <span class="chip">보관됨</span>' : ''}${worktree(s) ? ` <span class="chip">worktree ${esc(worktree(s))}</span>` : ''}${where}</span><small>${esc(agoAt(s.lastActivityAt))}</small></li>`;
+}
+function browseHTML(g) {   // 2단계: 펼쳐 보는 목록
+  const f = doneFloor(g);
+  return `<li data-gkey="${esc(g.key)}"><details data-gkey="${esc(g.key)}"${isOpen(g) ? ' open' : ''}><summary><b>${esc(g.name)}</b>${scratchChip(g)}${f ? ` <span class="chip">${f.floor ? esc(f.floor + '층') : '층'} · ${esc(f.name)}</span>` : ''}${projPath(g)} <small>· ${esc(groupMeta(g))}</small></summary>
+    <ul class="su-sess">${g.sessions.map(s => sessLi(s, g)).join('') || '<li class="empty">보이는 세션이 없어요</li>'}</ul></details></li>`;
+}
+// 찾기: 목록을 다시 그리지 않고 hidden만 바꿔요(한글을 입력하는 중에도 칸이 그대로예요). 3단계에서 고른 묶음은 늘 보여요.
+const peekOf = (g, ids) => {
+  const ss = ids ? g.sessions.filter(s => ids.has(s.sessionId)) : g.sessions;
+  if (!ss.length) return '보이는 세션이 없어요';
+  return (ids ? '찾은 세션: ' : '') + ss.slice(0, 3).map(s => s.title || '(제목 없음)').join(' · ') + (ss.length > 3 ? ` 외 ${ss.length - 3}개` : '');
+};
+function applyFilter() {
+  const body = $('#suBody');
+  if (!body || !SU.claude || (SU.step !== 1 && SU.step !== 2)) return;
+  const q = fold(SU.q).trim(), gm = new Map(viewGroups().map(g => [g.key, g]));
+  let ng = 0, ns = 0;
+  for (const el of $$('li[data-gkey]', body)) {
+    const g = gm.get(el.dataset.gkey);
+    if (!g) continue;
+    const nameHit = !q || fold(g.name).includes(q) || (g.kind === 'project' && fold(tilde(g.folder)).includes(q));
+    const hits = q ? new Set(g.sessions.filter(s => fold(s.title).includes(q)).map(s => s.sessionId)) : new Set();
+    const k = SU.picks[g.key], keep = nameHit || hits.size > 0 || (SU.step === 2 && !!k && k.on && !el.classList.contains('done'));
+    el.hidden = !keep;
+    if (!keep) continue;
+    if (nameHit || hits.size) { ng++; ns += nameHit ? g.sessions.length : hits.size; }   // 고른 묶음이라 보이기만 하는 건 세지 않아요
+    if (SU.step === 1) {
+      for (const li of $$('li[data-sid]', el)) li.hidden = !nameHit && !hits.has(li.dataset.sid);
+      const d = $('details', el);
+      if (d) d.open = q && hits.size ? true : isOpen(g);
+    } else {
+      const pk = $('.su-peek', el);
+      if (pk) pk.textContent = peekOf(g, q && !nameHit && hits.size ? hits : null);
+    }
+  }
+  for (const sec of $$('.su-sec', body)) sec.hidden = !$('li[data-gkey]:not([hidden])', sec);
+  const none = $('#suNone'), n = $('#suQN'), shown = SU.q.trim();
+  if (none) none.hidden = !q || ng > 0;
+  if (n) n.textContent = !q ? countLine() : ng ? `‘${shown}’ 찾은 묶음 ${ng}개 · 세션 ${ns}개` : `‘${shown}’: 맞는 그룹이나 세션이 없어요`;
+}
 function claudeHTML() {
-  const c = SU.claude, app = c ? c.app : !!SU.st.claude.app, ps = c ? c.projects : [];
+  const c = SU.claude, app = c ? c.app : !!SU.st.claude.app;
+  const nG = hasGroups() ? c.groups.filter(g => g.kind === 'group').length : 0;
   let list;
   if (!c) list = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
-  else if (!ps.length) list = '<p class="empty" style="margin-top:12px">찾은 세션이 없어요.</p>';
-  else list = `<h3 class="su-sub">프로젝트와 세션</h3><ul class="su-projects">${ps.map(p => `<li><details data-folder="${esc(p.folder)}"${SU.shut.has(p.folder) ? '' : ' open'}><summary><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>· 세션 ${p.sessions.length}개${p.sessions[0] && agoAt(p.sessions[0].lastActivityAt) ? ' · 마지막 ' + esc(agoAt(p.sessions[0].lastActivityAt)) : ''}</small></summary>
-      <ul class="su-sess">${p.sessions.map(s => `<li><span>${esc(s.title || '(제목 없음)')}${s.archived ? ' <span class="chip">보관됨</span>' : ''}${worktree(s) ? ` <span class="chip">worktree ${esc(worktree(s))}</span>` : ''}</span><small>${esc(agoAt(s.lastActivityAt))}</small></li>`).join('')}</ul></details></li>`).join('')}</ul>`;
+  else if (!viewGroups().length) list = `${toolsHTML()}<p class="empty" style="margin-top:12px">찾은 세션이 없어요.${SU.archived ? '' : ' 보관한 세션까지 보려면 위에서 켜요.'}</p>`;
+  else list = `<h3 class="su-sub">${hasGroups() && !SU.byFolder ? 'Claude 앱 사이드바처럼 묶은 세션' : '폴더별 세션'}</h3>${srcNote()}${toolsHTML()}${sectionsHTML(browseHTML, 'su-projects')}`;
   return `<h2 class="su-h" id="suHead" tabindex="-1">Claude 연결</h2>
-    <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)만 읽어요. 대화 내용은 읽지 않아요. 지금은 Claude Code 세션만 층이 되고, Codex·Gemini CLI는 앞으로 붙여요.</p>
-    <div class="su-box ${app ? 'su-ok' : 'su-warn'}"><p><i class="sd ${app ? 'here' : 'block'}"></i>${app ? 'Claude 앱을 찾았어요' : 'Claude 앱을 찾지 못했어요'}${c ? ` · 프로젝트 ${ps.length}개, 세션 ${countSess(c)}개` : ''}</p>
+    <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)과 사이드바에 만든 그룹(이름·순서)만 읽어요. 대화 내용은 읽지 않아요. 지금은 Claude Code 세션만 층이 되고, Codex·Gemini CLI는 앞으로 붙여요.</p>
+    <div class="su-box ${app ? 'su-ok' : 'su-warn'}"><p><i class="sd ${app ? 'here' : 'block'}"></i>${app ? 'Claude 앱을 찾았어요' : 'Claude 앱을 찾지 못했어요'}${c ? ` · 세션 ${countSess(c)}개${nG ? `, 내가 만든 그룹 ${nG}개` : ''}` : ''}</p>
       ${app ? '' : `<p class="hint">Claude 데스크톱 앱을 설치하고, 층으로 만들 프로젝트 폴더에서 Claude Code 세션을 하나 이상 연 뒤 ‘다시 찾기’를 눌러요.${SU.st.platform === 'mac' ? '' : ' 이 컴퓨터에서 세션을 찾을 수 없으면 터미널에서 python3 bin/new_team.py로 층을 만들어요.'}</p>`}
-      <div class="su-actions"><label class="su-check"><input type="checkbox" id="suArch" data-su-in="archived"${SU.archived ? ' checked' : ''}> 보관한 세션도 보기</label><button type="button" class="btn" data-su="claude-reload"${SU.claudeBusy ? ' disabled' : ''}>${SU.claudeBusy ? '찾는 중…' : '다시 찾기'}</button></div></div>${claudeErrP()}${list}`;
+      <div class="su-actions"><button type="button" class="btn" data-su="claude-reload"${SU.claudeBusy ? ' disabled' : ''}>${SU.claudeBusy ? '찾는 중…' : '다시 찾기'}</button></div></div>${claudeErrP()}${list}`;
 }
 // 세션 목록을 못 읽었으면(예전 목록이 남아 있어도) 2·3단계 모두에 알려요.
 const claudeErrP = () => SU.claudeErr ? `<p class="err" role="alert" style="margin-top:12px">세션 목록을 읽지 못했어요: ${esc(SU.claudeErr)}${SU.claude ? ' (아래는 전에 읽은 목록이에요)' : ''}</p>` : '';
-function projHTML(p, i) {
-  const done = floorOf(p);
-  if (done) return `<li class="su-proj done"><div class="su-pick"><span class="chip">${done.floor ? esc(done.floor + '층') + ' · ' : ''}만들었어요</span><span><b>${esc(done.name)}</b> <code>${esc(p.display)}</code></span></div></li>`;
-  if (!p.exists) return `<li class="su-proj done"><div class="su-pick"><span class="chip">폴더 없음</span><span><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>지금은 없는 폴더라 층으로 만들 수 없어요</small></span></div></li>`;
-  const k = pickOf(p), have = new Set(p.sessions.map(s => s.sessionId));
-  ROLE_ORDER.forEach(r => { if (k.roles[r] && !have.has(k.roles[r])) k.roles[r] = ''; });   // 목록에서 빠진 세션(보관함 숨김 등)은 비워요
-  const opt = sel => '<option value="">비워 두기</option>' + p.sessions.map(s => `<option value="${esc(s.sessionId)}"${s.sessionId === sel ? ' selected' : ''}>${esc(sessLabel(s))}</option>`).join('');
-  return `<li class="su-proj${k.on ? ' on' : ''}" data-folder="${esc(p.folder)}">
-    <label class="su-pick"><input type="checkbox" id="suP${i}" data-su-in="pick"${k.on ? ' checked' : ''}><span><b>${esc(baseName(p.folder))}</b> <code>${esc(p.display)}</code> <small>세션 ${p.sessions.length}개</small></span></label>
-    <div class="su-proj-body"${k.on ? '' : ' hidden'}>
+/* 3단계: 묶음 하나 = 층 하나. 고르면 층 이름·팀 id·폴더·자리가 미리 채워져요(모두 고칠 수 있어요). */
+const guessNote = (k, r) => (k.roles[r] && k.roles[r] === k.guessed[r] ? (k.why[r] === 'recent' ? '가장 최근 세션이라 골랐어요' : '제목 보고 골랐어요') : '');
+function whereHTML(g, k) {   // 고르기 전에도 어느 폴더를 쓸지 보여 줘요
+  if (k.fmode === 'custom' && !folderOf(k)) return '층으로 쓸 폴더를 직접 적기로 골랐어요(아직 비어 있어요)';
+  if (k.fmode === 'new' || !folderOf(k)) return `새 폴더 <code>${esc(newPath(g, k))}</code>를 만들어 층으로 써요`;
+  const more = k.fmode === 'path' && g.folders.length > 1 ? ` <small>(고르면 다른 폴더 ${g.folders.length - 1}곳으로 바꿀 수 있어요)</small>` : '';
+  return `폴더 <code title="${esc(folderOf(k))}">${esc(tilde(folderOf(k)))}</code>에 층을 만들어요${more}`;
+}
+function folderHint(g, k) {
+  if (k.fmode === 'new') return `${g.folders.length ? '' : '이 묶음에는 층으로 쓸 프로젝트 폴더가 없어요. '}새 폴더 <code>${esc(newPath(g, k))}</code>를 만들어 층으로 써요. 층을 만들 때 생겨요.`;
+  if (k.fmode === 'custom') return '홈 폴더 안의 있는 폴더를 전체 경로로 적어요(~/로 시작해도 돼요).';
+  return `<code>${esc(tilde(k.folder))}</code> 안에 팀 사무실(.office)을 만들어요.`;
+}
+function folderHTML(g, k, i) {
+  const usedBy = f => SU.st.floors.find(x => samePath(x.folder, f));   // 다른 층이 쓰는 폴더는 고를 수는 있지만 ‘층 만들기’에서 막아요
+  const opts = g.folders.map(f => `<option value="${esc(f)}"${k.fmode === 'path' && k.folder === f ? ' selected' : ''}>${esc(tilde(f))}${usedBy(f) ? esc(` · 이미 ‘${usedBy(f).name}’ 층`) : f === g.suggestedFolder && g.folders.length > 1 ? ' · 세션이 가장 많은 폴더' : ''}</option>`).join('');
+  return `<div class="su-field su-folder"><label for="suF${i}">층으로 쓸 폴더 <small>팀 사무실을 이 폴더 안에 만들어요</small></label>
+      <div class="su-frow${k.fmode === 'custom' ? ' two' : ''}"><select id="suF${i}" data-su-in="fmode" aria-describedby="suFh${i}">${opts}<option value="new"${k.fmode === 'new' ? ' selected' : ''}>${esc('새 폴더 만들기 · ' + newPath(g, k))}</option><option value="custom"${k.fmode === 'custom' ? ' selected' : ''}>다른 폴더 직접 적기…</option></select>
+        <input type="text" id="suFc${i}" data-su-in="fcustom" value="${esc(k.custom)}" placeholder="~/code/my-app" aria-label="${esc(g.name)} 층으로 쓸 폴더 경로" aria-describedby="suFh${i}" autocomplete="off" autocapitalize="off" spellcheck="false"${k.fmode === 'custom' ? '' : ' hidden'}></div>
+      <small class="hint${k.fmode === 'new' ? ' su-newf' : ''}" id="suFh${i}">${folderHint(g, k)}</small></div>`;
+}
+// 자리 고르기: 이 묶음의 세션 먼저(그 자리로 짐작한 세션 → 짐작 못 한 세션 → 다른 자리로 짐작한 세션), 그다음 ‘다른 세션’에 나머지 모두
+const seatedName = s => { const f = s.seatedOn && SU.st.floors.find(x => x.id === s.seatedOn); return s.seatedOn ? (f ? f.name : s.seatedOn) : ''; };
+function roleOpts(g, k, r, all) {
+  const sel = k.roles[r], rank = s => (s.seatedOn ? 3 : s.guess === r ? 0 : s.guess ? 2 : 1);   // 이미 다른 층에 앉은 세션은 맨 뒤에
+  const mine = g.sessions.slice().sort((a, b) => rank(a) - rank(b) || msOf(b.lastActivityAt) - msOf(a.lastActivityAt));
+  const others = [...all.values()].filter(x => x.g.key !== g.key).sort((a, b) => !!a.s.seatedOn - !!b.s.seatedOn);
+  const o = (s, where) => `<option value="${esc(s.sessionId)}"${s.sessionId === sel ? ' selected' : ''}>${esc(sessLabel(s, where) + (s.seatedOn ? ` · 이미 ‘${seatedName(s)}’ 층` : ''))}</option>`;
+  return '<option value="">비워 두기</option>' + (mine.length ? `<optgroup label="${esc(g.name)}">${mine.map(s => o(s)).join('')}</optgroup>` : '')
+    + (others.length ? `<optgroup label="다른 세션">${others.map(x => o(x.s, x.g.name)).join('')}</optgroup>` : '');
+}
+function pickBodyHTML(g, k, i, all) {
+  return `<div class="su-proj-body">
       <div class="su-grid">
         <div class="su-field"><label for="suN${i}">층 이름</label><input type="text" id="suN${i}" data-su-in="name" maxlength="30" value="${esc(k.name)}" autocomplete="off"></div>
         <div class="su-field"><label for="suI${i}">팀 id <small>영문 소문자·숫자·-</small></label><input type="text" id="suI${i}" data-su-in="id" maxlength="20" value="${esc(k.id)}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suIh${i}"><small class="hint" id="suIh${i}">화면 주소(#id)와 teams/ 폴더 이름에 써요</small></div>
       </div>
-      <fieldset class="su-roles"><legend>자리마다 앉힐 세션 (한 세션은 한 자리에만)</legend>${ROLE_ORDER.map((r, j) => `<div class="su-field"><label for="suR${i}-${j}">${r}</label><select id="suR${i}-${j}" data-su-in="role" data-role="${r}">${opt(k.roles[r])}</select></div>`).join('')}</fieldset>
+      ${folderHTML(g, k, i)}
+      <fieldset class="su-roles"><legend>자리마다 앉힐 세션 (한 세션은 한 자리에만)</legend>${ROLE_ORDER.map((r, j) => `<div class="su-field"><label for="suR${i}-${j}">${r}</label><select id="suR${i}-${j}" data-su-in="role" data-role="${r}" aria-describedby="suRg${i}-${j}">${roleOpts(g, k, r, all)}</select><small class="su-guess" id="suRg${i}-${j}"${guessNote(k, r) ? '' : ' hidden'}>${guessNote(k, r)}</small></div>`).join('')}</fieldset>
       <p class="err" role="alert" data-err style="margin-top:8px">${esc(k.err)}</p>
-    </div></li>`;
+    </div>`;
 }
-// 이번 설정에서 만든 층: 각 프로젝트의 CLAUDE.local.md에 넣을 한 줄(복사 버튼과 함께)
+function pickHTML(g, all) {
+  const i = ix(g.key), done = doneFloor(g), meta = `<small>${esc(groupMeta(g))}</small>`;
+  if (done) return `<li class="su-proj done" data-gkey="${esc(g.key)}"><div class="su-pick"><span class="chip">${done.floor ? esc(done.floor + '층') + ' · ' : ''}만들었어요</span><span><b>${esc(g.name)}</b>${done.name !== g.name ? `<small>→ ‘${esc(done.name)}’ 층</small>` : ''}${scratchChip(g)}${meta}${projPath(g)}</span></div></li>`;
+  const k = pickOf(g);
+  ROLE_ORDER.forEach(r => { if (k.roles[r] && !all.has(k.roles[r])) k.roles[r] = ''; });   // 목록에서 빠진 세션(보관함 숨김 등)은 비워요
+  if (k.fmode === 'path' && !g.folders.includes(k.folder)) { k.fmode = g.suggestedFolder ? 'path' : 'new'; k.folder = g.suggestedFolder; }   // 다시 읽은 목록에 없는 폴더
+  if (!k.on && !k.idEdited) k.id = autoId(g, k);   // 고르기 전에는 지금 고르면 받을 id를 미리 보여 줘요
+  return `<li class="su-proj${k.on ? ' on' : ''}" data-gkey="${esc(g.key)}">
+    <label class="su-pick"><input type="checkbox" id="suP${i}" data-su-in="pick"${k.on ? ' checked' : ''} aria-describedby="suPd${i} suW${i}"><span><b>${esc(g.name)}</b>${scratchChip(g)}${meta}${projPath(g)}</span></label>
+    <p class="su-peek" id="suPd${i}">${esc(peekOf(g))}</p>
+    <p class="su-where" id="suW${i}"${k.on ? ' hidden' : ''}>${whereHTML(g, k)}</p>
+    ${k.on ? pickBodyHTML(g, k, i, all) : ''}</li>`;
+}
+// 총괄: 제목이 총괄 같은 세션을 맨 위에(서버가 고른 후보가 맨 앞), 그다음 묶음별로 모든 세션. 아직 총괄이 없으면 후보를 미리 골라 둬요(‘층 만들기’를 눌러야 정해져요).
+function bossHTML(all) {
+  const sb = SU.claude.suggestedBoss, xs = [...all.values()];
+  const likely = xs.filter(x => x.s.boss).sort((a, b) => (b.s.sessionId === sb) - (a.s.sessionId === sb) || msOf(b.s.lastActivityAt) - msOf(a.s.lastActivityAt));
+  if (SU.boss && !all.has(SU.boss)) SU.boss = '';
+  if (!SU.boss && !SU.bossTouched && !SU.st.boss && sb && all.has(sb)) SU.boss = sb;
+  const auto = !SU.bossTouched && !!SU.boss && SU.boss === sb;
+  const o = x => `<option value="${esc(x.s.sessionId)}"${x.s.sessionId === SU.boss ? ' selected' : ''}>${esc(sessLabel(x.s, x.s.boss ? x.g.name : ''))}</option>`;
+  const byG = viewGroups().map(g => [g, xs.filter(x => x.g === g && !x.s.boss)]).filter(([, l]) => l.length);
+  return `<div class="su-field su-boss"><label for="suBoss">총괄(코디네이터) 세션</label><select id="suBoss" data-su-in="boss" aria-describedby="suBossG suBossH"><option value="">${SU.st.boss ? '그대로 두기' : '나중에 정하기'}</option>${likely.length ? `<optgroup label="제목이 총괄 같은 세션">${likely.map(o).join('')}</optgroup>` : ''}${byG.map(([g, l]) => `<optgroup label="${esc(g.name)}">${l.map(o).join('')}</optgroup>`).join('')}</select>
+      <small class="su-guess" id="suBossG"${auto ? '' : ' hidden'}>${auto ? '제목 보고 골랐어요' : ''}</small>
+      <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}${likely.length ? ' 제목이 총괄 같은(총괄·코디네이터) 세션을 맨 위에 뒀어요.' : ''}</small></div>`;
+}
+// 이번 설정에서 만든 층이 팀 규칙(.office/RULES.md)을 읽게 하는 법(복사 버튼과 함께).
+// Claude Code는 세션 폴더와 그 위 폴더의 CLAUDE.local.md만 읽어요. 층 폴더 안에서 연 세션은 층 폴더의 CLAUDE.local.md에 상대 경로 한 줄이면 되고,
+// 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등)은 절대 경로 한 줄을 그 세션 폴더의 CLAUDE.local.md에 넣거나 세션 창에 한 번 보내요.
 function rulesHTML(id) {
   const ps = SU.madeRun;
   if (!ps.length) return '';
-  return `<p class="hint" style="margin-top:8px">각 프로젝트 폴더의 CLAUDE.local.md에 이 한 줄을 넣으면 그 프로젝트의 세션들이 팀 규칙을 읽어요: <code>@.office/RULES.md</code> <button type="button" class="btn" id="${id}" data-copy="@.office/RULES.md">복사</button></p>
-    <ul class="su-rules">${ps.map(p => `<li><code>${esc(String(p.display).replace(/\/+$/, ''))}/CLAUDE.local.md</code></li>`).join('')}</ul>`;
+  const dirOf = p => { const f = SU.st.floors.find(x => x.id === p.id); return normDir(f && f.folder ? tilde(f.folder) : p.display); };
+  const near = ps.filter(p => !p.away || !p.away.length || !p.rules), far = ps.filter(p => p.away && p.away.length && p.rules);
+  const nearHTML = near.length ? `<p class="hint" style="margin-top:8px">각 층 폴더의 CLAUDE.local.md에 이 한 줄을 넣으면 그 폴더 안에서 연 세션들이 팀 규칙을 읽어요: <code>@.office/RULES.md</code> <button type="button" class="btn" id="${id}" data-copy="@.office/RULES.md">복사</button></p>
+    <ul class="su-rules">${near.map(p => `<li><code>${esc(dirOf(p))}/CLAUDE.local.md</code>${p.fresh ? ' <small>(새 폴더라 이 폴더에서 연 세션부터 읽어요)</small>' : ''}</li>`).join('')}</ul>` : '';
+  const farHTML = far.map((p, j) => {
+    const msg = `${p.file} 파일을 읽고, 앞으로 이 팀 규칙대로 일해 줘.`;
+    return `<div class="su-away"><p class="hint" style="margin-top:8px"><b>${esc(p.name || p.id)}</b> 층 세션 중 층 폴더(<code>${esc(dirOf(p))}</code>) 밖에서 연 세션이 있어요. 이 세션은 층 폴더의 CLAUDE.local.md를 읽지 않아요:</p>
+      <ul class="su-rules">${p.away.map(a => `<li>${esc(a.role)} · ${esc(a.title || '(제목 없음)')}</li>`).join('')}</ul>
+      <p class="hint">그 세션 폴더의 CLAUDE.local.md에 이 줄을 넣으면 대화가 길어져도 계속 읽어요: <code>${esc(p.rules)}</code> <button type="button" class="btn" id="${id}-a${j}" data-copy="${esc(p.rules)}">줄 복사</button></p>
+      <p class="hint" style="margin-top:4px">폴더 없이 만든 세션처럼 앱이 만든 폴더면 세션 창에 한 번 보내요: <button type="button" class="btn" id="${id}-m${j}" data-copy="${esc(msg)}">보낼 말 복사</button></p></div>`;
+  }).join('');
+  return nearHTML + farHTML;
 }
 function floorsHTML() {
   const c = SU.claude, fl = SU.st.floors;
   const have = fl.length ? `<h3 class="su-sub">지금 있는 층</h3><ul class="su-floors">${fl.map(f => `<li><span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code></li>`).join('')}</ul>` : '';
   let pick;
   if (!c) pick = SU.claudeErr ? '' : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
-  else if (!c.projects.length) pick = '<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>';
+  else if (!viewGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>`;
   else {
-    const all = c.projects.flatMap(p => p.sessions.map(s => ({ p, s })));
-    const groups = c.projects.map(p => `<optgroup label="${esc(p.display)}">${p.sessions.map(s => `<option value="${esc(s.sessionId)}"${s.sessionId === SU.boss ? ' selected' : ''}>${esc(sessLabel(s))}</option>`).join('')}</optgroup>`).join('');
-    if (SU.boss && !all.some(x => x.s.sessionId === SU.boss)) SU.boss = '';
-    const n = pendingPicks().length;
-    pick = `<h3 class="su-sub">층으로 만들 프로젝트</h3><ul class="su-plist">${c.projects.map(projHTML).join('')}</ul>
-      <div class="su-field su-boss"><label for="suBoss">총괄(코디네이터) 세션</label><select id="suBoss" data-su-in="boss" aria-describedby="suBossH"><option value="">${SU.st.boss ? '그대로 두기' : '나중에 정하기'}</option>${groups}</select>
-        <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}</small></div>
-      <div class="su-actions"><button type="button" class="btn primary" data-su="floors-make">층 만들기</button><span class="hint" id="suPickN">고른 프로젝트 ${n}개</span></div>
+    const all = viewSessions();
+    pick = `<h3 class="su-sub">층으로 만들 ${word()}</h3>${srcNote()}${toolsHTML()}${sectionsHTML(g => pickHTML(g, all), 'su-plist')}
+      ${bossHTML(all)}
+      <div class="su-actions"><button type="button" class="btn primary" data-su="floors-make">층 만들기</button><span class="hint" id="suPickN">${esc(pickCount())}</span></div>
       ${fl.some(f => f.example) ? '<p class="hint" style="margin-top:6px">층을 만들면 예시 팀은 층 안내에서 빠져요(예시 파일은 그대로 남아요).</p>' : ''}`;
   }
   const m = SU.made;
@@ -1338,7 +1613,7 @@ function floorsHTML() {
       ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : SU.st.boss ? '' : '<li>· 총괄 세션은 아직 정하지 않았어요. 나중에 여기서 고르면 돼요</li>'}</ul>
       ${m.created.length ? rulesHTML('suRulesCopy') : ''}</div>` : '';
   return `<h2 class="su-h" id="suHead" tabindex="-1">사무실 만들기</h2>
-    <p class="su-lead">프로젝트(폴더) 하나가 층(팀) 하나가 돼요. 층으로 만들 프로젝트를 고르고, 팀장·개발자·디자이너·기획 자리에 그 프로젝트의 세션을 앉혀요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채울 수 있어요.</p>
+    <p class="su-lead">Claude 앱에서 묶어 둔 <b>그룹(또는 폴더) 하나가 층(팀) 하나</b>가 돼요. 고르면 층 이름·팀 id·폴더와 팀장·개발자·디자이너·기획 자리를 세션 제목으로 짐작해 미리 채워 둬요. 고칠 것만 고치고 ‘층 만들기’를 눌러요. 비워 둔 자리는 ‘빈자리’로 보이고 나중에 채울 수 있어요.</p>
     ${have}${claudeErrP()}${pick}${res}`;
 }
 // 저장한 설정과 도시에 올라간 것의 관계(서버가 마지막으로 올린 설정의 지문과 지금 public.json을 비교해 알려 줘요). here: 4단계 안에서 보여 줄 때
@@ -1404,7 +1679,7 @@ function doneHTML() {
     <dl class="facts">
       <dt>GitHub</dt><dd>${st.github ? `@${esc(st.github.login)} 연결됨` : '연결 안 함 (공개할 때만 필요해요)'}</dd>
       <dt>Claude</dt><dd>${c.app ? 'Claude 앱 찾음' : 'Claude 앱 못 찾음'} · ${esc(stepNote(1))}</dd>
-      <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 프로젝트 ${left}개</span>` : ''}</dd>
+      <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 ${word()} ${left}개</span>` : ''}</dd>
       <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.visDirty || SU.introDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
     </dl>
     ${rulesHTML('suRulesCopy2')}
@@ -1426,14 +1701,18 @@ function suFocusKey() {
 }
 function renderSetup(focus) {
   if (!SU.st) return;
-  const keep = focus || suFocusKey(), st = SU.st;
+  const keep = focus || suFocusKey(), st = SU.st, a = document.activeElement;
+  const caret = a && (a.type === 'text' || a.type === 'search') && $('#setup').contains(a) ? [a.selectionStart, a.selectionEnd] : null;   // 글 칸이면 커서 자리도 지켜요
   $('#suTitle').textContent = st.done ? '설정' : '처음 설정';
   $('#suClose').textContent = st.done ? '닫기' : '나중에 하기';
   $('#suIntro').textContent = st.done ? '바꾸고 싶은 단계를 눌러요. 고른 값은 저장하거나 만들기를 눌러야 바뀌어요.' : '몇 가지만 고르면 이 맥의 Claude Code 세션들이 층(팀)이 돼요. 나중에 위의 ‘설정’에서 언제든 바꿀 수 있어요.';
   $('#suSteps').innerHTML = SU_STEPS.map((n, i) => `<li><button type="button" data-su="go" data-step="${i}"${i === SU.step ? ' aria-current="step"' : ''}><span class="n">${i + 1}단계</span><b>${n}</b><small>${esc(stepNote(i))}</small></button></li>`).join('');
   $('#suBody').innerHTML = [loginHTML, claudeHTML, floorsHTML, visHTML, doneHTML][SU.step]() + navHTML();
-  const el = keep && $(keep, $('#setup'));
+  applyFilter();
+  let el = keep && $(keep, $('#setup'));
+  if (el && !el.getClientRects().length) el = null;   // 찾기로 숨은 곳이면 제목으로
   (el || $('#suHead')).focus({ preventScroll: !focus && !!el });
+  if (el && caret && !focus && (el.type === 'text' || el.type === 'search')) { try { el.setSelectionRange(caret[0], caret[1]); } catch (e) {} }
   if (SU.confirm) setTimeout(() => { const y = $('#suPubYes'); if (y) y.disabled = false; }, 600);   // 겹친 화면에서 실수로 눌리지 않게
 }
 function openSetup(step) {
@@ -1470,7 +1749,7 @@ function goStep(i) {
 async function suNext() {
   if (SU.step === 2 && pendingPicks().length && !SU.skip) {
     SU.skip = true;
-    SU.err = `고른 프로젝트 ${pendingPicks().length}개를 아직 층으로 만들지 않았어요. ‘층 만들기’를 누르거나, 만들지 않고 넘어가려면 한 번 더 눌러요.`;
+    SU.err = `고른 ${word()} ${pendingPicks().length}개를 아직 층으로 만들지 않았어요. ‘층 만들기’를 누르거나, 만들지 않고 넘어가려면 한 번 더 눌러요.`;
     renderSetup('#suNext');
     return;
   }
@@ -1551,12 +1830,8 @@ async function loadClaude() {
   try {
     const r = await sp('claude', { includeArchived: SU.archived });
     if (my !== SU.claudeSeq) return;
-    const projects = (Array.isArray(r.projects) ? r.projects : []).filter(p => p && p.folder).map(p => ({
-      folder: String(p.folder), display: String(p.display || p.folder), team: p.team ? String(p.team) : '', exists: p.exists !== false,
-      sessions: (Array.isArray(p.sessions) ? p.sessions : []).filter(s => s && s.sessionId).map(s => Object.assign({}, s, { sessionId: String(s.sessionId), title: String(s.title || '') }))
-    }));
-    SU.claude = { app: !!r.app, projects };
-    for (const p of projects) if (p.display.startsWith('~/') && p.folder.endsWith(p.display.slice(1))) { SU.home = p.folder.slice(0, p.folder.length - p.display.length + 1); break; }
+    SU.claude = parseClaude(r);
+    for (const p of SU.claude.projects) if (p.display.startsWith('~/') && p.folder.endsWith(p.display.slice(1))) { SU.home = p.folder.slice(0, p.folder.length - p.display.length + 1); break; }
   } catch (e) {
     if (my !== SU.claudeSeq) return;
     SU.claudeErr = e.message;
@@ -1565,34 +1840,54 @@ async function loadClaude() {
   if (SU.open) renderSetup();
 }
 async function floorsMake() {
-  const list = pendingPicks().map(p => ({ p, k: SU.picks[p.folder], li: $$('#suBody .su-proj[data-folder]').find(li => li.dataset.folder === p.folder) }));
-  if (!list.length && !SU.boss) throw new Error('층으로 만들 프로젝트를 하나 이상 골라 주세요');
-  const taken = new Set(SU.st.floors.map(f => f.id)), seen = new Set();
+  const list = pendingPicks().map(({ g, k }) => ({ g, k, li: $$('#suBody li[data-gkey]').find(li => li.dataset.gkey === g.key) }));
+  if (!list.length && !SU.boss) throw new Error('층으로 만들 그룹이나 폴더를 하나 이상 골라 주세요');
+  const taken = new Set(SU.st.floors.map(f => f.id)), seen = new Set(), dirs = new Map(), seats = new Map(), all = viewSessions();
+  const sitting = sid => { const x = all.get(sid); return x && x.s.seatedOn ? x.s : null; };   // 이미 다른 층에 앉은 세션
   let bad = null;
   for (const { k, li } of list) {
-    const name = k.name.trim(), sids = ROLE_ORDER.map(r => k.roles[r]).filter(Boolean);
+    const name = k.name.trim(), sids = ROLE_ORDER.map(r => k.roles[r]).filter(Boolean), dir = folderOf(k), fieldOf = k.fmode === 'custom' ? 'fcustom' : 'fmode';
+    const used = dir && SU.st.floors.find(f => samePath(f.folder, dir)), twice = sids.find(s => seats.has(s)), sat = sids.find(sitting);
+    const dupRole = ROLE_ORDER.find(r => k.roles[r] && (k.roles[r] === twice || k.roles[r] === sat || ROLE_ORDER.some(r2 => r2 !== r && ROLE_ORDER.indexOf(r2) < ROLE_ORDER.indexOf(r) && k.roles[r2] === k.roles[r])));
     let msg = '', field = '';
-    if (!name || name.length > 30) { msg = '층 이름을 30자 안으로 적어 주세요'; field = 'name'; }
+    if (!name || glen(name) > 30) { msg = '층 이름을 30자 안으로 적어 주세요'; field = 'name'; }
     else if (!TEAM_ID.test(k.id)) { msg = '팀 id는 영문 소문자로 시작하고 소문자·숫자·-로 20자까지예요'; field = 'id'; }
     else if (taken.has(k.id) || seen.has(k.id)) { msg = `‘${k.id}’ id는 이미 있어요. 다른 id를 적어 주세요`; field = 'id'; }
+    else if (k.fmode === 'custom' && !/^(\/|~\/)./.test(dir)) { msg = '폴더는 / 나 ~/로 시작하는 전체 경로로 적어 주세요'; field = 'fcustom'; }
+    else if (k.fmode === 'path' && !dir) { msg = '층으로 쓸 폴더를 골라 주세요'; field = 'fmode'; }
+    else if (used) { msg = `이 폴더는 이미 ‘${used.name}’ 층이에요. 다른 폴더를 고르거나 새 폴더를 만들어요`; field = fieldOf; }
+    else if (dir && dirs.has(normDir(tilde(dir)))) { msg = `‘${dirs.get(normDir(tilde(dir)))}’ 층과 같은 폴더예요. 한 폴더는 한 층만 돼요`; field = fieldOf; }
     else if (new Set(sids).size !== sids.length) { msg = '한 세션은 한 자리에만 앉힐 수 있어요'; field = 'role'; }
+    else if (twice) { msg = `‘${seats.get(twice)}’ 층에도 앉힌 세션이 있어요. 한 세션은 한 자리에만 앉혀요`; field = 'role'; }
+    else if (sat) { msg = `‘${sitting(sat).title || '(제목 없음)'}’ 세션은 이미 ‘${seatedName(sitting(sat))}’ 층에 앉아 있어요. 한 세션은 한 층에만 앉혀요`; field = 'role'; }
     seen.add(k.id);
+    if (dir) dirs.set(normDir(tilde(dir)), name);
+    sids.forEach(s => { if (!seats.has(s)) seats.set(s, name); });
     k.err = msg;
-    if (li) $('[data-err]', li).textContent = msg;
-    if (msg && !bad && li) bad = $(`[data-su-in="${field}"]`, li);
+    if (li) { const er = $('[data-err]', li); if (er) er.textContent = msg; }
+    if (msg && !bad && li) bad = $(field === 'role' && dupRole ? `[data-su-in="role"][data-role="${dupRole}"]` : `[data-su-in="${field}"]`, li);   // 자리 문제면 겹친 자리로
   }
   if (bad) { bad.focus(); throw new Error('고칠 곳이 있어요. 빨간 글을 확인해 주세요'); }
   const boss = SU.boss || null;
+  // newFolder: 서버가 ~/agencity-teams/<id>를 만들어 써요. group: 서버가 준 묶음 key(다음에 그 묶음을 ‘이미 층’으로 보여 주려고, 폴더별 보기에서는 안 보내요)
+  const spec = ({ g, k }) => Object.assign({ id: k.id, name: k.name.trim(), roles: Object.fromEntries(ROLE_ORDER.map(r => [r, k.roles[r] || null])) },
+    k.fmode === 'new' ? { newFolder: true } : { folder: folderOf(k) }, !g.byFolder && GROUP_KEY_RE.test(g.sk || '') ? { group: g.sk } : {});
   let res;
-  try { res = await sp('floors', { boss, floors: list.map(({ p, k }) => ({ id: k.id, name: k.name.trim(), folder: p.folder, roles: Object.fromEntries(ROLE_ORDER.map(r => [r, k.roles[r] || null])) })) }); }
+  try { res = await sp('floors', { boss, floors: list.map(spec) }); }
   catch (e) { if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) throw e; res = e.body; }   // 모두 못 만들었어도 층마다 까닭을 보여 줘요
   const created = Array.isArray(res.created) ? res.created : [], errors = Array.isArray(res.errors) ? res.errors : [];
-  for (const { p, k } of list) {
+  for (const { g, k } of list) {
     const er = errors.find(x => x.id === k.id);
     k.err = er ? String(er.error || '만들지 못했어요') : '';
-    if (created.some(x => x.id === k.id)) {
-      delete SU.picks[p.folder]; SU.madeAt[p.folder] = k.id;
-      if (!SU.madeRun.some(x => x.folder === p.folder)) SU.madeRun.push({ id: k.id, folder: p.folder, display: p.display });   // 완료 화면의 CLAUDE.local.md 안내용
+    const made = created.find(x => x.id === k.id);
+    if (made) {
+      delete SU.picks[g.key]; SU.madeAt[g.key] = k.id;
+      const display = pathOk(made.folder) ? String(made.folder) : k.fmode === 'new' ? newPath(g, k) : tilde(folderOf(k));
+      // 완료 화면의 팀 규칙 안내용. away: 층 폴더 밖에서 연 세션(그 세션은 층 폴더의 CLAUDE.local.md를 읽지 않아요). 다시 읽은 목록으로 다시 셈하지 않게 여기 적어 둬요
+      const away = (Array.isArray(made.away) ? made.away : []).filter(a => a && typeof a === 'object').map(a => ({ role: String(a.role || ''), title: String(a.title || '') }));
+      const rules = typeof made.rules === 'string' && /^@~?\/\S/.test(made.rules) ? made.rules : '';
+      const file = typeof made.rulesFile === 'string' && pathOk(made.rulesFile) ? made.rulesFile : rules ? rules.slice(1).replace(/\\ /g, ' ') : '';
+      if (!SU.madeRun.some(x => x.id === k.id)) SU.madeRun.push({ id: k.id, name: k.name.trim(), display, fresh: k.fmode === 'new', away, rules, file });
     }
   }
   SU.made = { created, boss: !!boss, errors: errors.map(x => Object.assign({}, x, { name: (list.find(l => l.k.id === x.id) || { k: {} }).k.name })) };
@@ -1608,7 +1903,7 @@ async function visSave() {
   const visibility = {};
   for (const f of myFloors()) visibility[f.id] = levelOf(f.id);
   const body = { visibility };
-  if (SU.introDirty) body.intro = SU.intro.trim().slice(0, 120);
+  if (SU.introDirty) body.intro = cut(SU.intro.trim(), 120);
   await sp('visibility', body);
   SU.visDirty = false; SU.introDirty = false;
   await refreshSetup().catch(() => {});
@@ -1637,6 +1932,8 @@ async function publishNow() {
 }
 
 $('#setup').addEventListener('click', e => {
+  const sm = e.target.closest('summary'), dt = sm && sm.parentElement;   // 펼치고 접은 묶음은 다시 그려도 그대로(누를 때만 적어요: 찾기가 펼친 건 적지 않아요)
+  if (dt && dt.tagName === 'DETAILS' && dt.dataset.gkey) SU.opened.set(dt.dataset.gkey, !dt.open);
   const b = e.target.closest('[data-su]');
   if (!b || b.disabled) return;
   const a = b.dataset.su;
@@ -1668,7 +1965,11 @@ function suInput(e) {
   const t = e.target, kind = t.dataset && t.dataset.suIn;
   if (!kind) return;
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
-  if (kind === 'boss') { SU.boss = t.value; return; }
+  if (kind === 'boss') {
+    SU.boss = t.value; SU.bossTouched = true;
+    const h = $('#suBossG'); if (h) { h.hidden = true; h.textContent = ''; }
+    return;
+  }
   if (kind === 'intro') {
     SU.intro = t.value; SU.introDirty = true;
     const ps = $('#suPubState'); if (ps) { const v = pubState(true); ps.textContent = '· ' + v; ps.hidden = !v; }
@@ -1685,34 +1986,53 @@ function suInput(e) {
     if (sn) sn.textContent = stepNote(3);
     return;
   }
-  const li = t.closest('.su-proj'), k = li && SU.picks[li.dataset.folder];
+  if (kind === 'q') { SU.q = t.value; applyFilter(); return; }
+  if (kind === 'byfolder') { SU.byFolder = t.checked; renderSetup('#suByF'); suSay(t.checked ? '세션을 폴더별로 묶어 보여요' : 'Claude 앱 사이드바처럼 묶어 보여요'); return; }
+  const li = t.closest('li[data-gkey]'), g = li && viewGroups().find(x => x.key === li.dataset.gkey), k = g && SU.picks[g.key];
   if (!k) return;
   const idBox = $('[data-su-in="id"]', li);
+  const syncFolder = () => {   // 팀 id나 폴더를 바꾸면 ‘새 폴더 ~/agencity-teams/<id>’ 안내도 바로 바꿔요
+    const nw = $('option[value="new"]', li), h = $('.su-folder .hint', li), w = $('.su-where', li);
+    if (nw) nw.textContent = '새 폴더 만들기 · ' + newPath(g, k);
+    if (h) { h.innerHTML = folderHint(g, k); h.classList.toggle('su-newf', k.fmode === 'new'); }
+    if (w) w.innerHTML = whereHTML(g, k);
+  };
   if (kind === 'pick') {
     k.on = t.checked; k.err = ''; SU.skip = false;
-    li.classList.toggle('on', k.on);
-    $('.su-proj-body', li).hidden = !k.on;
-    $('[data-err]', li).textContent = '';
-    if (k.on && !k.idEdited) { k.id = autoId(k.name, li.dataset.folder); idBox.value = k.id; }
-    const n = $('#suPickN'); if (n) n.textContent = `고른 프로젝트 ${pendingPicks().length}개`;
-    const nx = $('#suNext'); if (nx) nx.textContent = '다음';
+    if (k.on && !k.idEdited) k.id = autoId(g, k);
+    renderSetup('#' + CSS.escape(t.id));
+    suSay(k.on ? `${g.name}: 층 이름·팀 id·폴더·자리를 미리 채웠어요` : `${g.name}: 고르지 않았어요`);
   } else if (kind === 'name') {
     k.name = t.value;
-    if (!k.idEdited) { k.id = autoId(k.name, li.dataset.folder); idBox.value = k.id; }
+    if (!k.idEdited) { k.id = autoId(g, k); if (idBox) idBox.value = k.id; syncFolder(); }
   } else if (kind === 'id') {
     const low = t.value.toLowerCase();
     if (low !== t.value) { const a = t.selectionStart, b = t.selectionEnd; t.value = low; try { t.setSelectionRange(a, b); } catch (err) {} }
     k.id = low; k.idEdited = !!low;   // 지우면 다시 층 이름에서 지어요
-  } else if (kind === 'role') k.roles[t.dataset.role] = t.value;
+    syncFolder();
+  } else if (kind === 'fmode') {
+    k.fmode = t.value === 'new' || t.value === 'custom' ? t.value : 'path';
+    if (k.fmode === 'path') k.folder = t.value;
+    const box = $('[data-su-in="fcustom"]', li);
+    if (k.fmode === 'custom' && !k.custom) { k.custom = k.folder ? tilde(k.folder) : ''; if (box) box.value = k.custom; }
+    if (box) { box.hidden = k.fmode !== 'custom'; box.parentElement.classList.toggle('two', k.fmode === 'custom'); }
+    syncFolder();
+  } else if (kind === 'fcustom') { k.custom = t.value; syncFolder(); }
+  else if (kind === 'role') {
+    const r = t.dataset.role, gn = t.parentElement && $('.su-guess', t.parentElement);
+    k.roles[r] = t.value;
+    if (gn) { const v = guessNote(k, r); gn.textContent = v; gn.hidden = !v; }
+  }
 }
-$('#setup').addEventListener('input', e => { if (e.target.type === 'text') suInput(e); });
-$('#setup').addEventListener('change', e => { if (e.target.type !== 'text') suInput(e); });
-$('#setup').addEventListener('toggle', e => {   // 펼친 프로젝트는 다시 그려도 그대로
-  const d = e.target;
-  if (d.tagName === 'DETAILS' && d.dataset.folder) { if (d.open) SU.shut.delete(d.dataset.folder); else SU.shut.add(d.dataset.folder); }
-}, true);
+$('#setup').addEventListener('input', e => { if (e.target.type === 'text' || e.target.type === 'search') suInput(e); });
+$('#setup').addEventListener('change', e => { if (e.target.type !== 'text' && e.target.type !== 'search') suInput(e); });
+$('#setup').addEventListener('search', e => { if (e.target.id === 'suQ') suInput(e); });   // 찾기 칸의 지우기(×) 단추
 $('#setup').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.target.id === 'suIntroIn') { e.preventDefault(); const b = $('#suSave'); if (b && !b.disabled) b.click(); }
+  if (e.target.id === 'suQ' && !e.isComposing) {
+    if (e.key === 'Enter') e.preventDefault();
+    if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); e.target.value = ''; SU.q = ''; applyFilter(); }   // Esc는 먼저 찾기만 지워요(한 번 더 누르면 닫혀요)
+  }
 });
 // 다시 열 때는 늘 새 상태로(그사이 터미널에서 만들거나 뺀 층, 새 세션). 잠깐 못 읽으면 전에 받은 상태로 열어요.
 $('#setupBtn').addEventListener('click', () => {

@@ -252,6 +252,11 @@ def main():
     print(f"\n등록했어요: {floor}층 · {name}")
     print(f"- 팀 사무실: {office}")
     print(f"- 각 세션이 규칙을 읽게 하려면 {os.path.join(proj, 'CLAUDE.local.md')} 에 이 줄을 넣어요:  @.office/RULES.md")
+    rules = os.path.join(office, "RULES.md")
+    home = os.path.realpath(os.path.expanduser("~"))
+    rules = "~" + rules[len(home):] if rules.startswith(home + os.sep) else rules
+    print(f"  이 폴더 밖에서 연 세션(폴더 없이 만든 세션 등)은 그 파일을 읽지 않아요. 그 세션 폴더의 CLAUDE.local.md에 넣거나"
+          f" 세션 창에 한 번 보내요:  @{rules.replace(' ', chr(92) + ' ')}")
     print("- 세션 id를 비워 둔 자리는 화면에 '빈자리'로 보여요. 나중에 team.json에서 고쳐요.")
     if boss_sid.startswith(PLACEHOLDER):
         print("- 총괄 세션 id는 아직 비어 있어요. 정하면 org.json의 boss.sessionId에 넣어요(docs/COORDINATOR.md).")
