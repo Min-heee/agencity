@@ -4,13 +4,18 @@ python3 bin/new_team.py                      # 물어보며 한 층씩 등록해
 python3 bin/new_team.py --spec <명세.json>    # 물어보지 않고 명세대로 여러 층을 등록해요(앱의 처음 설정 화면이 써요)
 python3 bin/new_team.py --spec -             # 명세를 표준 입력으로 받아요
 
-물어보는 것: 팀 id, 팀 이름, 프로젝트 폴더, 업무 번호 머리글, 기본 네 자리(팀장·개발자·디자이너·기획)의 Claude Code 세션 id(모르면 비워 둬요),
+물어보는 것: 팀 id, 프로젝트 폴더, 층 이름, 업무 번호 머리글, 기본 네 자리(팀장·개발자·디자이너·기획)의 Claude Code 세션 id(모르면 비워 둬요),
 더 둘 역할(마케팅·QA처럼 쉼표로, 없으면 엔터)과 그 세션 id, 처음이면 예시 팀을 뺄지와 총괄 세션 id.
+고른 폴더에 이미 팀 사무실(.office/team.json)이 있으면 그 팀의 이름·머리글을 그대로 쓴다고 알려 주고 머리글은 묻지 않아요.
+층 이름은 그 팀 이름이 기본이고, 네 자리 대신 그 팀의 지금 자리마다 세션 id를 물어요(엔터면 지금 세션 그대로).
 다 물어본 뒤에야 파일을 만들어요(중간에 멈추면 아무것도 안 바뀌어요).
 하는 일:
   1) <프로젝트>/.office/ 팀 사무실 폴더를 만들어요(team.json, status/, board.md, log.jsonl, reports/, meetings/,
-     approvals/, chat/, RULES.md). 이미 있으면 다른 파일은 그대로 두고, team.json의 이름·머리글과 새 자리·새로 적은 세션 id만 고쳐요
-     (명세의 members로 보내면 팀원 목록을 그 목록으로 바꿔요). 자리마다 status/<역할>.json이 없으면 만들어요.
+     approvals/, chat/, RULES.md). 이미 있던 팀 사무실이면 team.json의 팀 이름(team)·머리글(prefix)은 절대 바꾸지 않고 팀원만 고쳐요
+     (명세의 members로 보내면 팀원 목록을 그 목록으로 바꾸고, 그대로 둔 자리의 name·title 같은 칸과 순서는 살려요.
+     설정 화면이 보여 줄 수 없는 줄(역할 이름으로 못 쓰는 이름 등, shown_rows)은 손대지 않고 그 자리에 그대로 둬요. 바뀐 게 없으면 team.json을 다시 쓰지 않아요).
+     RULES.md·board.md·log.jsonl·대화·상태 파일도 그대로 두고, 새로 더한 자리의 status/<역할>.json만 만들어요.
+     새 팀 사무실이면 자리마다 status/<역할>.json을 만들어요.
   2) .office/.gitignore(내용 '*')를 둬서, 저장소가 어떤 구조든(하위 폴더, worktree, submodule) 팀 기록이 커밋되지 않게 해요.
   3) teams/<id> 를 그 폴더에 연결해요.
   4) org.json에 다음 층으로 넣어요. 고치기 전 내용은 org.json.bak에 남겨요.
@@ -21,15 +26,19 @@ python3 bin/new_team.py --spec -             # 명세를 표준 입력으로 받
  "floors": [{"id": "shop", "name": "쇼핑몰팀", "folder": "/Users/me/shop", "prefix": "SH-"(없어도 돼요),
              "members": [{"role": "팀장", "sessionId": "local_…"}, {"role": "개발자", "sessionId": null},
                          {"role": "마케팅", "sessionId": "local_…"}]}]}
+- name: 층 이름(org.json). 이미 있던 팀 사무실이면 비워 보내도 돼요(그 팀 이름을 써요). team.json의 팀 이름은 바뀌지 않아요.
+- prefix: 새 팀 사무실의 업무 번호 머리글(없으면 팀 id로 지어요). 이미 있던 팀 사무실이면 보내도 보지 않고 그 팀 머리글 그대로예요.
 - members: 팀원 자리 목록. 맨 앞은 팀장(세션은 비워 둬도 돼요), 12자리까지예요. 역할 이름은 마음대로 짓되
   한글·영문·숫자로 12자까지(빈칸·/·. 없이, _ · - 는 돼요), 대표·총괄은 안 되고, 한 층 안에서 겹치지 않아요.
   한 세션은 한 자리에만, 한 층에만 앉혀요. 이미 있던 팀 사무실이면 team.json의 팀원 목록을 이 목록으로 바꿔요
-  (빠진 팀원의 대화·상태 파일은 지우지 않아요).
+  (그대로 둔 자리는 team.json 순서 그대로, 새 자리는 끝에(새 팀장 자리는 맨 앞에) 넣어요. 보여 줄 수 없던 줄은 그대로 두고 12자리에 세지 않아요.
+  빠진 팀원의 대화·상태 파일은 지우지 않고, 이름을 바꾼 자리의 파일도 옮기지 않아요. 옮기기는 설정 화면의 ‘팀원 고치기’가 해요).
 - roles: 예전 모양({"팀장": "local_…", "개발자": null, "디자이너": null, "기획": null}). members가 없을 때만 봐요.
   네 자리를 늘 만들고, 이미 있던 팀 사무실이면 다른 자리는 두고 새로 적은 세션 id만 고쳐요.
 - boss: 총괄 세션 id. 적으면 org.json의 총괄을 바꾸고, 비우면 그대로 둬요.
 - dropDemo: 한 층이라도 만들면 예시 팀을 층 안내에서 빼요(기본 true).
-결과는 표준 출력에 JSON 한 줄이에요: {"ok": true, "created": [{"id", "floor", "office"}], "errors": [{"id", "error"}]}
+결과는 표준 출력에 JSON 한 줄이에요: {"ok": true, "created": [{"id", "floor", "office", "existing", "team", "prefix"}], "errors": [{"id", "error"}]}
+(existing: 이미 있던 팀 사무실이었는지, team·prefix: team.json의 팀 이름·머리글. 이미 있던 사무실이면 그대로 둔 값이에요)
 명세나 org.json을 읽지 못하면 {"ok": false, "error": "…"}를 내고 아무것도 바꾸지 않아요.
 """
 import json
@@ -47,6 +56,7 @@ CLASSIC_ROLES = ["팀장", "개발자", "디자이너", "기획"]   # 물어볼 
 ROLE_RE = re.compile(r"^[0-9A-Za-z가-힣][0-9A-Za-z가-힣_·-]{0,11}\Z")   # office_server.py와 같아요(파일 이름으로도 써요)
 NOT_ROLES = ("대표", "총괄")
 MAX_MEMBERS = 12
+SHOWN_MAX = 50   # 이미 있던 팀 사무실에서 설정 화면이 불러오는 팀원 줄 수(office_server.py의 SHOWN_MAX와 같아요)
 ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,19}\Z")
 SESSION_RE = re.compile(r"^local_[0-9a-f-]{8,64}\Z")
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}-\Z")
@@ -115,6 +125,23 @@ def default_prefix(tid):
     if base + "-" in RESERVED:   # 한 글자 id가 j·u·m이면 JT-처럼
         base += "T"
     return base + "-"
+
+
+def kept_name(old_team):
+    """이미 있던 team.json의 팀 이름(team). 글이 아니거나 비었으면 None. 이 값은 고쳐 쓰지 않아요."""
+    v = old_team.get("team") if isinstance(old_team, dict) else None
+    return v if isinstance(v, str) and v.strip() else None
+
+
+def floor_default(old_team):
+    """이미 있던 팀 이름을 층 이름(한 줄, 30자까지)으로 쓸 때의 값. 없으면 ""."""
+    v = kept_name(old_team) or ""
+    return " ".join("".join(ch for ch in v if ord(ch) >= 32 and ord(ch) != 127).split())[:30]
+
+
+def shown(v):
+    """화면에 보일 한 줄(제어 문자 없이, 60자까지)."""
+    return " ".join("".join(ch for ch in str(v) if ord(ch) >= 32 and ord(ch) != 127).split())[:60]
 
 
 def load_org():
@@ -220,27 +247,6 @@ def current_boss(org):
     return sid if isinstance(sid, str) and SESSION_RE.match(sid) and not sid.startswith(PLACEHOLDER) else ""
 
 
-def renamed_seats(old_team, members):
-    """팀원 목록을 바꿀 때 이름만 바뀐 자리 [(예전 이름, 새 이름)]: 같은 세션이 앉아 있던 예전 자리가 새 목록에 없거나,
-    대소문자만 바뀐 이름이에요(office_server.py의 rename_pairs와 같은 기준이에요. 화면이 알려 주는 was는 여기 없어요)."""
-    old = old_team.get("members") if isinstance(old_team, dict) and isinstance(old_team.get("members"), list) else []
-    by_key = {}
-    for m in old:
-        if isinstance(m, dict) and isinstance(m.get("role"), str) and role_ok(m["role"]) == m["role"]:
-            by_key.setdefault(m["role"].casefold(), m)
-    keys = {m["role"].casefold() for m in members}
-    pairs = [(by_key[m["role"].casefold()]["role"], m["role"]) for m in members
-             if m["role"].casefold() in by_key and by_key[m["role"].casefold()]["role"] != m["role"]]
-    free = {k: o for k, o in by_key.items() if k not in keys}
-    for m in members:
-        if m["role"].casefold() in by_key or not m["sessionId"]:
-            continue
-        k = next((k for k, o in free.items() if o.get("sessionId") == m["sessionId"]), None)
-        if k:
-            pairs.append((free.pop(k)["role"], m["role"]))
-    return pairs
-
-
 def is_forward_link(path):
     """자리 이름을 바꿀 때 예전 대화 파일 이름에 남긴 링크(같은 폴더의 <새 이름>.jsonl을 가리켜요)인지."""
     try:
@@ -250,63 +256,55 @@ def is_forward_link(path):
     return "/" not in t and t.endswith(".jsonl")
 
 
-def move_seat_files(office, pairs, old_name, name):
-    """이름을 바꾼 자리의 chat/<이름>.jsonl·status/<이름>.json을 새 이름으로 옮겨요(office_server.py와 같아요, 지우지 않아요).
-    새 이름의 파일이 이미 있으면 옮기지 않아요. 옮긴 대화 파일 자리에는 새 파일을 가리키는 링크를 남겨요(오가는 답이 새 자리에 붙게)."""
-    cdir = os.path.join(office, "chat")
-    for a, b in pairs:
-        files = [(os.path.join(office, sub, a + ext), os.path.join(office, sub, b + ext)) for sub, ext in (("chat", ".jsonl"), ("status", ".json"))]
-        files = [(s, d) for s, d in files if os.path.isfile(s) and not os.path.islink(s)]
-
-        def same(s, d):   # 대소문자만 바꾼 이름이면 맥 디스크에서는 같은 파일이에요
-            try:
-                return os.path.samefile(s, d)
-            except OSError:
-                return False
-        if not files or any(os.path.lexists(d) and not is_forward_link(d) and not same(s, d) for s, d in files):
+def shown_rows(ms):
+    """이미 있던 team.json 팀원 중 설정 화면이 불러와 보여 주는 줄: [(줄 번호, NFC로 맞춘 역할 이름)].
+    office_server.py의 shown_rows와 같은 기준이에요: 줄이 {…}이고, 역할 이름이 글이고, NFC로 맞추면 쓸 수 있는 이름(ROLE_RE, 대표·총괄 아님)이고,
+    대소문자만 다른 이름은 앞의 줄만, SHOWN_MAX줄까지예요(앞뒤 빈칸은 떼지 않아요: ' 개발자'는 보여 주지 않는 줄이에요).
+    나머지 줄은 팀원 목록을 바꿀 때도 손대지 않고 그 자리에 그대로 둬요(다른 도구가 쓰는 줄일 수 있어요)."""
+    out, seen = [], set()
+    for i, m in enumerate(ms if isinstance(ms, list) else []):
+        if len(out) >= SHOWN_MAX:
+            break
+        if not isinstance(m, dict) or not isinstance(m.get("role"), str):
             continue
-        for s, d in files:
-            if os.path.islink(d):
-                os.unlink(d)   # 예전에 남긴 이어 주는 링크예요(대화 원본이 아니에요)
-            os.replace(s, d)
-        sp = os.path.join(office, "status", b + ".json")
-        if any(d == sp for _, d in files):
-            try:
-                with open(sp, encoding="utf-8") as f:
-                    st = json.load(f)
-                if isinstance(st, dict):
-                    st["role"] = b
-                    if st.get("name") == f"{old_name} {a}":
-                        st["name"] = f"{name} {b}"
-                    write_json(sp, st)
-            except (OSError, ValueError):
-                pass
-        if any(d == os.path.join(cdir, b + ".jsonl") for _, d in files):
-            for n in os.listdir(cdir):   # 더 예전 이름에서 이어 주던 링크도 새 파일로
-                p = os.path.join(cdir, n)
-                if os.path.islink(p) and os.readlink(p) == a + ".jsonl":
-                    os.unlink(p)
-                    os.symlink(b + ".jsonl", p)
-            if not os.path.lexists(os.path.join(cdir, a + ".jsonl")):
-                os.symlink(b + ".jsonl", os.path.join(cdir, a + ".jsonl"))
+        r = unicodedata.normalize("NFC", m["role"])
+        if ROLE_RE.match(r) and r not in NOT_ROLES and r.casefold() not in seen:
+            seen.add(r.casefold())
+            out.append((i, r))
+    return out
 
 
 def merged_rows(old_team, name, members, replace):
-    """team.json에 쓸 팀원 줄. replace면 members가 곧 팀원 목록이에요(같은 역할 줄은 다른 칸을 살려요).
+    """team.json에 쓸 팀원 줄. name은 새 줄의 name·title을 지을 팀 이름이에요(이미 있던 사무실이면 그 팀 이름).
+    replace면 members가 곧 팀원 목록이에요. 이미 있던 사무실이면 team.json을 한 줄씩 따라가며
+    보낸 자리는 그 줄을 살려(name·title 같은 다른 칸, 순서, NFC로 같은 역할 이름의 글자까지) 세션 id만 맞추고,
+    화면이 보여 준 줄(shown_rows)인데 보내지 않은 자리만 빼고, 보여 줄 수 없던 줄은 그대로 둬요. 새 자리는 끝에(새 팀장 자리는 맨 앞에) 넣어요.
     아니면(예전 방식) 다른 자리는 두고, 없는 자리만 더하고, 새로 적은 세션 id만 고쳐요."""
     old = old_team.get("members") if isinstance(old_team, dict) and isinstance(old_team.get("members"), list) else []
-    if replace or old_team is None:
-        prev = {}
-        for m in old:
-            if isinstance(m, dict) and isinstance(m.get("role"), str):
-                prev.setdefault(unicodedata.normalize("NFC", m["role"]).casefold(), m)
+
+    def row_for(m, p):
+        row = dict(p) if p else member_row(name, m["role"], m["sessionId"])
+        if not (p and unicodedata.normalize("NFC", p["role"]) == m["role"]):
+            row["role"] = m["role"]   # NFC로 같은 이름이면 예전 글자 그대로 둬요(그것만으로 파일을 다시 쓰지 않게)
+        # 비워 둔 자리인데 예전 줄의 sessionId가 세션 id 모양이 아니면(없거나 "") 그 칸은 손대지 않아요(그대로 내면 파일이 그대로예요)
+        if m["sessionId"] or (isinstance(row.get("sessionId"), str) and SESSION_RE.match(row["sessionId"])):
+            row["sessionId"] = m["sessionId"] or None
+        return row
+    if old_team is None:
+        return [row_for(m, None) for m in members]
+    if replace:
+        shown = shown_rows(old)
+        at = {r.casefold(): i for i, r in shown}                       # 역할 이름(대소문자 무시) → 예전 줄 번호
+        hit = {at[m["role"].casefold()]: m for m in members if m["role"].casefold() in at}
+        seen = {i for i, _ in shown}
         rows = []
-        for m in members:
-            p = prev.get(m["role"].casefold())
-            row = dict(p) if p else member_row(name, m["role"], m["sessionId"])
-            row.update(role=m["role"], sessionId=m["sessionId"] or None)
-            rows.append(row)
-        return rows
+        for i, p in enumerate(old):
+            if i in hit:
+                rows.append(row_for(hit[i], p))
+            elif i not in seen:
+                rows.append(p)   # 화면이 보여 줄 수 없던 줄: 그대로(빼지 않아요)
+        new = [row_for(m, None) for m in members if m["role"].casefold() not in at]
+        return [r for r in new if r["role"] == LEAD] + rows + [r for r in new if r["role"] != LEAD]
     rows = [dict(m) if isinstance(m, dict) else m for m in old]
     for m in members:
         cur = next((x for x in rows if isinstance(x, dict) and x.get("role") == m["role"]), None)
@@ -317,9 +315,38 @@ def merged_rows(old_team, name, members, replace):
     return rows
 
 
+def more_seats(old, rows):
+    """rows에서 예전 team.json 팀원(old)보다 더 여러 자리에 앉게 된 세션 id들(없으면 빈 set). 예전부터 겹쳐 있던 건 그대로 봐줘요."""
+    def count(ms):
+        c = {}
+        for m in ms if isinstance(ms, list) else []:
+            v = m.get("sessionId") if isinstance(m, dict) else None
+            if isinstance(v, str) and v:
+                c[v] = c.get(v, 0) + 1
+        return c
+    before, after = count(old), count(rows)
+    return {v for v, n in after.items() if n > 1 and n > before.get(v, 0)}
+
+
+def role_keys(team):
+    """team.json 팀원의 역할 이름들(NFC·대소문자 무시)."""
+    ms = team.get("members") if isinstance(team, dict) and isinstance(team.get("members"), list) else []
+    return {unicodedata.normalize("NFC", m["role"]).casefold() for m in ms if isinstance(m, dict) and isinstance(m.get("role"), str)}
+
+
+def status_of(office, role, name, now):
+    """status/<역할>.json이 없으면 만들어요(있으면 그대로)."""
+    sp = os.path.join(office, "status", role + ".json")
+    if not os.path.lexists(sp):
+        write_json(sp, {"name": name, "role": role, "state": "대기", "task": "", "say": "", "updated": now})
+
+
 def make_office(office, name, prefix, members, boss_sid, old_team, replace=False):
-    """팀 사무실 폴더와 기본 파일을 만들어요. 이미 있던 파일은 team.json만 고치고 나머지는 그대로 둬요.
-    members: [{role, sessionId}](팀장이 맨 앞). 자리마다 status/<역할>.json이 없으면 만들어요(있던 파일은 지우지 않아요)."""
+    """팀 사무실 폴더와 기본 파일을 만들어요. members: [{role, sessionId}](팀장이 맨 앞).
+    이미 있던 팀 사무실(old_team: 그 team.json)이면 team.json의 팀 이름(team)·머리글(prefix)과 다른 칸은 그대로 두고 팀원(members)만 고쳐요.
+    바뀐 게 없으면 team.json을 다시 쓰지 않아요. RULES.md·board.md·log.jsonl·대화·상태 파일도 건드리지 않고,
+    새로 더한 자리의 status/<역할>.json만(없을 때) 만들어요. 이름을 바꾼 자리의 파일도 옮기지 않아요.
+    team.json을 새로 썼으면 True예요."""
     for d in ("status", "reports", "meetings", "approvals", "chat", "docs"):
         os.makedirs(os.path.join(office, d), exist_ok=True)
     gi = os.path.join(office, ".gitignore")
@@ -327,17 +354,23 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
         with open(gi, "w", encoding="utf-8") as f:
             f.write("# 에이전시티 팀 기록(대화·결재·세션 id)은 커밋하지 않아요\n*\n")
     tj = os.path.join(office, "team.json")
-    rows = merged_rows(old_team, name, members, replace)
-    # 팀원 목록으로 바꿀 때 이름만 바뀐 자리(같은 세션)는 대화·상태 파일도 새 이름으로 옮겨요
-    pairs = renamed_seats(old_team, members) if replace and old_team is not None else []
-    old_name = str(old_team.get("team") or name) if isinstance(old_team, dict) else name
-    if old_team is None:
-        write_json(tj, {"team": name, "prefix": prefix, "members": rows})
-    else:
-        old_team.update(team=name, prefix=prefix, members=rows)
-        write_json(tj, old_team)
-    move_seat_files(office, pairs, old_name, name)
     now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    if old_team is not None:
+        tname = kept_name(old_team) or name   # 새 자리의 name·title은 그 팀 이름으로 지어요
+        rows = merged_rows(old_team, tname, members, replace)
+        changed = old_team.get("members") != rows
+        if changed:
+            team = dict(old_team)   # 칸 순서도 그대로(members 칸만 바꿔요)
+            team["members"] = rows
+            write_json(tj, team)
+        had = role_keys(old_team)
+        for m in rows:
+            role = m.get("role") if isinstance(m, dict) else None
+            if isinstance(role, str) and role_ok(role) == role and role.casefold() not in had:
+                status_of(office, role, m.get("name") or f"{tname} {role}", now)
+        return changed
+    rows = merged_rows(None, name, members, replace)
+    write_json(tj, {"team": name, "prefix": prefix, "members": rows})
     for m in rows:
         role = m.get("role") if isinstance(m, dict) else None
         if not isinstance(role, str) or role_ok(role) != role:   # 손으로 적은 이상한 역할 이름은 파일 이름으로 쓰지 않아요
@@ -345,9 +378,7 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
         cp = os.path.join(office, "chat", role + ".jsonl")
         if os.path.islink(cp) and is_forward_link(cp):   # 예전 이름 바꾸기 때 남긴 링크: 이 이름의 자리는 새 대화로 시작해요
             os.unlink(cp)
-        sp = os.path.join(office, "status", role + ".json")
-        if not os.path.lexists(sp):
-            write_json(sp, {"name": m.get("name") or f"{name} {role}", "role": role, "state": "대기", "task": "", "say": "", "updated": now})
+        status_of(office, role, m.get("name") or f"{name} {role}", now)
     if not os.path.exists(os.path.join(office, "board.md")):
         with open(os.path.join(office, "board.md"), "w", encoding="utf-8") as f:
             f.write(f"# {name} 업무판\n\n")
@@ -363,6 +394,7 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
         text = text.replace("보낸 세션이 총괄일 때만", f"보낸 세션이 총괄({HERE}/org.json의 boss.sessionId{now_boss})일 때만")
         with open(rules, "w", encoding="utf-8") as f:
             f.write(f"<!-- $O = {office} -->\n" + text)
+    return True
 
 
 def link_team(tid, office):
@@ -402,33 +434,68 @@ def main():
     print("에이전시티에 내 팀(층)을 등록해요. 엔터만 누르면 [ ] 안의 값으로 해요.\n")
     tid = ask("팀 id(영문 소문자, 예: shop)", check=lambda v: bool(ID_RE.match(v)) and v not in taken,
               hint="영문 소문자로 시작하는 20자 이내, 이미 있는 id는 안 돼요.")
-    name = ask("팀 이름(화면에 보일 이름)", default=tid, check=lambda v: 0 < len(v) <= 30)
     proj = ask("프로젝트 폴더(폴더를 끌어다 놓아도 돼요)", check=lambda v: norm_dir(v, start) is not None,
                hint="있는 폴더를 적어 주세요.")
     proj = norm_dir(proj, start)
     office = check_project(org, proj)
     tj = os.path.join(office, "team.json")
     old_team = read_json(tj, "team.json") if os.path.exists(tj) else None
-    prefix = ask("업무 번호 머리글(예: SH-)", default=default_prefix(tid),
-                 check=lambda v: bool(PREFIX_RE.match(v)) and v not in RESERVED,
-                 hint="영문 대문자 1~4자 + 하이픈이에요. J-·U-·M-은 총괄 지시·사람이 시킨 일·회의 번호라 못 써요.")
+    old_ms = old_team.get("members") if isinstance(old_team, dict) and isinstance(old_team.get("members"), list) else []
+    # 물어볼 지금 자리: 설정 화면이 보여 주는 줄(shown_rows). 역할 이름은 team.json의 글자 그대로 써요(예전 방식 합치기가 그 글자로 자리를 찾아요).
+    # 나머지 줄은 묻지 않고 그대로 둬요(예전 방식 합치기라 지우지 않아요)
+    old_ok = [old_ms[i] for i, _ in shown_rows(old_ms)]
+    cur_of, held, ok_ids = {}, {}, {id(m) for m in old_ok}   # 이미 있던 팀: 역할 → 지금 세션, 세션 → 그 역할(묻지 않는 줄의 세션은 어느 자리에도 못 옮겨요)
+    for m in old_ms:
+        sid = m.get("sessionId") if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_RE.match(m["sessionId"]) else ""
+        key = m["role"].casefold() if id(m) in ok_ids else "\0"
+        if key != "\0":
+            cur_of[key] = sid
+        if sid:
+            held.setdefault(sid, key)
+    if old_team is not None:
+        old_prefix = old_team.get("prefix")
+        print(f"· 이미 있는 팀 사무실이에요: {shown(kept_name(old_team) or '(이름 없음)')} ({shown(old_prefix) if isinstance(old_prefix, str) and old_prefix else '머리글 없음'}). "
+              "team.json의 팀 이름과 업무 번호 머리글은 그대로 둬요.")
+        now_ms = [f"{m['role']}({cur_of[m['role'].casefold()] or '빈자리'})" for m in old_ok]
+        print(f"  지금 팀원: {' · '.join(now_ms) if now_ms else '(없음)'}")
+        if len(old_ms) > len(old_ok):
+            print(f"  역할 이름으로 보여 줄 수 없는 줄 {len(old_ms) - len(old_ok)}개는 묻지 않고 그대로 둬요.")
+        print()
+        name = ask("층 이름(에이전시티 화면에 보일 이름, team.json의 팀 이름은 그대로예요)", default=floor_default(old_team) or tid,
+                   check=lambda v: 0 < len(v) <= 30)
+        prefix = old_prefix   # 묻지 않아요(그대로)
+    else:
+        name = ask("팀 이름(화면에 보일 이름)", default=tid, check=lambda v: 0 < len(v) <= 30)
+        prefix = ask("업무 번호 머리글(예: SH-)", default=default_prefix(tid),
+                     check=lambda v: bool(PREFIX_RE.match(v)) and v not in RESERVED,
+                     hint="영문 대문자 1~4자 + 하이픈이에요. J-·U-·M-은 총괄 지시·사람이 시킨 일·회의 번호라 못 써요.")
     seated = seated_sessions(org)
     members, used = [], set()
 
     boss_now = current_boss(org)   # 지금 총괄은 층의 자리에 앉힐 수 없어요(그 자리로 보낸 말이 아무에게도 닿지 않아요)
 
-    def sid_ok(v):
-        return v == "" or (bool(SESSION_RE.match(v)) and v not in used and v not in seated and v != boss_now)
-    sid_hint = ("local_ 로 시작하는 id예요. 한 세션은 한 자리, 한 층에만 앉혀요(이미 앉은 세션과 총괄 세션은 안 돼요). "
+    def sid_ok(v, role=""):
+        return v == "" or (bool(SESSION_RE.match(v)) and v not in used and v not in seated and v != boss_now
+                           and held.get(v, role.casefold()) == role.casefold())
+    sid_hint = ("local_ 로 시작하는 id예요. 한 세션은 한 자리, 한 층에만 앉혀요(이미 앉은 세션과 총괄 세션, 이 팀의 다른 자리 세션은 안 돼요). "
                 "모르면 비워 두고 나중에 설정 화면의 '팀원 고치기'나 team.json에서 고쳐요.")
-    for role in CLASSIC_ROLES:
-        v = ask(f"{role} 세션 id(local_…, 모르면 엔터)", check=sid_ok, hint=sid_hint)
-        used.add(v)
+    # 이미 있던 팀이면 그 팀의 지금 자리(팀장이 맨 앞)를, 새 팀이면 기본 네 자리를 물어요
+    asked = [m["role"] for m in old_ok]   # 대소문자만 다른 이름은 앞의 것만(shown_rows가 걸렀어요)
+    is_lead = lambda r: unicodedata.normalize("NFC", r) == LEAD
+    asked = [r for r in asked if is_lead(r)] + [r for r in asked if not is_lead(r)]
+    if not asked:
+        asked = list(CLASSIC_ROLES)
+    elif not any(is_lead(r) for r in asked):
+        asked.insert(0, LEAD)
+    for role in asked:
+        cur = cur_of.get(role.casefold(), "")
+        q = f"{role} 세션 id(엔터면 지금 세션 그대로: {cur})" if cur else f"{role} 세션 id(local_…, 모르면 엔터)"
+        v = ask(q, check=lambda v, role=role: sid_ok(v, role), hint=sid_hint)
+        used.add(v or cur)
         members.append({"role": role, "sessionId": v})
-    old_ms = old_team.get("members") if isinstance(old_team, dict) and isinstance(old_team.get("members"), list) else []
-    have = {r.casefold() for r in CLASSIC_ROLES} | {unicodedata.normalize("NFC", m["role"]).casefold() for m in old_ms
-                                                    if isinstance(m, dict) and isinstance(m.get("role"), str)}
-    room = max(MAX_MEMBERS - len(have), 0)   # 이미 있던 팀 사무실이면 그 자리들도 세요
+    have = {r.casefold() for r in asked} | role_keys(old_team)   # 겹치면 안 되는 이름(그대로 두는 줄의 이름도)
+    # 이미 있던 팀 사무실이면 그 자리들도 세요(보여 줄 수 없어서 그대로 두는 줄은 빼고)
+    room = max(MAX_MEMBERS - len({unicodedata.normalize("NFC", r).casefold() for r in asked}), 0)
 
     def extra(v):
         """쉼표로 적은 더 둘 역할들(없으면 []). 못 쓰는 이름·겹치는 이름·너무 많으면 None."""
@@ -442,7 +509,7 @@ def main():
     more = extra(ask("추가 역할(쉼표로, 없으면 엔터. 예: 마케팅, QA)", check=lambda v: extra(v) is not None,
                      hint=f"{ROLE_HINT} 이미 있는 자리와 겹치지 않게, 이 층에는 {room}자리까지 더 둘 수 있어요."))
     for role in more:
-        v = ask(f"{role} 세션 id(local_…, 모르면 엔터)", check=sid_ok, hint=sid_hint)
+        v = ask(f"{role} 세션 id(local_…, 모르면 엔터)", check=lambda v, role=role: sid_ok(v, role), hint=sid_hint)
         used.add(v)
         members.append({"role": role, "sessionId": v})
     demo = demo_teams(org)
@@ -451,15 +518,17 @@ def main():
     boss_sid = str(boss.get("sessionId") or "")
     if not boss_sid or boss_sid.startswith(PLACEHOLDER):
         b = ask("총괄(코디네이터)로 쓸 세션 id(local_…, 모르면 엔터)",
-                check=lambda v: v == "" or (bool(SESSION_RE.match(v)) and v not in used and v not in seated),
+                check=lambda v: v == "" or (bool(SESSION_RE.match(v)) and v not in used and v not in seated and v not in held),
                 hint="local_ 로 시작하는 id예요. 층의 자리에 앉힌 세션은 총괄이 될 수 없어요.")
         boss_sid = b or PLACEHOLDER + "-0000-0000-0000-000000000000"
         boss = dict(boss, name=boss.get("name") or "총괄", title="총괄", sessionId=boss_sid)
 
     # 여기서부터 파일을 만들어요
-    make_office(office, name, prefix, members, boss_sid, old_team)
+    changed = make_office(office, name, prefix, members, boss_sid, old_team)
     if old_team is not None:
-        print("· 이미 있던 팀 사무실이에요. team.json의 이름·머리글, 새 자리와 새로 적은 세션 id만 고쳤어요.")
+        print("· 이미 있던 팀 사무실이에요. team.json의 팀 이름·머리글은 그대로 뒀어요. "
+              + ("새로 적은 세션 id와 새 자리만 더했어요." if changed else "팀원도 바뀐 게 없어서 team.json을 다시 쓰지 않았어요.")
+              + " 다른 파일도 그대로예요.")
     link_team(tid, office)
     if drop_demo:
         org["teams"] = [t for t in org["teams"] if t not in demo]
@@ -469,12 +538,15 @@ def main():
 
     print(f"\n등록했어요: {floor}층 · {name}")
     print(f"- 팀 사무실: {office}")
-    print(f"- 각 세션이 규칙을 읽게 하려면 {os.path.join(proj, 'CLAUDE.local.md')} 에 이 줄을 넣어요:  @.office/RULES.md")
     rules = os.path.join(office, "RULES.md")
-    home = os.path.realpath(os.path.expanduser("~"))
-    rules = "~" + rules[len(home):] if rules.startswith(home + os.sep) else rules
-    print(f"  이 폴더 밖에서 연 세션(폴더 없이 만든 세션 등)은 그 파일을 읽지 않아요. 그 세션 폴더의 CLAUDE.local.md에 넣거나"
-          f" 세션 창에 한 번 보내요:  @{rules.replace(' ', chr(92) + ' ')}")
+    if os.path.exists(rules):
+        print(f"- 각 세션이 규칙을 읽게 하려면 {os.path.join(proj, 'CLAUDE.local.md')} 에 이 줄을 넣어요:  @.office/RULES.md")
+        home = os.path.realpath(os.path.expanduser("~"))
+        rules = "~" + rules[len(home):] if rules.startswith(home + os.sep) else rules
+        print(f"  이 폴더 밖에서 연 세션(폴더 없이 만든 세션 등)은 그 파일을 읽지 않아요. 그 세션 폴더의 CLAUDE.local.md에 넣거나"
+              f" 세션 창에 한 번 보내요:  @{rules.replace(' ', chr(92) + ' ')}")
+    else:
+        print("- 이 팀 사무실에는 RULES.md가 없어요. 이미 있던 사무실이라 만들지 않았어요(팀 규칙은 docs/TEAM_RULES.md를 보세요).")
     print("- 세션 id를 비워 둔 자리는 화면에 '빈자리'로 보여요. 나중에 설정 화면의 '팀원 고치기'(또는 team.json)에서 채워요.")
     if boss_sid.startswith(PLACEHOLDER):
         print("- 총괄 세션 id는 아직 비어 있어요. 정하면 org.json의 boss.sessionId에 넣어요(docs/COORDINATOR.md).")
@@ -498,10 +570,6 @@ def plan_floor(f, org, taken, folders, seated, seats, boss=""):
         raise TeamError("팀 id는 영문 소문자로 시작하는 20자 이내예요(소문자·숫자·하이픈).")
     if tid in taken:
         raise TeamError(f"'{tid}'는 이미 있는 팀 id예요. 다른 id를 써 주세요.")
-    name = f.get("name")
-    name = name.strip() if isinstance(name, str) else ""
-    if not 0 < len(name) <= 30 or any(ord(ch) < 32 or ord(ch) == 127 for ch in name):
-        raise TeamError("팀 이름은 한 줄로 1~30자예요.")
     folder = f.get("folder")
     proj = os.path.expanduser(folder.strip()) if isinstance(folder, str) else ""
     if not proj or not os.path.isabs(proj) or not os.path.isdir(proj):
@@ -510,9 +578,20 @@ def plan_floor(f, org, taken, folders, seated, seats, boss=""):
     office = check_project(org, proj)
     if office in folders:
         raise TeamError("같은 프로젝트 폴더를 두 층에 골랐어요.")
-    prefix = f.get("prefix") or default_prefix(tid)
-    if not isinstance(prefix, str) or not PREFIX_RE.match(prefix) or prefix in RESERVED:
-        raise TeamError("업무 번호 머리글은 영문 대문자 1~4자 + 하이픈이에요. J-·U-·M-은 못 써요.")
+    tj = os.path.join(office, "team.json")
+    old_team = read_json(tj, "team.json") if os.path.exists(tj) else None   # 이미 있던 팀 사무실
+    name = f.get("name")
+    name = name.strip() if isinstance(name, str) else ""
+    if not name and old_team is not None:
+        name = floor_default(old_team)   # 층 이름을 비워 보내면 그 팀 이름
+    if not 0 < len(name) <= 30 or any(ord(ch) < 32 or ord(ch) == 127 for ch in name):
+        raise TeamError("팀 이름은 한 줄로 1~30자예요.")
+    if old_team is not None:
+        prefix = old_team.get("prefix")   # 이미 있던 팀의 머리글은 그대로예요(보낸 prefix는 보지 않아요)
+    else:
+        prefix = f.get("prefix") or default_prefix(tid)
+        if not isinstance(prefix, str) or not PREFIX_RE.match(prefix) or prefix in RESERVED:
+            raise TeamError("업무 번호 머리글은 영문 대문자 1~4자 + 하이픈이에요. J-·U-·M-은 못 써요.")
     replace = f.get("members") is not None
     if replace:   # 팀원 목록(맨 앞은 팀장). 이미 있던 팀 사무실이면 팀원 목록을 이것으로 바꿔요
         members = parse_members(f["members"])
@@ -537,10 +616,16 @@ def plan_floor(f, org, taken, folders, seated, seats, boss=""):
             raise TeamError(f"{m['role']} 세션은 이미 '{seated[v]}' 층에 앉아 있어요. 한 세션은 한 층에만 앉혀요.")
         if v and v in seats:
             raise TeamError(f"{m['role']} 세션은 '{seats[v]}' 층에도 앉혔어요. 한 세션은 한 층에만 앉혀요.")
-    tj = os.path.join(office, "team.json")
-    old_team = read_json(tj, "team.json") if os.path.exists(tj) else None
-    if len(merged_rows(old_team, name, members, replace)) > MAX_MEMBERS:
+    # 예전 roles 묶음이면 이미 있던 자리와 합친 수를 세요. members 목록이면 그 목록이 곧 자리라(parse_members가 12자리까지 봤어요)
+    # 보여 줄 수 없어서 그대로 두는 줄은 세지 않아요(그런 줄이 있어도 팀원 목록은 보낼 수 있게)
+    rows = merged_rows(old_team, kept_name(old_team) or name, members, replace)
+    if not replace and len(shown_rows(rows)) > MAX_MEMBERS:
         raise TeamError(f"이미 있던 팀 사무실의 자리와 합치면 {MAX_MEMBERS}자리가 넘어요. members로 팀원 목록을 보내 주세요.")
+    if old_team is not None:   # 그대로 두는 줄(보여 줄 수 없던 줄 등)에 이미 앉은 세션을 다른 자리에 또 앉히지 않아요
+        dup = more_seats(old_team.get("members"), rows)
+        if dup:
+            role = next((m["role"] for m in members if m["sessionId"] in dup), "")
+            raise TeamError(f"{role} 세션은 이 팀 사무실의 다른 자리(그대로 두는 줄)에 이미 앉아 있어요. 한 세션은 한 자리에만 앉혀요.")
     return {"id": tid, "name": name, "proj": proj, "office": office, "prefix": prefix, "members": members, "replace": replace,
             "old": old_team}
 
@@ -607,7 +692,10 @@ def run_spec(src):
         except OSError as e:
             errors.append({"id": p["id"], "error": f"팀 사무실 파일을 만들지 못했어요({e.strerror or type(e).__name__})."})
             continue
-        created.append({"id": p["id"], "floor": add_floor(org, p["id"], p["name"], p["proj"]), "office": p["office"]})
+        old = p["old"]
+        created.append({"id": p["id"], "floor": add_floor(org, p["id"], p["name"], p["proj"]), "office": p["office"],
+                        "existing": old is not None, "team": kept_name(old) if old is not None else p["name"],
+                        "prefix": p["prefix"] if isinstance(p["prefix"], str) else None})
     if not created:
         org["teams"] = before          # 한 층도 못 만들었으면 예시 팀도 그대로 둬요
     if created or boss_in:
