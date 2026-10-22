@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
 <style>
-/* Layout: 회사 건물. 맨 위 층 안내(총괄 → 1층·2층·3층 팀 → 입주 예정), 그 아래에는 고른 층 하나의 사무실만.
+/* Layout: 회사 건물. 맨 위 층 안내(건물처럼 총괄 → 입주 예정 → 높은 층부터 1층까지), 그 아래에는 고른 층 하나의 사무실만.
    사무실 왼쪽은 책상(팀장과 팀원들, 역할 이름은 층마다 달라요), 오른쪽은 회의실과 업무판, 아래는 활동 기록과 보고서.
    고른 층은 주소 끝(#<팀 id>)과 브라우저에 기억한다.
    모든 상태는 팀 사무실 폴더(.office)의 파일에서 몇 초마다 다시 읽는다. */
@@ -1194,7 +1194,7 @@ function render() {
   }
   const bossBox = noBoss || (bs && bs.state === 'seated') ? `<div class="boss-mk">${noBoss ? '<p>아직 총괄 세션이 없어요. 총괄이 있어야 여기서 보낸 말이 팀에 전해져요.</p>' : ''}${seatBoxHTML(BOSS_T, BOSS_ROLE, 'h')}</div>` : '';
   put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
-  // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(입주 예정 자리는 늘 맨 뒤). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
+  // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(↑는 한 층 위로. 층 안내는 건물처럼 위가 높은 층이고 입주 예정 자리는 맨 위). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
   const ids = officeIds(org), ob = $('#orderBtn');
   const canOrder = API && !!SU.st && ids.length > 1;
   if (!canOrder) orderMode = false;
@@ -1205,7 +1205,7 @@ function render() {
   $('#orderNote').classList.toggle('bad', ORD.err);
   const tb = $('#orgTeams');
   tb.style.setProperty('--cols', String(Math.max(1, Math.min(5, org.teams.length))));
-  put(tb, org.teams.map(t => {
+  put(tb, [...org.teams.filter(t => !t.office), ...org.teams.filter(t => t.office).reverse()].map(t => {   // 건물처럼: 입주 예정 → 높은 층 → 맨 아래 1층
     const d = teams[t.id];
     const on = !!d;
     const ms = on ? d.team.members : [];
@@ -1215,7 +1215,7 @@ function render() {
     const lc = on && lead ? customName(lead, [d.team.team, t.name]) : '';
     const leadTxt = !lead ? '없음' : on && !lead.sessionId ? (lc ? `${lc} · 빈자리` : '빈자리') : (lc || lead.title);
     const k = t.office ? ids.indexOf(t.id) : -1, label = `${floorLabel(t)} ${t.name}`;
-    const mv = orderMode && k >= 0 ? `<span class="ot-move" role="group" aria-label="${esc(label)} 순서">${moveBtn('up', t, label, k === 0)}${moveBtn('down', t, label, k === ids.length - 1)}</span>` : '';
+    const mv = orderMode && k >= 0 ? `<span class="ot-move" role="group" aria-label="${esc(label)} 순서">${moveBtn('up', t, label, k === ids.length - 1)}${moveBtn('down', t, label, k === 0)}</span>` : '';
     return `<div class="ot-cell"><button type="button" class="org-team${on ? ' on' : ''}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms">
       <span class="ot-head"><span class="fl-no">${esc(floorLabel(t))}</span><span class="ot-name">${esc(t.name)}</span></span><span class="badge">${esc(t.state)}</span>
       <span class="ot-row">팀장 <b>${esc(leadTxt)}</b></span>
@@ -2766,20 +2766,20 @@ function cardHTML(p, used) {
     <p class="err" role="alert" data-err id="${pre}err" tabindex="-1" style="margin-top:8px">${esc(p.err)}</p>
   </li>`;
 }
-// 몇 층에 둘까요: 맨 아래(기본, 지금 있는 층 다음) 또는 지금 있는 층 사이. p.at은 ‘이 층 앞에’ 넣을 층의 id라서 그사이 순서를 바꿔도 고른 자리가 그대로예요.
+// 몇 층에 둘까요: 맨 위(기본, 지금 가장 높은 층 위) 또는 지금 있는 층 사이. p.at은 ‘이 층 앞에’ 넣을 층의 id라서 그사이 순서를 바꿔도 고른 자리가 그대로예요.
 // 층을 만들면 예시 팀은 빠지니(서버의 dropDemo) 예시 팀은 세지 않아요. 내 층이 없으면 고를 게 없어서 보이지 않아요.
 function posHTML(p, i) {
   const fl = myFloors();
   if (p.at && !fl.some(f => f.id === p.at)) p.at = '';
   if (!fl.length) return '';
-  const opts = fl.map((f, k) => `<option value="${esc(f.id)}"${p.at === f.id ? ' selected' : ''}>${esc(k ? `${k + 1}층 · ‘${fl[k - 1].name}’ 뒤, ‘${f.name}’ 앞` : `1층 · 맨 위, 지금 1층 ‘${f.name}’ 앞`)}</option>`).join('');
+  const opts = fl.map((f, k) => `<option value="${esc(f.id)}"${p.at === f.id ? ' selected' : ''}>${esc(k ? `${k + 1}층 · ‘${fl[k - 1].name}’ 위, ‘${f.name}’ 아래` : `1층 · 맨 아래, 지금 1층 ‘${f.name}’ 아래`)}</option>`).join('');
   return `<div class="su-field su-pos"><label for="suP${i}">몇 층에 둘까요</label>
-      <select id="suP${i}" data-su-in="pos" aria-describedby="suPh${i}"><option value=""${p.at ? '' : ' selected'}>맨 아래(기본) · 지금 있는 층 다음</option>${opts}</select>
+      <select id="suP${i}" data-su-in="pos" aria-describedby="suPh${i}"><option value=""${p.at ? '' : ' selected'}>맨 위(기본) · 지금 가장 높은 층 위</option>${opts}</select>
       <small class="hint" id="suPh${i}">${esc(posHint(p, fl))}</small></div>`;
 }
 function posHint(p, fl) {
   const k = p.at ? fl.findIndex(f => f.id === p.at) : -1;
-  return k < 0 ? `지금 있는 층(${fl.length}개) 다음에 들어가요.` : `‘${fl[k].name}’ 앞에 넣어요. ‘${fl[k].name}’부터 뒤의 층은 층을 만들 때 번호가 하나씩 커져요.`;
+  return k < 0 ? `지금 가장 높은 층(${fl.length}층) 위에 들어가요.` : `‘${fl[k].name}’ 아래에 넣어요. ‘${fl[k].name}’와 그 위층은 층을 만들 때 한 층씩 올라가요.`;
 }
 // 고른 세션(세션 하나, 또는 그룹을 통째로 골랐으면 그 그룹에서 rowsFromGroup이 앉혔을 세션) 중 불러온 팀원 자리에 없는 세션. 그릴 때마다 다시 셈해요(앉히면 빠져요).
 function missingSess(p, used) {
@@ -2812,7 +2812,7 @@ function ordHTML(f, k, n, j) {
   if (n < 2 || !API) return '';
   const label = `${f.floor ? f.floor + '층' : `${k + 1}번째`} ${f.name}`;
   const b = (dir, edge) => `<button type="button" class="btn mv" id="suO${dir === 'up' ? 'u' : 'd'}${j}" data-su="floor-move" data-dir="${dir}" data-team="${esc(f.id)}" aria-label="${esc(label)} ${dir === 'up' ? '위로' : '아래로'}"${edge ? ' aria-disabled="true"' : ''}>${dir === 'up' ? '↑' : '↓'}</button>`;
-  return `<span class="su-ord" role="group" aria-label="${esc(label)} 순서">${b('up', k === 0)}${b('down', k === n - 1)}</span>`;
+  return `<span class="su-ord" role="group" aria-label="${esc(label)} 순서">${b('up', k === n - 1)}${b('down', k === 0)}</span>`;
 }
 function haveHTML(f, used, k, all) {
   const j = ix('floor|' + f.id), e = SU.edit[f.id], n = memberCount(f), note = SU.editNote[f.id];
@@ -2912,7 +2912,7 @@ function floorsHTML() {
   // 맨 위는 추천 팀(한 번에 만들기), 그다음 지금 있는 층(순서 ↑/↓, 바로 저장 · 팀원 고치기), 그 아래 직접 고르기(나무)와 만들 층이에요
   const have = fl.length ? `<h3 class="su-sub">지금 있는 층 <small class="hint">${fl.length > 1 && API ? '↑/↓로 층 순서를 바꾸면 바로 저장돼요' : ''}</small></h3>
     <p class="hint su-saved su-ordnote${ORD.err ? ' bad' : ''}" id="suOrdNote">${esc(ORD.note)}</p>
-    <ul class="su-floors">${fl.map((f, k) => haveHTML(f, used, k, fl.length)).join('')}</ul>` : '';
+    <ul class="su-floors">${fl.map((f, k) => [f, k]).reverse().map(([f, k]) => haveHTML(f, used, k, fl.length)).join('')}</ul>` : '';
   let pick;
   const bossOnly = () => (bossMakeHTML('b') ? `<h3 class="su-sub">총괄</h3>${bossMakeHTML('b')}` : '');   // 나무가 없어도 총괄은 만들 수 있어요
   if (!c) pick = SU.claudeErr ? bossOnly() : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
@@ -3818,7 +3818,7 @@ $('#setup').addEventListener('click', e => {
     const f = floorById(b.dataset.team), up = b.dataset.dir === 'up';
     if (!f) return;
     if (b.getAttribute('aria-disabled') === 'true') { suSay(up ? `${f.name} 층은 이미 맨 위예요` : `${f.name} 층은 이미 맨 아래예요`); return; }
-    const note = moveFloor(f.id, up ? -1 : 1, 'setup');
+    const note = moveFloor(f.id, up ? 1 : -1, 'setup');
     renderSetup(`#suO${up ? 'u' : 'd'}${ix('floor|' + f.id)}`);
     if (note) suSay(note);
   }
@@ -4552,7 +4552,7 @@ document.addEventListener('click', e => {
   const f = e.target.closest('[data-file]');
   if (f) { fileDrawer(f.dataset.file); return; }
   const mv = e.target.closest('#orgTeams [data-move]');
-  if (mv) { if (mv.getAttribute('aria-disabled') !== 'true') moveFloor(mv.dataset.team, mv.dataset.move === 'up' ? -1 : 1, 'office'); return; }
+  if (mv) { if (mv.getAttribute('aria-disabled') !== 'true') moveFloor(mv.dataset.team, mv.dataset.move === 'up' ? 1 : -1, 'office'); return; }
   if (e.target.closest('#orderBtn')) { orderMode = !orderMode; ORD.note = ''; ORD.err = false; render(); return; }
   const g = e.target.closest('[data-goto]');
   if (g) { goFloor(g.dataset.goto); return; }
