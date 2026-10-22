@@ -9,6 +9,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   팀 사무실의 대화 파일·회의 파일·결재 파일과 log.jsonl, 그리고 outbox/에 '전달할 메시지'를 남겨요.
 - 세션에 직접 메시지를 넣지는 않아요. outbox/는 총괄 세션이 지켜보다가 SendMessage로 전해요(bin/relay_watch.py).
   relay_watch는 이 서버가 만든 항목인지(/api/outbox/check) 확인한 뒤에만 알려요.
+  끌 때(종료 신호·Ctrl-C) 아직 전하지 않은 항목은 설정 폴더의 넘김 파일(0600)로 다음 서버에 넘기고, 넘겨받지 못한 항목은 그 대화에 알려요.
 - 127.0.0.1에서만 열고, Host·Origin·열쇠가 맞는 요청만 받아요. 다른 사이트가 이 페이지를 틀(iframe)에 넣지 못하게 해요.
 - 처음 설정(/api/setup/*, 앱의 로그인 화면): GitHub 로그인(기기 코드, 또는 이미 로그인된 gh), 이 맥의 Claude Code 세션 중
   층으로 만들 것 고르기(bin/new_team.py --spec), 층별 공개 범위(public.json)와 공개하기(bin/office_public.py --publish --yes).
@@ -41,6 +42,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   상태만 알려 주고(/api/codex/status, /api/setup/state), 말 걸기·회의·결재·전달은 하지 않아요. ~/.codex에는 아무것도 쓰지 않아요.
 - 총괄 만들기(/api/boss/*): 설치 폴더로 새 세션 링크(docs/COORDINATOR.md의 지시 + 자리 표시)를 만들고, 자리 표시가 맞는 새 세션을
   org.json의 boss.sessionId로 정해요(표시가 없으면 저절로 고르지 않고 대표가 골라요). 기다리는 총괄은 setup.json의 pendingBoss.
+  총괄이 바뀌면 층마다 RULES.md에 적힌 총괄 id(new_team.py가 쓴 '지금은 local_…' 조각)만 새 id로 고쳐요.
 - 규칙 줄 넣기(/api/floor/link-rules): 층 폴더의 CLAUDE.local.md에 '@.office/RULES.md' 한 줄을 (없을 때만) 더하고,
   git 저장소면 .git/info/exclude에 CLAUDE.local.md를 (아직 무시되지 않을 때만) 더해요. 다른 글은 지우거나 순서를 바꾸지 않아요.
 """
@@ -92,6 +94,7 @@ SAY = os.path.join(HERE, "bin", "say.sh")
 HQ = os.path.join(HERE, "hq")
 HQ_CHAT = os.path.join(HQ, "chat.jsonl")
 PORT_FILE = os.path.join(OUTBOX, ".port")   # relay_watch.py가 이 서버의 포트를 찾는 곳
+RETIRED = os.path.join(OUTBOX, ".retired")   # 바뀌기 전 총괄 id(한 줄에 하나, 최근 20개). relay_watch가 예전 총괄 창의 감시를 알아봐요
 HOME_ID = hashlib.sha256(HERE.encode("utf-8")).hexdigest()[:12]   # 어느 설치 폴더의 서버인지(경로 대신 해시)
 try:
     with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as _f:
@@ -143,6 +146,10 @@ CLAUDE_CONFIG = (os.environ.get("AGENCITY_CLAUDE_CONFIG")
 CODEX_DIR = os.environ.get("AGENCITY_CODEX_DIR") or os.path.join(HOME_RAW, ".codex")
 CODEX_ID = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\Z")   # Codex 세션 id(uuid 모양)
 TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")
+# 서버를 끌 때 아직 outbox에 있는 항목의 id·해시를 다음 서버에 넘기는 파일(0600, 설치 폴더마다 하나). 다음 서버가 한 번 읽고 지워요
+HANDOFF = os.path.join(CONFIG_DIR, f"outbox-{HOME_ID}.json")
+HANDOFF_TTL = 300         # 이보다 오래된 넘김 파일은 받지 않아요(초)
+LOST_TEXT = "서버가 다시 켜져서 {}에 보낸 말을 전하지 못했어요. 다시 보내 주세요."
 # 이 폴더들(로그인 토큰이 있는 곳) 안의 파일은 어떤 경로로 와도 보여 주지 않아요(설치 폴더를 그 안에 둔 드문 경우엔 토큰 파일만)
 SECRET_DIRS = tuple({os.path.realpath(CONFIG_DIR), os.path.realpath(os.path.join(HOME_RAW, ".config", "agencity"))})
 SECRET_FILES = tuple({os.path.join(d, "github-token.json") for d in SECRET_DIRS})
@@ -804,10 +811,122 @@ def api_state():
 
 
 def api_outbox_check(q):
+    """{ok, sha}. boss는 감시기가 기억하는 총괄(0.7.0부터, 모르면 '-')이에요. 그게 지금 총괄이 아니거나, 총괄을 바꾼 뒤(outbox/.retired)
+    boss 없이 묻는 감시기(0.7.0 전에 켠 것)면 None이에요(409). 감시기는 그 항목을 건너뛰어서, 예전 총괄 창이 더 전하지 않아요."""
     oid = (q.get("id") or [""])[0]
+    b = (q.get("boss") or [""])[0]
+    if (b and b != "-" and b != boss_sid()) or (not b and os.path.exists(RETIRED)):
+        return None
     with LOCK:
         h = ISSUED.get(oid)
     return {"ok": h is not None, "sha": h}
+
+
+# 서버를 다시 켤 때(업데이트 포함) 전달 항목 이어 주기 ------------------------------
+# ISSUED는 메모리에만 있어서, 끌 때 아직 outbox에 남은 항목만 넘김 파일(HANDOFF)에 적고 다음 서버가 켤 때 받아요.
+# 넘김 파일에 없거나 내용(해시)이 바뀐 항목은 받지 않아요(다른 프로그램이 outbox에 넣은 항목은 지금처럼 전하지 않아요).
+# 받지 못한 항목은 outbox/rejected/로 옮기고, 그 대화(사이트 대화 파일일 때만)에 '다시 보내 주세요' 줄을 남겨요.
+
+def handoff_save():
+    """끌 때: 아직 outbox에 있는 내 항목의 {id: 해시}를 설정 폴더의 0600 파일에 적어요. 없으면 쓰지 않아요."""
+    with LOCK:
+        items = {oid: h for oid, h in ISSUED.items() if os.path.isfile(os.path.join(OUTBOX, oid + ".json"))}
+    if not items:
+        return
+    tmp = f"{HANDOFF}.tmp{os.getpid()}"
+    try:
+        os.makedirs(CONFIG_DIR, mode=0o700, exist_ok=True)
+        st = os.lstat(CONFIG_DIR)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid():
+            return
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({"home": HOME_ID, "t": time.time(), "items": items}, f)
+        os.replace(tmp, HANDOFF)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def handoff_load():
+    """켤 때: 앞 서버가 넘긴 {id: 해시}. 이 설치 폴더의 것이고 HANDOFF_TTL 안에 쓴 내 0600 파일만 받아요. 읽은 파일은 바로 지워요."""
+    try:
+        st = os.lstat(HANDOFF)
+    except OSError:
+        return {}
+    try:
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+            return {}
+        with open(HANDOFF, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    finally:
+        try:
+            os.remove(HANDOFF)
+        except OSError:
+            pass
+    if not isinstance(d, dict):
+        return {}
+    t, items = d.get("t"), d.get("items")
+    fresh = isinstance(t, (int, float)) and 0 <= time.time() - t <= HANDOFF_TTL and abs(time.time() - st.st_mtime) <= HANDOFF_TTL
+    if d.get("home") != HOME_ID or not fresh or not isinstance(items, dict):
+        return {}
+    return {k: v for k, v in items.items() if isinstance(k, str) and isinstance(v, str)}
+
+
+def site_thread(path):
+    """outbox 항목의 thread가 사이트 대화 파일(say.sh가 받는 곳: hq/chat.jsonl, 사무실의 chat/*.jsonl·meetings/*.chat.jsonl)이면 그 실제 경로."""
+    if not isinstance(path, str) or not path.startswith("/") or ".." in path:
+        return None
+    real = os.path.realpath(path)
+    if not os.path.isfile(real):
+        return None
+    if real == os.path.realpath(HQ_CHAT):
+        return real
+    d, n = os.path.split(real)
+    for root in office_roots():
+        if (d == os.path.join(root, "chat") and n.endswith(".jsonl")) or (d == os.path.join(root, "meetings") and n.endswith(".chat.jsonl")):
+            return real
+    return None
+
+
+def outbox_resume():
+    """켤 때 outbox에 남은 항목: 앞 서버가 넘긴 그대로면 ISSUED에 다시 넣어 이어서 전하고, 아니면 rejected/로 옮기며 그 대화에 알려요."""
+    got = handoff_load()
+    try:
+        names = sorted(n for n in os.listdir(OUTBOX) if n.endswith(".json"))
+    except OSError:
+        return
+    told, lost = set(), 0
+    for n in names:
+        p = os.path.join(OUTBOX, n)
+        try:
+            item = load_json(p)
+        except (OSError, ValueError):
+            item = None
+        oid = item.get("id") if isinstance(item, dict) else None
+        if isinstance(oid, str) and n == oid + ".json" and got.get(oid) == sha(item.get("to"), item.get("text")):
+            with LOCK:
+                ISSUED[oid] = got[oid]
+            continue
+        try:
+            os.makedirs(os.path.join(OUTBOX, "rejected"), exist_ok=True)
+            os.replace(p, os.path.join(OUTBOX, "rejected", n))
+        except OSError:
+            continue
+        lost += 1
+        th = site_thread(item.get("thread")) if isinstance(item, dict) else None
+        t = str(item.get("t") or "") if th else ""
+        if th and (th, t) not in told:   # 회의는 받는 사람마다 항목이 있어서 같은 말은 한 줄만
+            told.add((th, t))
+            m = re.match(r"^\d{4}-\d\d-\d\dT(\d\d:\d\d)", t)
+            append_line(th, {"t": now(), "from": "총괄", "kind": "전달",
+                             "text": LOST_TEXT.format(m.group(1)) if m else "서버가 다시 켜져서 이 말은 전하지 못했어요. 다시 보내 주세요."})
+    if lost:
+        print(f"· 앞 서버가 넘기지 않은 전달 항목 {lost}개는 outbox/rejected/로 옮겼어요(그 대화에 다시 보내 달라고 남겼어요).", flush=True)
 
 
 # ---------- 처음 설정(앱의 로그인 화면) ----------
@@ -2394,6 +2513,7 @@ def setup_floors(body):
     created = []
     try:
         if good or boss:
+            prev = boss_sid()
             spec = {"boss": boss or None, "dropDemo": drop_demo, "floors": good}
             try:
                 r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
@@ -2405,6 +2525,9 @@ def setup_floors(body):
                 raise ApiError(500, "층을 만들지 못했어요: " + (last_line(r.stderr) or "알 수 없는 오류"))
             if not res.get("ok"):
                 raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
+            if boss and boss_sid() == boss:
+                boss_retire(prev, boss)   # 예전 총괄 창의 감시기는 더 전하지 않아요
+                boss_rules(boss)   # 총괄을 바꿨으면 이미 있던 층의 RULES.md에 적힌 총괄 id도 고쳐요
             for c in res.get("created") or []:
                 if isinstance(c, dict):
                     o = c.get("office")
@@ -3992,16 +4115,18 @@ def coordinator_text():
     return m.group(1).strip().replace("<에이전시티>", HERE)
 
 
-def boss_prompt(marker):
-    """총괄로 열 새 세션의 첫 메시지(대표가 Claude 앱 작성창에서 Enter로 보내요)."""
+def boss_prompt(marker, prev=None):
+    """총괄로 열 새 세션의 첫 메시지(대표가 Claude 앱 작성창에서 Enter로 보내요). prev: 바꿀 지금 총괄(있으면 그 id가 바뀐 뒤에 감시를 켜요)."""
+    org_json = os.path.join(HERE, "org.json")
     return "\n".join([
         f"[에이전시티 자리 표시: {marker}]",
         "(위 줄은 에이전시티가 이 세션을 찾아 총괄로 정하는 표시예요.)",
         "",
         coordinator_text(),
         "",
-        f"내 세션 id는 {os.path.join(HERE, 'org.json')}의 boss.sessionId예요(에이전시티가 몇 초 안에 채워요). "
-        "채워지면 1)의 감시를 켜고 \"준비됐어요\" 한 줄로 답한 뒤 알림을 기다려요.",
+        (f"내 세션 id는 {org_json}의 boss.sessionId예요. 지금은 예전 총괄의 id({prev})가 적혀 있고, 에이전시티가 몇 초 안에 내 id로 바꿔요. "
+         "바뀌면" if prev else f"내 세션 id는 {org_json}의 boss.sessionId예요(에이전시티가 몇 초 안에 채워요). 채워지면")
+        + " 1)의 감시를 켜고 \"준비됐어요\" 한 줄로 답한 뒤 알림을 기다려요.",
     ])
 
 
@@ -4010,12 +4135,12 @@ def api_boss_link(body):
     if any(unicodedata.category(ch) in NAME_BAD for ch in HERE):   # 경로는 첫 메시지에 그대로 들어가요
         raise ApiError(409, "설치 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요")
     marker = "AGC-" + secrets.token_hex(4)
-    prompt = boss_prompt(marker)
+    prev = boss_sid()
+    prompt = boss_prompt(marker, prev)
     if len(prompt) >= BOSS_PROMPT_MAX:
         raise ApiError(409, "첫 메시지가 너무 길어요(설치 폴더 경로가 아주 길어요)")
     url = "claude://code/new?folder=" + quote(HERE, safe="") + "&q=" + quote(prompt, safe="")
     t0 = time.time()
-    prev = boss_sid()
     entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
     with SETUP_LOCK:
         s = load_setup()
@@ -4033,10 +4158,56 @@ def set_boss(sid):
     if not isinstance(cur, dict):
         raise ValueError("org.json")
     b = cur.get("boss") if isinstance(cur.get("boss"), dict) else {}
+    prev = boss_sid()
     cur["boss"] = dict(b, name=b.get("name") or "총괄", title="총괄", sessionId=sid)
     if os.path.exists(path):
         shutil.copy(path, path + ".bak")
     write_json(path, cur)
+    boss_retire(prev, sid)
+    boss_rules(sid)
+
+
+def boss_retire(prev, sid):
+    """총괄이 prev에서 sid로 바뀌면 prev를 outbox/.retired에 더해요(최근 20개, 임시 파일을 쓰고 바꿔치기). 예전 총괄 창의 감시기가 더 전하지 않게요."""
+    if not prev or prev == sid:
+        return
+    try:
+        with open(RETIRED, encoding="utf-8") as f:
+            ids = [x for x in f.read().split() if SESSION_ID.match(x) and x != prev]
+    except (OSError, UnicodeDecodeError):
+        ids = []
+    try:
+        os.makedirs(OUTBOX, exist_ok=True)
+        write_text(RETIRED, "\n".join(ids[-19:] + [prev]) + "\n")
+    except OSError:
+        pass
+
+
+# bin/new_team.py가 RULES.md에 쓴 '…/org.json의 boss.sessionId, 지금은 local_…)일 때만' 조각(총괄을 정하기 전에 만든 층은 ', 지금은 …'이 없어요)
+BOSS_NOW = re.compile(r"(org\.json의 boss\.sessionId)(?:, 지금은 local_[0-9a-f-]{8,64})?(\)일 때만)")
+
+
+def boss_rules(sid):
+    """총괄이 바뀌면 층마다 RULES.md의 그 조각만 새 총괄 id로 고쳐요(다른 글은 그대로, 임시 파일을 쓰고 바꿔치기). 예시 팀·링크인 RULES.md는 그대로. 고친 층 수."""
+    now_boss = f", 지금은 {sid}" if isinstance(sid, str) and SESSION_ID.match(sid) and not sid.startswith("local_00000000") else ""
+    roots, n = office_roots(), 0
+    for t in real_teams():
+        base = os.path.realpath(os.path.join(HERE, t["office"]))
+        path = os.path.join(base, "RULES.md")
+        if is_example(t) or base not in roots or os.path.islink(path) or not os.path.isfile(path):
+            continue
+        try:
+            if os.path.getsize(path) > 1024 * 1024:
+                continue
+            with open(path, encoding="utf-8", newline="") as f:
+                text = f.read()
+            new = BOSS_NOW.sub(lambda m: m.group(1) + now_boss + m.group(2), text)
+            if new != text:
+                write_text(path, new)
+                n += 1
+        except (OSError, UnicodeDecodeError):
+            continue
+    return n
 
 
 def boss_apply(marker, sid, how, title="", want=SEAT_LIVE, pick_only=False):
@@ -4364,7 +4535,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, res, hdrs)
             return
         if u.path == "/api/outbox/check":
-            self.send_json(200, api_outbox_check(parse_qs(u.query)))
+            res = api_outbox_check(parse_qs(u.query))
+            if res is None:
+                self.send_json(409, {"ok": False, "error": "지금 총괄의 감시기가 아니에요"})
+            else:
+                self.send_json(200, res)
             return
         if u.path.startswith("/api/") or not self.allowed():
             self.send_error(404)
@@ -4429,6 +4604,10 @@ def main():
     def stop(*_):   # 종료 신호도 Ctrl-C처럼 받아서 outbox/.port를 치우고 끝내요
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, stop)
+    try:   # 앞 서버가 넘긴 전달 항목은 이어서 전하고, 확인할 수 없는 항목은 그 대화에 알려요(조용히 사라지지 않게)
+        outbox_resume()
+    except Exception:  # noqa: BLE001 — 켜는 건 막지 않아요
+        pass
     with open(PORT_FILE + ".tmp", "w") as f:
         f.write(str(PORT))
     os.replace(PORT_FILE + ".tmp", PORT_FILE)
@@ -4443,6 +4622,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        handoff_save()   # 종료 신호·Ctrl-C(업데이트·다시 켜기)로 끌 때 아직 전하지 않은 항목을 다음 서버에 넘겨요
         try:
             with open(PORT_FILE) as f:
                 mine = f.read().strip() == str(PORT)

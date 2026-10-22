@@ -329,6 +329,7 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .new-dot{display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--err); color:#fff; font:700 10.5px/1.4 var(--font-body); vertical-align:middle}
 .relay-note{margin:0; font-size:12px; color:var(--err-ink)}
 .relay-note:empty{display:none}
+#relay a,.relay-note a{font-weight:600; white-space:nowrap; text-underline-offset:3px}   /* 총괄 창이 멈췄을 수 있을 때의 ‘총괄 창 열기 ↗’ */
 .past{list-style:none; margin:0; padding:0}
 .past li + li{border-top:1px solid var(--line)}
 .past button{width:100%; padding:7px 0; border:0; background:none; color:var(--ink); font:500 12.5px var(--font-body); text-align:left; cursor:pointer; overflow-wrap:anywhere}
@@ -1191,9 +1192,9 @@ function render() {
   bh.hidden = !noBoss;
   if (noBoss) put(bh, bs && (bs.state === 'waiting' || bs.state === 'pick') ? '총괄 만드는 중 · Claude 앱을 확인해 주세요' : '총괄 없음 · 총괄 만들기');
   if (API && !noBoss) {
-    const r = state.relay, ok = r && r.relayAge != null && r.relayAge < 15;
-    rl.className = 'live' + (ok ? '' : ' alert');
-    put(rl, ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${esc(r.pending)}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : ''}`);
+    const r = state.relay, ok = r && r.relayAge != null && r.relayAge < 15, stuck = relayStuck(r);   // 멈췄을 수 있으면 할 일 한 가지와 총괄 창 링크
+    rl.className = 'live' + (ok && !stuck ? '' : ' alert');
+    put(rl, stuck ? `총괄 창이 멈췄을 수 있어요(전달 대기 <b>${esc(r.pending)}</b>). ${STUCK_STEP} <a href="${esc(chatLink(org.boss.sessionId))}">총괄 창 열기 ↗</a>` : ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${esc(r.pending)}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : ''}`);
   }
   const bossBox = noBoss || (bs && bs.state === 'seated') ? `<div class="boss-mk">${noBoss ? '<p>아직 총괄 세션이 없어요. 총괄이 있어야 여기서 보낸 말이 팀에 전해져요.</p>' : ''}${seatBoxHTML(BOSS_T, BOSS_ROLE, 'h')}</div>` : '';
   put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
@@ -1480,6 +1481,7 @@ function seatInner(tid, role, where) {
   }
   if (st === 'expired' || st === 'failed') return `<p class="seat-st${st === 'failed' ? ' bad' : ''}">${esc(st === 'failed' ? s.fail || (boss ? '총괄로 정하지 못했어요. 다시 열어 주세요' : '자리에 앉히지 못했어요. 다시 열어 주세요') : '시간이 지나 다시 열어야 해요')}</p><div class="seat-acts">${b('retry', s.busy === 'link' ? '여는 중…' : '다시 열기', s.busy === 'link' ? '' : relink, ' primary')}${cancel}</div>${err}`;
   // 아직 링크가 없어요(또는 만드는 중이거나 못 만들었어요)
+  if (boss && SU.st && SU.st.boss) return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '총괄 바꾸기', busy ? '' : '새 세션을 총괄로 바꾸기')}</div>${err}<p class="hint">새 Claude 세션을 총괄로 열어요. 예전 총괄의 전달은 저절로 멈춰요.</p>`;
   if (boss) return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '총괄 만들기', busy ? '' : '총괄 세션 새로 만들기', ' primary')}</div>${err}<p class="hint">에이전시티 폴더에서 새 Claude 세션을 열고 총괄 지시를 채워 둬요. Claude 앱에서 Enter만 누르면 총괄로 정해요.</p>`;
   return `${where === 'r' ? '<p class="seat-st">아직 세션이 없어요.</p>' : ''}<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '세션 만들기', busy ? '' : `${who} 자리에 새 세션 만들기`, ' primary')}</div>${err}${where === 'r' ? '<p class="hint">이 층 폴더에서 새 Claude 세션을 열어요. Claude 앱에서 Enter를 누르면 이 자리에 앉혀요.</p>' : ''}`;
 }
@@ -1816,12 +1818,20 @@ async function refreshThread(force) {
   if (main) main.scrollTop = main.scrollHeight;
   if (lines.length) markSeen(cur.file, lines[lines.length - 1].t);
 }
+// 감시는 살아 있는데(heartbeat) 1분 넘게 대기가 줄지 않으면 총괄 창이 멈췄을 수 있어요(Claude 앱은 사람 입력 없이 SendMessage를 10번쯤 보내면 막아요)
+const relayStuck = r => !!(r && r.relayAge != null && r.relayAge < 15 && r.pending && r.oldestAge > 60);
+const STUCK_STEP = '총괄 창에 아무 말이나 한 번 입력해 주세요.';
 function relayWarn() {
   const r = state && state.relay;
   if (!API) return '';
   if (!r || r.relayAge == null || r.relayAge >= 15) return '총괄 연결이 끊겨 있어요. 보낸 말은 쌓여 있다가 총괄이 돌아오면 전해져요. 총괄 창에 “사이트 연결 다시 켜”라고 해 주세요.';
-  if (r.pending && r.oldestAge > 90) return `총괄이 ${r.pending}개를 아직 전하지 못하고 있어요(가장 오래된 것 ${Math.round(r.oldestAge / 60)}분).`;
+  if (relayStuck(r)) return `총괄 창이 멈췄을 수 있어요(대기 ${r.pending}개). ${STUCK_STEP}`;
   return '';
+}
+// 작성창 아래 안내: relayWarn 글(esc)에, 총괄 창이 멈췄을 수 있을 때만 총괄 창 링크를 붙여요
+function relayNote() {
+  const w = relayWarn();
+  return esc(w) + (w && relayStuck(state && state.relay) && realBoss() ? ` <a href="${esc(chatLink(state.org.boss.sessionId))}">총괄 창 열기 ↗</a>` : '');
 }
 // 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
 function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '') {
@@ -1829,7 +1839,7 @@ function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로
   return `<form class="composer" data-form="${form}" data-key="${esc(key)}">${extra}
     <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"></textarea>
     <div class="row"><p class="hint"><span class="keys" id="sayKeys">Enter 보내기 · Shift+Enter 줄바꿈</span><br>총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><button type="submit" class="btn primary">보내기</button></div>
-    <p class="relay-note" role="status">${esc(relayWarn())}</p>
+    <p class="relay-note" role="status">${relayNote()}</p>
     <p class="err" role="alert"></p></form>`;
 }
 function openThread(file, opts = {}) {
@@ -1898,7 +1908,7 @@ function meetStartDrawer(tid, preset = {}) {
       <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>
       <textarea name="note" maxlength="2000" placeholder="안건이나 메모 (선택)" aria-label="회의 메모">${esc(preset.note || '')}</textarea>
       <div class="row"><p class="hint">참석: 내 말이 참석자에게 바로 가요. 위임: 팀장이 진행하고 결과를 회의록·결재로 올려요. 중간에 빠지면 나머지는 팀이 이어서 해요.</p><button type="submit" class="btn primary">회의 시작</button></div>
-      <p class="relay-note" role="status">${esc(relayWarn())}</p>
+      <p class="relay-note" role="status">${relayNote()}</p>
       <p class="err" role="alert"></p></form>`, tid);
 }
 function meetDrawer(tid, id) {
@@ -1924,7 +1934,7 @@ function meetDrawer(tid, id) {
     <div class="d-main"><div id="meetCtl"></div>
     <ul class="thread" id="thread" aria-live="polite"></ul></div>
     <div id="meetSay">${composerHTML('say', `<input type="hidden" name="thread" value="meeting:${esc(am.id)}"><input type="hidden" name="team" value="${esc(tid)}">
-      <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}" checked> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid, true);
+      <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}"${r === LEAD || !(am.participants || []).includes(LEAD) ? ' checked' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid, true);
   drawControls(am);
   // 회의 정보(진행 중·정리 중·끝, 참석/위임)와 회의록 여부는 대화와 따로 3초마다 확인해요.
   let busy = false;
@@ -2014,7 +2024,7 @@ async function submitForm(form, submitter) {
       const ta = form.querySelector('textarea');
       drafts.delete(draftKey(ta)); ta.value = '';
       if (state) state.relay = Object.assign({}, state.relay || {}, res);
-      const note = $('.relay-note', form); if (note) note.textContent = relayWarn();
+      const note = $('.relay-note', form); if (note) note.innerHTML = relayNote();
       await refreshThread(true);
     } else if (form.dataset.form === 'meet-start') {
       const parts = [LEAD, ...fd.getAll('p')];
@@ -2852,9 +2862,10 @@ function bossHTML(all) {
       <small class="hint" id="suBossH">${SU.st.boss ? `사이트에서 보낸 말을 팀 세션에 전해 주는 세션이에요(${coordLink()}). 고르지 않으면 지금 총괄을 그대로 둬요.` : `아직 총괄 세션이 없어요. 정하지 않으면 사이트에서 보낸 말이 어느 세션에도 전해지지 않아요(${coordLink()}).`}${likely.length ? ' 제목이 총괄 같은(총괄·코디네이터) 세션을 맨 위에 뒀어요.' : ''}</small>
       ${bossMakeHTML('b')}</div>`;
 }
-// 총괄 만들기 상자: 진짜 총괄이 없을 때(또는 방금 정했을 때 ✓를 잠깐). 고를 세션이 없어도 바로 새 총괄 세션을 열어요
+// 총괄 만들기 상자: 진짜 총괄이 없을 때(또는 방금 정했을 때 ✓를 잠깐). 고를 세션이 없어도 바로 새 총괄 세션을 열어요.
+// 3단계 총괄 칸('b')에는 총괄이 있어도 보여요([총괄 바꾸기]: 새 세션을 총괄로 정하면 예전 총괄의 전달 감시는 저절로 멈춰요)
 function bossMakeHTML(where) {
-  if (!API || (SU.st && SU.st.boss && !seatGet(seatKey(BOSS_T, BOSS_ROLE)))) return '';
+  if (!API || (SU.st && SU.st.boss && !seatGet(seatKey(BOSS_T, BOSS_ROLE)) && where !== 'b')) return '';
   const say = where === 'b' ? '고를 세션이 없으면 새로 만들어요.' : `총괄 세션이 아직 없어요. 총괄이 있어야 화면에서 보낸 말이 팀에 전해져요.${where === 'k' && SU.claude && treeGroups().length ? ' 있는 세션을 쓰려면 아래 ‘총괄(코디네이터) 세션’에서 골라요.' : ''}`;
   return `<div class="su-bossmk">${SU.st && SU.st.boss ? '' : `<p>${esc(say)}</p>`}${seatBoxHTML(BOSS_T, BOSS_ROLE, where)}</div>`;
 }
@@ -4243,6 +4254,7 @@ function updAskOpen(from) {
   const u = UPD.st;
   if (!u || !u.canUpdate || !u.available || UPD.ov || UPD.ask) return;
   const v = u.latest, cur = curVer(), failed = u.last && u.last.state === 'failed' && sameVer(u.last.to, v) ? u.last.message.trim().split('\n')[0] : '';   // 첫 줄이 요약이에요
+  const wait = state && state.relay && state.relay.pending > 0 ? state.relay.pending : 0;   // 총괄이 아직 전하지 못한 말
   UPD.ask = { v, back: from || document.activeElement, busy: false };
   UPD.err = '';
   $('#updAsk').innerHTML = `<div class="upd-scrim" data-upd="no"></div>
@@ -4251,6 +4263,7 @@ function updAskOpen(from) {
       <p id="updAskD">인터넷에서 ${esc(v)} 설치 스크립트를 받아 실행해요. 팀 정보와 설정은 그대로예요. 끝나면 앱이 다시 켜져요.</p>
       <p class="hint">${cur ? `지금 ${esc(cur)} → ${esc(v)}` : ''}${cur && u.notesUrl ? ' · ' : ''}${updNotes(u)}</p>
       ${failed ? `<p class="hint">지난번에는 끝나지 못했어요: ${esc(failed)}</p>` : ''}
+      ${wait ? `<p class="err">총괄이 아직 전하지 못한 말이 ${esc(wait)}개 있어요. 업데이트하면 다시 보내야 할 수 있어요.</p>` : ''}
       <p class="err" role="alert" id="updAskErr"></p>
       <div class="su-actions"><button type="button" class="btn primary" id="updYes" data-upd="yes" disabled>업데이트</button><button type="button" class="btn" id="updNo" data-upd="no">취소</button></div>
     </div>`;
@@ -4662,7 +4675,7 @@ $('#drawerClose').addEventListener('click', closeDrawer);
 async function pollRelay() {
   if (!API || !state || document.visibilityState === 'hidden') return;
   try { state.relay = JSON.parse(await getText('api/state')); } catch (e) { return; }
-  $$('#drawerBody .relay-note').forEach(n => { n.textContent = relayWarn(); });
+  $$('#drawerBody .relay-note').forEach(n => { n.innerHTML = relayNote(); });
 }
 
 // 로컬 페이지면 처음 설정을 끝냈는지 먼저 물어요. 그동안 사무실을 잠깐 가려서 설정 화면 전에 번쩍이지 않게 해요(늦어도 2초 뒤엔 보여요).
