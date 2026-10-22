@@ -94,6 +94,7 @@ SAY = os.path.join(HERE, "bin", "say.sh")
 HQ = os.path.join(HERE, "hq")
 HQ_CHAT = os.path.join(HQ, "chat.jsonl")
 PORT_FILE = os.path.join(OUTBOX, ".port")   # relay_watch.py가 이 서버의 포트를 찾는 곳
+RETIRED = os.path.join(OUTBOX, ".retired")   # 바뀌기 전 총괄 id(한 줄에 하나, 최근 20개). relay_watch가 예전 총괄 창의 감시를 알아봐요
 HOME_ID = hashlib.sha256(HERE.encode("utf-8")).hexdigest()[:12]   # 어느 설치 폴더의 서버인지(경로 대신 해시)
 try:
     with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as _f:
@@ -810,7 +811,12 @@ def api_state():
 
 
 def api_outbox_check(q):
+    """{ok, sha}. boss는 감시기가 기억하는 총괄(0.7.0부터, 모르면 '-')이에요. 그게 지금 총괄이 아니거나, 총괄을 바꾼 뒤(outbox/.retired)
+    boss 없이 묻는 감시기(0.7.0 전에 켠 것)면 None이에요(409). 감시기는 그 항목을 건너뛰어서, 예전 총괄 창이 더 전하지 않아요."""
     oid = (q.get("id") or [""])[0]
+    b = (q.get("boss") or [""])[0]
+    if (b and b != "-" and b != boss_sid()) or (not b and os.path.exists(RETIRED)):
+        return None
     with LOCK:
         h = ISSUED.get(oid)
     return {"ok": h is not None, "sha": h}
@@ -2507,6 +2513,7 @@ def setup_floors(body):
     created = []
     try:
         if good or boss:
+            prev = boss_sid()
             spec = {"boss": boss or None, "dropDemo": drop_demo, "floors": good}
             try:
                 r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "new_team.py"), "--spec", "-"], cwd=HERE,
@@ -2519,6 +2526,7 @@ def setup_floors(body):
             if not res.get("ok"):
                 raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
             if boss and boss_sid() == boss:
+                boss_retire(prev, boss)   # 예전 총괄 창의 감시기는 더 전하지 않아요
                 boss_rules(boss)   # 총괄을 바꿨으면 이미 있던 층의 RULES.md에 적힌 총괄 id도 고쳐요
             for c in res.get("created") or []:
                 if isinstance(c, dict):
@@ -4107,16 +4115,18 @@ def coordinator_text():
     return m.group(1).strip().replace("<에이전시티>", HERE)
 
 
-def boss_prompt(marker):
-    """총괄로 열 새 세션의 첫 메시지(대표가 Claude 앱 작성창에서 Enter로 보내요)."""
+def boss_prompt(marker, prev=None):
+    """총괄로 열 새 세션의 첫 메시지(대표가 Claude 앱 작성창에서 Enter로 보내요). prev: 바꿀 지금 총괄(있으면 그 id가 바뀐 뒤에 감시를 켜요)."""
+    org_json = os.path.join(HERE, "org.json")
     return "\n".join([
         f"[에이전시티 자리 표시: {marker}]",
         "(위 줄은 에이전시티가 이 세션을 찾아 총괄로 정하는 표시예요.)",
         "",
         coordinator_text(),
         "",
-        f"내 세션 id는 {os.path.join(HERE, 'org.json')}의 boss.sessionId예요(에이전시티가 몇 초 안에 채워요). "
-        "채워지면 1)의 감시를 켜고 \"준비됐어요\" 한 줄로 답한 뒤 알림을 기다려요.",
+        (f"내 세션 id는 {org_json}의 boss.sessionId예요. 지금은 예전 총괄의 id({prev})가 적혀 있고, 에이전시티가 몇 초 안에 내 id로 바꿔요. "
+         "바뀌면" if prev else f"내 세션 id는 {org_json}의 boss.sessionId예요(에이전시티가 몇 초 안에 채워요). 채워지면")
+        + " 1)의 감시를 켜고 \"준비됐어요\" 한 줄로 답한 뒤 알림을 기다려요.",
     ])
 
 
@@ -4125,12 +4135,12 @@ def api_boss_link(body):
     if any(unicodedata.category(ch) in NAME_BAD for ch in HERE):   # 경로는 첫 메시지에 그대로 들어가요
         raise ApiError(409, "설치 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요")
     marker = "AGC-" + secrets.token_hex(4)
-    prompt = boss_prompt(marker)
+    prev = boss_sid()
+    prompt = boss_prompt(marker, prev)
     if len(prompt) >= BOSS_PROMPT_MAX:
         raise ApiError(409, "첫 메시지가 너무 길어요(설치 폴더 경로가 아주 길어요)")
     url = "claude://code/new?folder=" + quote(HERE, safe="") + "&q=" + quote(prompt, safe="")
     t0 = time.time()
-    prev = boss_sid()
     entry = {"marker": marker, "folder": HERE, "state": "waiting", "started": iso_at(t0), "expires": iso_at(t0 + SEAT_TTL), "prev": prev}
     with SETUP_LOCK:
         s = load_setup()
@@ -4148,11 +4158,29 @@ def set_boss(sid):
     if not isinstance(cur, dict):
         raise ValueError("org.json")
     b = cur.get("boss") if isinstance(cur.get("boss"), dict) else {}
+    prev = boss_sid()
     cur["boss"] = dict(b, name=b.get("name") or "총괄", title="총괄", sessionId=sid)
     if os.path.exists(path):
         shutil.copy(path, path + ".bak")
     write_json(path, cur)
+    boss_retire(prev, sid)
     boss_rules(sid)
+
+
+def boss_retire(prev, sid):
+    """총괄이 prev에서 sid로 바뀌면 prev를 outbox/.retired에 더해요(최근 20개, 임시 파일을 쓰고 바꿔치기). 예전 총괄 창의 감시기가 더 전하지 않게요."""
+    if not prev or prev == sid:
+        return
+    try:
+        with open(RETIRED, encoding="utf-8") as f:
+            ids = [x for x in f.read().split() if SESSION_ID.match(x) and x != prev]
+    except (OSError, UnicodeDecodeError):
+        ids = []
+    try:
+        os.makedirs(OUTBOX, exist_ok=True)
+        write_text(RETIRED, "\n".join(ids[-19:] + [prev]) + "\n")
+    except OSError:
+        pass
 
 
 # bin/new_team.py가 RULES.md에 쓴 '…/org.json의 boss.sessionId, 지금은 local_…)일 때만' 조각(총괄을 정하기 전에 만든 층은 ', 지금은 …'이 없어요)
@@ -4507,7 +4535,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(200, res, hdrs)
             return
         if u.path == "/api/outbox/check":
-            self.send_json(200, api_outbox_check(parse_qs(u.query)))
+            res = api_outbox_check(parse_qs(u.query))
+            if res is None:
+                self.send_json(409, {"ok": False, "error": "지금 총괄의 감시기가 아니에요"})
+            else:
+                self.send_json(200, res)
             return
         if u.path.startswith("/api/") or not self.allowed():
             self.send_error(404)
