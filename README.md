@@ -1,274 +1,90 @@
+<div align="center">
+
 # 에이전시티 (Agencity)
 
 **내 AI 에이전시를 꾸리고, 도시 위로 한 층씩 올려요.**
 
-Claude Code 세션 여러 개를 **팀(팀장과 팀원들, 역할은 내가 정해요)** 으로 묶어 사무실처럼 보여 주고,
-웹 페이지 하나에서 **누구에게나 말 걸기 · 회의 열기 · 결재**를 하는 로컬 대시보드예요.
-원하면 내 사무실을 토큰 작업량만큼 높은 건물로 [에이전시티 도시](#에이전시티-도시-첫-버전)에 세워요.
-지금은 Claude Code 세션을 팀에 앉히고, Codex·Gemini CLI는 앞으로 지원해요.
+Claude Code 세션들을 팀으로 묶어, 팀마다 사무실 한 층으로 보여 줘요.<br>
+누가 무슨 일을 하는지 한눈에 보고, 한 화면에서 말 걸고 회의하고 결재해요.
 
-> English: **Agencity** — Run your AI agency. Raise it into the skyline.
-> A local web dashboard that organizes several Claude Code desktop sessions into teams shown as office floors:
-> each floor has a lead plus members whose roles you name yourself (developer, designer, marketing, QA, …;
-> up to 12 seats per floor). Codex and Gemini CLI support is planned.
-> On macOS the installer also builds a small app (Agencity.app) on your Mac that shows the same page
-> in its own window. A first-run setup signs in to GitHub (device code or the gh CLI), lists the Claude
-> desktop app's Code sessions as a tree like the app's sidebar (your custom groups, then project folders,
-> then "This computer" for sessions started without a folder). A whole group or any single session can become
-> a floor; a member editor pre-fills seats from session titles, lets you add free-form roles and pick sessions,
-> and can reopen later to edit an existing floor. Setup also sets what each floor shows in
-> the Agencity city, where every registered office becomes a building as tall as its token usage.
-> From one page you can message any session, start meetings (attend or delegate), and approve decisions
-> the team leads file. Messages are relayed by a coordinator session with Claude Code's own `SendMessage`
-> tool — the page never injects input into sessions. UI text is Korean.
+[설치](#설치) · [처음 켜면](#처음-켜면) · [사용 안내서](docs/GUIDE.md) · [English](#english)
 
-![예시 팀 화면](docs/screenshot.jpg)
+</div>
 
-- 층(팀)마다 책상(세션 상태·하는 일), 회의실, 업무판, 활동 기록, 보고서가 보여요.
-- 책상을 누르면 그 세션과 바로 대화해요. 답은 같은 화면에 올라와요.
-- 대화 작성창(총괄·팀원·회의)은 **Enter**로 보내고 **Shift+Enter**로 줄을 바꿔요. 한글을 조합하는 중의 Enter는 글자만 확정하고 보내지 않아요. 결재 메모와 회의 열기 메모는 Enter로 보내지 않고(버튼으로 보내요), 작성창은 대화가 길어져도 서랍 맨 아래에 붙어 있어요.
-- 회의는 사람(대표)만 열어요. **참석**(같이 대화)과 **위임**(팀끼리 하고 회의록·결재로 보고)이 있고, 중간에 빠지면 남은 안건은 팀이 이어서 해요.
-- 팀장이 올린 **결재**를 결재함에서 고르면 그 팀장에게 바로 전해져요.
-- 맥에서는 브라우저 대신 앱 창(**Agencity.app**)으로 열 수 있어요. 처음 켜면 설정 화면에서 몇 가지만 고르면 돼요.
-- 파일만 읽고 쓰는 단순한 구조예요(Python 표준 라이브러리 + 정적 HTML, 맥 앱은 이 맥에서 직접 컴파일하는 Swift 파일 하나).
+![에이전시티 사무실 화면](docs/screenshot.jpg)
 
-## 이름이 바뀌었어요
+## 이런 걸 해요
 
-예전 이름: 클로드 오피스(Claude Office). v0.3.1까지 이 이름이었고, v0.4.0부터 에이전시티예요.
-Codex·Gemini CLI도 함께 쓰게 될 거라 에이전트(agent)·에이전시(agency)·도시(city)를 합쳐 이름을 바꿨어요.
+- **한눈에 보기**: 층마다 책상·회의실·업무판·보고서가 있어요. 책상에는 세션 상태와 하는 일이 떠요.
+- **팀은 내 마음대로**: 세션을 팀장·팀원 자리에 앉히고, 역할 이름은 직접 지어요.
+- **바로 대화**: 책상을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요.
+- **회의**: 내가 같이 하거나(참석), 팀에 맡기고 회의록으로 받아요(위임).
+- **결재**: 팀장이 올린 결재를 결재함에서 고르면 그 팀장에게 바로 전해져요.
 
-- 저장소는 [Min-heee/agencity](https://github.com/Min-heee/agencity)예요. 예전 저장소 주소와 설치 링크는 GitHub가 새 주소로 넘겨 줘요.
-- 기본 설치 폴더는 `~/agencity`예요. 예전 한 줄 설치로 받은 `~/claude-office`가 있으면(git 폴더가 아닐 때) 같은 한 줄을 다시 실행해서 그 폴더를 그대로 새 버전으로 바꿔요. 팀 정보도 그대로 둬요.
-- 설치할 때 쓰는 이름=값은 `AGENCITY_…`로 바뀌었어요. 예전 글에 있던 `CLAUDE_OFFICE_DIR`·`CLAUDE_OFFICE_REF`는 설치 스크립트가 아직 받아 줘요.
-- 도시에 올리는 파일은 `agencity.json`이에요. 예전 판이 올린 `claude-office.json`도 도시가 읽고, 새 판으로 다시 올리면 그 파일은 지워요.
+지금은 Claude Code와 함께 써요. Codex·Gemini CLI는 앞으로 지원해요.
 
-> Formerly Claude Office (until v0.3.1). Old GitHub links redirect to Min-heee/agencity.
+## 설치
 
-## 설치하고 켜기 (macOS·Linux)
-
-**한 줄로** — 터미널에 붙여 넣으면 `~/agencity`에 설치하고 바로 켜요:
+macOS·Linux 터미널에 붙여 넣어요. `~/agencity`에 설치하고 바로 켜요.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | sh
 ```
 
-**맥 앱** — 맥에 Xcode 명령어 도구(`swiftc`)가 있으면 설치하면서 이 맥에서 앱을 직접 만들어
-`~/Applications/Agencity.app`에 두고, 브라우저 대신 그 앱으로 열어요. 명령어 도구가 없으면(그리고 리눅스는) 브라우저로 켜요.
+- **필요한 것**: 파이썬 3.9 이상, `jq`, Claude Code 데스크톱 앱
+- **맥 앱**: Xcode 명령어 도구가 있으면 Agencity 앱 창으로, 없으면 브라우저로 열려요.
+- **업데이트**: 새 버전이 나오면 화면 위에 알림이 떠요. **업데이트**를 누르면 팀 정보는 그대로 두고 코드만 새로 받아요.
 
-- 서명 계정은 필요 없어요. 이 맥에서 만든 앱이라 그대로 열려요(임시 서명만 해요).
-- 다음부터는 응용 프로그램 폴더나 Spotlight에서 **Agencity**를 열어요.
-- 창을 닫아도 사무실 서버는 켜져 있어요(Dock 아이콘을 누르면 창이 다시 떠요). 끄려면 앱에서 **⌘Q**.
-- 앱에는 설치 폴더 경로가 들어가요. 설치 폴더를 옮기면 새 위치에서 앱을 다시 만들어요: `sh <새 폴더>/bin/make_mac_app.sh --open`.
-- 나중에 앱으로 쓰려면: `xcode-select --install`로 명령어 도구를 설치한 뒤 `sh ~/agencity/bin/make_mac_app.sh --open`.
-- 설치할 때 고를 수 있는 것(`... | 이름=값 sh`):
-  - `AGENCITY_NO_APP=1`: 앱을 만들지 않고 예전처럼 브라우저로 켜요.
-  - `AGENCITY_APP_DEST=<폴더>`: 앱을 `~/Applications` 대신 그 폴더에 만들어요(`make_mac_app.sh`도 같은 값을 써요).
-  - `AGENCITY_NO_START=1`: 설치만 하고 켜지 않아요(앱도 만들지 않고 만드는 명령만 알려 줘요).
+zip·git으로 받기와 설치 옵션은 [사용 안내서](docs/GUIDE.md#설치)에 있어요.
 
-**내려받아서** — [Releases](https://github.com/Min-heee/agencity/releases/latest)에서 소스 zip을 받아 풀고,
-맥은 `Agencity.command`를 더블클릭해요(명령어 도구가 있으면 앱을 만들어 앱으로 열고, 없으면 브라우저로 켜요).
-처음 한 번은 "확인되지 않은 개발자"라며 막힐 수 있어요.
-그럴 땐 **시스템 설정 → 개인정보 보호 및 보안**의 아래쪽에서 **그래도 열기**를 누르거나(예전 macOS는 오른쪽 클릭 → **열기**),
-터미널에서 그 폴더로 가서 `python3 start.py`로 켜요. 리눅스도 `python3 start.py`.
+## 처음 켜면
 
-**git으로**:
+1. **설정 화면이 떠요.** 먼저 둘러보려면 **나중에 하기**를 눌러요. 예시 팀으로 열려요.
+2. **층을 만들어요.** 이 맥의 Claude Code 세션이 Claude 앱 사이드바 모양 그대로 보여요. 그룹이나 세션을 골라 **층으로**를 누르고, 역할과 총괄 세션을 정해요.
+3. **팀 규칙을 이어요.** 완료 화면에 나온 한 줄을 안내대로 `CLAUDE.local.md`에 넣어요. 팀 세션들이 팀 규칙을 읽게 돼요.
+4. **총괄을 켜요.** 총괄 세션에 [이 지시](docs/COORDINATOR.md)를 설치 폴더 경로만 바꿔 한 번 붙여 넣어요. 화면에서 보낸 말을 이 세션이 팀에 전해 줘요.
 
-```bash
-git clone https://github.com/Min-heee/agencity.git && cd agencity && python3 start.py
-```
+Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는 원할 때만 해요.
+설정은 사무실 위쪽 **설정**에서 언제든 다시 열어요. [단계별 설명 →](docs/GUIDE.md#처음-설정)
 
-git으로 받은 폴더에서도 맥 앱을 쓰려면 `sh bin/make_mac_app.sh --open`.
+## 에이전시티 도시
 
-- 처음 켜면 [처음 설정](#처음-설정) 화면이 떠요. ‘나중에 하기’를 누르면 예시 팀으로 열려요.
-  브라우저로 켰다면 다음에도 `python3 start.py`(또는 더블클릭)만 하면 돼요. 끄려면 그 창에서 Ctrl-C(앱은 ⌘Q).
-- 8765 포트가 쓰이고 있으면 다음 빈 포트로 켜고 주소를 알려 줘요. 이 폴더의 사무실이 이미 켜져 있으면 그 페이지를 열어요.
-  전달 감시기(`bin/relay_watch.py`)는 서버가 `outbox/.port`에 적어 둔 포트를 스스로 찾아요.
-- **새 버전 받기**: 사무실 화면에 새 버전 알림이 뜨면 **업데이트**를 눌러요([업데이트](#업데이트)).
-  손으로 받으려면, 한 줄 설치로 받았을 땐 같은 줄을 다시 실행해요. 코드만 새로 받고 내 팀 정보(`org.json`, `teams/`, `hq/`,
-  `outbox/`, `public.json`, `agencity.json`, `setup.json`)는 그대로 둬요. 맥 앱은 새로 만들어 다시 열어요.
-  브라우저로 켜 둔 사무실은 Ctrl-C로 끄고 다시 켜야 새 버전이 적용돼요.
-  git으로 받았다면 `git pull`(한 줄 설치는 git 폴더를 덮어쓰지 않아요).
-  zip으로 받았다면 처음에 폴더를 한 곳(예: `~/agencity`)에 두고 계속 써요. 팀 규칙 파일에 그 폴더 경로가 들어가서,
-  새 zip을 다른 폴더에 풀면 팀 정보가 따라가지 않아요. 그 폴더에 새 버전을 받으려면
-  `curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | AGENCITY_DIR=<그 폴더> sh`.
-- 필요한 것: 파이썬 3.9 이상(맥은 기본 또는 `xcode-select --install`), `jq`(사이트 메시지 전달과 팀원 답장에 필요,
-  맥 `brew install jq`, 리눅스 `sudo apt install jq`), Claude Code 데스크톱 앱. 맥 앱을 만들려면 Xcode 명령어 도구(macOS 12 이상).
-  다른 패키지는 없어요.
-- 예시 팀을 써 보면 `examples/teams/demo/`에 기록이 남아요. 지우려면 git으로 받았을 땐 `git checkout examples/ && git clean -fdx examples/`,
-  아니면 설치 폴더에서 `rm -rf examples/teams/demo/chat/*.jsonl examples/teams/demo/meetings/*-M-* examples/teams/demo/.out` 뒤 설치를 한 번 더 해요.
+![에이전시티 도시](docs/city.jpg)
 
-## 업데이트
+등록한 사람마다 **토큰 작업량만큼 높은 건물**이 서요. 건물을 누르면 주인이 공개한 층만 읽기 전용으로 둘러봐요.
 
-- **알림**: 사무실이 켜져 있으면 하루에 한 번까지 최신 릴리스를 확인해요. GitHub API나 로그인 없이
-  `github.com/Min-heee/agencity/releases/latest`가 넘겨 주는 태그 주소만 읽고, 보내는 건 `agencity/<버전>` User-Agent뿐이에요.
-  새 버전이 있으면 화면 위에 "새 버전 vX.Y.Z가 있어요"와 **업데이트**·**건너뛰기**·"무엇이 바뀌었나요"(릴리스 노트)가 떠요.
-  **건너뛰기**를 누른 버전은 다시 알리지 않아요(바로 뜨는 **다시 알리기**나 설정의 ‘완료’ 단계에서 되돌려요).
-- **업데이트 버튼**: 누르고 한 번 더 확인하면, 그 버전(태그)에 고정된 `install.sh`를 받아 한 줄 설치와 똑같이 코드만 새로 받아요.
-  팀 정보와 설정은 그대로예요. 끝나면 맥 앱은 새로 만들어 다시 열고, 브라우저로 켰다면 사무실을 끄고 새 버전으로 다시 켠 뒤 페이지를 새로 불러와요.
-  - 실패하면 켜져 있던 사무실은 그대로 두고 이유를 보여 줘요. 자세한 기록은 설치 폴더의 `.update/last.log`예요.
-  - 터미널(`python3 start.py`)로 켠 사무실은 업데이트 뒤 그 창이 아니라 뒤에서 다시 켜져요(기록 `.update/server.log`).
-    끄려면 아래 줄을 붙여 넣어요(다른 폴더면 `d=` 뒤를 그 폴더 경로로). 적어 둔 번호가 그 폴더의 `start.py`일 때만 꺼요.
-    `d=~/agencity; p=$(cat "$d/.update/server.pid") && ps -p "$p" -o command= | grep -qF "$d/start.py" && kill "$p"`
-- **끄는 법**: 설정 화면의 **새 버전 알림 받기**를 끄면 확인하지 않아요(`setup.json`의 `"update": {"enabled": false}`).
-- **git으로 받은 폴더**는 버튼 대신 "git pull로 받아요"라고만 알려 줘요. `git pull` 한 뒤 사무실을 다시 켜요.
+- 사무실 위쪽 **도시 보기 →**로 열어요.
+- 기본은 비공개예요. 올리려면 [token-meter](https://github.com/Min-heee/token-meter)로 내 숫자를 먼저 올리고, GitHub에 연결한 뒤 **설정 → 공개 범위**에서 골라요.
 
-## 처음 설정
+[도시 안내](docs/GUIDE.md#에이전시티-도시) · [앞으로의 계획](docs/VISION.md)
 
-처음 켜면 설정 화면이 다섯 단계로 떠요. 나중에 사무실 위쪽의 **설정**을 누르면 언제든 다시 열어요.
-설정은 설치 폴더의 `setup.json`(GitHub 아이디·공개 범위, 토큰은 없음)에, 층은 `org.json`·`teams/`에, 공개 범위는 `public.json`에도 적어요.
-모두 내 정보라 다시 설치해도 그대로 둬요.
+## 안전하게
 
-1. **로그인(GitHub)** — 도시에 올릴 때만 필요해요. 사무실은 로그인 없이도 다 돼요(‘로그인 없이 쓰기’).
-   - **GitHub로 로그인**: 화면에 나온 코드를 복사해 `github.com/login/device`에 넣고 승인해요. 받는 권한은 gist 하나예요.
-     토큰은 이 맥의 `~/.config/agencity/github-token.json`(나만 읽을 수 있는 0600 파일)에만 두고 화면이나 응답에는 내지 않아요.
-   - **gh(GitHub CLI) 로그인 쓰기**: 터미널에서 `gh auth login`을 해 뒀다면 그 계정으로 연결해요. gh의 토큰은 읽거나 따로 저장하지 않아요.
-2. **Claude 연결** — Claude는 **따로 로그인하지 않아요.** 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록
-   (제목·폴더·마지막 활동)만 읽어요. 대화 내용은 읽지 않아요.
-   세션은 **Claude 앱 사이드바와 같은 모양**으로 묶어 보여 줘요: 앱에서 만든 그룹(이름·순서 그대로) → 나머지 세션은 프로젝트 폴더별 →
-   폴더 없이 만든 세션은 **이 컴퓨터** 한 묶음. 그룹은 앱 설정 파일(`claude_desktop_config.json`)에서 사이드바 그룹 항목만 꺼내 읽고,
-   읽지 못하면 폴더별로 보여 줘요.
-3. **사무실 만들기** — 2단계와 같은 나무 모양으로 보여 줘요: 내가 만든 그룹(예: 정산앱·토큰계량기·취직) → 프로젝트 폴더
-   (예: RunningGround) → **이 컴퓨터**. 항목을 펼치면 그 안의 세션이 보여요. 환경별로 정리했든 섹션별로 정리했든 정리해 둔 그대로 골라요.
-   - **그룹(또는 폴더) 하나**도, 펼쳐서 고른 **세션 하나**도 ‘층으로’를 누르면 층(팀) 하나가 돼요.
-     예: ‘취직’을 고르면 취직 층, ‘이 컴퓨터’를 펼쳐 ‘tokencity’ 세션을 고르면 tokencity 층.
-   - 층 이름은 그룹 이름(세션 하나면 세션 제목)으로, 팀 id는 영문으로 채워 둬요(한글 이름이면 `team-1`처럼, 고칠 수 있어요).
-   - 이미 팀 사무실이 있는 폴더를 고르면 팀 이름·머리글·팀원을 그대로 불러와요.
-   - **팀원**은 줄마다 [역할 이름] [이름] [세션] [×]예요. 맨 앞 줄은 늘 **팀장**이에요(세션은 비워 둬도 되고, 줄은 뺄 수 없어요).
-     - 그룹을 고르면 그 세션들을 제목으로 역할을 짐작해 미리 넣어요: 팀장·리드·lead → 팀장, 개발·dev·code → 개발자,
-       디자인·design·UI·UX → 디자이너, 기획·plan·PM → 기획, 마케팅·홍보·marketing → 마케팅, QA·테스트·test → QA,
-       데이터·data·analytics → 데이터, 못 맞추면 팀원(같은 역할이 여럿이면 개발자2처럼). 팀장 같은 세션은 팀장 줄에 앉혀요.
-       ‘총괄’이 들어간 세션은 자리 대신 총괄 후보예요. 지금 총괄(org.json)과 이번에 고른 총괄은 어느 층의 자리에도 앉힐 수 없어요.
-     - 세션 하나를 고르면 그 세션이 팀장 줄에 앉아요(다른 줄로 옮겨도 돼요).
-     - **+ 팀원 추가**로 줄을 더해요. 역할 이름은 마음대로 지어요(개발자·디자이너·기획·마케팅·QA·데이터·리서치·운영을 추천해 줘요).
-       한글·영문·숫자로 12자까지(빈칸·`/`·`.` 없이, `_`·`·`·`-`는 돼요), 대표·총괄은 못 쓰고, 한 층 안에서 겹치지 않게, 한 층에 12자리까지예요.
-     - 세션 칸은 그 층의 세션이 먼저, 그다음 다른 세션들이 보여요. ‘나중에 연결’을 고르면 빈자리로 둬요(화면에 ‘빈자리’).
-     - **이름**(선택)은 화면에 보일 이름이에요. 역할은 그대로(대화·상태 파일 이름, 회의·결재의 열쇠)라 이름만 달라지고, 비워 두면 ‘층 이름 역할’로 불러요(화면에는 역할만 보여요). 1~20자, 줄바꿈 같은 보이지 않는 글자와 대표·총괄은 못 쓰고, 한 층 안에서 다른 이름·역할과 겹치지 않게 지어요. 사무실 책상의 ✎로도 바로 바꿔요.
-   - **지금 있는 층**이 이 단계 맨 위에 보여요. ↑/↓로 층 순서를 바꾸면 바로 저장되고 1층부터 다시 매겨요(사무실 화면의 층 안내에서도 **층 순서 바꾸기**로 해요. 고른 층과 주소는 그대로예요).
-     새로 만들 층은 **몇 층에 둘까요**에서 지금 있는 층 사이를 고를 수 있어요(기본은 맨 아래). 층 번호가 바뀌면 도시에 올린 내용은 다시 올릴 때까지 ‘예전 내용’으로 보여요.
-   - 이미 만든 층은 **팀원 고치기**로 같은 화면을 다시 열어 자리를 더하고, 팀장 말고는 빼고, 세션을 바꿔요.
-     뺀 팀원의 대화·상태 파일(`chat/<역할>.jsonl`, `status/<역할>.json`)은 지우지 않아요. 같은 이름으로 다시 넣으면 이어서 보여요.
-     자리 이름을 바꾸면 그 자리의 대화·상태 파일도 새 이름으로 옮기고, 예전 대화 파일 이름에는 새 파일로 이어 주는 링크를 남겨요
-     (이미 오가는 답이 예전 이름으로 와도 새 자리 대화에 붙어요). 새 이름의 예전 파일이 이미 있으면 옮기지 않고 알려 줘요.
-   - 층 폴더는 그룹이면 그 세션들이 가장 많이 쓴 프로젝트 폴더, 세션 하나면 그 세션의 프로젝트 폴더예요
-     (worktree는 원래 프로젝트로 보고, 앱의 임시 폴더·없어진 폴더는 빼요).
-   - 그런 폴더가 없으면(‘이 컴퓨터’ 세션처럼 폴더 없이 만든 세션이면) 층을 만들 때 `~/agencity-teams/<팀 id>` 폴더를 새로 만들어 써요. 폴더는 직접 바꿀 수도 있어요.
-     이렇게 층 폴더 밖에서 연 세션은 층 폴더의 `CLAUDE.local.md`를 읽지 않아서, 완료 화면에 나오는 절대 경로 한 줄
-     (`@~/agencity-teams/<팀 id>/.office/RULES.md`)을 그 세션 폴더의 `CLAUDE.local.md`에 넣거나 세션 창에 한 번 보내요.
-   - 이미 다른 층에 앉은 세션은 자리에 미리 앉히지 않아요. 한 세션은 한 자리, 한 층에만 앉혀요.
-   - 총괄(코디네이터) 세션도 여기서 골라요. 하는 일은 `python3 bin/new_team.py`와 같아요.
-4. **공개 범위** — 층마다 비공개(기본)·건물만·층 이름·둘러보기 중에서 골라요. 건물(높이·등급·창문 불빛)은 여기서 고른 것과
-   상관없이 token-meter 숫자로 서고, 실제로 나가는 층 정보는 ‘층 이름’과 ‘둘러보기’뿐이에요. 프로필 소개 한 줄은 층과 상관없이 함께 나가요.
-   - **저장**은 이 맥에만 적어요. **도시에 올리기**를 누르면 나갈 내용을 한 번 더 보여 주고, 확인하면 내 token-meter gist에 올려요.
-   - 올린 뒤 모든 층을 비공개(또는 건물만)로 바꾸면 버튼이 **도시에서 내리기**로 바뀌어요. 층 정보를 비운 요약을 올려서 도시에서 내려요.
-     다만 gist 수정 기록에는 예전 판이 남을 수 있어요.
-   - 화면에 ‘아직 도시에 올리지 않았어요’나 ‘도시에는 예전 내용이 올라가 있어요’가 보이면 저장한 설정이 아직 도시에 반영되지 않은 거예요.
-5. **완료** — 고른 것을 정리해 보여 주고 사무실을 열어요. 새로 만든 층마다 팀 규칙을 읽게 하는 한 줄도 여기서 복사해요
-   (층 폴더 안에서 연 세션은 그 폴더의 `CLAUDE.local.md`에 `@.office/RULES.md`, 층 폴더 밖에서 연 세션은 절대 경로 한 줄).
+- 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude 앱에서는 세션 목록과 그룹만 읽고, 대화 내용은 읽지 않아요.
+- 화면에서 보낸 말은 승인으로 쓰이지 않아요. 커밋·배포·결제는 그 세션 창에서 내가 직접 확인해요.
+- 도시에는 내가 확인한 것만 올라가요. 대화·결재·보고서 원문은 올리지 않아요.
 
-### 관리자 메모: GitHub 기기 코드 로그인
+[보안 자세히 보기 →](docs/GUIDE.md#보안)
 
-설치 폴더의 `github_client_id`가 비어 있으면 ‘GitHub로 로그인’(기기 코드)은 꺼져 있고 gh 로그인만 보여요.
-켜려면 GitHub의 **Settings → Developer settings → OAuth Apps**에서 앱을 하나 만들고 **Enable Device Flow**를 켠 뒤,
-그 **Client ID**를 이 파일 첫 줄에 넣어 함께 배포해요. Client ID는 공개해도 되는 값이고 client secret은 필요 없어요.
-시험할 때는 파일 대신 `AGENCITY_GITHUB_CLIENT_ID` 환경 변수로 넣을 수도 있어요.
+## 더 알아보기
 
-## 에이전시티 도시 (첫 버전)
+| 문서 | 내용 |
+|---|---|
+| [사용 안내서](docs/GUIDE.md) | 설치·업데이트, 처음 설정, 회의와 결재, 도시, 보안 |
+| [총괄 세션 설정](docs/COORDINATOR.md) | 화면에서 보낸 말을 팀에 전하는 세션 켜기 |
+| [팀 규칙](docs/TEAM_RULES.md) | 팀 세션이 따르는 규칙 |
+| [도시 계획](docs/VISION.md) | 에이전시티 도시가 나아갈 방향 |
 
-![에이전시티 도시 예시](docs/city.jpg)
+v0.3.1까지는 클로드 오피스(Claude Office)라는 이름이었어요. 라이선스는 [MIT](LICENSE)예요.
 
-등록한 사람마다 **토큰 작업량만큼 높은 건물**이 하나씩 서는 도시예요. 건물을 누르면 카드가 열리고,
-주인이 공개한 층(팀)만 **읽기 전용**으로 둘러볼 수 있어요.
+## English
 
-- 열기: 사무실 위쪽 **도시 보기 →**, 또는 `http://127.0.0.1:8765/city.html` (예시 도시는 `city.html?demo=1`).
-  `city.html`은 정적 파일이라 GitHub Pages 같은 곳에 그대로 올려도 돼요.
-- 건물 데이터: [token-meter](https://github.com/Min-heee/token-meter) 명단(members.json)과 각자의 공개 gist를 읽어요.
-  - 높이 = 작업량(총 토큰 − 캐시 읽기 + 캐시 읽기 × 0.1)의 로그 눈금, 1~40층
-  - 창문 불빛 = 최근 7일 중 활동한 날, 금빛 띠 = 공개한 층(팀)
-  - 다른 명단을 쓰려면 `org.json`에 `"city": {"registry": "https://…/", "me": "<내 아이디>"}`
-- 내 층 공개하기(기본은 아무것도 공개 안 함): 앱의 **설정 → 공개 범위**에서 고르고 **도시에 올리기**를 눌러요([처음 설정](#처음-설정)).
-  터미널로 하려면:
-  1. `public.example.json`을 `public.json`으로 복사해서 공개할 층만 적어요. 업무판 제목(`board`)과 책상의 지금 하는 일(`tasks`)은 따로 켜야 나가요.
-  2. `python3 bin/office_public.py`로 **미리보기** — 경로·주소·메일·전화번호·키 모양 값·인용은 지우거나 그 줄을 빼요.
-  3. 괜찮으면 `python3 bin/office_public.py --publish` — 내 token-meter gist에 `agencity.json`으로 올려요(한 번 더 확인, gist 주인 확인).
-- 숫자는 각자 신고한 값이라 검증할 수 없어요. 도시에는 '자기 신고'라고 표시해요.
-
-## 앞으로의 계획: 에이전시티 도시
-
-사람마다 자기 사무실을 등록하면, **토큰 사용량만큼 높은 빌딩**이 하나씩 서는 도시를 만들려고 해요
-([Git City](https://github.com/srizzon/git-city)에서 영감). 건물의 층은 그 사람의 팀이에요.
-건물을 누르면 그 사람이 **공개해 둔 층만** 읽기 전용으로 들여다보고 둘러볼 수 있어요.
-기본은 비공개이고, 대화·결재·보고서 원문은 공개하지 않아요. 토큰 숫자는
-[token-meter](https://github.com/Min-heee/token-meter)가 내 컴퓨터에서 세서 본인이 원할 때만 올려요.
-자세한 내용: [docs/VISION.md](docs/VISION.md)
-
-## 어떻게 동작하나요
-
-```
-브라우저나 맥 앱 창(127.0.0.1:8765)
-   │  POST /api/say · /api/meeting/* · /api/decide   (Host·Origin·열쇠 확인)
-   ▼
-office_server.py ──► 팀 사무실 파일에 기록 (chat/*.jsonl, meetings/*, approvals/*, log.jsonl)
-   │
-   └─► outbox/<id>.json  (전달할 메시지, 서버가 만든 것만 등록)
-            │
-            ▼
-총괄(코디네이터) Claude Code 세션 ── Monitor로 bin/relay_watch.py 실행
-            │   RELAY <파일> 알림을 받으면
-            ▼
-      SendMessage(to=세션 id, 내용 그대로)  ──►  팀 세션
-                                                   │ 답은 Write로 .out/<역할>.txt에 쓰고
-                                                   ▼
-                                         bin/say.sh <대화 파일> <역할> --file …
-                                                   │
-                                                   ▼
-                                    대화 파일 → 브라우저가 몇 초마다 다시 읽어 보여 줌
-```
-
-왜 세션에 직접 넣지 않나요? 세션의 메시지 소켓에 외부 프로그램이 사용자 입력처럼 글을 넣는 방식은
-Claude Code의 자동 모드 안전장치가 막아요. 그래서 공식 도구인 `SendMessage`로만 전해요.
-사이트에서 온 말은 다른 세션을 거친 메시지라 **승인(커밋·배포·결제 등)으로 쓰이지 않아요.**
-위험한 일은 결재로 "하기로 정함"까지만 하고, 실제 실행은 그 세션 창에서 사람이 마지막으로 확인해요.
-
-## 내 팀 꾸리기
-
-설정 화면의 **사무실 만들기**에서 고르는 게 가장 쉬워요. 터미널에서는:
+**Agencity**: run your AI agency, and raise it into the skyline.
+A local dashboard that seats your Claude Code desktop sessions as teams, one office floor per team.
+From one page you can message any session, run meetings, and approve what team leads file.
+A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
+Needs macOS or Linux, Python 3.9+, `jq` and the Claude Code desktop app. Codex and Gemini CLI support is planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
 
 ```bash
-python3 bin/new_team.py
+curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | sh
 ```
-
-팀 id·이름·프로젝트 폴더, 기본 네 자리(팀장·개발자·디자이너·기획)의 세션 id(모르면 비워 둬도 돼요),
-더 둘 역할(쉼표로, 예: `마케팅, QA`, 없으면 엔터)과 그 세션 id를 물어보고, `<프로젝트>/.office/` 팀 사무실과
-`teams/<id>` 연결, `org.json`의 다음 층을 한 번에 만들어요. 팀 사무실에는 `.gitignore`(`*`)를 둬서 팀 기록이 커밋되지 않게 해요.
-끝나면 `@.office/RULES.md` 한 줄을 프로젝트의 `CLAUDE.local.md`에 넣으면 그 프로젝트의 세션들이 팀 규칙을 읽어요.
-세션 id(`local_…`)는 각 세션에서 "이 세션 id 알려 줘"라고 물으면 돼요. 팀원은 나중에 설정 화면의 **팀원 고치기**로 바꿔요.
-
-사이트에서 보낸 말을 팀 세션에 전하려면 총괄(코디네이터)로 쓸 세션 하나에서 [docs/COORDINATOR.md](docs/COORDINATOR.md)대로 전달을 켜요.
-손으로 꾸리고 싶다면 `examples/teams/demo/` 구조와 [docs/TEAM_RULES.md](docs/TEAM_RULES.md)를 참고하세요.
-
-## 보안 메모
-
-- 서버는 `127.0.0.1`에만 열려요. `Host`·`Origin`·페이지 열쇠(서버를 켤 때마다 새로 만듦)·JSON만 받는 요청만 처리해요.
-- 다른 사이트가 이 페이지를 틀(iframe)에 넣지 못하게 `X-Frame-Options: DENY`, `frame-ancestors 'none'`을 보내요.
-- 보여 주는 파일은 `index.html`, `org.json`, `hq/`, 등록된 팀 사무실 폴더 안으로 제한해요. 링크로 된 팀 사무실(`.office`)은 층으로 받지 않고,
-  로그인 토큰이 있는 `~/.config/agencity/`는 어떤 경로로 와도 보여 주지 않아요.
-- GitHub 토큰(기기 코드 로그인)은 `~/.config/agencity/github-token.json`(0600)에만 두고 페이지나 응답, `setup.json`에는 넣지 않아요.
-  Claude 세션 기록에서는 세션 id·제목·폴더·마지막 활동만 읽어요. Claude 앱 설정 파일에서는 사이드바 그룹(그룹 이름·순서·어느 세션이
-  어느 그룹인지)만 꺼내 쓰고, 다른 내용(MCP 서버 설정 등)은 페이지나 기록에 내지 않아요.
-- 전달 항목은 서버가 만든 것만 코디네이터가 보내요(`/api/outbox/check`로 내용 해시 확인). 1분 30개, 대기 40개로 양을 제한해요.
-- 새 버전 확인은 하루 한 번까지 `https://github.com/Min-heee/agencity/releases/latest`에 요청 하나(User-Agent만)예요. 끌 수 있어요.
-  업데이트는 화면에서 확인을 누른 뒤에만, 그 태그의 `install.sh`를 HTTPS로 받아 실행해요(다른 요청과 같은 Host·Origin·열쇠 검사).
-- `bin/say.sh`는 정해진 대화 파일에만 써요. 보내는 사람은 역할 이름 모양(한글·영문·숫자 12자까지)이나 총괄만 되고, `대표`는 안 돼요.
-- 남는 위험: 같은 맥의 다른 프로그램(에이전트 포함)은 페이지를 받아 열쇠를 읽을 수 있어요. 그래서 사이트 메시지를 승인으로 쓰지 않는 규칙이 중요해요.
-- `python3 build.py --snapshot`은 팀 상태를 페이지 안에 담아 공유용 `artifact.html`을 만들어요. **팀 데이터가 그대로 들어가니** 공개하기 전에 꼭 확인하세요.
-
-## 한계
-
-- 지금은 Claude Code 세션만 층에 앉힐 수 있어요. Codex·Gemini CLI는 앞으로 지원해요.
-- 코디네이터 세션이 켜져 있어야 전달돼요(끊기면 화면 위에 "총괄 연결 끊김").
-- Claude Code는 한 세션이 사람 입력 없이 다른 세션에 메시지를 많이 보내면 잠깐 막아요. 팀장이 그 한도에 걸리면 그 팀장 창에 사람이 한 번 입력해야 풀려요. 사이트로는 풀 수 없어요.
-- 화면 글은 한국어예요.
-
-## 라이선스
-
-[MIT](LICENSE)
