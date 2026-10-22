@@ -642,6 +642,11 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .room-head button.notion[aria-disabled="true"]{opacity:.62; cursor:not-allowed}
 .room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
 .room-note.bad{border-color:color-mix(in srgb, var(--err) 45%, var(--line)); color:var(--err-ink)}
+/* 팀 간 대화 규칙이 없는 층이 있으면 층 안내 아래 한 줄: [모두 맞추기] → [팀장에게 보내기] */
+.rules-note{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 10px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
+.rules-note[hidden]{display:none}
+.rules-note .btn{padding:4px 10px; font-size:12.5px}
+.rules-note .bad{color:var(--err-ink)}
 /* 팀 간 대화: 팀장끼리 주고받은 [협업] 기록(hq/teams.jsonl). 층 안내 바로 아래에서 접고 펼쳐요 */
 .talk{margin-top:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:0 16px}
 .talk[hidden]{display:none}
@@ -710,6 +715,7 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
     <div class="sec-title"><h2>층 안내</h2><p>층을 누르면 그 팀 사무실만 아래에 보여요. 팀원을 뽑은 팀부터 층이 생겨요.</p>
       <span class="org-tools"><button type="button" class="btn" id="orderBtn" aria-pressed="false" hidden>층 순서 바꾸기</button></span></div>
     <p class="hint org-note" id="orderNote" role="status"></p>
+    <div class="rules-note" id="rulesNote" role="group" aria-label="팀 규칙 알림" tabindex="-1" hidden></div>
     <div class="org-top" id="orgTop"></div>
     <div class="org-branches" id="orgTeams"></div>
   </section>
@@ -1232,6 +1238,7 @@ function render() {
     $$('#rooms .feed, #rooms .files').forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   }
   renderTalk();
+  renderRules();
   document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
   if (nmFocus && nmEl.isConnected === false) { const i = $('#nmIn'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(nmSel[0], nmSel[1]); } catch (e) {} } }
@@ -1672,14 +1679,16 @@ function rowSeat(e, r) {
 // [섹션 맞추기]: Claude 앱 사이드바에 층 이름의 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요(/api/floor/sidebar).
 //   사이드바는 Claude 세션만 고칠 수 있어서 총괄 세션이 해요. 진짜 총괄(org.json의 boss, 자리 표시용 id 말고)이 없으면 누를 수 없어요.
 // [규칙 맞추기]: 층의 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 덧붙여요(/api/floor/rules-sync, 다른 글은 건드리지 않아요).
-const FNOTE = new Map();   // 층 id → { text, bad, busy: ''|'sidebar'|'rules', at }: 층 머리 아래 한 줄 알림
+const FNOTE = new Map();   // 층 id → { text, bad, busy: ''|'sidebar'|'rules', kind, at }: 층 머리 아래 한 줄 알림(kind: 어느 단추의 결과인지)
 const FNOTE_MS = 60e3;
 const NO_BOSS = '총괄 세션이 없어서 쓸 수 없어요. 위쪽 ‘총괄 없음 · 총괄 만들기’나 설정(3단계)에서 총괄을 정하면 돼요';
 const realBoss = () => { const b = state && state.org && state.org.boss, sid = b && typeof b.sessionId === 'string' ? b.sessionId : ''; return SID_RE.test(sid) && !sid.startsWith('local_00000000'); };
 function floorToolsHTML(t) {
-  const n = FNOTE.get(t.id), busy = !!(n && n.busy), boss = realBoss(), id = esc(t.id);
+  const n = FNOTE.get(t.id), busy = !!(n && n.busy), boss = realBoss(), id = esc(t.id), sf = SU.st && SU.st.floors.find(f => f.id === t.id);
+  // 규칙 맞추기는 그 층 RULES.md에 ‘팀 간 대화’가 없을 때만(설정 상태를 모르면 늘). 눌러서 나온 알림이 떠 있는 동안은 그대로 둬요(키보드 자리)
+  const rules = !sf || sf.talkRules !== true || (n && (n.busy === 'rules' || (n.kind === 'rules' && Date.now() - n.at <= FNOTE_MS)));
   return `<button type="button" class="notion" data-act="floor-sidebar" data-team="${id}" aria-describedby="fh-${id}"${!boss || busy ? ' aria-disabled="true"' : ''} title="${esc(boss ? `Claude 앱 사이드바에 ‘${t.name}’ 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요` : NO_BOSS)}">섹션 맞추기</button>`
-    + `<button type="button" class="notion" data-act="floor-rules" data-team="${id}"${busy ? ' aria-disabled="true"' : ''} title="이 층 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 넣어요">규칙 맞추기</button>`
+    + (rules ? `<button type="button" class="notion" data-act="floor-rules" data-team="${id}"${busy ? ' aria-disabled="true"' : ''} title="이 층 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 넣어요">규칙 맞추기</button>` : '')
     + `<span class="su-sr" id="fh-${id}">${esc(boss ? '사이드바 정리는 총괄 세션이 해요' : NO_BOSS)}</span>`;
 }
 function floorNoteHTML(tid) {
@@ -1691,7 +1700,7 @@ async function floorTool(btn) {
   const tid = btn.dataset.team, kind = btn.dataset.act === 'floor-sidebar' ? 'sidebar' : 'rules', t = state && state.org.teams.find(x => x.id === tid);
   const cur = FNOTE.get(tid);
   if (!t || (cur && cur.busy)) return;
-  const note = (text, bad) => { FNOTE.set(tid, { text, bad: !!bad, busy: '', at: Date.now() }); render(); seatSay(text); };
+  const note = (text, bad) => { FNOTE.set(tid, { text, bad: !!bad, busy: '', kind, at: Date.now() }); render(); seatSay(text); };
   if (kind === 'sidebar' && !realBoss()) { note(NO_BOSS, true); return; }
   FNOTE.set(tid, { text: kind === 'sidebar' ? '총괄에게 맡기는 중…' : '규칙을 확인하는 중…', bad: false, busy: kind, at: Date.now() });
   render();
@@ -1704,9 +1713,76 @@ async function floorTool(btn) {
       note(`총괄에게 사이드바 정리를 맡겼어요. Claude 앱 사이드바에 ‘${t.name}’ 그룹(섹션)이 없으면 만들고, 이 층 세션들을 그리로 옮겨요.${down ? ' 지금은 총괄 연결이 끊겨 있어서 총괄이 돌아오면 해요.' : ''}`);
     } else {
       const r = await post('api/floor/rules-sync', { team: tid });
+      const sf = SU.st && SU.st.floors.find(f => f.id === tid);
+      if (sf) sf.talkRules = true;   // 이제 들어 있어요: 층 안내 아래 알림에서 빠지고, 알림이 사라지면 단추도 숨어요
       note(r.added === true ? `${t.name} 층 RULES.md에 ‘팀 간 대화’ 규칙을 넣었어요. 새로 여는 세션은 바로 따라요. 지금 켜져 있는 팀장에게는 책상을 눌러 “RULES.md의 ‘팀 간 대화’ 부분을 다시 읽어 줘”라고 한 번 보내 주세요.` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
     }
   } catch (e) { note(seatErr(e, kind === 'sidebar' ? '총괄에게 맡기지 못했어요' : '규칙을 맞추지 못했어요'), true); }
+}
+
+// 층 안내 아래 한 줄: RULES.md에 ‘팀 간 대화’가 없는 층(0.5.x 이하로 만든 층)이 있으면 [모두 맞추기]로 그 층들에 규칙 맞추기를 차례로 해요.
+// 맞춘 뒤에는 켜져 있는 팀장이 RULES.md를 다시 읽게 [팀장에게 보내기]로 팀장마다 한 줄을 보내요(바로 말 걸기와 같은 전달, outbox).
+// 층마다 있는지는 설정 상태(/api/setup/state의 floors[].talkRules)로 알아요. 그 값을 모르는 서버면 보이지 않아요.
+const RUL = { busy: false, done: null, sent: null, bad: [], err: '', at: 0 };   // done: 맞췄지만 아직 팀장에게 안 보낸 층들, sent: 보낸 팀장 수
+// bad: 못 맞춘 층들 [{id, text}](아직 없는 층만 보여요, [다시 맞추기]), err: 못 보낸 층
+const RULES_MS = 5 * 60e3, RULES_TELL = '[규칙] RULES.md를 다시 읽어 주세요';
+const rulesMiss = () => (API && SU.st && mode !== 'snap' ? SU.st.floors.filter(f => !f.example && f.talkRules === false) : []);
+const leadOn = id => { const d = state && state.teams[id], m = d && d.team.members.find(x => x.role === LEAD); return !!m && SID_RE.test(String(m.sessionId || '')) && !m.sessionId.startsWith('local_00000000'); };
+function rulesNoteHTML() {
+  if (RUL.busy) return `<span>${RUL.busy === 'tell' ? '팀장에게 보내는 중…' : '규칙을 맞추는 중…'}</span>`;
+  if ((RUL.done || RUL.sent !== null || RUL.bad.length || RUL.err) && Date.now() - RUL.at > RULES_MS) Object.assign(RUL, { done: null, sent: null, bad: [], err: '' });
+  const out = [], done = RUL.done || [], leads = done.filter(f => leadOn(f.id)).length, miss = rulesMiss();
+  const tell = `<button type="button" class="btn" id="rulesTell" data-act="rules-tell">팀장 ${leads}명에게 보내기</button>`;
+  if (RUL.sent) out.push(`<span>${esc(`팀장 ${RUL.sent}명에게 보냈어요.`)}</span>`);
+  if (RUL.err) out.push(`<span class="bad">${esc(RUL.err)}</span>`);
+  if (RUL.sent === null && done.length) out.push(`<span>${esc(`${done.length}개 층 규칙을 맞췄어요.${leads ? ' 켜져 있는 팀장은 RULES.md를 다시 읽어야 해요.' : ''}`)}</span>`);
+  if (leads) out.push(tell);   // 보내기 전이거나, 못 보낸 팀장에게 다시
+  const bad = RUL.bad.filter(b => miss.some(f => f.id === b.id));   // 그새 맞춘 층(층 머리글 단추)은 빼요
+  if (bad.length) out.push(`<span class="bad">${esc(`못 맞춘 층: ${bad.map(b => b.text).join(' / ')}`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">다시 맞추기</button>`);
+  else if (miss.length) out.push(`<span>${esc(`${miss.length}개 층 규칙에 팀 간 대화가 없어요`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">모두 맞추기</button>`);
+  return out.join('');
+}
+function renderRules() {
+  const el = $('#rulesNote'), html = rulesNoteHTML();
+  put(el, html);
+  el.hidden = !html;
+}
+async function rulesAll() {
+  const miss = rulesMiss();
+  if (RUL.busy || !miss.length) return;
+  // 앞서 맞추고 아직 팀장에게 안 보낸 층은 그대로 두고 이어서 더해요(다시 맞추기)
+  const done = (RUL.done || []).slice(), bad = [];
+  Object.assign(RUL, { busy: 'sync', sent: null, err: '' });
+  renderRules();
+  for (const f of miss) {   // 같은 규칙 맞추기를 층마다(이미 들어 있으면 아무것도 하지 않아요)
+    try {
+      const r = await post('api/floor/rules-sync', { team: f.id });
+      f.talkRules = true;
+      if (r.added === true && !done.some(x => x.id === f.id)) done.push({ id: f.id, name: f.name });
+    } catch (e) { bad.push({ id: f.id, text: `${f.name} — ${seatErr(e, '규칙을 맞추지 못했어요')}` }); }
+  }
+  Object.assign(RUL, { busy: false, done: done.length ? done : null, bad, at: Date.now() });
+  render();
+  ($('#rulesTell') || $('#rulesAll') || $('#rulesNote')).focus();
+  const leads = done.filter(f => leadOn(f.id)).length, why = bad.length ? `못 맞춘 층: ${bad.map(b => b.text).join(' / ')}` : '';
+  seatSay(!done.length ? why || '‘팀 간 대화’ 규칙이 이미 들어 있어요' : [`${done.length}개 층 규칙을 맞췄어요`, leads ? '켜져 있는 팀장은 RULES.md를 다시 읽어야 해요' : '', why].filter(Boolean).join('. '));
+}
+async function rulesTell() {
+  const list = (RUL.done || []).filter(f => leadOn(f.id));
+  if (RUL.busy || !list.length) return;
+  RUL.busy = 'tell';
+  renderRules();
+  let n = 0;
+  const bad = [], left = [];
+  for (const f of list) {
+    try { const r = await post('api/say', { team: f.id, thread: 'chat:' + LEAD, text: RULES_TELL }); n++; if (state) state.relay = Object.assign({}, state.relay || {}, r); }
+    catch (e) { bad.push(`${f.name} — ${seatErr(e, '보내지 못했어요')}`); left.push(f); }
+  }
+  // 보낸 층은 빼고 못 보낸 층만 남겨요(그 팀장에게 다시 보내기). 못 맞춘 층(bad)은 그대로 보여요
+  Object.assign(RUL, { busy: false, done: left.length ? left : null, sent: (RUL.sent || 0) + n, err: bad.length ? `못 보낸 층: ${bad.join(' / ')}` : '', at: Date.now() });
+  render();
+  ($('#rulesTell') || $('#rulesNote')).focus();
+  seatSay([n ? `팀장 ${n}명에게 보냈어요` : '', RUL.err].filter(Boolean).join('. '));
 }
 
 /* ---------- 팀 간 대화(hq/teams.jsonl) ---------- */
@@ -2104,7 +2180,7 @@ const SU = {
   picks: {}, pickSeq: 0, rowSeq: 0, edit: {}, editNote: {}, boss: '', bossTouched: false, made: null, madeAt: {}, madeRun: [], skip: false,
   vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: '',
   // 추천 팀(/api/setup/recommend): data는 마지막 답, drop은 대표가 뺀 추천, done은 이번에 만든 추천, errs는 추천마다 못 만든 까닭, old는 30일 넘은 세션도 넣기
-  rec: { data: null, busy: false, err: '', none: false, seq: 0, at: 0, drop: new Set(), done: new Set(), errs: {}, old: false },
+  rec: { data: null, busy: false, err: '', none: false, seq: 0, at: 0, drop: new Set(), done: new Set(), errs: {}, old: false, show: 20, mkErr: '' },
   // 5단계의 팀 규칙 한 줄(/api/floor/link-rules): on은 체크 상자, res는 층마다 결과 { busy, done, bad, text }
   rules: { on: true, res: {} }
 };
@@ -2982,11 +3058,12 @@ function recNorm(r) {
   if (rows.length < 2 && !lead) return null;   // 앉힐 세션이 하나도 없는 추천
   return { key, folder, display: typeof r.display === 'string' && r.display.trim() ? cut(r.display.trim(), 300) : folder,
     name: cut(String(r.name == null ? '' : r.name).trim(), 30) || cut(baseName(folder), 30) || '새 팀', sugId: TEAM_ID.test(String(r.suggestedId || '')) ? String(r.suggestedId) : '',
-    source: r.source === 'group' ? 'group' : 'project', existing: exTeam(r.existingTeam), rows, left: Number.isInteger(r.left) && r.left > 0 ? Math.min(r.left, 9999) : 0 };
+    source: r.source === 'group' ? 'group' : 'project', existing: exTeam(r.existingTeam), rows, left: Number.isInteger(r.left) && r.left > 0 ? Math.min(r.left, 9999) : 0,
+    floor: typeof r.floor === 'string' && r.floor.length <= 80 ? r.floor : '', last: msOf(r.lastActivityAt) };   // floor: 이미 그 층의 그룹(또는 같은 이름)이라 서버가 새로 만들지 말라고 한 층
 }
 function recParse(r) {
   const seen = new Set(), list = [];
-  for (const x of Array.isArray(r.recommendations) ? r.recommendations : []) { const n = recNorm(x); if (n && !seen.has(n.key) && list.length < 30) { seen.add(n.key); list.push(n); } }
+  for (const x of Array.isArray(r.recommendations) ? r.recommendations : []) { const n = recNorm(x); if (n && !seen.has(n.key) && list.length < 200) { seen.add(n.key); list.push(n); } }
   const ex = r.extra && typeof r.extra === 'object' ? r.extra : {};
   const fl = (Array.isArray(ex.folderless) ? ex.folderless : []).map(t => cut(String(typeof t === 'string' ? t : t && typeof t === 'object' ? t.title || '' : '').replace(/\s+/g, ' ').trim(), 40));
   const num = v => (Number.isInteger(v) && v > 0 ? Math.min(v, 1e5) : 0);
@@ -3001,7 +3078,7 @@ async function loadRec(extra, focus) {
   try {
     const r = await sp('recommend', Object.assign({ includeOld: R.old }, extra || {}));
     if (my !== R.seq) return;
-    R.data = recParse(r); R.at = Date.now(); R.err = '';
+    R.data = recParse(r); R.at = Date.now(); R.err = ''; R.mkErr = '';
   } catch (e) {
     if (my !== R.seq) return;
     if (/없는 주소/.test(e.message || '')) R.none = true;   // 추천을 모르는 예전 서버: 상자를 보이지 않아요
@@ -3013,7 +3090,10 @@ async function loadRec(extra, focus) {
 function ensureRec(force) { const R = SU.rec; if (API && !R.none && !R.busy && (force || !R.data || Date.now() - R.at > 60e3)) loadRec(); }
 const recShown = () => { const R = SU.rec, d = R.data; return d ? d.list.filter(r => !R.drop.has(r.key) && !R.done.has(r.key) && !SU.picks['rec|' + r.key]) : []; };
 const recByKey = k => (SU.rec.data ? SU.rec.data.list.find(r => r.key === k) || null : null);
-const recBlock = rec => (rec.folder ? SU.st.floors.find(f => samePath(f.folder, rec.folder)) || null : null);   // 이미 어느 층이 쓰는 폴더
+// 이미 있는 층: 서버가 알려 준 층(그 층의 그룹·같은 이름) → 그 폴더를 쓰는 층 → 이름이 같은 층(예시 팀 빼고). 그 추천은 새로 만들지 않아요
+const recBlock = rec => (rec.floor && SU.st.floors.find(f => f.id === rec.floor)) || (rec.folder && SU.st.floors.find(f => samePath(f.folder, rec.folder)))
+  || SU.st.floors.find(f => !f.example && roleKey(f.name) === roleKey(rec.name)) || null;
+const REC_PAGE = 20, FLOORS_MAX = 20;   // 추천은 최근 것부터 20개씩 보여요. 한 번에 만드는 층은 서버(/api/setup/floors)가 받는 20개까지
 // 한 번에 만들 수 있는 추천: 이미 층인 폴더가 아니고, 다른 곳에 넣지 않은 세션이 하나라도 남아 있어요
 const recLive = (rec, used) => !recBlock(rec) && recRows(rec, used).some(r => !r.off && (r.sid || r.cx));
 // 추천 카드의 자리들 [{ role, sid, cx, title, reason, off, kept, name }]. off: 이 층에 넣지 않는 까닭(아래 ‘만들 층’·‘팀원 고치기’에 넣은 세션, 고른 총괄).
@@ -3058,24 +3138,25 @@ function recSpec(rec, id, used) {
     rec.source === 'group' && GROUP_KEY_RE.test(rec.key) ? { group: rec.key } : {});
 }
 function recCardHTML(rec, id, used) {
-  const i = ix('rec|' + rec.key), pre = 'suR' + i, rows = recRows(rec, used), on = rows.filter(r => !r.off && (r.sid || r.cx)), bf = recBlock(rec), err = SU.rec.errs[rec.key] || '';
+  const i = ix('rec|' + rec.key), pre = 'suR' + i, bf = recBlock(rec), all = recRows(rec, used), err = SU.rec.errs[rec.key] || '';
+  const rows = bf ? all.filter(r => (r.sid || r.cx) && !r.kept) : all, on = rows.filter(r => !r.off && (r.sid || r.cx));   // 이미 있는 층이면 그 층에 더할 세션만
   const nC = on.filter(r => r.sid).length, nX = on.filter(r => r.cx).length;
-  const where = rec.folder ? `<code title="${esc(rec.folder)}">${esc(tilde(rec.display || rec.folder))}</code>` : `<span>새 폴더 <code>~/agencity-teams/${esc(id)}</code></span>`;
+  const where = rec.folder ? `<code title="${esc(rec.folder)}">${esc(tilde(rec.display || rec.folder))}</code>` : bf ? '' : `<span>새 폴더 <code>~/agencity-teams/${esc(id)}</code></span>`;
   const why = (r, j) => (r.off ? r.off : !r.sid && !r.cx ? (j === 0 ? '팀장 같은 세션이 없어 비워 둬요 · 만든 뒤 [세션 만들기]로 채워요' : `${r.reason || '빈자리예요'} · 만든 뒤 [세션 만들기]로 채워요`)
     : r.reason || (r.kept ? '지금 팀원' : r.role === '팀원' ? '역할 단서가 없어 ‘팀원’으로 넣었어요' : ''));
   const li = rows.map((r, j) => {
     const empty = !r.sid && !r.cx;
     return `<li class="${r.off ? 'off' : empty ? 'empty' : ''}"><b>${esc(r.role)}</b><span class="who"><span>${esc(empty ? '빈자리' : r.title || '(제목 없음)')}</span>${r.cx ? `<span class="chip cx" title="${esc(CX_SEAT_NOTE)}">Codex · 읽기 전용</span>` : ''}<small>${esc(why(r, j))}</small></span></li>`;
   }).join('');
-  const fix = bf ? (bf.example ? '' : `<button type="button" class="btn" id="${pre}f" data-su="edit-open" data-team="${esc(bf.id)}" aria-label="${esc(bf.name)} 층 팀원 고치기">팀원 고치기</button>`)
+  const fix = bf ? (bf.example ? '' : `<button type="button" class="btn" id="${pre}f" data-su="edit-open" data-team="${esc(bf.id)}" data-rec="${esc(rec.key)}" aria-label="${esc(bf.name)} 층 팀원 고치기(이 카드의 세션을 더해 열어요)">팀원 고치기</button>`)
     : SU.claude && treeGroups().length ? `<button type="button" class="btn" id="${pre}f" data-su="rec-fix" data-rec="${esc(rec.key)}" aria-label="${esc(rec.name)} 추천 팀 고치기(아래 만들 층으로 옮겨요)">고치기</button>` : '';
   return `<li class="su-rc" data-rec="${esc(rec.key)}">
     <div class="su-rc-h"><h4 class="su-rc-t" id="${pre}t">${esc(rec.name)}</h4>${fix}<button type="button" class="btn" id="${pre}x" data-su="rec-drop" data-rec="${esc(rec.key)}" aria-label="${esc(rec.name)} 추천 팀 빼기">빼기</button></div>
     <p class="su-rc-meta">${where}<span>${esc([nC ? `Claude ${nC}` : '', nX ? `Codex ${nX}` : ''].filter(Boolean).join(' · ') || '앉힐 세션 없음')}</span></p>
-    ${rec.existing ? `<p class="hint">${esc(`이미 있는 팀 사무실(‘${rec.existing.name || '이름 없음'}’)이에요. 지금 팀원은 그대로 두고 추천한 세션만 더해요.`)}</p>` : ''}
+    ${rec.existing && !bf ? `<p class="hint">${esc(`이미 있는 팀 사무실(‘${rec.existing.name || '이름 없음'}’)이에요. 지금 팀원은 그대로 두고 추천한 세션만 더해요.`)}</p>` : ''}
     <ul class="su-rc-ms" aria-label="${esc(rec.name)} 팀원">${li}</ul>
-    ${rec.left ? `<p class="hint">${esc(`자리가 모자라(팀장까지 ${MAX_MEMBERS}명) 세션 ${rec.left}개는 넣지 않았어요. [고치기]에서 바꿔 넣어요.`)}</p>` : ''}
-    ${bf ? `<p class="hint">${esc(`이 폴더는 이미 ‘${bf.name}’ 층이라 새로 만들지 않아요. 그 층의 ‘팀원 고치기’에서 더해요.`)}</p>` : ''}
+    ${rec.left ? `<p class="hint">${esc(`자리가 모자라(팀장까지 ${MAX_MEMBERS}명) 세션 ${rec.left}개는 넣지 않았어요. [${bf ? '팀원 고치기' : '고치기'}]에서 바꿔 넣어요.`)}</p>` : ''}
+    ${bf ? `<p class="hint">${esc(`이미 ‘${bf.name}’ 층이 있어요 · 그 층의 팀원 고치기로 더해요`)}</p>` : ''}
     <p class="err" role="alert" id="${pre}e">${esc(err)}</p></li>`;
 }
 // 추천하지 않은 이름(extra.folderless) 중 폴더 없이 연 Codex 세션: 아직 어느 층에도 앉지 않은 Codex 세션의 제목과 같은 이름이에요(Claude 세션 제목과도 같으면 Claude 쪽으로 봐요).
@@ -3089,7 +3170,8 @@ function cxFolderless(d, used) {
 function recHTML(used) {
   const R = SU.rec, d = R.data;
   if (!API || R.none) return '';
-  const shown = recShown(), ids = recIds(shown), live = shown.filter(r => recLive(r, used)), b = (id, act, v, label) => `<button type="button" class="btn" id="${id}" data-su="${act}"${v === undefined ? '' : ` data-v="${v}"`}>${esc(label)}</button>`;
+  // vis: 보이는 카드(최근 것부터 20개씩, [더 보기]로 더). mk: [모두 만들기]가 보낼 카드(보이는 것 중 만들 수 있는 것, 한 번에 20개까지)
+  const shown = recShown(), vis = shown.slice(0, R.show), ids = recIds(shown), live = vis.filter(r => recLive(r, used)), mk = live.slice(0, FLOORS_MAX), b = (id, act, v, label) => `<button type="button" class="btn" id="${id}" data-su="${act}"${v === undefined ? '' : ` data-v="${v}"`}>${esc(label)}</button>`;
   const none = !!d && !d.list.length;   // 추천할 팀이 하나도 없어요(세션이 없거나, 모두 앉았거나, ‘이 컴퓨터’ 세션뿐): 허락을 묻지 않고, 없는 ‘직접 고르기’를 가리키지 않아요
   const head = `<div class="su-rec-h"><h3 id="suRecH" tabindex="-1">추천 팀${d ? ` <small class="hint">${shown.length}개</small>` : ''}</h3><button type="button" class="btn" id="suRecRe" data-su="rec-reload"${R.busy ? ' aria-disabled="true"' : ''}>${R.busy ? '읽는 중…' : '다시 추천'}</button></div>
     <p class="hint">${none ? '이 맥의 세션 목록을 보고 프로젝트마다 층(팀)을 나눠 줘요. 지금은 팀으로 나눌 새 세션이 없어요.' : '이 맥의 세션 목록을 보고 프로젝트마다 층(팀)을 나눠 봤어요. 마음에 들면 한 번에 만들고, 고칠 팀만 [고치기]를 눌러요.'}</p>`;
@@ -3098,11 +3180,13 @@ function recHTML(used) {
   const tree = !!(SU.claude && treeGroups().length);   // 아래 ‘직접 고르기’(나무)가 보이는지
   const ask = d.consent === null && !none ? `<div class="su-ask" role="group" aria-labelledby="suAskT"><p id="suAskT">세션마다 첫 메시지 몇 줄을 이 맥 안에서만 읽어 역할을 더 잘 맞춰요. 저장하거나 AI에 보내지 않아요.</p>
       <div class="su-actions"><button type="button" class="btn primary" id="suAskY" data-su="rec-consent" data-v="1">허락</button>${b('suAskN', 'rec-consent', 0, '목록 정보만')}</div></div>` : '';
-  const cards = shown.length ? `<ol class="su-recs">${shown.map(r => recCardHTML(r, ids.get(r.key), used)).join('')}</ol>`
+  const moved = d.list.filter(r => SU.picks['rec|' + r.key]), dropped = d.list.filter(r => R.drop.has(r.key) && !R.done.has(r.key)).length;
+  const cards = shown.length ? `<ol class="su-recs">${vis.map(r => recCardHTML(r, ids.get(r.key), used)).join('')}</ol>${shown.length > vis.length ? `<p style="margin-top:8px">${b('suRecM', 'rec-more', undefined, `더 보기 · ${shown.length - vis.length}개`)}</p>` : ''}`
+    : moved.length ? '<p class="hint su-make-empty" style="margin-top:12px">추천 팀은 아래 ‘만들 층’에서 고치는 중이에요.</p>'   // [고치기]로 옮긴 것뿐이면 ‘모두 만들었거나 뺐어요’라고 하지 않아요
     : `<p class="hint su-make-empty" style="margin-top:12px">${!none ? '추천 팀을 모두 만들었거나 뺐어요.' : '추천할 새 팀이 없어요. 세션이 모두 층에 앉았거나, 프로젝트 폴더에서 연 세션이 없어요.'}${tree ? ' 아래 ‘직접 고르기’에서 골라요.' : none ? ' 프로젝트 폴더에서 Claude 세션을 연 뒤 [다시 추천]을 눌러요.' : ''}</p>`;
   // Codex 자리가 보이는 카드가 있으면 ‘읽기 전용’이 무슨 뜻인지 한 번 알려요
-  const cxNote = shown.some(r => r.rows.some(x => x.cx)) ? `<p class="hint su-cx-note">${esc(CX_SEAT_NOTE)}</p>` : '';
-  const go = shown.length ? `<div class="su-rec-go"><button type="button" class="btn primary" id="suRecGo" data-su="rec-make"${live.length ? '' : ' disabled'}>추천대로 모두 만들기 · 층 ${live.length}개</button><span class="hint">만든 뒤에도 층마다 ‘팀원 고치기’로 바꿔요.</span></div>` : '';
+  const cxNote = vis.some(r => r.rows.some(x => x.cx)) ? `<p class="hint su-cx-note">${esc(CX_SEAT_NOTE)}</p>` : '';
+  const go = shown.length ? `<div class="su-rec-go"><button type="button" class="btn primary" id="suRecGo" data-su="rec-make"${mk.length ? '' : ' disabled'}>추천대로 모두 만들기 · 층 ${mk.length}개</button><span class="hint">${live.length > mk.length ? `한 번에 ${FLOORS_MAX}개까지 만들어요. 나머지는 만든 뒤 다시 눌러요.` : '만든 뒤에도 층마다 ‘팀원 고치기’로 바꿔요.'}</span>${R.mkErr ? `<p class="err" role="alert" id="suRecGoE" style="flex-basis:100%; margin:0">${esc(R.mkErr)}</p>` : ''}</div>` : '';
   const more = [];
   // 허락은 언제든 바꿀 수 있게 늘 보여요(추천이 없으면 ‘맞췄어요’ 대신 지금 고른 값만)
   if (d.consent !== null) more.push(`<p>${none ? (d.consent ? '첫 메시지 읽기: 허락했어요.' : '첫 메시지 읽기: 목록 정보만 써요.') : d.consent ? '세션마다 첫 메시지 몇 줄도 이 맥 안에서만 읽어 역할을 맞췄어요.' : '제목·폴더 같은 목록 정보만 보고 맞췄어요.'} ${b('suRecC', 'rec-consent', d.consent ? 0 : 1, d.consent ? '첫 메시지 읽지 않기' : '첫 메시지도 읽기')}</p>`);
@@ -3116,7 +3200,6 @@ function recHTML(used) {
   }
   if (R.old) more.push(`<p>30일 넘게 쓰지 않은 세션도 넣었어요. ${b('suRecO', 'rec-old', 0, '최근 세션만')}</p>`);
   else if (d.old) more.push(`<p>30일 넘게 쓰지 않은 세션 ${d.old}개는 뺐어요. ${b('suRecO', 'rec-old', 1, '그 세션도 넣기')}</p>`);
-  const moved = d.list.filter(r => SU.picks['rec|' + r.key]), dropped = d.list.filter(r => R.drop.has(r.key) && !R.done.has(r.key)).length;
   if (moved.length) more.push(`<p>${esc(`아래 ‘만들 층’에서 고치는 중: ${moved.map(r => `‘${r.name}’`).join(', ')}`)}</p>`);
   if (dropped) more.push(`<p>뺀 추천 ${dropped}개 ${b('suRecU', 'rec-undrop', undefined, '다시 보기')}</p>`);
   return `<section class="su-rec" aria-labelledby="suRecH" aria-busy="${R.busy}">${head}${ask}${R.err ? `<p class="err" role="alert" style="margin-top:8px">다시 추천하지 못했어요: ${esc(R.err)}</p>` : ''}${res}${cards}${cxNote}${go}${more.length ? `<div class="su-rec-more">${more.join('')}</div>` : ''}</section>`;
@@ -3130,7 +3213,8 @@ function madeRunAdd(made, p) {
   if (!SU.madeRun.some(x => x.id === p.id)) SU.madeRun.push({ id: p.id, name: p.name, display, fresh: !!p.fresh, away, rules, file, noRules: made.noRules === true });
 }
 async function recMakeAll() {
-  const R = SU.rec, shown = recShown(), used = seatsInUse(), list = shown.filter(r => recLive(r, used));
+  const R = SU.rec, shown = recShown(), used = seatsInUse(), list = shown.slice(0, R.show).filter(r => recLive(r, used)).slice(0, FLOORS_MAX);   // 보이는 카드만, 서버가 받는 수까지
+  R.mkErr = '';
   if (!list.length) throw new Error('만들 추천 팀이 없어요');
   await flushOrder();   // 층 순서를 저장하는 중이면 끝난 뒤에 보내요
   // 총괄: 아래 ‘총괄(코디네이터) 세션’에 보이는 값을 ‘층 만들기’처럼 같이 보내요(제목 보고 미리 골라 둔 후보도요. 화면에 고른 것으로 보이니까요).
@@ -3139,7 +3223,15 @@ async function recMakeAll() {
   const jobs = list.map(rec => ({ rec, id: ids.get(rec.key), spec: recSpec(rec, ids.get(rec.key), used) }));
   let res;
   try { res = await sp('floors', { boss, floors: jobs.map(x => x.spec) }); }
-  catch (e) { if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) throw e; res = e.body; }   // 모두 못 만들었어도 추천마다 까닭을 보여 줘요
+  catch (e) {
+    if (!e.body || !Array.isArray(e.body.errors) || !e.body.errors.length) {   // 요청을 통째로 받지 않았어요: 서버가 말한 까닭을 버튼 바로 아래에
+      R.mkErr = `층을 하나도 만들지 못했어요: ${e.message || '알 수 없는 오류'}`;
+      renderSetup('#suRecGo');
+      suSay(R.mkErr);
+      return;
+    }
+    res = e.body;   // 모두 못 만들었어도 추천마다 까닭을 보여 줘요
+  }
   const created = Array.isArray(res.created) ? res.created : [], errors = Array.isArray(res.errors) ? res.errors : [];
   R.errs = {};
   for (const x of jobs) {
@@ -3332,8 +3424,8 @@ function renderSetup(focus) {
   $('#suSteps').innerHTML = SU_STEPS.map((n, i) => `<li><button type="button" data-su="go" data-step="${i}"${i === SU.step ? ' aria-current="step"' : ''}><span class="n">${i + 1}단계</span><b>${n}</b><small>${esc(stepNote(i))}</small></button></li>`).join('');
   $('#suBody').innerHTML = [loginHTML, claudeHTML, floorsHTML, visHTML, doneHTML][SU.step]() + navHTML();
   applyFilter();
-  let el = keep && $(keep, $('#setup'));
-  if (el && !el.getClientRects().length) el = null;   // 찾기로 숨은 곳이면 제목으로
+  // focus는 선택자 하나나 목록(그린 뒤에 앞에서부터 있는 것). 찾기로 숨은 곳이면 다음 것, 없으면 제목으로
+  let el = keep ? [].concat(keep).map(k => $(k, $('#setup'))).find(x => x && x.getClientRects().length) || null : null;
   (el || $('#suHead')).focus({ preventScroll: !focus && !!el });
   if (el && top !== null) { const d = el.getBoundingClientRect().top - top; if (Math.abs(d) > 1) $('#setup').scrollTop += d; }
   if (el && caret && !focus && (el.type === 'text' || el.type === 'search')) { try { el.setSelectionRange(caret[0], caret[1]); } catch (e) {} }
@@ -3609,9 +3701,11 @@ function rowsFromMembers(ms, names) {
   rows.forEach(r => { r.auto = ''; r.was = r.role; });   // was: team.json의 이름(이름을 바꾸면 저장할 때 서버가 그 자리 파일을 옮겨요)
   return rows;
 }
-async function openEdit(id) {
+// rec: 이미 있는 층이라 만들지 않는 추천 카드에서 열면 그 카드의 세션을 더해 둬요(저장은 대표가 ‘팀원 저장’으로)
+async function openEdit(id, rec) {
   const f = floorById(id), j = ix('floor|' + id), cur = SU.edit[id];
   if (!f || f.example) return;
+  if (cur && rec && !cur.loading && !cur.loadErr) { recAddTo(cur, rec, f, j); return; }
   if (cur) { renderSetup(cur.loading || cur.loadErr || !cur.rows.length ? '#suEb' + j : `#suE${j}r${cur.rows[0].uid}s`); return; }   // 이미 열려 있으면 그곳으로
   SU.editNote[id] = null;
   const e = SU.edit[id] = { kind: 'floor', id, gkey: '', rows: [], loading: true, loadErr: '', err: '', orig: '' };
@@ -3627,8 +3721,27 @@ async function openEdit(id) {
   } catch (err) { e.loadErr = '팀원 정보(team.json)를 읽지 못했어요: ' + (err.message || '알 수 없는 오류'); }
   e.loading = false;
   if (SU.edit[id] !== e || !SU.open || SU.step !== 2) return;   // 그사이 닫았거나 다른 단계로 갔어요
+  if (rec && !e.loadErr) { recAddTo(e, rec, f, j); return; }
   renderSetup(e.loadErr ? '#suEb' + j : `#suE${j}r${e.rows[0].uid}s`);
   suSay(e.loadErr || `${f.name} 층 팀원 ${e.rows.length}자리를 열었어요`);
+}
+// 추천 카드의 세션을 그 층 팀원 고치기에 더해요: 빈 팀장 자리면 팀장으로, 나머지는 뒤에 겹치지 않는 이름으로(팀장까지 MAX_MEMBERS자리까지).
+// 이미 그 층에 있거나 다른 곳(만들 층·다른 층 고치기·총괄)에 넣은 세션은 빼요
+function recAddTo(e, rec, f, j) {
+  const used = seatsInUse(), held = heldOf(e), key = r => (r.cx ? 'cx:' + r.cx : r.sid), on = new Set(e.rows.map(key).filter(Boolean)), add = [];
+  for (const r of SU.claude ? recRows(rec, used) : []) {   // 세션 목록을 아직 못 읽었으면 열기만 해요(세션 칸에 보일 수 있게)
+    const k = key(r), lead = e.rows[0];
+    if (!k || r.off || r.kept || on.has(k) || (r.sid && held.has(r.sid))) continue;
+    if (r.role === LEAD && r.sid && lead && lead.role === LEAD && !lead.sid && !lead.cx) { Object.assign(lead, { sid: r.sid, title: r.title, why: 'rec', reason: r.reason || '', auto: r.sid }); add.push(lead); }
+    else if (e.rows.length < MAX_MEMBERS) {
+      const x = newRow(uniqueRole(r.role && r.role !== LEAD ? r.role : '팀원', e.rows), r.sid, 'rec', r.title);
+      x.cx = r.cx || ''; x.reason = r.reason || ''; x.auto = r.cx || r.sid;
+      e.rows.push(x); add.push(x);
+    } else continue;
+    on.add(k);
+  }
+  renderSetup(`#suE${j}r${(add[0] || e.rows[0]).uid}s`);
+  suSay(add.length ? `${f.name} 층 팀원 고치기에 추천 세션 ${add.length}개를 더했어요. 확인한 뒤 ‘팀원 저장’을 눌러요` : `${f.name} 층 팀원 ${e.rows.length}자리를 열었어요`);
 }
 function closeEdit(id) {
   const e = SU.edit[id];
@@ -3789,8 +3902,11 @@ $('#setup').addEventListener('click', e => {
     const p = SU.picks[b.dataset.pick];
     if (!p) return;
     delete SU.picks[p.key];
-    const tb = p.kind === 'rec' ? `#suR${ix('rec|' + p.recKey)}f` : p.kind === 'group' ? '#suTg' + ix(p.gkey) : '#suTs' + ix('s|' + p.sid);   // 카드의 ‘빼기’면 나무(추천 팀이면 그 추천 카드)의 단추로 돌아가요
-    renderSetup(b.id.startsWith('suT') ? '#' + b.id : $(tb) ? tb : '#suMakeH');
+    const ri = p.kind === 'rec' ? ix('rec|' + p.recKey) : 0, rk = p.kind === 'rec' ? recShown().findIndex(r => r.key === p.recKey) : -1;
+    if (rk >= SU.rec.show) SU.rec.show = Math.ceil((rk + 1) / REC_PAGE) * REC_PAGE;   // 되돌아온 추천이 [더 보기] 뒤에 있으면 거기까지 펼쳐요
+    // 카드의 ‘빼기’면 나무(추천 팀이면 되돌아온 그 추천 카드)의 단추로 돌아가요. 그 카드는 다시 그린 뒤에야 있어서 renderSetup이 그린 뒤에 찾아요
+    const tb = p.kind === 'rec' ? [`#suR${ri}f`, `#suR${ri}x`] : [p.kind === 'group' ? '#suTg' + ix(p.gkey) : '#suTs' + ix('s|' + p.sid)];
+    renderSetup(b.id.startsWith('suT') ? '#' + b.id : [...tb, '#suMakeH']);
     suSay(`만들 층에서 뺐어요: ${p.name.trim() || p.src}${p.kind === 'rec' ? '. 추천 팀으로 돌아갔어요' : ''}`);
   }
   else if (a === 'rec-reload') { if (b.getAttribute('aria-disabled') !== 'true') loadRec(undefined, '#suRecRe'); }
@@ -3800,6 +3916,12 @@ $('#setup').addEventListener('click', e => {
     loadRec({ consent: yes }, '#suRecH').then(() => suSay(SU.rec.err ? `다시 추천하지 못했어요: ${SU.rec.err}` : yes ? '첫 메시지 몇 줄도 이 맥 안에서만 읽어 역할을 다시 맞췄어요' : '목록 정보만 보고 추천했어요. 첫 메시지는 읽지 않아요'));
   }
   else if (a === 'rec-old') { SU.rec.old = b.dataset.v === '1'; loadRec(undefined, '#suRecH'); }
+  else if (a === 'rec-more') {   // 추천 20개 더: 키보드는 새로 보인 첫 카드로
+    const k = SU.rec.show, nx = recShown()[k], ni = nx ? ix('rec|' + nx.key) : '';
+    SU.rec.show += REC_PAGE;
+    renderSetup(nx ? [`#suR${ni}f`, `#suR${ni}x`] : '#suRecH');
+    suSay(`추천을 ${Math.min(REC_PAGE, recShown().length - k)}개 더 보여 줘요`);
+  }
   else if (a === 'rec-drop') {
     const rec = recByKey(b.dataset.rec);
     if (!rec) return;
@@ -3836,7 +3958,7 @@ $('#setup').addEventListener('click', e => {
     renderSetup(`#suO${up ? 'u' : 'd'}${ix('floor|' + f.id)}`);
     if (note) suSay(note);
   }
-  else if (a === 'edit-open') openEdit(b.dataset.team);
+  else if (a === 'edit-open') openEdit(b.dataset.team, b.dataset.rec ? recByKey(b.dataset.rec) : null);
   else if (a === 'edit-cancel') closeEdit(b.dataset.team);
   else if (a === 'edit-save') suRun(b, () => editSave(b.dataset.team));
   else if (a === 'madd') addRow(b);
@@ -4583,6 +4705,8 @@ document.addEventListener('click', e => {
     }
     if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
     if (act.dataset.act === 'edit-team') { editTeam(act.dataset.team); return; }
+    if (act.dataset.act === 'rules-all') { rulesAll(); return; }
+    if (act.dataset.act === 'rules-tell') { rulesTell(); return; }
     if (act.dataset.act === 'floor-sidebar' || act.dataset.act === 'floor-rules') { if (act.dataset.act === 'floor-rules' && act.getAttribute('aria-disabled') === 'true') return; floorTool(act); return; }
     if (/^meet-(mode|end|close)$/.test(act.dataset.act)) { meetAction(act); return; }
   }

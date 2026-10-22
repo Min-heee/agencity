@@ -2046,7 +2046,8 @@ def rec_rows(pool, ex, titles, busy=()):
 def api_setup_recommend(body):
     """추천 팀: {consent?: true|false, includeOld?: bool} → {ok, consent, recommendations: [...], extra: {folderless, old}, suggestedBoss, currentBoss}.
     consent를 보내면 setup.json의 readFirstMessages에 적어요(나중에 바꿀 수 있어요). 허락(true)일 때만 첫 메시지 앞부분에서 역할 낱말을 찾아요.
-    아직 안 물었으면(null) 목록 정보로만 추천하고 consent: null을 돌려줘요(화면이 한 번 물어요). 첫 메시지 글은 어디에도 내지 않아요."""
+    아직 안 물었으면(null) 목록 정보로만 추천하고 consent: null을 돌려줘요(화면이 한 번 물어요). 첫 메시지 글은 어디에도 내지 않아요.
+    추천은 최근에 쓴 것부터(lastActivityAt)예요. 이미 있는 층의 그룹과 층 이름이 같은 추천에는 floor(그 층 id)가 붙어요(새로 만들지 않고 그 층의 팀원 고치기로 더해요)."""
     want = body.get("consent")
     if want is not None and not isinstance(want, bool):
         raise ApiError(400, "consent는 true나 false예요")
@@ -2080,6 +2081,7 @@ def recommend(read, inc_old):
         return {"tool": tool, "guess": g, "why": why, "alt": alt, "altWhy": alt_why, "id": sid, "title": title}
 
     recs, at = [], {}   # 추천 팀들, 층 폴더(실제 경로) → 그 추천
+    rooms = {t["id"]: t for t in real_teams() if not is_example(t)}   # 내 층(이미 층인 묶음·같은 이름을 알아볼 때)
     for g in groups:
         if g["kind"] == "scratch" or g.get("team"):
             if g["kind"] == "scratch":   # 이 컴퓨터: 제목만 알려요(직접 고르기에서 손으로 더해요)
@@ -2110,6 +2112,27 @@ def recommend(read, inc_old):
             e["act"] = act(s)
             pool.append(e)
         if not pool:
+            continue
+        # 이미 있는 층의 그룹: 세션이 가장 많은 폴더가 층 폴더이거나, 그룹 세션이 가장 많이 앉은 층에 둘 이상 앉았으면(쓸 폴더가 없는 그룹은 하나라도)
+        # 그 층이에요(절반 넘게 앉지 않아 g["team"]이 비어도, 층 폴더가 그룹 폴더와 달라도). 새 층으로 만들지 않고(같은 팀이 층 둘이 되지 않게)
+        # 앉지 않은 세션을 그 층의 ‘팀원 고치기’로 더할 세션으로 알려요(floor: 그 층 id). 세션 하나만 따로 층으로 만든 그룹은 새 층 추천이에요
+        own = top = None
+        if g["kind"] == "group":
+            top = (g.get("folders") or [None])[0]
+            own = by_folder.get(os.path.realpath(top)) if top else None
+            hit = Counter(seated[x["sessionId"]] for x in g["sessions"] if seated.get(x["sessionId"]) in rooms)
+            if own not in rooms and hit:
+                most, k = hit.most_common(1)[0]
+                own = most if k >= 2 or not top else None
+        if own in rooms:
+            t = rooms[own]
+            office = os.path.realpath(os.path.join(HERE, t["office"]))
+            fex = existing_team(os.path.dirname(office)) if os.path.basename(office) == ".office" else None
+            f = t.get("folder") if isinstance(t.get("folder"), str) and t["folder"] else None
+            recs.append({"key": g["key"], "name": clean_name(g["name"], 30) or clean_name(t.get("name"), 30) or own, "folder": f, "source": "group", "pool": pool,
+                         "existingTeam": None, "floor": own, "_floorTeam": fex})
+            if top and os.path.realpath(top) not in at:   # 그 폴더의 그룹 밖 세션·Codex도 새 층이 아니라 이 층에 더할 세션이에요
+                at[os.path.realpath(top)] = recs[-1]
             continue
         folder = g.get("suggestedFolder")
         real = os.path.realpath(folder) if folder else None
@@ -2175,17 +2198,33 @@ def recommend(read, inc_old):
     for i, r in enumerate(recs):
         pool = [p for p in r.pop("pool") if claim.get(p["id"], i) == i]
         idf = r.pop("idFrom", None) or r["folder"]
+        fex = r.pop("_floorTeam", None)
         if not pool and not r["existingTeam"]:
+            continue
+        last = max((p["act"] for p in pool), default=0) or None   # 가장 최근 활동(추천은 최근 것부터 보여요)
+        if r.get("floor"):   # 이미 있는 층의 그룹: 그 층 팀원과 겹치지 않는 이름으로, 더할 세션의 줄만(빈 팀장 자리면 팀장 줄도)
+            rows, left = rec_rows(pool, fex, titles, {s for s, t in seated.items() if t != r["floor"]} | ({cur} if cur else set()))
+            have = {x for m in (fex or {}).get("members") or [] for x in (m.get("sessionId"), m.get("codexId")) if x}
+            rows = [x for x in rows if (x["sessionId"] or x.get("codexId")) and (x["sessionId"] or x.get("codexId")) not in have]
+            if not rows:
+                continue
+            f = r["folder"]
+            out.append(dict(r, suggestedId=r["floor"], display=show_path(f) if f else None, newFolder=None, lastActivityAt=last,
+                            tools={"claude": sum(1 for x in rows if x["tool"] == "claude"), "codex": sum(1 for x in rows if x["tool"] == "codex")},
+                            members=rows, emptyLead=False, left=left))
             continue
         rows, left = rec_rows(pool, r["existingTeam"], titles, set(seated) | ({cur} if cur else set()))
         # 팀 id 후보: 층 이름(영문이면) → 폴더 이름 → team-<n>, 이미 쓰는 id·앞의 추천과 겹치지 않게
         r["suggestedId"] = unique_id(slug(r["name"]) or slug(os.path.basename(idf or "")), taken)
         f = r["folder"]
+        same = next((t for t in rooms if name_key(clean_name(rooms[t].get("name"), 30)) == name_key(r["name"])), None)
         out.append(dict(r, folder=f, display=show_path(f) if f else f"~/{NEW_HOME}/{r['suggestedId']}",
                         newFolder=None if f else f"~/{NEW_HOME}/{r['suggestedId']}",
                         tools={"claude": sum(1 for x in rows if x["tool"] == "claude" and x["sessionId"]),
                                "codex": sum(1 for x in rows if x["tool"] == "codex")},
-                        members=rows, emptyLead=not rows[0]["sessionId"], left=left))
+                        members=rows, emptyLead=not rows[0]["sessionId"], left=left, lastActivityAt=last,
+                        **({"floor": same} if same else {})))   # 이름이 같은 층이 이미 있으면 그 층으로 알려요(새로 만들지 않게)
+    out.sort(key=lambda r: -(r["lastActivityAt"] or 0))   # 최근에 쓴 추천부터
     seen, names = set(), []
     for n in folderless:
         if n not in seen and len(names) < 50:
@@ -3115,6 +3154,9 @@ def api_setup_state(body):
             for m in f["members"] or []:
                 if m.get("codexId"):
                     m["codex"] = codex_state(m["codexId"], files, titles, now_t)
+    roots = office_roots()
+    for f, t in zip(floors, teams):   # 규칙 맞추기가 필요한지: RULES.md에 '팀 간 대화'가 있으면 true, 없으면 false(알 수 없으면 null)
+        f["talkRules"] = talk_rules(t, roots)
     return {"ok": True, "done": done, "platform": platform_name(), "version": VERSION, "intro": intro,
             "github": github_state(s), "deviceFlow": bool(client_id()), "ghAvailable": bool(shutil.which("gh")),
             "claude": {"app": claude_app(), "sessions": len(claude_sessions())},
@@ -4395,6 +4437,21 @@ def api_floor_sidebar(body):
     enqueue(boss, f"{name} · 사이드바 정리", text, HQ_CHAT)
     log(base, "총괄", "설정", f"사이드바 섹션 맞추기를 총괄에게 맡겼어요(«{name}» 그룹, 세션 {len(seats)}개)")
     return {"ok": True, "queued": True, "group": name, "sessions": len(seats)}
+
+
+def talk_rules(t, roots):
+    """층 RULES.md에 '팀 간 대화' 부분이 있는지: True·False. 예시 팀, RULES.md가 없거나 링크이거나 못 읽으면 None(규칙 맞추기로도 못 넣어요)."""
+    if is_example(t):
+        return None
+    base = os.path.realpath(os.path.join(HERE, t["office"]))
+    path = os.path.join(base, "RULES.md")
+    try:
+        if base not in roots or os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > 1024 * 1024:
+            return None
+        with open(path, encoding="utf-8", newline="") as f:
+            return TALK_OPEN in f.read()
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def talk_block(tid):
