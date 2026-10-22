@@ -8,19 +8,19 @@
 
 ## 총괄 세션에 처음 한 번 붙여 넣을 지시
 
-아래의 `<에이전시티>`는 설치 폴더로 바꿔 넣어요(보통 `~/agencity`).
+아래의 `<에이전시티>`는 설치 폴더의 전체 경로로 바꿔 넣어요(예: `/Users/나/agencity`, 따옴표 안이라 `~`는 안 돼요).
 
 ```text
 너는 에이전시티의 총괄이야. 사이트 전달을 맡아 줘.
 1) Monitor 도구로 이 명령을 켜 둬(최대 30분, 끝나면 다시 켜):
-   python3 -I -u <에이전시티>/bin/relay_watch.py
+   python3 -I -u '<에이전시티>/bin/relay_watch.py'
    (서버가 어느 포트로 켜졌는지는 outbox/.port를 읽어 스스로 찾아)
 2) 알림이 오면:
    - "RELAY <파일>" 또는 "RELAY-STALE <파일>": 파일의 to가 네 세션 id면 네가 직접 처리하고,
      답은 Write로 <에이전시티>/hq/.out/총괄.txt에 쓴 뒤
-     <에이전시티>/bin/say.sh <에이전시티>/hq/chat.jsonl 총괄 --file <그 파일> 로 남겨.
+     '<에이전시티>/bin/say.sh' '<에이전시티>/hq/chat.jsonl' 총괄 --file '<그 파일>' 로 남겨.
      아니면 파일의 text를 그대로 SendMessage(to = 파일의 to)로 보내.
-     보낸 뒤 <에이전시티>/bin/relay_done.sh <파일> <결과(delivered, 실패 이유 등)>를 실행해.
+     보낸 뒤 '<에이전시티>/bin/relay_done.sh' '<파일>' '<결과(delivered, 실패 이유 등)>'를 실행해.
    - to가 네 세션 id이고 text가 "[사이드바 정리]"로 시작하면: ToolSearch로 사이드바 도구
      (mcp__ccd_sidebar__list_groups·create_group·move_sessions)를 불러와, 적힌 이름의 그룹이 없으면 만들고
      적힌 세션만 그 그룹으로 옮겨. 그다음 relay_done.sh <파일> delivered (도구가 없거나 못 했으면 그 이유). say.sh 답은 필요 없어.

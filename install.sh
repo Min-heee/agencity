@@ -35,6 +35,10 @@ main() {
     say "예전 이름(클로드 오피스)의 설치본이 있어서 그 자리($DIR)에서 새로 받아요."
   fi
 
+  # 맥: 명령어 도구가 없으면 /usr/bin/python3는 설치 창만 띄우는 자리라 파이썬이 없는 것과 같아요
+  if [ "$(uname -s)" = Darwin ] && ! xcode-select -p >/dev/null 2>&1 && [ "$(command -v python3 2>/dev/null)" = /usr/bin/python3 ]; then
+    fail "명령어 도구가 필요해요: xcode-select --install 을 실행한 뒤 다시 설치해 주세요 (또는 python.org 파이썬)"
+  fi
   command -v python3 >/dev/null 2>&1 || fail "python3가 필요해요. 맥이면 터미널에서 xcode-select --install"
   python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' || fail "파이썬 3.9 이상이 필요해요."
   command -v jq >/dev/null 2>&1 || say "참고: jq가 없어요. 사이트 메시지 전달과 팀원 답장에 필요해요. 맥: brew install jq"
@@ -120,7 +124,7 @@ main() {
     fi
   fi
   say "다음에 켤 때: python3 \"$DIR/start.py\"  (맥은 \"$DIR/Agencity.command\" 더블클릭)"
-  say "내 팀 등록: python3 \"$DIR/bin/new_team.py\""
+  say "내 팀 등록: 켜면 뜨는 설정 화면에서 해요(나중에는 사무실 위쪽 ‘설정’)"
   if [ "${AGENCITY_NO_START:-}" = 1 ]; then exit 0; fi
   trap - EXIT INT TERM
   rm -rf "$TMP"

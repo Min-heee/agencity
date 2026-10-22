@@ -27,14 +27,15 @@ Claude Code와 함께 써요. Codex 세션은 읽기 전용 자리로 앉혀 하
 
 ## 설치
 
-macOS·Linux 터미널에 붙여 넣어요. `~/agencity`에 설치하고 바로 켜요.
+맥 터미널에 붙여 넣어요. `~/agencity`에 설치하고 바로 켜요.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | sh
 ```
 
-- **필요한 것**: 파이썬 3.9 이상, `jq`, Claude Code 데스크톱 앱
-- **맥 앱**: Xcode 명령어 도구가 있으면 Agencity 앱 창으로, 없으면 브라우저로 열려요.
+- **필요한 것**: 맥, Claude Code 데스크톱 앱, 파이썬 3.9 이상, `jq`. 말 걸기·회의·결재·세션 만들기는 맥의 Claude 데스크톱 앱이 있어야 해요.
+- **맥 앱**: Xcode 명령어 도구(`xcode-select --install`)가 있으면 Agencity 앱 창으로 열려요. 명령어 도구 없이 쓰려면 python.org 파이썬을 깔아요(브라우저로 열려요).
+- **리눅스**: 예시 팀과 Codex 읽기 전용 층만 돼요.
 - **업데이트**: 새 버전이 나오면 화면 위에 알림이 떠요. **업데이트**를 누르면 팀 정보는 그대로 두고 코드만 새로 받아요.
 
 zip·git으로 받기와 설치 옵션은 [사용 안내서](docs/GUIDE.md#설치)에 있어요.
@@ -87,7 +88,7 @@ On first run it skims your session list (Claude Code and Codex) and recommends a
 From one page you can message any session, run meetings, and approve what team leads file.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
-Needs macOS or Linux, Python 3.9+, `jq` and the Claude Code desktop app. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
+Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | sh
