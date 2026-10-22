@@ -5,6 +5,7 @@
 // - 서버: /usr/bin/env python3 <설치 폴더>/start.py --app → 출력의 AGENCITY_URL=… 줄을 읽어 창에 열어요.
 //   앱을 끝내면 SIGTERM을 보내고, 3초 뒤에도 남아 있으면 강제로 꺼요. 앱이 갑자기 꺼져도 start.py는
 //   앱과 이어진 표준입력이 닫히는 걸 보고 스스로 꺼요.
+//   start.py에는 AGENCITY_APP=1과 AGENCITY_APP_BUNDLE=<이 앱 경로>를 넘겨요(앱 안 업데이트가 이 자리에 앱을 다시 만들어 열어요).
 // - 127.0.0.1이 아닌 링크와 새 창(window.open, target=_blank)은 기본 브라우저로 열어요.
 // - 창을 닫아도 앱(과 서버)은 켜 둬요. Dock 아이콘을 누르면 창이 다시 떠요. 끄려면 ⌘Q.
 // - Agencity --make-iconset <폴더>: 아이콘 PNG들을 그려요(make_mac_app.sh가 iconutil로 묶어요).
@@ -170,6 +171,13 @@ final class OfficeServer {
         env["PATH"] = parts.joined(separator: ":")
         env["PYTHONUNBUFFERED"] = "1"
         env["AGENCITY_APP"] = "1"   // 맥 앱 안에서 켠 서버라는 표시
+        // 앱 안 업데이트(bin/self_update.py)가 이 앱을 같은 자리에 다시 만들고 열 수 있게 앱 경로를 알려요.
+        let bundle = Bundle.main.bundlePath
+        if bundle.hasSuffix(".app") {
+            env["AGENCITY_APP_BUNDLE"] = bundle
+        } else {
+            env.removeValue(forKey: "AGENCITY_APP_BUNDLE")
+        }
         return env
     }
 

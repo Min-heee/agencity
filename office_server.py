@@ -27,12 +27,15 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   /api/setup/member-name({team, role, name}: 한 팀원의 이름만 바꾸기, 빈 이름은 기본 이름 '<팀 이름> <역할>')으로 정해요.
 - 층 순서: /api/setup/floor-order로 사무실이 있는 층(예시 팀 포함)을 보낸 순서대로 1층부터 다시 매겨요('다음 팀' 같은 입주 예정 자리는 그 뒤).
   /api/setup/floors의 층마다 floor(1~지금 층 수+1)를 보내면 지금 그 층 앞에 넣고 나머지를 한 층씩 올려요(안 보내면 맨 뒤).
+- 새 버전 알림(/api/update/*): 하루 한 번까지 <GitHub>/<저장소>/releases/latest가 넘겨 주는 태그 주소만 읽어요(API·토큰 없음,
+  User-Agent만 보내요). 업데이트는 bin/self_update.py를 따로 켜서 그 태그의 install.sh로 코드만 새로 받고 다시 켜요(.update/).
 """
 import glob
 import hashlib
 import json
 import math
 import os
+import plistlib
 import re
 import secrets
 import shutil
@@ -49,12 +52,24 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 PORT = int(os.environ.get("OFFICE_PORT", "8765"))   # 시험용 서버만 다른 포트를 써요
 HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 ORIGINS = {f"http://{h}" for h in HOSTS}
+# GET /api/state만 이 컴퓨터의 다른 포트 페이지에 보여 줘요. 업데이트 뒤 다른 포트로 다시 켜진 사무실을 예전 페이지가 찾을 때 써요.
+# 사무실 페이지가 있을 수 있는 포트(start.py가 고르는 8765~8784, 또는 물려받은 포트부터 스무 개라 이 서버 포트의 19 아래까지)만이고,
+# 그 답은 버전·설치 폴더 표시(home)뿐이에요(전달 대기 수 같은 건 빼요).
+LOCAL_ORIGIN = re.compile(r"^http://(?:127\.0\.0\.1|localhost):(\d{1,5})\Z")
+
+
+def office_page_origin(o):
+    m = LOCAL_ORIGIN.match(o or "")
+    p = int(m.group(1)) if m else 0
+    return bool(m) and (8765 <= p <= 8784 or PORT - 19 <= p <= PORT)
+
+
 TOKEN = secrets.token_urlsafe(24)
 KST = timezone(timedelta(hours=9))
 LOCK = threading.Lock()
@@ -2413,6 +2428,318 @@ def api_setup_done(body):
     return {"ok": True}
 
 
+# ---------- 새 버전 알림·업데이트 ----------
+# 최신 릴리스는 GitHub API 없이 <BASE>/<REPO>/releases/latest가 넘겨 주는 주소(…/releases/tag/vX.Y.Z)에서 읽어요.
+# /api/update/state를 받으면 하루(AGENCITY_UPDATE_INTERVAL초)에 한 번까지 뒤에서 물어요(요청은 기다리지 않아요).
+# 보내는 건 User-Agent(agencity/<버전>)뿐이고, 결과는 setup.json의 "update": {enabled, lastCheck, latest, skipped}에 둬요.
+# 업데이트(/api/update/run)는 bin/self_update.py를 세션을 떼어 켜요. 진행 상태는 .update/status.json, 기록은 .update/last.log.
+
+def _update_url(name, default):
+    """시험용 주소 바꾸기: https, 또는 이 컴퓨터(127.0.0.1·localhost)의 http만 받아요."""
+    v = (os.environ.get(name) or "").strip().rstrip("/")
+    try:
+        p = urlsplit(v)
+        ok = bool(p.hostname) and not p.query and not p.fragment and not re.search(r"\s", v) and (
+            p.scheme == "https" or (p.scheme == "http" and p.hostname in ("127.0.0.1", "localhost")))
+    except ValueError:
+        ok = False
+    return v if ok else default
+
+
+UPDATE_BASE = _update_url("AGENCITY_UPDATE_BASE", "https://github.com")
+UPDATE_RAW = _update_url("AGENCITY_UPDATE_RAW", "https://raw.githubusercontent.com")
+UPDATE_REPO = os.environ.get("AGENCITY_UPDATE_REPO") or "Min-heee/agencity"
+if not re.match(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}\Z", UPDATE_REPO):
+    UPDATE_REPO = "Min-heee/agencity"
+UPDATE_INTERVAL = int_in(os.environ.get("AGENCITY_UPDATE_INTERVAL"), 86400, 0, 10 ** 9)
+UPDATE_RETRY = 3600         # 묻지 못했으면(인터넷 끊김 등) 이만큼 뒤에 다시 물어요(하루보다 짧게)
+UPDATE_FORCE_GAP = 60       # force는 1분에 한 번까지
+UPDATE_STALE = 30 * 60      # 이보다 오래 'running'인 상태 파일은 멈춘 걸로 봐요
+UPDATE_DIR = os.path.join(HERE, ".update")
+UPDATE_STATUS = os.path.join(UPDATE_DIR, "status.json")
+UPDATE_LOG = os.path.join(UPDATE_DIR, "last.log")
+APP_ID = "io.github.min-heee.agencity"   # bin/make_mac_app.sh가 만드는 앱의 번들 ID
+TAG_RE = re.compile(r"^v(\d{1,6})\.(\d{1,6})\.(\d{1,6})\Z")
+UPDATE_LOCK = threading.Lock()
+CHECK = {"running": False, "forced": 0.0, "failed": 0.0, "error": None}
+RUN_LOCK = threading.RLock()
+RUN = {}                    # 이 서버가 켠 self_update.py: proc, to, started
+WHY_TEXT = {
+    "git": "git으로 받은 폴더예요. git pull로 새로 받아요",
+    "dev": "개발용 판(VERSION이 vX.Y.Z 모양이 아님)이라 버전을 비교할 수 없어요",
+    "not-writable": "설치 폴더에 쓸 수 없거나 업데이트 도우미(bin/self_update.py)가 없어요",
+    "app-moved": "이 사무실을 켠 맥 앱을 찾지 못했어요(옮겼거나 이름을 바꿈). 한 줄 설치를 다시 실행해 주세요",
+}
+
+
+def ver_tuple(v):
+    m = re.match(r"^v?(\d{1,6})\.(\d{1,6})\.(\d{1,6})\Z", str(v or "").strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def iso_age(t):
+    """ISO 시각(now() 모양)이 몇 초 전인지. 못 읽으면 None."""
+    try:
+        d = datetime.fromisoformat(str(t))
+    except (TypeError, ValueError):
+        return None
+    return None if d.tzinfo is None else time.time() - d.timestamp()
+
+
+def update_conf(s=None):
+    """setup.json의 update를 고르게 다듬은 것. 없으면 알림은 켜져 있어요."""
+    u = (load_setup() if s is None else s).get("update")
+    u = u if isinstance(u, dict) else {}
+
+    def tag(k):
+        v = u.get(k)
+        return v if isinstance(v, str) and TAG_RE.match(v) else None
+    last = u.get("lastCheck")
+    return {"enabled": u.get("enabled") is not False, "lastCheck": last if iso_age(last) is not None else None,
+            "latest": tag("latest"), "skipped": tag("skipped")}
+
+
+def save_update(**kw):
+    with SETUP_LOCK:
+        s = load_setup()
+        u = update_conf(s)
+        u.update(kw)
+        s["update"] = u
+        write_json(SETUP, s)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """넘겨 주는 주소(Location)만 읽고 따라가지 않아요."""
+    def redirect_request(self, *a, **kw):
+        return None
+
+
+RELEASE_TAG_PATH = re.compile(r"^/[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}/releases/tag/(v\d{1,6}\.\d{1,6}\.\d{1,6})\Z")
+
+
+def release_location(opener, url):
+    """url에 HEAD(안 받으면 GET)로 묻고 넘겨 주는 주소(Location). 넘겨 주지 않으면 None. 연결 오류는 그대로 올려요."""
+    for method in ("HEAD", "GET"):
+        req = urllib.request.Request(url, method=method, headers={"User-Agent": f"agencity/{VERSION}"})
+        try:
+            with opener.open(req, timeout=10):
+                return None   # 넘겨 주지 않았어요(릴리스가 없음)
+        except urllib.error.HTTPError as e:
+            loc = e.headers.get("Location") if 300 <= e.code < 400 else None
+            e.close()
+            if loc is None and method == "HEAD" and e.code in (403, 405, 501):
+                continue      # HEAD를 받지 않는 곳이면 GET으로 한 번 더
+            return loc
+    return None
+
+
+def latest_tag():
+    """(최신 태그 또는 None, 오류 이름 또는 None). 태그 주소로 넘겨 주는 Location만 보고 페이지는 받지 않아요.
+    저장소 이름이 바뀌면 GitHub이 먼저 새 이름의 …/releases/latest로 넘겨 줘서, 같은 곳 안에서 세 번까지 따라가요."""
+    url = f"{UPDATE_BASE}/{UPDATE_REPO}/releases/latest"
+    handlers = [_NoRedirect]
+    if urlsplit(url).hostname in ("127.0.0.1", "localhost"):
+        handlers.insert(0, urllib.request.ProxyHandler({}))   # 시험용 가짜 서버는 프록시를 거치지 않게
+    opener = urllib.request.build_opener(*handlers)
+    for _ in range(3):
+        try:
+            loc = release_location(opener, url)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            return None, "ssl" if isinstance(getattr(e, "reason", e), ssl.SSLCertVerificationError) else "network"
+        if not loc:
+            return None, "no-release"
+        nxt = urljoin(url, loc)
+        p = urlsplit(nxt)
+        if p.scheme != urlsplit(url).scheme or p.netloc != urlsplit(url).netloc:
+            return None, "bad-redirect"
+        m = RELEASE_TAG_PATH.match(p.path)
+        if m:
+            return m.group(1), None
+        if not p.path.endswith("/releases/latest"):
+            return None, "bad-redirect"
+        url = nxt
+    return None, "bad-redirect"
+
+
+def run_check():
+    tag, err = None, "error"
+    try:
+        tag, err = latest_tag()
+        if tag:
+            save_update(lastCheck=now(), latest=tag)
+        elif err in ("no-release", "bad-redirect"):
+            save_update(lastCheck=now())     # 물어본 건 맞아요(다음은 하루 뒤)
+    except Exception:  # noqa: BLE001 — 알림은 덤이에요. 서버는 그대로 둬요
+        tag, err = None, err or "error"
+    finally:
+        with UPDATE_LOCK:
+            CHECK.update(running=False, error=err, failed=0.0 if tag or err in ("no-release", "bad-redirect") else time.time())
+
+
+def maybe_check(force=False):
+    """물을 때가 됐으면 뒤에서 물어요. force는 알림을 꺼 둬도 물어요(1분에 한 번까지)."""
+    u = update_conf()
+    t = time.time()
+    with UPDATE_LOCK:
+        if CHECK["running"]:
+            return
+        if force and t - CHECK["forced"] >= UPDATE_FORCE_GAP:
+            CHECK["forced"] = t
+        else:
+            if not u["enabled"]:
+                return
+            age = iso_age(u["lastCheck"])
+            if age is not None and -300 <= age < UPDATE_INTERVAL:
+                return
+            if CHECK["failed"] and t - CHECK["failed"] < min(UPDATE_INTERVAL, UPDATE_RETRY):
+                return
+        CHECK["running"] = True
+    threading.Thread(target=run_check, name="update-check", daemon=True).start()
+
+
+def app_bundle_ok(b):
+    """이 설치 폴더용으로 make_mac_app.sh가 만든 Agencity.app인지(번들 ID와 install_dir.txt로)."""
+    if not b or not os.path.isabs(b) or os.path.basename(b) != "Agencity.app" or not os.path.isdir(b):
+        return False
+    try:
+        with open(os.path.join(b, "Contents", "Info.plist"), "rb") as f:
+            info = plistlib.load(f)
+        with open(os.path.join(b, "Contents", "Resources", "install_dir.txt"), encoding="utf-8") as f:
+            d = f.readline().strip()
+    except Exception:  # noqa: BLE001 — 못 읽으면 우리 앱이 아닌 걸로 봐요
+        return False
+    return isinstance(info, dict) and info.get("CFBundleIdentifier") == APP_ID and bool(d) and os.path.realpath(d) == HERE
+
+
+def update_mode():
+    """업데이트할 수 있으면 ("app", 앱 경로) 또는 ("browser", None), 못 하면 (None, 이유)."""
+    if os.path.exists(os.path.join(HERE, ".git")):
+        return None, "git"
+    if ver_tuple(VERSION) is None:
+        return None, "dev"
+    if not os.access(HERE, os.W_OK) or not os.path.isfile(os.path.join(HERE, "bin", "self_update.py")):
+        return None, "not-writable"
+    if os.environ.get("AGENCITY_APP") == "1":
+        b = os.path.normpath(os.environ.get("AGENCITY_APP_BUNDLE") or os.path.join(HOME_RAW, "Applications", "Agencity.app"))
+        if sys.platform != "darwin" or not app_bundle_ok(b):
+            return None, "app-moved"
+        return "app", b
+    return "browser", None
+
+
+def pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except (OSError, OverflowError, ValueError):
+        return False
+    return True
+
+
+def update_progress():
+    """(running {to, started} 또는 None, last {state, to, finished, message, installed} 또는 None)
+    installed: 새 코드는 받았고 다시 켜기만 못 했어요(다시 시도해도 같은 데서 막히기 쉬워요. 화면은 ‘닫기’를 앞에 둬요)."""
+    with RUN_LOCK:
+        p = RUN.get("proc")
+        if p is not None and p.poll() is None:
+            return {"to": RUN["to"], "started": RUN["started"]}, None
+    try:
+        st = load_json(UPDATE_STATUS)
+    except (OSError, ValueError):
+        return None, None
+    if not isinstance(st, dict):
+        return None, None
+    to = st.get("to") if isinstance(st.get("to"), str) and TAG_RE.match(st["to"]) else None
+    started = st.get("started") if iso_age(st.get("started")) is not None else None
+    installed = st.get("installed") is True
+    if st.get("state") == "running":
+        pid, age = st.get("pid"), iso_age(started)
+        if isinstance(pid, int) and not isinstance(pid, bool) and pid > 1 and pid_alive(pid) and age is not None and age < UPDATE_STALE:
+            return {"to": to, "started": started}, None
+        return None, {"state": "failed", "to": to, "finished": st.get("updated") if iso_age(st.get("updated")) is not None else None,
+                      "message": "업데이트가 중간에 멈췄어요. 다시 시도해 주세요", "installed": installed}
+    if st.get("state") in ("done", "failed"):
+        fin = st.get("finished")
+        return None, {"state": st["state"], "to": to, "finished": fin if iso_age(fin) is not None else None,
+                      "message": str(st.get("message") or "")[:2000], "installed": installed}
+    return None, None
+
+
+def update_state():
+    u = update_conf()
+    cur, lt = ver_tuple(VERSION), ver_tuple(u["latest"])
+    mode, extra = update_mode()
+    running, last = update_progress()
+    with UPDATE_LOCK:
+        checking = CHECK["running"]
+    return {"ok": True, "current": VERSION, "latest": u["latest"], "available": bool(cur and lt and lt > cur),
+            "skipped": u["skipped"], "enabled": u["enabled"], "checkedAt": u["lastCheck"], "checking": checking,
+            "canUpdate": mode is not None, "why": None if mode else extra,
+            "notesUrl": f"{UPDATE_BASE}/{UPDATE_REPO}/releases/tag/{u['latest']}" if u["latest"] else None,
+            "running": running, "last": last}
+
+
+def api_update_state(body):
+    maybe_check(body.get("force") is True)
+    return update_state()
+
+
+def api_update_settings(body):
+    ch = {}
+    if "enabled" in body:
+        if not isinstance(body["enabled"], bool):
+            raise ApiError(400, "enabled는 true나 false예요")
+        ch["enabled"] = body["enabled"]
+    if "skip" in body:
+        v = body["skip"]
+        if v is not None and not (isinstance(v, str) and TAG_RE.match(v)):
+            raise ApiError(400, "skip은 vX.Y.Z 모양이나 null이에요")
+        ch["skipped"] = v
+    if not ch:
+        raise ApiError(400, "바꿀 설정(enabled, skip)이 없어요")
+    save_update(**ch)
+    return {"ok": True}
+
+
+def api_update_run(body):
+    tag = body.get("version")
+    if not isinstance(tag, str) or not TAG_RE.match(tag):
+        raise ApiError(400, "version은 vX.Y.Z 모양이에요")
+    u = update_conf()
+    if tag != u["latest"]:
+        raise ApiError(409, "알고 있는 최신 버전이 아니에요. 새로고침한 뒤 다시 해 주세요")
+    cur = ver_tuple(VERSION)
+    if cur is None or ver_tuple(tag) <= cur:
+        raise ApiError(409, f"지금 버전({VERSION})이 이미 {tag}이거나 더 새 버전이에요")
+    mode, extra = update_mode()
+    if mode is None:
+        raise ApiError(409, WHY_TEXT.get(extra, "이 설치본은 앱에서 업데이트할 수 없어요"), {"why": extra})
+    with RUN_LOCK:
+        if update_progress()[0] is not None:
+            raise ApiError(409, "이미 업데이트하는 중이에요")
+        cmd = [sys.executable, "-I", os.path.join(HERE, "bin", "self_update.py"), "--to", tag, "--dir", HERE]
+        if mode == "app":
+            cmd += ["--app-bundle", extra]
+        else:
+            # 브라우저: 이 서버를 켠 start.py(start.py가 AGENCITY_START_PID로 알려 줘요)를 끄면 서버도 같이 꺼져요.
+            # start.py 없이 켠 서버면 서버 자신을 꺼요.
+            ppid = os.getppid()
+            launcher = ppid if ppid > 1 and os.environ.get("AGENCITY_START_PID") == str(ppid) else os.getpid()
+            cmd += ["--stop-pid", str(launcher), "--server-pid", str(os.getpid())]
+        try:
+            os.makedirs(UPDATE_DIR, mode=0o700, exist_ok=True)
+            with open(UPDATE_LOG, "wb") as log:
+                proc = subprocess.Popen(cmd, cwd=HERE, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                        start_new_session=True, close_fds=True)
+        except OSError:
+            raise ApiError(500, "업데이트 도우미(bin/self_update.py)를 켜지 못했어요")
+        RUN.update(proc=proc, to=tag, started=now())
+    return {"ok": True, "started": True}
+
+
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
           "/api/meeting/end": api_meeting_end, "/api/meeting/close": api_meeting_close, "/api/decide": api_decide,
           "/api/setup/state": api_setup_state, "/api/setup/github/start": api_setup_github_start,
@@ -2420,7 +2747,8 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/setup/github/logout": api_setup_github_logout, "/api/setup/claude": api_setup_claude,
           "/api/setup/floors": api_setup_floors, "/api/setup/members": api_setup_members,
           "/api/setup/member-name": api_setup_member_name, "/api/setup/floor-order": api_setup_floor_order, "/api/setup/visibility": api_setup_visibility,
-          "/api/setup/publish": api_setup_publish, "/api/setup/done": api_setup_done}
+          "/api/setup/publish": api_setup_publish, "/api/setup/done": api_setup_done,
+          "/api/update/state": api_update_state, "/api/update/settings": api_update_settings, "/api/update/run": api_update_run}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -2451,11 +2779,13 @@ class Handler(SimpleHTTPRequestHandler):
                 return True
         return False
 
-    def send_json(self, code, obj):
+    def send_json(self, code, obj, headers=()):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
+        for k, v in headers:
+            self.send_header(k, v)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -2490,7 +2820,17 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
             return
         if u.path == "/api/state":
-            self.send_json(200, dict(api_state(), version=VERSION, home=HOME_ID))
+            # 이 페이지(같은 주소)와 start.py·self_update.py(Origin 없음)는 전부, 다른 주소의 페이지는 버전·home만 받아요.
+            # 그중 사무실 페이지가 있을 수 있는 포트의 127.0.0.1·localhost 페이지만 읽을 수 있게 허락해요(office_page_origin).
+            o = self.headers.get("Origin")
+            hdrs = [("Vary", "Origin")]
+            if o is None or o in ORIGINS:
+                res = dict(api_state(), version=VERSION, home=HOME_ID)
+            else:
+                res = {"ok": True, "version": VERSION, "home": HOME_ID}
+                if office_page_origin(o):
+                    hdrs.append(("Access-Control-Allow-Origin", o))
+            self.send_json(200, res, hdrs)
             return
         if u.path == "/api/outbox/check":
             self.send_json(200, api_outbox_check(parse_qs(u.query)))
@@ -2539,7 +2879,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         try:
             res = fn(body)
-            if not path.startswith("/api/setup/"):   # 처음 설정 답에는 전달 상태를 붙이지 않아요
+            if not path.startswith(("/api/setup/", "/api/update/")):   # 처음 설정·업데이트 답에는 전달 상태를 붙이지 않아요
                 res.update({k: v for k, v in api_state().items() if k != "ok"})
             self.send_json(200, res)
         except ApiError as e:

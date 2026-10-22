@@ -8,6 +8,8 @@
 /hq/
 /teams/
 /guards/
+# 앱 안 업데이트의 진행 상태·기록(bin/self_update.py)
+/.update/
 .out/
 __pycache__/
 *.pyc

@@ -83,7 +83,8 @@ git으로 받은 폴더에서도 맥 앱을 쓰려면 `sh bin/make_mac_app.sh --
   브라우저로 켰다면 다음에도 `python3 start.py`(또는 더블클릭)만 하면 돼요. 끄려면 그 창에서 Ctrl-C(앱은 ⌘Q).
 - 8765 포트가 쓰이고 있으면 다음 빈 포트로 켜고 주소를 알려 줘요. 이 폴더의 사무실이 이미 켜져 있으면 그 페이지를 열어요.
   전달 감시기(`bin/relay_watch.py`)는 서버가 `outbox/.port`에 적어 둔 포트를 스스로 찾아요.
-- **새 버전 받기**: 한 줄 설치로 받았다면 같은 줄을 다시 실행해요. 코드만 새로 받고 내 팀 정보(`org.json`, `teams/`, `hq/`,
+- **새 버전 받기**: 사무실 화면에 새 버전 알림이 뜨면 **업데이트**를 눌러요([업데이트](#업데이트)).
+  손으로 받으려면, 한 줄 설치로 받았을 땐 같은 줄을 다시 실행해요. 코드만 새로 받고 내 팀 정보(`org.json`, `teams/`, `hq/`,
   `outbox/`, `public.json`, `agencity.json`, `setup.json`)는 그대로 둬요. 맥 앱은 새로 만들어 다시 열어요.
   브라우저로 켜 둔 사무실은 Ctrl-C로 끄고 다시 켜야 새 버전이 적용돼요.
   git으로 받았다면 `git pull`(한 줄 설치는 git 폴더를 덮어쓰지 않아요).
@@ -95,6 +96,21 @@ git으로 받은 폴더에서도 맥 앱을 쓰려면 `sh bin/make_mac_app.sh --
   다른 패키지는 없어요.
 - 예시 팀을 써 보면 `examples/teams/demo/`에 기록이 남아요. 지우려면 git으로 받았을 땐 `git checkout examples/ && git clean -fdx examples/`,
   아니면 설치 폴더에서 `rm -rf examples/teams/demo/chat/*.jsonl examples/teams/demo/meetings/*-M-* examples/teams/demo/.out` 뒤 설치를 한 번 더 해요.
+
+## 업데이트
+
+- **알림**: 사무실이 켜져 있으면 하루에 한 번까지 최신 릴리스를 확인해요. GitHub API나 로그인 없이
+  `github.com/Min-heee/agencity/releases/latest`가 넘겨 주는 태그 주소만 읽고, 보내는 건 `agencity/<버전>` User-Agent뿐이에요.
+  새 버전이 있으면 화면 위에 "새 버전 vX.Y.Z가 있어요"와 **업데이트**·**건너뛰기**·"무엇이 바뀌었나요"(릴리스 노트)가 떠요.
+  **건너뛰기**를 누른 버전은 다시 알리지 않아요(바로 뜨는 **다시 알리기**나 설정의 ‘완료’ 단계에서 되돌려요).
+- **업데이트 버튼**: 누르고 한 번 더 확인하면, 그 버전(태그)에 고정된 `install.sh`를 받아 한 줄 설치와 똑같이 코드만 새로 받아요.
+  팀 정보와 설정은 그대로예요. 끝나면 맥 앱은 새로 만들어 다시 열고, 브라우저로 켰다면 사무실을 끄고 새 버전으로 다시 켠 뒤 페이지를 새로 불러와요.
+  - 실패하면 켜져 있던 사무실은 그대로 두고 이유를 보여 줘요. 자세한 기록은 설치 폴더의 `.update/last.log`예요.
+  - 터미널(`python3 start.py`)로 켠 사무실은 업데이트 뒤 그 창이 아니라 뒤에서 다시 켜져요(기록 `.update/server.log`).
+    끄려면 아래 줄을 붙여 넣어요(다른 폴더면 `d=` 뒤를 그 폴더 경로로). 적어 둔 번호가 그 폴더의 `start.py`일 때만 꺼요.
+    `d=~/agencity; p=$(cat "$d/.update/server.pid") && ps -p "$p" -o command= | grep -qF "$d/start.py" && kill "$p"`
+- **끄는 법**: 설정 화면의 **새 버전 알림 받기**를 끄면 확인하지 않아요(`setup.json`의 `"update": {"enabled": false}`).
+- **git으로 받은 폴더**는 버튼 대신 "git pull로 받아요"라고만 알려 줘요. `git pull` 한 뒤 사무실을 다시 켜요.
 
 ## 처음 설정
 
@@ -240,6 +256,8 @@ python3 bin/new_team.py
   Claude 세션 기록에서는 세션 id·제목·폴더·마지막 활동만 읽어요. Claude 앱 설정 파일에서는 사이드바 그룹(그룹 이름·순서·어느 세션이
   어느 그룹인지)만 꺼내 쓰고, 다른 내용(MCP 서버 설정 등)은 페이지나 기록에 내지 않아요.
 - 전달 항목은 서버가 만든 것만 코디네이터가 보내요(`/api/outbox/check`로 내용 해시 확인). 1분 30개, 대기 40개로 양을 제한해요.
+- 새 버전 확인은 하루 한 번까지 `https://github.com/Min-heee/agencity/releases/latest`에 요청 하나(User-Agent만)예요. 끌 수 있어요.
+  업데이트는 화면에서 확인을 누른 뒤에만, 그 태그의 `install.sh`를 HTTPS로 받아 실행해요(다른 요청과 같은 Host·Origin·열쇠 검사).
 - `bin/say.sh`는 정해진 대화 파일에만 써요. 보내는 사람은 역할 이름 모양(한글·영문·숫자 12자까지)이나 총괄만 되고, `대표`는 안 돼요.
 - 남는 위험: 같은 맥의 다른 프로그램(에이전트 포함)은 페이지를 받아 열쇠를 읽을 수 있어요. 그래서 사이트 메시지를 승인으로 쓰지 않는 규칙이 중요해요.
 - `python3 build.py --snapshot`은 팀 상태를 페이지 안에 담아 공유용 `artifact.html`을 만들어요. **팀 데이터가 그대로 들어가니** 공개하기 전에 꼭 확인하세요.

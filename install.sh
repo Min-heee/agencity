@@ -6,7 +6,7 @@
 # - 설치 위치: ~/agencity (바꾸려면 ... | AGENCITY_DIR=~/다른/곳 sh)
 # - 받을 버전: 최신 릴리스 (AGENCITY_REF=main 처럼 브랜치·태그를 고를 수 있어요)
 # - 같은 폴더에 다시 실행하면 코드만 새로 받고, 내 팀 정보(org.json, teams/, hq/, outbox/, public.json,
-#   agencity.json, setup.json)와 폴더 권한은 그대로 둬요.
+#   agencity.json, setup.json)와 앱 안 업데이트 기록(.update/), 폴더 권한은 그대로 둬요.
 # - git으로 받은 폴더나 에이전시티가 아닌 파일이 든 폴더에는 설치하지 않아요(git 폴더는 git pull로 새로 받아요).
 # - 맥: 명령어 도구(swiftc)가 있으면 이 맥에서 앱(~/Applications/Agencity.app)을 만들어 브라우저 대신 앱으로 열어요.
 #   앱 위치는 AGENCITY_APP_DEST, 예전처럼 브라우저로 켜려면 AGENCITY_NO_APP=1. 리눅스는 브라우저로 켜요.
@@ -84,7 +84,8 @@ main() {
 
   # 코드만 덮어써요. 받은 임시 사본의 맨 위에서 내 정보 자리(있을 리 없지만)를 먼저 지운 뒤 통째로 복사해요.
   # (tar --exclude는 하위 폴더 이름까지 걸러서 examples/teams 같은 것도 빠지므로 쓰지 않아요.)
-  for x in org.json teams hq outbox public.json agencity.json claude-office.json setup.json .git; do rm -rf "${SRC:?}/$x"; done
+  # .update/는 앱 안 업데이트의 진행 상태·기록이에요(받은 사본에 있으면 덮어쓰지 않게 빼요). 설치 폴더의 것은 지우지 않아요.
+  for x in org.json teams hq outbox public.json agencity.json claude-office.json setup.json .update .git; do rm -rf "${SRC:?}/$x"; done
   # GNU tar는 './'의 권한을 설치 폴더에 덮어쓰므로, 원래 권한(예: chmod 700)을 기억했다가 되돌려요.
   OLD_MODE=
   if [ -d "$DIR" ]; then

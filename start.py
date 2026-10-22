@@ -78,6 +78,19 @@ def watch_stdin():
     os.kill(os.getpid(), signal.SIGTERM)
 
 
+def forget_pid_file():
+    """앱 안 업데이트(bin/self_update.py)가 뒤에서 켠 start.py는 .update/server.pid에 번호가 적혀 있어요.
+    끌 때 그 번호가 이 start.py 것이면 지워요(남은 번호로 나중에 엉뚱한 프로그램을 끄지 않게)."""
+    p = os.path.join(HERE, ".update", "server.pid")
+    try:
+        with open(p, encoding="utf-8") as f:
+            mine = f.read().strip() == str(os.getpid())
+        if mine:
+            os.remove(p)
+    except OSError:
+        pass
+
+
 def main():
     if sys.version_info < (3, 9):
         sys.exit("파이썬 3.9 이상이 필요해요. https://www.python.org/downloads/ 에서 받거나, 맥이면 xcode-select --install")
@@ -142,7 +155,8 @@ def main():
         if sig is not None and signal.getsignal(sig) is not signal.SIG_IGN:
             signal.signal(sig, stop)
 
-    env = dict(os.environ, OFFICE_PORT=str(port))
+    # AGENCITY_START_PID: 서버가 자기를 켠 start.py를 알아보는 표시(앱 안 업데이트가 브라우저로 켠 사무실을 끄고 다시 켤 때 써요)
+    env = dict(os.environ, OFFICE_PORT=str(port), AGENCITY_START_PID=str(os.getpid()))
     # --app: 서버는 앱과 이어진 표준입력을 물려받지 않게 해요(그 파이프는 start.py만 지켜봐요).
     proc = subprocess.Popen([sys.executable, "-I", "office_server.py"], env=env,
                             stdin=subprocess.DEVNULL if app else None)
@@ -175,6 +189,8 @@ def main():
             print("\n끝냈어요.")
         except OSError:   # --app: 앱이 먼저 꺼져 출력 파이프가 닫힌 경우
             pass
+    finally:
+        forget_pid_file()
 
 
 if __name__ == "__main__":
