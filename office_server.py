@@ -52,6 +52,7 @@ import os
 import plistlib
 import re
 import secrets
+import shlex
 import shutil
 import signal
 import ssl
@@ -266,6 +267,8 @@ def codex_roles(base):
 
 
 CODEX_NO_TALK = "Codex에는 아직 말을 걸 수 없어요. Codex 자리는 지금 하는 일만 보여 주는 읽기 전용 자리예요"
+# 예시 팀·자리 표시용 세션(local_00000000…)에는 전할 세션이 없어서, 보낸 말·회의·결재가 outbox에 영영 남아요. 그래서 받지 않아요
+EXAMPLE_NO_TALK = "예시 팀은 둘러보기만 해요. 설정에서 내 층을 만들면 할 수 있어요"
 
 
 SHOWN_MAX = 50   # 이미 있는 팀 사무실에서 설정 화면이 불러오는 팀원 줄 수(bin/new_team.py의 SHOWN_MAX와 같아요)
@@ -467,16 +470,19 @@ def write_like(path, obj, text):
 
 def team_info(tid):
     """(org.json의 층, 팀 사무실 실제 경로, {역할: 세션이 앉은 팀원}). 팀원은 팀장이 먼저, 그다음 team.json 순서예요.
-    팀원 줄에는 '_custom'(따로 정한 이름, 없으면 '')이 더해져 있어요(전달 항목의 label용)."""
+    팀원 줄에는 '_custom'(따로 정한 이름, 없으면 '')이 더해져 있어요(전달 항목의 label용).
+    예시 팀은 둘러보기만 해서 409예요. 자리 표시용 세션 id(local_00000000…)는 앉지 않은 자리로 봐요(전할 세션이 없어요)."""
     t = next((t for t in org().get("teams", []) if t.get("id") == tid and t.get("office")), None)
     if not t:
         raise ApiError(404, "그런 팀(층)이 없어요")
+    if is_example(t):
+        raise ApiError(409, EXAMPLE_NO_TALK, {"why": "example"})
     base = os.path.realpath(os.path.join(HERE, t["office"]))
     team = load_json(os.path.join(base, "team.json"))
     names = [team.get("team"), t.get("name")]
     seated = {}
     for m in team.get("members", []) if isinstance(team.get("members"), list) else []:
-        if isinstance(m, dict) and is_role(m.get("role")) and m["role"] not in seated and SESSION_ID.match(str(m.get("sessionId") or "")):
+        if isinstance(m, dict) and is_role(m.get("role")) and m["role"] not in seated and real_sid(m.get("sessionId")):
             seated[m["role"]] = dict(m, _custom=custom_name(m, names))
     members = {r: seated[r] for r in lead_first(seated)}
     return t, base, members
@@ -497,9 +503,10 @@ def text_of(body, key="text", limit=MAX_TEXT, required=True):
 def reply_hint(thread, who):
     """답 본문이 Bash 명령에 들어가지 않게, 파일로 쓴 뒤 say.sh --file로 남기게 해요(안전장치 훅이 본문 낱말에 걸리지 않게)."""
     out = os.path.join(os.path.dirname(thread), ".out", f"{who}.txt")
+    # 설치 폴더에 빈칸·따옴표가 있어도 그대로 실행되게 경로는 셸 따옴표로 감싸요
     return (f"\n\n답은 사이트에 남겨요(대표가 거기서 봐요). 짧게, 두 단계로:\n"
             f"1) Write 도구로 답을 이 파일에 써요: {out}\n"
-            f"2) 실행: {SAY} '{thread}' {who} --file '{out}'")
+            f"2) 실행: {shlex.quote(SAY)} {shlex.quote(thread)} {who} --file {shlex.quote(out)}")
 
 
 def check_rate(n):
@@ -570,12 +577,12 @@ def api_say(body):
     thread = body.get("thread")
     text = text_of(body)
     if thread == "boss":
-        boss = org().get("boss") or {}
-        if not SESSION_ID.match(str(boss.get("sessionId", ""))):
-            raise ApiError(404, "총괄 세션이 없어요")
+        boss = boss_sid()   # 자리 표시용 총괄(예시)은 빼요
+        if not boss:
+            raise ApiError(404, "아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요")
         check_rate(1)
         append_line(HQ_CHAT, {"t": now(), "from": "대표", "text": text})
-        enqueue(boss["sessionId"], "총괄", f"[대표·사이트] 총괄에게\n{text}{reply_hint(HQ_CHAT, '총괄')}", HQ_CHAT)
+        enqueue(boss, "총괄", f"[대표·사이트] 총괄에게\n{text}{reply_hint(HQ_CHAT, '총괄')}", HQ_CHAT)
         return {"ok": True}
     t, base, members = team_info(body.get("team"))
     if isinstance(thread, str) and thread.startswith("chat:"):
@@ -3989,7 +3996,9 @@ def coordinator_text():
     m = re.search(r"^## 총괄 세션에 처음 한 번 붙여 넣을 지시[^\n]*\n.*?^```text\n(.*?)^```", doc, re.S | re.M)
     if not m:
         raise ApiError(500, "docs/COORDINATOR.md에서 총괄 지시를 찾지 못했어요")
-    return m.group(1).strip().replace("<에이전시티>", HERE)
+    # 명령 줄의 '<에이전시티>/…'(따옴표 안)는 설치 폴더에 빈칸·따옴표가 있어도 되게 셸 따옴표로 다시 감싸요
+    text = re.sub(r"'<에이전시티>([^'\s]*)'", lambda x: shlex.quote(HERE + x.group(1)), m.group(1).strip())
+    return text.replace("<에이전시티>", HERE)
 
 
 def boss_prompt(marker):
@@ -4217,7 +4226,7 @@ def api_floor_sidebar(body):
             + "".join(f"- {sid} ({r})\n" for r, sid in seats)
             + "docs/COORDINATOR.md의 [사이드바 정리] 순서대로 해요: ToolSearch로 mcp__ccd_sidebar__list_groups·mcp__ccd_sidebar__create_group·"
               "mcp__ccd_sidebar__move_sessions를 불러와, 이 이름의 그룹이 없으면 만들고 위 세션만 그 그룹으로 옮겨요. 다른 세션과 그룹은 건드리지 않아요.\n"
-              f"끝나면 {os.path.join(HERE, 'bin', 'relay_done.sh')} <이 파일> delivered, 도구가 없거나 못 했으면 <이 파일> 뒤에 그 이유를 적어 실행해요. "
+              f"끝나면 {shlex.quote(os.path.join(HERE, 'bin', 'relay_done.sh'))} '<이 파일>' delivered, 도구가 없거나 못 했으면 '<이 파일>' 뒤에 그 이유를 적어 실행해요. "
               "사이트에 따로 답하지 않아도 돼요.")
     # 총괄 대화에 한 줄(시스템 줄) 남겨요. 못 했으면 relay_done.sh가 이 대화에 이유를 이어서 적어요
     append_line(HQ_CHAT, {"t": now(), "from": "대표", "kind": "설정", "text": f"사이드바 정리 요청 · «{name}» 그룹으로 세션 {len(seats)}개"})

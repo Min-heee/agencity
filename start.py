@@ -6,7 +6,7 @@ python3 start.py --no-open    # 브라우저는 열지 않아요
 python3 start.py --app        # 맥 앱(Agencity.app)이 쓰는 방식: 브라우저 대신 주소 한 줄을 알려 줘요
 OFFICE_PORT=8766 python3 start.py   # 다른 포트로
 
-처음 켜면 org.json이 없어서 예시 팀(examples/)으로 시작해요. 내 팀은 python3 bin/new_team.py로 등록해요.
+처음 켜면 org.json이 없어서 예시 팀(examples/)으로 시작해요. 내 팀은 화면에 뜨는 설정에서 만들어요(터미널은 bin/new_team.py).
 
 --app: 서버가 켜지면(이 폴더의 사무실이 이미 켜져 있으면 바로) AGENCITY_URL=http://127.0.0.1:<포트>/ 한 줄을 알려 줘요.
   이미 켜져 있었으면 그 줄만 알리고 끝나요. 아니면 종료 신호(SIGTERM·SIGHUP)를 받거나, 앱과 이어진 표준입력(파이프)이
@@ -139,7 +139,7 @@ def main():
 
     if not os.path.exists("org.json"):
         shutil.copy(os.path.join("examples", "org.example.json"), "org.json")
-        print("· 처음이라 예시 팀으로 시작해요. 내 팀은 python3 bin/new_team.py 로 등록해요.")
+        print("· 처음이라 예시 팀으로 시작해요. 내 팀은 화면에 뜨는 설정에서 만들어요.")
     if not shutil.which("jq"):
         print("· 참고: jq가 없어요. 사이트 메시지 전달(relay_done.sh)과 팀원 답장(say.sh)에 필요해요. 맥: brew install jq")
 

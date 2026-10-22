@@ -1196,7 +1196,7 @@ function render() {
     put(rl, ok ? `<i></i>총괄 연결됨${r.pending ? ` · 전달 중 <b>${esc(r.pending)}</b>` : ''}` : `총괄 연결 끊김${r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : ''}`);
   }
   const bossBox = noBoss || (bs && bs.state === 'seated') ? `<div class="boss-mk">${noBoss ? '<p>아직 총괄 세션이 없어요. 총괄이 있어야 여기서 보낸 말이 팀에 전해져요.</p>' : ''}${seatBoxHTML(BOSS_T, BOSS_ROLE, 'h')}</div>` : '';
-  put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
+  put($('#orgTop'), `<div class="hq-node"><span class="av">총</span><span><b>총괄</b><small>${esc(org.boss.title)} · 사용자와 대화하는 창구</small></span>${API && !noBoss ? `<button type="button" data-act="boss-chat">여기서 말 걸기${unread('hq/chat.jsonl', state.hqLast) ? '<span class="new-dot">새 답</span>' : ''}</button>` : ''}${noBoss ? '' : `<a href="${chatLink(org.boss.sessionId)}">대화 열기 ↗</a>`}</div>${bossBox}`);
   // 층 순서 바꾸기: 사무실이 있는 층만 ↑/↓로 옮겨요(↑는 한 층 위로. 좁은 창에서는 건물처럼 위가 높은 층이고 입주 예정 자리는 맨 위, 넓은 창에서는 왼쪽부터 1층). 맨 위·맨 아래 단추는 키보드 위치가 남게 aria-disabled로만 꺼요.
   const ids = officeIds(org), ob = $('#orderBtn');
   const canOrder = API && !!SU.st && ids.length > 1;
@@ -1489,15 +1489,16 @@ let SEATF = null;   // 마지막으로 누른 자리 단추: { k: 자리 열쇠,
 function seatPaint(k, prefer) {
   const a = document.activeElement, cur = a && a.closest ? a.closest('[data-seat-box]') : null;
   const boxId = cur && cur.dataset.seatBox === k ? cur.id : SEATF && SEATF.k === k && (!a || a === document.body) ? SEATF.box : '';
-  const was = boxId && a && a.dataset ? a.dataset.seat || '' : '';
+  const was = boxId && a && a.dataset ? a.dataset.seat || '' : '', wasId = boxId && a ? a.id : '';
   if (state) { if ($('#drawer').hidden) render(); else pending = true; }
   const [tid, role] = seatSplit(k);
   for (const el of $$('#setup [data-seat-box]')) if (el.dataset.seatBox === k) el.innerHTML = seatInner(tid, role, el.id.charAt(0));
   const el = boxId ? document.getElementById(boxId) : null;
   if (!el) return;
   const now = document.activeElement;
-  if (now && now !== el && el.contains(now) && !now.disabled) return;   // 같은 단추가 그대로 있어요
-  const t = [prefer, was, 'retry', 'cancel', 'link'].filter(Boolean).map(x => el.querySelector(`[data-seat="${x}"]:not([disabled])`)).find(Boolean);
+  if (now && now !== el && el.contains(now) && !now.disabled && now.id === wasId) return;   // 같은 단추가 그대로 있어요
+  // 누르던 단추가 없어졌어요(render()가 같은 순서의 다른 단추로 옮겼을 수도 있어요). 고를 세션 단추로는 옮기지 않아요(Enter 한 번에 고르지 않은 세션을 앉히지 않게)
+  const t = [prefer, was, 'retry', 'cancel', 'link'].filter(x => x && x !== 'pick').map(x => el.querySelector(`[data-seat="${x}"]:not([disabled])`)).find(Boolean);
   (t || el).focus({ preventScroll: true });
 }
 async function seatLink(tid, role) {
@@ -1682,7 +1683,7 @@ function floorToolsHTML(t) {
 }
 function floorNoteHTML(tid) {
   const n = FNOTE.get(tid);
-  if (!n || (!n.busy && Date.now() - n.at > FNOTE_MS)) return '';
+  if (!n || (!n.busy && Date.now() - n.at > FNOTE_MS) || (n.text === NO_BOSS && realBoss())) return '';   // 그사이 총괄이 생겼으면 ‘총괄 없음’ 알림은 치워요
   return `<p class="room-note${n.bad ? ' bad' : ''}">${esc(n.text)}</p>`;
 }
 async function floorTool(btn) {
@@ -1823,6 +1824,9 @@ function relayWarn() {
   if (r.pending && r.oldestAge > 90) return `총괄이 ${r.pending}개를 아직 전하지 못하고 있어요(가장 오래된 것 ${Math.round(r.oldestAge / 60)}분).`;
   return '';
 }
+// 예시 팀·자리 표시용 세션(local_00000000…)에는 전할 세션이 없어요. 작성창 대신 이 안내를 보여요(서버도 받지 않아요)
+const EX_NO_TALK = '예시 팀이에요. 설정에서 내 층을 만들면 말을 걸 수 있어요.';
+const exampleSeat = (tid, sid) => String(((state.org.teams.find(t => t.id === tid) || {}).office) || '').startsWith('examples/') || String(sid || '').startsWith('local_00000000');
 // 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
 function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '') {
   if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
@@ -1840,7 +1844,7 @@ function bossDrawer() {
   openDrawer(`<div class="d-head"><p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">총괄과 대화</h2></div>
     <div class="d-main"><p class="hint" style="margin-top:6px">무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.</p>
     <ul class="thread" id="thread" aria-live="polite"></ul></div>
-    ${composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`, null, true);
+    ${API && !realBoss() ? '<p class="hint" style="margin-top:10px">아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요.</p>' : composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`, null, true);
   openThread('hq/chat.jsonl');
 }
 // Codex 자리: 무엇이 앉았는지와 상태만 보여 주고 작성창은 없어요(말 걸기는 아직 안 돼요. 앞으로 붙여요)
@@ -1878,7 +1882,7 @@ function memberDrawer(tid, role) {
       ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}</details>
     <h3 class="d-sec">바로 대화</h3>
     <ul class="thread" id="thread" aria-live="polite"></ul></div>
-    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`)}`, tid, true);
+    ${API && exampleSeat(tid, m.sessionId) ? `<p class="hint" style="margin-top:10px">${EX_NO_TALK}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`)}`, tid, true);
   openThread(d.base + 'chat/' + role + '.jsonl', { tid });
 }
 
@@ -2618,7 +2622,7 @@ function claudeHTML() {
     <p class="su-lead">Claude는 <b>따로 로그인하지 않아요.</b> 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록(제목·폴더·마지막 활동)과 사이드바에 만든 그룹(이름·순서)만 읽어요. 대화 내용은 읽지 않아요(3단계에서 허락하면 세션마다 첫 메시지 몇 줄만 이 맥 안에서 읽어 역할을 맞춰요. 저장하거나 AI에 보내지 않아요. 세션 만들기·총괄 만들기 때는 새 세션의 첫 메시지에서 자리 표시만 찾아요). Codex 세션은 3단계에서 읽기 전용 자리로 앉혀요(추천 팀, 또는 팀원 자리의 세션 칸 ‘Codex (읽기 전용)’. 말 걸기는 아직 안 돼요. 앞으로 붙여요). Gemini CLI는 앞으로 붙여요.</p>
     <div class="su-box ${app ? 'su-ok' : 'su-warn'}"><p><i class="sd ${app ? 'here' : 'block'}"></i>${app ? 'Claude 앱을 찾았어요' : 'Claude 앱을 찾지 못했어요'}${c ? ` · 세션 ${countSess(c)}개${nG ? `, 내가 만든 그룹 ${nG}개` : ''}` : ''}</p>
       ${cxFoundHTML()}
-      ${app ? '' : `<p class="hint">Claude 데스크톱 앱을 설치하고, 층으로 만들 프로젝트 폴더에서 Claude Code 세션을 하나 이상 연 뒤 ‘다시 찾기’를 눌러요.${SU.st.platform === 'mac' ? '' : ' 이 컴퓨터에서 세션을 찾을 수 없으면 터미널에서 python3 bin/new_team.py로 층을 만들어요.'}</p>`}
+      ${app ? '' : `<p class="hint">${SU.st.platform === 'mac' ? 'Claude 데스크톱 앱을 설치하고, 층으로 만들 프로젝트 폴더에서 Claude Code 세션을 하나 이상 연 뒤 ‘다시 찾기’를 눌러요.' : '말 걸기·회의·결재·세션 만들기는 맥의 Claude 데스크톱 앱이 있어야 해요. 이 컴퓨터에서는 예시 팀과 Codex 읽기 전용 층만 써요.'}</p>`}
       <div class="su-actions"><button type="button" class="btn" data-su="claude-reload"${SU.claudeBusy ? ' disabled' : ''}>${SU.claudeBusy ? '찾는 중…' : '다시 찾기'}</button></div></div>${claudeErrP()}${list}`;
 }
 // 이 맥에 Codex 기록(~/.codex)이 있으면 알려 줘요(서버의 /api/setup/state codex: {found, sessions}). 읽기만 하고 아무것도 쓰지 않아요
@@ -2853,9 +2857,10 @@ function bossHTML(all) {
       ${bossMakeHTML('b')}</div>`;
 }
 // 총괄 만들기 상자: 진짜 총괄이 없을 때(또는 방금 정했을 때 ✓를 잠깐). 고를 세션이 없어도 바로 새 총괄 세션을 열어요
-function bossMakeHTML(where) {
+// above: ‘총괄(코디네이터) 세션’ 고르기가 결과 상자('k')보다 위에 있어요(직접 고르기로 만든 결과). 추천 팀 결과 상자는 고르기보다 위예요
+function bossMakeHTML(where, above) {
   if (!API || (SU.st && SU.st.boss && !seatGet(seatKey(BOSS_T, BOSS_ROLE)))) return '';
-  const say = where === 'b' ? '고를 세션이 없으면 새로 만들어요.' : `총괄 세션이 아직 없어요. 총괄이 있어야 화면에서 보낸 말이 팀에 전해져요.${where === 'k' && SU.claude && treeGroups().length ? ' 있는 세션을 쓰려면 아래 ‘총괄(코디네이터) 세션’에서 골라요.' : ''}`;
+  const say = where === 'b' ? '고를 세션이 없으면 새로 만들어요.' : `총괄 세션이 아직 없어요. 총괄이 있어야 화면에서 보낸 말이 팀에 전해져요.${where === 'k' && SU.claude && treeGroups().length ? ` 있는 세션을 쓰려면 ${above ? '위' : '아래'} ‘총괄(코디네이터) 세션’에서 골라요.` : ''}`;
   return `<div class="su-bossmk">${SU.st && SU.st.boss ? '' : `<p>${esc(say)}</p>`}${seatBoxHTML(BOSS_T, BOSS_ROLE, where)}</div>`;
 }
 // 이번 설정에서 만든 층이 팀 규칙(.office/RULES.md)을 읽게 하는 법(복사 버튼과 함께).
@@ -2919,7 +2924,7 @@ function floorsHTML() {
   let pick;
   const bossOnly = () => (bossMakeHTML('b') ? `<h3 class="su-sub">총괄</h3>${bossMakeHTML('b')}` : '');   // 나무가 없어도 총괄은 만들 수 있어요
   if (!c) pick = SU.claudeErr ? bossOnly() : '<p class="empty" style="margin-top:12px">세션 목록을 읽는 중이에요…</p>';
-  else if (!treeGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요. 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.</p>${bossOnly()}`;
+  else if (!treeGroups().length) pick = `${toolsHTML()}<p class="empty" style="margin-top:12px">Claude Code 세션을 찾지 못해서 여기서는 층을 만들 수 없어요.${SU.st.platform === 'mac' ? ' 프로젝트 폴더에서 세션을 연 뒤 2단계에서 ‘다시 찾기’를 누르거나, 터미널에서 python3 bin/new_team.py로 만들어요.' : ''}</p>${bossOnly()}`;
   else {
     const ps = picksList();
     pick = `<h3 class="su-sub" id="suPickH" tabindex="-1">직접 고르기</h3>${srcNote()}${toolsHTML()}${treeHTML('pick', used)}
@@ -2942,7 +2947,7 @@ function resHTML(m) {
       ${m.created.map(x => { const f = fl.find(y => y.id === x.id); return `<li>✓ ${x.floor ? esc(x.floor + '층') + ' · ' : ''}${esc(f ? f.name : x.id)} 만들었어요${x.existing === true ? esc(` · 이미 있던 팀 사무실이라 팀 이름(${String(x.teamName || '없음')})·머리글(${String(x.prefix || '없음')})은 그대로 뒀어요`) : ''}</li>`; }).join('')}
       ${m.errors.map(x => `<li class="bad">✗ ${esc(x.name || x.id)}: ${esc(x.error)}</li>`).join('')}
       ${m.boss ? '<li>✓ 총괄 세션을 정했어요</li>' : ''}</ul>
-      ${m.boss ? '' : bossMakeHTML('k')}
+      ${m.boss ? '' : bossMakeHTML('k', m.from !== 'rec')}
       ${m.created.length ? rulesHTML('suRulesCopy', new Set(m.created.map(x => x.id))) : ''}${madeSeatsHTML(m)}</div>`;
 }
 /* 추천 팀(3단계 맨 위): 서버(/api/setup/recommend)가 이 맥의 Claude·Codex 세션 목록을 보고 층마다 팀을 나눠 줘요(규칙으로, 이 맥 안에서).

@@ -27,10 +27,12 @@
 
 | 무엇 | 어디에 써요 | 설치 |
 |---|---|---|
-| 파이썬 3.9 이상 | 사무실 서버 | 맥은 기본으로 있거나 `xcode-select --install` |
+| 파이썬 3.9 이상 | 사무실 서버 | 맥은 Xcode 명령어 도구에 들어 있어요(`xcode-select --install`). 또는 python.org |
 | `jq` | 화면에서 보낸 말 전달, 팀원 답장 | 맥 `brew install jq`, 리눅스 `sudo apt install jq` |
-| Claude Code 데스크톱 앱 | 층에 앉힐 세션 | |
-| Xcode 명령어 도구 (맥, 선택) | 맥 앱 만들기 (macOS 12 이상) | `xcode-select --install` |
+| Claude Code 데스크톱 앱 (맥) | 층에 앉힐 세션, 말 걸기·회의·결재·세션 만들기 | |
+| Xcode 명령어 도구 (맥) | 맥 기본 파이썬, 맥 앱 만들기 (macOS 12 이상) | `xcode-select --install` |
+
+리눅스에서는 예시 팀과 Codex 읽기 전용 층만 돼요. 말 걸기·회의·결재·세션 만들기는 맥의 Claude 데스크톱 앱이 있어야 해요.
 
 다른 패키지는 없어요. 파이썬 표준 라이브러리와 정적 HTML로 파일만 읽고 쓰는 단순한 구조예요. 맥 앱은 이 맥에서 직접 컴파일하는 Swift 파일 하나예요.
 
@@ -47,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh |
 
 ### 맥 앱
 
-맥에 Xcode 명령어 도구(`swiftc`)가 있으면, 설치하면서 이 맥에서 앱을 직접 만들어 `~/Applications/Agencity.app`에 둬요. 그다음 브라우저 대신 앱 창으로 열어요. 명령어 도구가 없거나 리눅스면 브라우저로 켜요.
+맥에 Xcode 명령어 도구(`swiftc`)가 있으면, 설치하면서 이 맥에서 앱을 직접 만들어 `~/Applications/Agencity.app`에 둬요. 그다음 브라우저 대신 앱 창으로 열어요. 명령어 도구 없이 python.org 파이썬을 쓰거나 리눅스면 브라우저로 켜요.
 
 - 서명 계정은 필요 없어요. 이 맥에서 만든 앱이라 그대로 열려요. 임시 서명만 해요.
 - 처음 만들 때는 1분쯤 걸릴 수 있어요.
@@ -64,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh |
 ### zip으로 받기
 
 1. [Releases](https://github.com/Min-heee/agencity/releases/latest)에서 소스 zip을 받아 풀어요.
-2. 맥은 `Agencity.command`를 더블클릭해요. 명령어 도구가 있으면 앱을 만들어 앱으로 열고, 없으면 브라우저로 켜요.
+2. 맥은 `Agencity.command`를 더블클릭해요. 명령어 도구가 있으면 앱을 만들어 앱으로 열고, 없으면 python.org 파이썬으로 브라우저에서 켜요.
 3. 리눅스는 그 폴더에서 `python3 start.py`로 켜요.
 
 처음 한 번은 "확인되지 않은 개발자"라며 막힐 수 있어요. 그럴 땐 둘 중 하나를 해요.
@@ -94,7 +96,7 @@ git clone https://github.com/Min-heee/agencity.git && cd agencity && python3 sta
 | 맥 앱 | 응용 프로그램 폴더나 Spotlight에서 **Agencity** | 앱에서 **⌘Q** |
 | 브라우저 | 설치 폴더에서 `python3 start.py` | 켠 터미널 창에서 **Ctrl-C** |
 
-- 맥에서 `Agencity.command`를 더블클릭해도 켜져요. 명령어 도구가 있으면 앱으로, 없으면 브라우저로 켜요.
+- 맥에서 `Agencity.command`를 더블클릭해도 켜져요. 명령어 도구가 있으면 앱으로, 없으면 python.org 파이썬으로 브라우저에서 켜요.
 - 주소는 `http://127.0.0.1:8765`예요.
 - 8765 포트가 쓰이고 있으면 다음 빈 포트로 켜고 주소를 알려 줘요.
 - 이 폴더의 사무실이 이미 켜져 있으면 새로 켜지 않고 그 페이지를 열어요.
@@ -103,7 +105,7 @@ git clone https://github.com/Min-heee/agencity.git && cd agencity && python3 sta
 
 ### 예시 팀 기록 지우기
 
-예시 팀을 써 보면 `examples/teams/demo/`에 기록이 남아요.
+예시 팀은 둘러보기만 해요. 말 걸기·회의·결재는 받지 않아요. 예전 판에서 예시 팀에 말을 걸었다면 `examples/teams/demo/`에 기록이 남아 있어요.
 
 - git으로 받았다면:
 
@@ -469,7 +471,7 @@ Codex 세션도 층의 자리에 앉혀요. 지금은 **하는 일만 보는** �
 손으로 하려면:
 
 1. 총괄로 쓸 Claude Code 데스크톱 세션을 하나 정해요. 설정 3단계에서 고르거나, 그 세션 id(`local_…`)를 `org.json`의 `boss.sessionId`에 넣어요.
-2. 그 세션에 [COORDINATOR.md](COORDINATOR.md)의 지시를 한 번 붙여 넣어요. 지시 안의 `<에이전시티>`는 설치 폴더(보통 `~/agencity`)로 바꿔요.
+2. 그 세션에 [COORDINATOR.md](COORDINATOR.md)의 지시를 한 번 붙여 넣어요. 지시 안의 `<에이전시티>`는 설치 폴더의 전체 경로(예: `/Users/나/agencity`)로 바꿔요.
 3. 화면 위에 "총괄 연결됨"이 보이면 돼요. 끊기면 "총괄 연결 끊김"이 떠요.
 
 - 총괄 연결이 끊겨 있으면 보낸 말은 쌓여 있다가 총괄이 돌아오면 전해져요. 총괄 창에 “사이트 연결 다시 켜”라고 말해요.
@@ -664,6 +666,7 @@ python3 bin/new_team.py
 ## 한계
 
 - Codex 세션은 읽기 전용 자리로만 앉아요. 말 걸기·회의·결재는 Claude Code 세션만 해요. Codex에 말 걸기와 Gemini CLI는 앞으로 지원해요.
+- 리눅스에서는 예시 팀과 Codex 읽기 전용 층만 돼요. 나머지는 맥의 Claude 데스크톱 앱이 있어야 해요.
 - 추천 팀은 낱말표로만 정해요. 틀릴 수 있으니 만들기 전에 카드를 보고 고쳐요.
 - 총괄 세션이 켜져 있어야 전달돼요. 끊기면 화면 위에 "총괄 연결 끊김"이 떠요.
 - Claude Code는 한 세션이 사람 입력 없이 다른 세션에 메시지를 많이 보내면 잠깐 막아요. 팀장이 그 한도에 걸리면 그 팀장 창에 사람이 한 번 입력해야 풀려요. 화면으로는 풀 수 없어요.

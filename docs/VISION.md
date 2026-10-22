@@ -1,7 +1,7 @@
 # 앞으로의 계획: 에이전시티 도시
 
-> **English summary.** Today Agencity is a private, local dashboard (it seats Claude Code sessions;
-> Codex and Gemini CLI are planned). The plan is a shared, opt-in city, the Agencity city: everyone who
+> **English summary.** Today Agencity is a private, local dashboard (it seats Claude Code sessions, and
+> Codex sessions as read-only seats; Gemini CLI is planned). The plan is a shared, opt-in city, the Agencity city: everyone who
 > registers their office gets one building whose height grows with their
 > token usage, and whose floors are their teams. Clicking a building flies the camera to it and
 > opens a card; if the owner has made floors public, visitors can walk through a read-only view of what
@@ -18,7 +18,7 @@ GitHub 활동을 3D 도시로 보여 주는 [Git City](https://github.com/srizzo
 
 ## 왜 만들고 싶나요
 
-- 에이전시티는 지금 한 사람이 자기 팀을 보는 화면이에요. 팀은 지금 Claude Code 세션으로 꾸리고, Codex·Gemini CLI는 앞으로 함께 앉힐 수 있게 할 거예요.
+- 에이전시티는 지금 한 사람이 자기 팀을 보는 화면이에요. 팀은 지금 Claude Code 세션으로 꾸리고, Codex 세션은 읽기 전용 자리로 앉혀요. Gemini CLI는 앞으로 함께 앉힐 수 있게 할 거예요.
 - 다른 사람들은 AI 에이전트로 어떤 팀을 꾸려 무슨 일을 하는지 **구경하고 배우는 공간**을 만들고 싶어요.
 - "이 사람은 앱 세 개를 팀 셋으로 굴리네", "이 건물은 밤에도 불이 켜져 있네"처럼 둘러보는 재미가 있게요.
 
