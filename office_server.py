@@ -14,7 +14,10 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   층으로 만들 것 고르기(bin/new_team.py --spec), 층별 공개 범위(public.json)와 공개하기(bin/office_public.py --publish --yes).
   설정은 setup.json(토큰 없음)에, 기기 로그인 토큰은 <설정 폴더>/github-token.json(0600)에만 두고 어떤 응답에도 넣지 않아요.
   세션은 Claude 앱 사이드바처럼 묶어 보여 줘요: 앱 설정 파일에서 내가 만든 그룹 두 항목(dframe-group-scopes·dframe-code-sections)만 읽고,
-  나머지 세션은 프로젝트 폴더별, 폴더 없이 만든 세션(scratch-workspaces)은 한 묶음으로요. 설정 파일의 다른 내용은 읽어 쓰지 않아요.
+  나머지 세션은 프로젝트 폴더별, 폴더 없이 만든 세션(scratch-workspaces)은 '이 컴퓨터' 한 묶음으로요. 설정 파일의 다른 내용은 읽어 쓰지 않아요.
+  묶음 하나도, 묶음 안의 세션 하나도 층 하나로 만들 수 있어요.
+- 층의 팀원(team.json의 members)은 팀장이 맨 앞이고, 나머지 역할 이름은 층마다 마음대로 지어요(12자리까지, ROLE_RE).
+  /api/setup/members로 한 층의 팀원 목록을 바꿔요. 뺀 팀원의 대화·상태 파일은 지우지 않아요.
 """
 import glob
 import hashlib
@@ -60,9 +63,16 @@ MAX_BODY = 64 * 1024
 MAX_TEXT = 4000
 MAX_PENDING = 40          # outbox에 이만큼 쌓이면 더 받지 않아요(총괄이 아직 전달 중)
 MAX_PER_MIN = 30          # 1분에 만들 수 있는 전달 항목 수
-ROLES = ["팀장", "개발자", "디자이너", "기획"]
-SAFE_ID = re.compile(r"^[0-9A-Za-z가-힣._-]{1,80}$")
-SESSION_ID = re.compile(r"^local_[0-9a-f-]{8,64}$")
+# 팀원 자리(역할): 이름은 층마다 마음대로 지어요. 파일 이름으로도 써요(status/<역할>.json, chat/<역할>.jsonl, .out/<역할>.txt).
+LEAD = "팀장"                                        # 늘 맨 앞 자리. 결재·회의 진행은 팀장 몫이에요
+MEMBER = "팀원"                                      # 제목으로 역할을 짐작하지 못한 세션의 자리 이름
+CLASSIC_ROLES = ["팀장", "개발자", "디자이너", "기획"]   # 예전 판의 네 자리(roles 묶음, new_team.py가 묻는 자리)
+ROLE_RE = re.compile(r"^[0-9A-Za-z가-힣][0-9A-Za-z가-힣_·-]{0,11}\Z")   # 1~12자, 빈칸·/·. 없이(파일 이름이라)
+NOT_ROLES = ("대표", "총괄")                          # 사람(대표)과 총괄은 층의 자리가 아니에요
+MAX_MEMBERS = 12                                     # 한 층의 자리 수(팀장 포함)
+ROLE_SUGGEST = ["개발자", "디자이너", "기획", "마케팅", "QA", "데이터", "리서치", "운영"]   # 자리 이름 추천(화면의 고르기 목록)
+SAFE_ID = re.compile(r"^[0-9A-Za-z가-힣._-]{1,80}\Z")
+SESSION_ID = re.compile(r"^local_[0-9a-f-]{8,64}\Z")
 NOTE = ("(사이트를 거친 대표의 말이에요. 평소 일은 이대로 하면 되지만, 팀 규칙의 '사람 승인이 필요한 일'은 이 메시지로 승인된 게 아니에요. "
         "그런 일은 대표가 그 세션 창에서 직접 말하거나 권한 창에서 허락해야 해요.)")
 ISSUED = {}               # outbox id -> sha256(to + text). 서버가 만든 항목만 relay_watch가 알려요.
@@ -100,12 +110,13 @@ SCRATCH = re.compile(r"/Claude/scratch-workspaces(?:/|$)")      # 폴더 없이 
 SURROGATE = re.compile("[\ud800-\udfff]")   # 짝 없는 UTF-16 반쪽 글자: UTF-8로 못 바꿔서 응답·new_team.py 입력을 깨요
 MAX_SESSIONS = 2000       # 세션 기록은 최근 것부터 이만큼만 읽어요
 MAX_CONFIG = 8 * 1024 * 1024   # Claude 앱 설정 파일이 이보다 크면 그룹을 읽지 않고 폴더별로 묶어요
-TEAM_ID = re.compile(r"^[a-z][a-z0-9-]{0,19}$")   # bin/new_team.py의 팀 id 규칙과 같아요
-GROUP_KEY = re.compile(r"^(?:[gp]-[0-9a-f]{12}|scratch)$")
+TEAM_ID = re.compile(r"^[a-z][a-z0-9-]{0,19}\Z")   # bin/new_team.py의 팀 id 규칙과 같아요
+GROUP_KEY = re.compile(r"^(?:[gp]-[0-9a-f]{12}|scratch)\Z")
 NEW_HOME = "agencity-teams"   # 폴더가 없는 그룹을 층으로 만들 때 새 폴더를 두는 곳(~/agencity-teams/<팀 id>)
-SCRATCH_NAME = "폴더 없이 만든 세션"
+SCRATCH_NAME = "이 컴퓨터"   # 폴더 없이 만든 세션 묶음(Claude 앱 사이드바와 같은 이름)
 DEVICE = {}               # 진행 중인 GitHub 기기 로그인. device_code는 이 메모리에만 둬요
 SETUP_LOCK = threading.Lock()
+TEAM_LOCK = threading.Lock()   # 층 만들기·팀원 고치기(team.json을 쓰는 일)는 한 번에 하나씩
 LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # 127.0.0.1(시험용 가짜 서버)은 프록시를 거치지 않게
 
 
@@ -156,6 +167,16 @@ def org():
     return load_json(os.path.join(HERE, "org.json"))
 
 
+def boss_sid():
+    """org.json에 정한 진짜 총괄 세션 id(자리 표시용 local_00000000…은 빼요). 없거나 org.json을 못 읽으면 None."""
+    try:
+        b = org().get("boss")
+    except (OSError, ValueError, AttributeError):
+        return None
+    sid = b.get("sessionId") if isinstance(b, dict) else None
+    return sid if isinstance(sid, str) and SESSION_ID.match(sid) and not sid.startswith("local_00000000") else None
+
+
 def under(path, root):
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
 
@@ -174,13 +195,29 @@ def office_roots():
     return roots
 
 
+def is_role(r):
+    """역할 이름으로 쓸 수 있는지(team.json에서 읽은 것도 이걸로 걸러요: 파일 이름이 되니까)."""
+    return isinstance(r, str) and bool(ROLE_RE.match(r)) and r not in NOT_ROLES
+
+
+def lead_first(roles):
+    """팀장을 맨 앞으로, 나머지는 원래 순서대로."""
+    roles = list(roles)
+    return [r for r in roles if r == LEAD] + [r for r in roles if r != LEAD]
+
+
 def team_info(tid):
+    """(org.json의 층, 팀 사무실 실제 경로, {역할: 세션이 앉은 팀원}). 팀원은 팀장이 먼저, 그다음 team.json 순서예요."""
     t = next((t for t in org().get("teams", []) if t.get("id") == tid and t.get("office")), None)
     if not t:
         raise ApiError(404, "그런 팀(층)이 없어요")
     base = os.path.realpath(os.path.join(HERE, t["office"]))
     team = load_json(os.path.join(base, "team.json"))
-    members = {m["role"]: m for m in team.get("members", []) if m.get("sessionId") and SESSION_ID.match(str(m["sessionId"]))}
+    seated = {}
+    for m in team.get("members", []) if isinstance(team.get("members"), list) else []:
+        if isinstance(m, dict) and is_role(m.get("role")) and m["role"] not in seated and SESSION_ID.match(str(m.get("sessionId") or "")):
+            seated[m["role"]] = m
+    members = {r: seated[r] for r in lead_first(seated)}
     return t, base, members
 
 
@@ -304,7 +341,7 @@ def api_say(body):
         to = body.get("to") or parts
         if not isinstance(to, list) or not to or any(r not in parts for r in to):
             raise ApiError(400, "받는 사람이 회의 참석자가 아니에요")
-        to = [r for r in ROLES if r in to]          # 중복 없애고 순서 맞추기
+        to = [r for r in members if r in to]        # 중복 없애고 자리 순서(팀장 먼저)로
         check_rate(len(to))
         append_line(chat, {"t": now(), "from": "대표", "to": to, "text": text})
         log(base, "회의", "회의", f"{meta['id']} {text}")
@@ -325,8 +362,8 @@ def api_meeting_start(body):
     mode = body.get("mode")
     if mode not in ("참석", "위임"):
         raise ApiError(400, "회의 방식은 참석 또는 위임이에요")
-    parts = body.get("participants") or ROLES
-    if not isinstance(parts, list) or "팀장" not in parts or any(r not in members for r in parts):
+    parts = body.get("participants") or list(members)   # 안 보내면 세션이 앉은 팀원 모두
+    if not isinstance(parts, list) or "팀장" not in parts or any(not isinstance(r, str) or r not in members for r in parts):
         raise ApiError(400, "참석자에는 팀장이 있어야 하고, 팀에 있는 사람만 넣을 수 있어요")
     note = text_of(body, "note", 2000, required=False)
     aid = str(body.get("approval") or "")
@@ -342,7 +379,7 @@ def api_meeting_start(body):
         os.makedirs(d, exist_ok=True)
         n = 1 + max([int(m.group(1)) for f in os.listdir(d) for m in [re.match(rf"^{day}-M-(\d+)\.json$", f)] if m] or [0])
         mid = f"{day}-M-{n}"
-        meta = {"id": mid, "topic": topic, "note": note, "mode": mode, "participants": [r for r in ROLES if r in parts],
+        meta = {"id": mid, "topic": topic, "note": note, "mode": mode, "participants": [r for r in members if r in parts],
                 "status": "진행 중", "started_by": "대표", "started": now(),
                 "chat": f"meetings/{mid}.chat.jsonl", "minutes": f"meetings/{mid}.md"}
         if aid:
@@ -961,7 +998,11 @@ ROLE_WORDS = (
                         + _w("engineer(?:s|ing)?") + "|" + _w("cod(?:e|es|er|ers|ing)"), re.I)),
     ("디자이너", re.compile("디자인|디자이너|" + _w("design(?:er|ers|s|ing)?") + "|" + _w("ui") + "|" + _w("ux"), re.I)),
     ("기획", re.compile("기획|" + _w("plan(?:s|ner|ners|ning)?") + "|" + _w("pms?"), re.I)),
+    ("마케팅", re.compile("마케팅|마케터|홍보|광고|브랜딩|그로스|" + _w("marketing") + "|" + _w("marketers?") + "|" + _w("growth") + "|" + _w("seo"), re.I)),
+    ("QA", re.compile("품질|검수|테스트|테스터|" + _w("qa") + "|" + _w("test(?:s|er|ers|ing)?"), re.I)),
+    ("데이터", re.compile("데이터|통계|" + _w("data") + "|" + _w("analytics") + "|" + _w("analysts?") + "|" + _w("ml"), re.I)),
 )
+GUESS_ROLES = [r for r, _ in ROLE_WORDS]   # 제목으로 짐작하는 자리(나머지는 '팀원')
 BOSS_WORDS = re.compile("총괄|코디네이터|" + _w("coordinator"), re.I)   # 자리가 아니라 총괄(코디네이터) 후보예요
 
 
@@ -971,6 +1012,30 @@ def guess_role(title):
     if BOSS_WORDS.search(t):
         return "boss"
     return next((r for r, rx in ROLE_WORDS if rx.search(t)), None)
+
+
+def suggest_members(ss, guess, seated):
+    """묶음을 층으로 고를 때 미리 넣어 둘 팀원 줄 [{role, sessionId}]. 맨 앞은 늘 팀장 자리(제목이 팀장 같은 세션, 없으면 빈 자리)예요.
+    나머지는 제목으로 짐작한 역할(모르면 '팀원'), 같은 역할이 여럿이면 개발자·개발자2…처럼 이름을 나눠요.
+    이미 다른 층에 앉은 세션과 총괄 같은 세션은 빼고, 보관한 세션은 뒤로, 같은 역할 안에서는 최근 세션이 먼저예요. 12줄까지."""
+    pool = sorted((s for s in ss if s["sessionId"] not in seated and guess.get(s["sessionId"]) != "boss"),
+                  key=lambda s: (s["archived"], -recent(s)))
+    lead = next((s for s in pool if guess.get(s["sessionId"]) == LEAD), None)
+    rows, used = [{"role": LEAD, "sessionId": lead["sessionId"] if lead else None}], {LEAD}
+    rank = {r: k for k, r in enumerate(GUESS_ROLES + [MEMBER])}
+
+    def base(s):
+        r = guess.get(s["sessionId"])
+        return r if r in GUESS_ROLES and r != LEAD else MEMBER
+    for s in sorted((s for s in pool if s is not lead), key=lambda s: (s["archived"], rank[base(s)], -recent(s))):
+        if len(rows) >= MAX_MEMBERS:
+            break
+        name, n = base(s), 2
+        while name in used:
+            name, n = f"{base(s)}{n}", n + 1
+        used.add(name)
+        rows.append({"role": name, "sessionId": s["sessionId"]})
+    return rows
 
 
 def usable_folder(f):
@@ -1096,23 +1161,28 @@ def claude_groups(sessions):
 
     teams = real_teams()
     by_folder, by_member, by_group, taken = floor_folders(), floor_members(), group_floors(teams), taken_ids()
-    out, boss = [], None
+    out, boss, cur = [], None, boss_sid()   # cur: org.json에 정한 지금 총괄. 제목과 상관없이 총괄로 봐요(층의 자리에 미리 넣지 않게)
     for i, (g, ss) in enumerate(raw):
-        roles, sess = {r: None for r in ROLES}, []
+        sess = []
         guess = {s["sessionId"]: guess_role(s["title"]) for s in ss}
-        # 다툼이 있으면 보관하지 않은 세션, 그중 최근 세션이 그 자리를 가져요. 이미 다른 층에 앉은 세션은 짐작하지 않아요(한 세션은 한 층에만)
-        for s in sorted(ss, key=lambda s: (s["archived"], -recent(s))):
-            r = guess[s["sessionId"]]
-            if r in roles and roles[r] is None and s["sessionId"] not in by_member:
-                roles[r] = s["sessionId"]
-            if r == "boss" and not s["archived"] and (boss is None or recent(s) > recent(boss)):
+        if cur in guess:
+            guess[cur] = "boss"
+        # 미리 넣을 팀원 줄. 다툼이 있으면 보관하지 않은 세션, 그중 최근 세션이 그 이름을 가져요(다음 세션은 개발자2처럼).
+        # 이미 다른 층에 앉은 세션은 넣지 않아요(한 세션은 한 층에만)
+        rows = suggest_members(ss, guess, by_member)
+        mine = {m["sessionId"]: m["role"] for m in rows if m["sessionId"]}
+        roles = {r: next((m["sessionId"] for m in rows if m["role"] == r), None) for r in CLASSIC_ROLES}   # 예전 판 화면용 네 자리
+        for s in ss:   # 총괄 후보: 지금 총괄이 맨 앞, 아니면 제목이 총괄 같은 세션 중 가장 최근 것(이미 층에 앉은 세션은 빼요)
+            if (guess[s["sessionId"]] == "boss" and not s["archived"] and s["sessionId"] not in by_member
+                    and (boss is None or (boss["sessionId"] != cur and (s["sessionId"] == cur or recent(s) > recent(boss))))):
                 boss = s
-        mine = {sid: r for r, sid in roles.items() if sid}
         for s in ss:
+            real = usable_folder(s["folder"])   # 세션 하나로 층을 만들 때 쓸 그 세션의 프로젝트 폴더(없으면 새 폴더)
             sess.append({"sessionId": s["sessionId"], "title": s["title"], "cwd": s["cwd"], "folder": s["folder"],
                          "lastActivityAt": s["lastActivityAt"], "archived": s["archived"], "scratch": s["scratch"],
-                         "role": mine.get(s["sessionId"]), "guess": guess[s["sessionId"]] if guess[s["sessionId"]] in ROLES else None,
-                         "coordinator": guess[s["sessionId"]] == "boss", "seatedOn": by_member.get(s["sessionId"])})
+                         "role": mine.get(s["sessionId"]), "guess": guess[s["sessionId"]] if guess[s["sessionId"]] in GUESS_ROLES else None,
+                         "coordinator": guess[s["sessionId"]] == "boss", "seatedOn": by_member.get(s["sessionId"]),
+                         "projectFolder": s["folder"] if real else None, "folderFloor": by_folder.get(real) if real else None})
         count, last, shown = {}, {}, {}
         for s in ss:
             real = usable_folder(s["folder"])
@@ -1124,22 +1194,29 @@ def claude_groups(sessions):
         sug = fs[0] if fs else None
         # 이미 층인지: 이 화면에서 이 그룹으로 만든 층 → 그 폴더를 쓰는 층 → (폴더 없는 그룹이면) 그룹 세션을 앉힌 층
         team = by_group.get(g["key"])
+        hits = {}   # 이 그룹 세션이 앉은 층 → 세션 수
+        for s in ss:
+            if s["sessionId"] in by_member:
+                hits[by_member[s["sessionId"]]] = hits.get(by_member[s["sessionId"]], 0) + 1
+
+        def most(t, hits=hits, n=len(ss)):   # 그룹 세션 절반 넘게 그 층에 앉음
+            return bool(t) and hits.get(t, 0) * 2 > n
+        # 세션 하나만 따로 층으로 만든 그룹은 아직 층이 아니에요: 그룹 세션 절반 넘게 앉은 층이거나,
+        # (폴더 층이면) 그룹 세션이 아무 층에도 앉지 않았고 다른 그룹으로 만든 층도 아닐 때만 이 그룹의 층으로 봐요(예전 판·터미널로 만든 층)
         if team is None and g["kind"] == "project":
             team = by_folder.get(os.path.realpath(g["folder"]))
         elif team is None and g["kind"] == "group" and sug:
             t = by_folder.get(os.path.realpath(sug))
-            team = t if t and (t not in by_group.values() or any(by_member.get(s["sessionId"]) == t for s in ss)) else None
+            team = t if t and ((not hits and t not in by_group.values()) or most(t)) else None
         elif team is None and g["kind"] == "group":
-            hits = {}
-            for s in ss:
-                if s["sessionId"] in by_member:
-                    hits[by_member[s["sessionId"]]] = hits.get(by_member[s["sessionId"]], 0) + 1
-            team = max(hits, key=hits.get) if hits else None
+            top = max(hits, key=hits.get) if hits else None
+            team = top if most(top) else None
         if team is None and g["kind"] == "group":
             # 아직 층이 아닌 그룹에는 다른 층이 쓰는 폴더를 추천하지 않아요(모두 쓰이면 새 폴더). 고르기 목록(fs)에는 그대로 둬요
             sug = next((f for f in fs if os.path.realpath(f) not in by_folder), None)
         name = "새 팀" if g["kind"] == "scratch" or g.get("home") else clean_name(g["name"], 30)
-        g.update(order=i, sessions=sess, roles=roles, folders=fs, suggestedFolder=sug, suggestedDisplay=show_path(sug) if sug else None,
+        g.update(order=i, sessions=sess, roles=roles, suggestedMembers=rows, folders=fs, suggestedFolder=sug,
+                 suggestedDisplay=show_path(sug) if sug else None,
                  suggestedName=name or "새 팀", team=team, lastActivityAt=max((recent(s) for s in ss), default=0) or None)
         out.append(g)
     # 팀 id 후보(이미 층이면 그 층 id): 이름으로 만든 id를 먼저 나눠 주고, 한글 이름처럼 못 만든 그룹은 폴더 이름 → team-<n> 순서로
@@ -1152,6 +1229,14 @@ def claude_groups(sessions):
         if not g.get("suggestedId"):
             g["suggestedId"] = unique_id(slug(os.path.basename(g["suggestedFolder"] or "")), taken)
         g["newFolder"] = None if g["suggestedFolder"] else f"~/{NEW_HOME}/{g['suggestedId']}"
+    # 세션 하나로 만드는 층: 이름은 세션 제목, 폴더는 그 세션의 프로젝트 폴더(없거나 이미 다른 층 폴더면 새 폴더).
+    # 팀 id 후보는 묶음 후보와도, 서로도 겹치지 않게 나눠요
+    for g in out:
+        for s in g["sessions"]:
+            sid = slug(s["title"]) or (slug(os.path.basename(s["projectFolder"])) if s["projectFolder"] else "")
+            s["suggestedId"] = unique_id(sid, taken)
+            s["suggestedName"] = clean_name(s["title"], 30) or "새 팀"
+            s["newFolder"] = None if s["projectFolder"] and not s["folderFloor"] else f"~/{NEW_HOME}/{s['suggestedId']}"
     return source, out, boss["sessionId"] if boss else None
 
 
@@ -1162,7 +1247,9 @@ def api_setup_claude(body):
     ss = claude_sessions(inc)
     source, groups, boss = claude_groups(ss)
     return {"ok": True, "app": claude_app(), "projects": claude_projects(inc, ss),
-            "groupSource": source, "groups": groups, "suggestedBoss": boss}
+            "groupSource": source, "groups": groups, "suggestedBoss": boss,
+            "currentBoss": boss_sid(),   # 지금 총괄 세션(층의 자리에는 앉힐 수 없어요)
+            "roleSuggestions": ROLE_SUGGEST, "maxMembers": MAX_MEMBERS}
 
 
 # 층 만들기 -----------------------------------------------------------------
@@ -1263,23 +1350,98 @@ def remember_groups(ids, pairs):
         write_json(SETUP, s)
 
 
-def away_of(g, office, where):
-    """만든 층에 앉힌 세션 중 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등).
+def away_of(members, office, where):
+    """층에 앉힌 세션 중 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등).
     Claude Code는 세션 폴더와 그 위 폴더의 CLAUDE.local.md만 읽어서, 이 세션들은 층 폴더의 CLAUDE.local.md를 읽지 않아요.
-    {rules: 절대 경로로 가져오는 한 줄(@~/…/.office/RULES.md), rulesFile: 그 파일 경로, away: [{role, sessionId, title}]}"""
-    if not g or not office:
+    members: [{role, sessionId}]. {rules: 절대 경로로 가져오는 한 줄(@~/…/.office/RULES.md), rulesFile: 그 파일 경로, away: [{role, sessionId, title}]}"""
+    if members is None or not office:
         return {}
     home = os.path.realpath(os.path.dirname(office))
     away = []
-    for r in ROLES:
-        s = where.get(g["roles"].get(r) or "")
+    for m in members:
+        s = where.get(m.get("sessionId") or "")
         if s and not under(os.path.realpath(s["cwd"]), home):
-            away.append({"role": r, "sessionId": s["sessionId"], "title": s["title"]})
+            away.append({"role": m["role"], "sessionId": s["sessionId"], "title": s["title"]})
     shown = show_path(os.path.join(office, "RULES.md"))
     return {"rules": "@" + shown.replace(" ", "\\ "), "rulesFile": shown, "away": away}   # 가져오기 줄의 빈칸은 '\ '로 적어요
 
 
+def role_name(v):
+    """보낸 역할 이름(앞뒤 빈칸을 빼고 NFC로 맞춘 것). 쓸 수 없는 이름이면 ApiError."""
+    if not isinstance(v, str) or not v.strip():
+        raise ApiError(400, "역할 이름이 비었어요")
+    r = unicodedata.normalize("NFC", v.strip())
+    if r in NOT_ROLES:
+        raise ApiError(400, "대표·총괄은 역할 이름으로 쓸 수 없어요(층 밖의 자리예요)")
+    if not ROLE_RE.match(r):
+        raise ApiError(400, f"역할 이름으로 쓸 수 없어요: '{clean_name(r, 20)}'. 한글·영문·숫자로 12자까지예요(빈칸·/·. 없이, _ · - 는 돼요)")
+    return r
+
+
+def check_members(raw):
+    """층의 팀원 목록 [{role, sessionId|null}]을 검사해서 [{role, sessionId}]로 돌려줘요.
+    맨 앞은 팀장, 역할 이름은 층 안에서 한 번씩(대소문자 무시), 12명까지, 한 세션은 한 자리에만."""
+    if not isinstance(raw, list) or not raw:
+        raise ApiError(400, "팀원(members)은 목록으로 보내 주세요. 맨 앞은 팀장이에요")
+    if len(raw) > MAX_MEMBERS:
+        raise ApiError(400, f"팀원은 한 층에 {MAX_MEMBERS}명까지예요(팀장 포함). 지금 {len(raw)}명이에요")
+    out, names, sids = [], {}, {}
+    for i, m in enumerate(raw):
+        if not isinstance(m, dict):
+            raise ApiError(400, f"{i + 1}번째 팀원 모양이 이상해요({{role, sessionId}}이어야 해요)")
+        r = role_name(m.get("role"))
+        if r.casefold() in names:
+            raise ApiError(400, f"이 층에 '{r}' 자리가 둘이에요. 역할 이름을 다르게 해 주세요(예: {r}2)")
+        names[r.casefold()] = r
+        sid = m.get("sessionId")
+        if sid in (None, ""):
+            sid = None
+        elif not (isinstance(sid, str) and SESSION_ID.match(sid)):
+            raise ApiError(400, f"{r} 세션 id가 local_… 모양이 아니에요")
+        elif sid in sids:
+            raise ApiError(400, f"같은 세션을 {sids[sid]}·{r} 두 자리에 앉혔어요. 한 세션은 한 자리에만 앉혀요")
+        if sid:
+            sids[sid] = r
+        out.append({"role": r, "sessionId": sid})
+    if LEAD not in names.values():
+        raise ApiError(400, "팀장 자리가 없어요. 맨 앞에 팀장을 넣어 주세요(세션은 비워 둬도 돼요)")
+    if out[0]["role"] != LEAD:
+        raise ApiError(400, "팀장 자리는 맨 앞이어야 해요")
+    return out
+
+
+def members_of_roles(roles):
+    """예전 판의 roles 묶음({"팀장": "local_…", …})을 팀원 목록으로. 네 자리는 늘 다 만들어요(0.4.1과 같아요)."""
+    if not isinstance(roles, dict):
+        raise ApiError(400, "역할(roles) 모양이 이상해요")
+    bad = [clean_name(str(r), 20) for r in roles if r not in CLASSIC_ROLES]
+    if bad:
+        raise ApiError(400, f"모르는 역할이에요: {', '.join(bad)} (roles는 팀장·개발자·디자이너·기획만 받아요. 다른 역할은 members로 보내요)")
+    for r, v in roles.items():
+        if v not in (None, "") and not (isinstance(v, str) and SESSION_ID.match(v)):
+            raise ApiError(400, f"{r} 세션 id가 local_… 모양이 아니에요")
+    return check_members([{"role": r, "sessionId": roles.get(r) or None} for r in CLASSIC_ROLES])
+
+
+def check_seats(members, seated, seats, bosses=()):
+    """다른 층에 이미 앉은 세션(seated: 세션 → 층 이름), 이번 요청의 다른 층에 앉힌 세션(seats), 총괄 세션(bosses)이면 ApiError.
+    총괄을 자리에 앉히면 그 자리로 보낸 말을 총괄이 자기에게 전하게 돼서 아무에게도 닿지 않아요."""
+    for m in members:
+        v = m["sessionId"]
+        if v and v in bosses:
+            raise ApiError(400, f"총괄 세션은 층의 자리에 앉힐 수 없어요({m['role']} 자리). 다른 세션을 고르거나 비워 두세요")
+        if v and v in seated:
+            raise ApiError(400, f"{m['role']} 세션은 이미 '{seated[v]}' 층에 앉아 있어요. 한 세션은 한 층에만 앉혀요")
+        if v and v in seats:
+            raise ApiError(400, f"{m['role']} 세션은 '{seats[v]}' 층에도 앉혔어요. 한 세션은 한 층에만 앉혀요")
+
+
 def api_setup_floors(body):
+    with TEAM_LOCK:
+        return setup_floors(body)
+
+
+def setup_floors(body):
     floors, boss, drop_demo = body.get("floors", []), body.get("boss"), body.get("dropDemo", True)
     if not isinstance(floors, list) or len(floors) > 20:
         raise ApiError(400, "만들 층은 목록으로 20개까지 보내 주세요")
@@ -1296,6 +1458,11 @@ def api_setup_floors(body):
     names = {t["id"]: t.get("name") or t["id"] for t in real_teams()}
     seated = {sid: names.get(tid, tid) for sid, tid in floor_members().items()}   # 이미 다른 층에 앉은 세션 → 그 층 이름
     seats = {}   # 이번 요청에서 앉힌 세션 → 층(같은 세션을 두 층에 앉히지 않게)
+    # 이번에 정할 총괄(안 보내면 지금 총괄)은 층의 자리에 앉힐 수 없고, 거꾸로 이미 층에 앉은 세션은 총괄로 정할 수 없어요
+    cur = boss_sid()
+    bosses = {boss} if boss else {cur} if cur else set()
+    if boss and boss in seated:
+        raise ApiError(400, f"총괄로 고른 세션은 이미 '{seated[boss]}' 층의 자리에 앉아 있어요. 그 층의 ‘팀원 고치기’에서 먼저 빼거나 다른 세션을 골라 주세요")
     good, errors, order, fresh, groups = [], [], {}, [], {}
     for i, f in enumerate(floors):
         label = f["id"][:40] if isinstance(f, dict) and isinstance(f.get("id"), str) and f["id"] else f"{i + 1}번째 층"
@@ -1310,19 +1477,13 @@ def api_setup_floors(body):
                 raise ApiError(400, "팀 이름은 한 줄로 1~30자예요")
             if any(isinstance(v, str) and SURROGATE.search(v) for v in (f.get("id"), f.get("folder"), f.get("prefix"), f.get("group"))):
                 raise ApiError(400, "층 정보에 쓸 수 없는 글자가 있어요")
-            roles = f.get("roles") if f.get("roles") is not None else {}
-            if not isinstance(roles, dict):
-                raise ApiError(400, "역할(roles) 모양이 이상해요")
-            bad = [str(r)[:20] for r in roles if r not in ROLES]
-            if bad:
-                raise ApiError(400, f"모르는 역할이에요: {', '.join(bad)} (팀장·개발자·디자이너·기획만 돼요)")
-            for r, v in roles.items():
-                if v not in (None, "") and not (isinstance(v, str) and SESSION_ID.match(v)):
-                    raise ApiError(400, f"{r} 세션 id가 local_… 모양이 아니에요")
-                if v and v in seated:
-                    raise ApiError(400, f"{r} 세션은 이미 '{seated[v]}' 층에 앉아 있어요. 한 세션은 한 층에만 앉혀요")
-                if v and v in seats:
-                    raise ApiError(400, f"{r} 세션은 '{seats[v]}' 층에도 앉혔어요. 한 세션은 한 층에만 앉혀요")
+            # members(팀장이 맨 앞인 목록)가 있으면 그것, 없으면 예전 판의 roles 묶음(네 자리)
+            listed = f.get("members") is not None
+            if listed:
+                members = check_members(f["members"])
+            else:
+                members = members_of_roles(f.get("roles") if f.get("roles") is not None else {})
+            check_seats(members, seated, seats, bosses)
             new = f.get("newFolder")
             if new not in (None, True, False):
                 raise ApiError(400, "newFolder는 true나 false예요")
@@ -1332,12 +1493,17 @@ def api_setup_floors(body):
             # newFolder: true면 folder 대신 ~/agencity-teams/<id>를 새로 만들어 써요(층을 실제로 만들 때만 만들어요)
             folder = plan_new_folder(f, taken, {g["id"] for g in good}) if new is True else check_folder(f.get("folder"), detected)
             # id·이름·머리글·이미 있는 층인지는 new_team.py가 물어볼 때와 같은 기준으로 봐요
-            g = {"id": f.get("id"), "name": f.get("name"), "folder": folder,
-                 "prefix": f.get("prefix") or None, "roles": {r: roles.get(r) or None for r in ROLES}}
+            g = {"id": f.get("id"), "name": f.get("name"), "folder": folder, "prefix": f.get("prefix") or None}
+            # members로 보내면 팀원 목록이 곧 그 목록이에요. 예전 roles 묶음이면 0.4.1처럼 보내요: 이미 있던 team.json이면
+            # 다른 자리는 그대로 두고 보낸 세션 id만 채워요(new_team.py의 합치기)
+            if listed:
+                g["members"] = members
+            else:
+                g["roles"] = {m["role"]: m["sessionId"] for m in members}
             good.append(g)
-            for v in g["roles"].values():
-                if v:
-                    seats.setdefault(v, name)
+            for m in members:
+                if m["sessionId"]:
+                    seats.setdefault(m["sessionId"], name)
             if new is True:
                 fresh.append((g, label))
             # 같은 id가 여럿이면 new_team.py는 앞의 것만 만들어요. 폴더 없이 만든 세션 묶음은 늘 다시 고를 수 있게 적지 않아요
@@ -1366,15 +1532,14 @@ def api_setup_floors(body):
                 raise ApiError(500, "층을 만들지 못했어요: " + (last_line(r.stderr) or "알 수 없는 오류"))
             if not res.get("ok"):
                 raise ApiError(409, str(res.get("error") or "층을 만들지 못했어요"))
-            spec_of = {}
-            for g in good:
-                spec_of.setdefault(g["id"], g)   # 같은 id면 new_team.py가 만든 앞의 것
             for c in res.get("created") or []:
                 if isinstance(c, dict):
                     o = c.get("office")
                     o = o if isinstance(o, str) and o.startswith("/") else None
-                    created.append(dict({"id": c.get("id"), "floor": c.get("floor"), "folder": show_path(os.path.dirname(o)) if o else None},
-                                        **away_of(spec_of.get(c.get("id")), o, where)))
+                    # 팀원은 실제로 쓴 team.json에서 읽어요(roles 묶음으로 이미 있던 사무실에 합쳤으면 그대로 둔 자리도 들어 있어요)
+                    ms = office_members(o) if o else None
+                    created.append(dict({"id": c.get("id"), "floor": c.get("floor"), "folder": show_path(os.path.dirname(o)) if o else None,
+                                         "members": ms}, **away_of(ms, o, where)))
             errors += [{"id": str(e.get("id"))[:40], "error": str(e.get("error"))} for e in res.get("errors") or [] if isinstance(e, dict)]
     finally:
         done = {c["id"] for c in created}
@@ -1390,6 +1555,205 @@ def api_setup_floors(body):
             raise ApiError(400, msg, {"created": [], "errors": errors})
         out["error"] = msg
     return out
+
+
+# 팀원 고치기 ---------------------------------------------------------------
+
+def office_members(office):
+    """팀 사무실 폴더의 team.json 팀원 [{role, sessionId}](역할 이름으로 못 쓰는 줄은 빼요). 못 읽으면 None."""
+    try:
+        team = load_json(os.path.join(office, "team.json"))
+        ms = team.get("members") if isinstance(team, dict) else None
+    except (OSError, ValueError, AttributeError, TypeError):
+        return None
+    if not isinstance(ms, list):
+        return None
+    return [{"role": m["role"], "sessionId": m["sessionId"] if SESSION_ID.match(str(m.get("sessionId") or "")) else None}
+            for m in ms if isinstance(m, dict) and is_role(m.get("role"))]
+
+
+def floor_team(t):
+    """층의 team.json 팀원(office_members). 못 읽으면 None."""
+    try:
+        office = os.path.realpath(os.path.join(HERE, t["office"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    return office_members(office)
+
+
+def status_file(base, role, name):
+    """새 자리의 상태 파일(status/<역할>.json). 있으면 그대로 둬요."""
+    sp = os.path.join(base, "status", role + ".json")
+    if not os.path.lexists(sp):
+        write_json(sp, {"name": name, "role": role, "state": "대기", "task": "", "say": "", "updated": now()})
+
+
+def rename_pairs(old_rows, members, hints=()):
+    """이름을 바꾼 자리 [(예전 이름, 새 이름, 예전 줄)]. 예전 이름이 새 목록에 없을 때만이에요(대소문자 무시).
+    어느 자리였는지는 1) 화면이 알려 준 예전 이름(hints[i], members[i]의 was) 2) 없으면 같은 세션이 앉아 있던 예전 자리로 알아봐요.
+    대소문자만 바꾼 이름(qa → QA)도 넣어요(파일 이름을 맞추려고)."""
+    by_key = {}
+    for m in old_rows if isinstance(old_rows, list) else []:
+        if isinstance(m, dict) and is_role(m.get("role")) and m["role"].casefold() not in by_key:
+            by_key[m["role"].casefold()] = m
+    pairs = [(by_key[m["role"].casefold()]["role"], m["role"], by_key[m["role"].casefold()]) for m in members
+             if m["role"].casefold() in by_key and by_key[m["role"].casefold()]["role"] != m["role"]]
+    free = {k: o for k, o in by_key.items() if k not in {m["role"].casefold() for m in members}}   # 새 목록에서 빠진 예전 자리
+    todo = [(i, m) for i, m in enumerate(members) if m["role"].casefold() not in by_key]           # 새 이름의 자리
+    done = set()
+    for i, m in todo:
+        w = hints[i] if i < len(hints) else None
+        k = unicodedata.normalize("NFC", w.strip()).casefold() if isinstance(w, str) else None
+        if k in free:
+            o = free.pop(k)
+            pairs.append((o["role"], m["role"], o))
+            done.add(i)
+    for i, m in todo:
+        k = next((k for k, o in free.items() if m["sessionId"] and o.get("sessionId") == m["sessionId"]), None) if i not in done else None
+        if k:
+            o = free.pop(k)
+            pairs.append((o["role"], m["role"], o))
+    return pairs
+
+
+def relink(path, target):
+    tmp = f"{path}.tmp{os.getpid()}{threading.get_ident()}"
+    os.symlink(target, tmp)
+    os.replace(tmp, path)
+
+
+def forward_link(path):
+    """이름을 바꾼 자리의 예전 대화 파일 이름에 남겨 둔 링크(같은 chat 폴더의 <새 이름>.jsonl을 가리켜요)인지."""
+    try:
+        t = os.readlink(path)
+    except OSError:
+        return False
+    return "/" not in t and t.endswith(".jsonl")
+
+
+def move_seat_files(base, pairs, tname):
+    """이름을 바꾼 자리의 대화(chat/<이름>.jsonl)·상태(status/<이름>.json) 파일을 새 이름으로 옮겨요(지우지 않아요).
+    새 이름의 파일이 이미 있으면(예전에 뺀 자리 이름을 다시 쓴 경우 등) 그 자리는 옮기지 않고 kept로 알려요.
+    옮긴 대화 파일 자리에는 새 파일을 가리키는 링크를 남겨요: 이미 오가는 답(예전 이름으로 say.sh를 불러요)도 새 자리 대화에 붙어요.
+    (옮긴 것 [{from, to}], 못 옮긴 것 [{from, to}])을 돌려줘요."""
+    moved, kept = [], []
+    cdir = os.path.join(base, "chat")
+    for a, b, _ in pairs:
+        files = [(os.path.join(base, sub, a + ext), os.path.join(base, sub, b + ext)) for sub, ext in (("chat", ".jsonl"), ("status", ".json"))]
+        files = [(s, d) for s, d in files if os.path.isfile(s) and not os.path.islink(s)]
+        if not files:
+            continue
+
+        def same(s, d):   # 대소문자만 바꾼 이름이면 맥 디스크에서는 같은 파일이에요
+            try:
+                return os.path.samefile(s, d)
+            except OSError:
+                return False
+        if any(os.path.lexists(d) and not (os.path.islink(d) and forward_link(d)) and not same(s, d) for s, d in files):
+            kept.append({"from": a, "to": b})
+            continue
+        try:
+            for s, d in files:
+                if os.path.islink(d):
+                    os.unlink(d)   # 예전에 남긴 이어 주는 링크예요(대화 원본이 아니에요)
+                os.replace(s, d)
+            sp = os.path.join(base, "status", b + ".json")
+            if any(d == sp for _, d in files):
+                try:
+                    st = load_json(sp)
+                    if isinstance(st, dict):
+                        st["role"] = b
+                        if st.get("name") == f"{tname} {a}":
+                            st["name"] = f"{tname} {b}"
+                        write_json(sp, st)
+                except (OSError, ValueError):
+                    pass
+            if any(d == os.path.join(cdir, b + ".jsonl") for _, d in files):
+                for n in os.listdir(cdir):   # 더 예전 이름에서 이어 주던 링크도 새 파일로
+                    p = os.path.join(cdir, n)
+                    if os.path.islink(p) and os.readlink(p) == a + ".jsonl":
+                        relink(p, b + ".jsonl")
+                if not os.path.lexists(os.path.join(cdir, a + ".jsonl")):
+                    os.symlink(b + ".jsonl", os.path.join(cdir, a + ".jsonl"))
+        except OSError:
+            kept.append({"from": a, "to": b})
+            continue
+        moved.append({"from": a, "to": b})
+    return moved, kept
+
+
+def drop_forward_links(base, roles):
+    """지금 자리 이름의 대화 파일이 예전 이름 바꾸기 때 남긴 링크면 치워요(그 이름의 새 자리는 새 대화로 시작해요)."""
+    for r in roles:
+        p = os.path.join(base, "chat", r + ".jsonl")
+        if os.path.islink(p) and forward_link(p):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+def api_setup_members(body):
+    """한 층의 팀원 목록을 바꿔요: {team, members: [{role, sessionId|null, was?}]}(맨 앞은 팀장).
+    새 역할은 상태 파일을 만들고, 뺀 팀원의 대화·상태 파일은 지우지 않아요(다시 넣으면 이어서 보여요).
+    자리 이름을 바꾸면(was: 그 자리의 예전 이름, 없으면 같은 세션이 앉아 있던 예전 자리) 대화·상태 파일도 새 이름으로 옮겨요."""
+    tid = body.get("team")
+    if not isinstance(tid, str) or not SAFE_ID.match(tid):
+        raise ApiError(400, "층(team) id가 이상해요")
+    members = check_members(body.get("members"))
+    hints = [m.get("was") for m in body["members"]]   # check_members가 모양을 봤어요(같은 순서)
+    with TEAM_LOCK:
+        t = next((t for t in real_teams() if t["id"] == tid), None)
+        if t is None:
+            raise ApiError(404, "그런 층이 없어요")
+        if is_example(t):
+            raise ApiError(409, "예시 팀은 고칠 수 없어요. 내 층을 만든 뒤 고쳐 주세요")
+        if os.path.realpath(os.path.join(HERE, t["office"])) not in office_roots():
+            raise ApiError(409, "이 층의 팀 사무실 폴더를 쓸 수 없어요(링크로 이어졌거나 에이전시티 폴더를 품고 있어요)")
+        base = os.path.realpath(os.path.join(HERE, t["office"]))
+        tj = os.path.join(base, "team.json")
+        try:
+            team = load_json(tj)
+        except (OSError, ValueError):
+            raise ApiError(409, "이 층의 team.json을 읽지 못했어요. 파일을 고친 뒤 다시 해 주세요")
+        if not isinstance(team, dict) or not isinstance(team.get("members", []), list):
+            raise ApiError(409, "이 층의 team.json 모양이 이상해요(members가 목록이어야 해요)")
+        names = {x["id"]: x.get("name") or x["id"] for x in real_teams()}
+        seated = {sid: names.get(o, o) for sid, o in floor_members().items() if o != tid}
+        cur = boss_sid()
+        check_seats(members, seated, {}, {cur} if cur else ())
+        old = {}
+        for m in team.get("members", []):
+            if isinstance(m, dict) and isinstance(m.get("role"), str):
+                old.setdefault(unicodedata.normalize("NFC", m["role"]).casefold(), m)
+        tname = str(team.get("team") or t.get("name") or tid)
+        pairs = rename_pairs(team.get("members", []), members, hints)
+        was = {b: (a, o) for a, b, o in pairs}   # 새 이름 → (예전 이름, 예전 줄)
+        rows = []
+        for m in members:
+            a, prev = was.get(m["role"], (None, old.get(m["role"].casefold())))
+            row = dict(prev) if prev else {"name": f"{tname} {m['role']}", "title": f"{tname} · {m['role']}"}
+            if a:   # 이름을 바꾼 자리: 저절로 지은 이름·제목이면 새 이름으로
+                for k, sep in (("name", " "), ("title", " · ")):
+                    if row.get(k) == f"{tname}{sep}{a}":
+                        row[k] = f"{tname}{sep}{m['role']}"
+            row.update(role=m["role"], sessionId=m["sessionId"])
+            rows.append(row)
+        before = [m.get("role") for m in team.get("members", []) if isinstance(m, dict)]
+        team["members"] = rows
+        write_json(tj, team)
+        moved, kept = move_seat_files(base, pairs, tname)
+        drop_forward_links(base, [x["role"] for x in rows])
+        for row in rows:
+            status_file(base, row["role"], str(row.get("name") or f"{tname} {row['role']}"))
+    renamed = {a for a, _, _ in pairs}
+    gone = [r for r in before if isinstance(r, str) and r not in [x["role"] for x in rows] and r not in renamed]
+    log(base, "팀 전체", "설정", "팀원을 고쳤어요: " + " · ".join(x["role"] for x in rows)
+        + (f" (이름 바꾼 자리: {', '.join(f'{a}→{b}' for a, b, _ in pairs)})" if pairs else "")
+        + (f" (뺀 자리: {', '.join(gone)})" if gone else ""))
+    where = {s["sessionId"]: s for p in claude_projects(True) for s in p["sessions"]}
+    out = [{k: row.get(k) for k in ("role", "name", "title", "sessionId")} for row in rows]
+    return dict({"ok": True, "team": tid, "members": out, "moved": moved, "kept": kept}, **away_of(members, base, where))
 
 
 # 공개 범위와 공개하기 -------------------------------------------------------
@@ -1571,17 +1935,13 @@ def api_setup_state(body):
     done = s["done"]
     prof = load_public().get("profile")   # 저장해 둔 소개 한 줄(설정을 다시 열면 칸에 보여 줘요)
     intro = one_line(prof.get("intro"), 120) if isinstance(prof, dict) and isinstance(prof.get("intro"), str) else ""
-    try:
-        b = org().get("boss")
-    except (OSError, ValueError, AttributeError):
-        b = None
-    bsid = str(b.get("sessionId") or "") if isinstance(b, dict) else ""
     return {"ok": True, "done": done, "platform": platform_name(), "version": VERSION, "intro": intro,
             "github": github_state(s), "deviceFlow": bool(client_id()), "ghAvailable": bool(shutil.which("gh")),
             "claude": {"app": claude_app(), "sessions": len(claude_sessions())},
-            "boss": bool(SESSION_ID.match(bsid)) and not bsid.startswith("local_00000000"),   # 자리 표시용이 아닌 진짜 총괄 세션이 있는지
+            "boss": boss_sid() is not None,   # 자리 표시용이 아닌 진짜 총괄 세션이 있는지
             "floors": [{"id": t["id"], "name": str(t.get("name") or t["id"]), "floor": t.get("floor"), "folder": t.get("folder"),
-                        "example": is_example(t)} for t in teams],
+                        "example": is_example(t), "members": floor_team(t)} for t in teams],
+            "roleSuggestions": ROLE_SUGGEST, "maxMembers": MAX_MEMBERS,
             "visibility": saved_levels(s, [t["id"] for t in teams]),
             "published": published_state(s)}
 
@@ -1602,7 +1962,7 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/setup/state": api_setup_state, "/api/setup/github/start": api_setup_github_start,
           "/api/setup/github/poll": api_setup_github_poll, "/api/setup/github/gh": api_setup_github_gh,
           "/api/setup/github/logout": api_setup_github_logout, "/api/setup/claude": api_setup_claude,
-          "/api/setup/floors": api_setup_floors, "/api/setup/visibility": api_setup_visibility,
+          "/api/setup/floors": api_setup_floors, "/api/setup/members": api_setup_members, "/api/setup/visibility": api_setup_visibility,
           "/api/setup/publish": api_setup_publish, "/api/setup/done": api_setup_done}
 
 

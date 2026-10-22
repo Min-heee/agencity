@@ -20,7 +20,8 @@ GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)�
                             "district": "app", "tasks": false, "board": false}
   }
 }
-- "name": 층 이름과 소개만. "tour": 여기에 책상 상태(일하는 중·대기 …)를 더해요.
+- "name": 층 이름과 소개만. "tour": 여기에 책상(역할 이름)과 상태(일하는 중·대기 …)를 더해요.
+  역할 이름은 층에서 지은 그대로 나가요(앱의 공개 확인 상자가 나갈 이름을 보여 줘요).
   "building"·"private": 층 정보는 내보내지 않아요(앱의 공개 범위 화면이 적어 둬요. 비공개로 바꾼 층도 손으로 적은 이름·소개는 지우지 않아요).
   건물(높이·등급·창문 불빛)은 이 파일과 상관없이 token-meter gist의 숫자로 서요.
 - "tasks": true일 때만 책상마다 '지금 하는 일' 한 줄을, "board": true일 때만 업무판 제목을 넣어요(둘 다 기본 꺼짐).
@@ -43,7 +44,8 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 HERE = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-ROLES = ["팀장", "개발자", "디자이너", "기획"]
+ROLE_RE = re.compile(r"^[0-9A-Za-z가-힣][0-9A-Za-z가-힣_·-]{0,11}\Z")   # 자리(역할) 이름: office_server.py와 같아요. 층마다 달라요
+MAX_DESKS = 12
 STATES = ["일하는 중", "대기", "회의 중", "막힘"]
 DISTRICTS = ["app", "web", "data", "content", "tool", "game", "etc"]
 LOGIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}$")
@@ -159,7 +161,14 @@ def build():
             team = load(os.path.join(base, "team.json"), {})
             members = team.get("members", []) if isinstance(team, dict) else []
             desks = []
-            for m in sorted([m for m in members if isinstance(m, dict) and m.get("role") in ROLES], key=lambda m: ROLES.index(m["role"])):
+            ms = [m for m in members if isinstance(m, dict) and isinstance(m.get("role"), str) and ROLE_RE.match(m["role"])
+                  and m["role"] not in ("대표", "총괄")]
+            ms = [m for m in ms if m["role"] == "팀장"][:1] + [m for m in ms if m["role"] != "팀장"]   # 팀장이 먼저, 나머지는 team.json 순서
+            seen = set()
+            for m in ms[:MAX_DESKS]:
+                if m["role"] in seen:
+                    continue
+                seen.add(m["role"])
                 st = load(os.path.join(base, "status", m["role"] + ".json"), {})
                 st = st if isinstance(st, dict) else {}
                 d = {"role": m["role"], "state": st.get("state") if st.get("state") in STATES else "대기"}

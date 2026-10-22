@@ -2,18 +2,21 @@
 
 **내 AI 에이전시를 꾸리고, 도시 위로 한 층씩 올려요.**
 
-Claude Code 세션 여러 개를 **팀(팀장·개발자·디자이너·기획)** 으로 묶어 사무실처럼 보여 주고,
+Claude Code 세션 여러 개를 **팀(팀장과 팀원들, 역할은 내가 정해요)** 으로 묶어 사무실처럼 보여 주고,
 웹 페이지 하나에서 **누구에게나 말 걸기 · 회의 열기 · 결재**를 하는 로컬 대시보드예요.
 원하면 내 사무실을 토큰 작업량만큼 높은 건물로 [에이전시티 도시](#에이전시티-도시-첫-버전)에 세워요.
 지금은 Claude Code 세션을 팀에 앉히고, Codex·Gemini CLI는 앞으로 지원해요.
 
 > English: **Agencity** — Run your AI agency. Raise it into the skyline.
-> A local web dashboard that organizes several Claude Code desktop sessions into teams
-> (lead, developer, designer, planner) shown as office floors; Codex and Gemini CLI support is planned.
+> A local web dashboard that organizes several Claude Code desktop sessions into teams shown as office floors:
+> each floor has a lead plus members whose roles you name yourself (developer, designer, marketing, QA, …;
+> up to 12 seats per floor). Codex and Gemini CLI support is planned.
 > On macOS the installer also builds a small app (Agencity.app) on your Mac that shows the same page
 > in its own window. A first-run setup signs in to GitHub (device code or the gh CLI), lists the Claude
-> desktop app's Code sessions grouped like the app's sidebar (your custom groups first, then by project folder)
-> so you can turn groups into floors, and sets what each floor shows in
+> desktop app's Code sessions as a tree like the app's sidebar (your custom groups, then project folders,
+> then "This computer" for sessions started without a folder). A whole group or any single session can become
+> a floor; a member editor pre-fills seats from session titles, lets you add free-form roles and pick sessions,
+> and can reopen later to edit an existing floor. Setup also sets what each floor shows in
 > the Agencity city, where every registered office becomes a building as tall as its token usage.
 > From one page you can message any session, start meetings (attend or delegate), and approve decisions
 > the team leads file. Messages are relayed by a coordinator session with Claude Code's own `SendMessage`
@@ -105,16 +108,32 @@ git으로 받은 폴더에서도 맥 앱을 쓰려면 `sh bin/make_mac_app.sh --
 2. **Claude 연결** — Claude는 **따로 로그인하지 않아요.** 이 맥의 Claude 데스크톱 앱이 저장해 둔 Claude Code 세션 목록
    (제목·폴더·마지막 활동)만 읽어요. 대화 내용은 읽지 않아요.
    세션은 **Claude 앱 사이드바와 같은 모양**으로 묶어 보여 줘요: 앱에서 만든 그룹(이름·순서 그대로) → 나머지 세션은 프로젝트 폴더별 →
-   폴더 없이 만든 세션 한 묶음. 그룹은 앱 설정 파일(`claude_desktop_config.json`)에서 사이드바 그룹 항목만 꺼내 읽고,
-   읽지 못하면 폴더별로 보여 줘요. ‘폴더별 보기’를 켜면 예전처럼 폴더별로 봐요.
-3. **사무실 만들기** — 그룹(또는 프로젝트) 하나가 층(팀) 하나예요. 고르면 층 이름은 그룹 이름으로, 팀 id는 영문으로 채워 둬요
-   (한글 이름이면 `team-1`처럼, 고칠 수 있어요). 자리도 세션 제목으로 짐작해 미리 앉혀요(팀장·리드·lead → 팀장,
-   개발·dev·code → 개발자, 디자인·design·UI·UX → 디자이너, 기획·plan·PM → 기획, ‘총괄’이 들어간 세션은 총괄 후보). 바꿔도 되고 비워 둬도 돼요.
-   - 층 폴더는 그 그룹 세션들이 가장 많이 쓴 프로젝트 폴더예요(worktree는 원래 프로젝트로 보고, 앱의 임시 폴더·없어진 폴더는 빼요).
-   - 그런 폴더가 없으면(폴더 없이 만든 세션만 있으면) 층을 만들 때 `~/agencity-teams/<팀 id>` 폴더를 새로 만들어 써요. 폴더는 직접 바꿀 수도 있어요.
+   폴더 없이 만든 세션은 **이 컴퓨터** 한 묶음. 그룹은 앱 설정 파일(`claude_desktop_config.json`)에서 사이드바 그룹 항목만 꺼내 읽고,
+   읽지 못하면 폴더별로 보여 줘요.
+3. **사무실 만들기** — 2단계와 같은 나무 모양으로 보여 줘요: 내가 만든 그룹(예: 정산앱·토큰계량기·취직) → 프로젝트 폴더
+   (예: RunningGround) → **이 컴퓨터**. 항목을 펼치면 그 안의 세션이 보여요. 환경별로 정리했든 섹션별로 정리했든 정리해 둔 그대로 골라요.
+   - **그룹(또는 폴더) 하나**도, 펼쳐서 고른 **세션 하나**도 ‘층으로’를 누르면 층(팀) 하나가 돼요.
+     예: ‘취직’을 고르면 취직 층, ‘이 컴퓨터’를 펼쳐 ‘tokencity’ 세션을 고르면 tokencity 층.
+   - 층 이름은 그룹 이름(세션 하나면 세션 제목)으로, 팀 id는 영문으로 채워 둬요(한글 이름이면 `team-1`처럼, 고칠 수 있어요).
+   - **팀원**은 줄마다 [역할 이름] [세션] [×]예요. 맨 앞 줄은 늘 **팀장**이에요(세션은 비워 둬도 되고, 줄은 뺄 수 없어요).
+     - 그룹을 고르면 그 세션들을 제목으로 역할을 짐작해 미리 넣어요: 팀장·리드·lead → 팀장, 개발·dev·code → 개발자,
+       디자인·design·UI·UX → 디자이너, 기획·plan·PM → 기획, 마케팅·홍보·marketing → 마케팅, QA·테스트·test → QA,
+       데이터·data·analytics → 데이터, 못 맞추면 팀원(같은 역할이 여럿이면 개발자2처럼). 팀장 같은 세션은 팀장 줄에 앉혀요.
+       ‘총괄’이 들어간 세션은 자리 대신 총괄 후보예요. 지금 총괄(org.json)과 이번에 고른 총괄은 어느 층의 자리에도 앉힐 수 없어요.
+     - 세션 하나를 고르면 그 세션이 팀장 줄에 앉아요(다른 줄로 옮겨도 돼요).
+     - **+ 팀원 추가**로 줄을 더해요. 역할 이름은 마음대로 지어요(개발자·디자이너·기획·마케팅·QA·데이터·리서치·운영을 추천해 줘요).
+       한글·영문·숫자로 12자까지(빈칸·`/`·`.` 없이, `_`·`·`·`-`는 돼요), 대표·총괄은 못 쓰고, 한 층 안에서 겹치지 않게, 한 층에 12자리까지예요.
+     - 세션 칸은 그 층의 세션이 먼저, 그다음 다른 세션들이 보여요. ‘나중에 연결’을 고르면 빈자리로 둬요(화면에 ‘빈자리’).
+   - 이미 만든 층은 **팀원 고치기**로 같은 화면을 다시 열어 자리를 더하고, 팀장 말고는 빼고, 세션을 바꿔요.
+     뺀 팀원의 대화·상태 파일(`chat/<역할>.jsonl`, `status/<역할>.json`)은 지우지 않아요. 같은 이름으로 다시 넣으면 이어서 보여요.
+     자리 이름을 바꾸면 그 자리의 대화·상태 파일도 새 이름으로 옮기고, 예전 대화 파일 이름에는 새 파일로 이어 주는 링크를 남겨요
+     (이미 오가는 답이 예전 이름으로 와도 새 자리 대화에 붙어요). 새 이름의 예전 파일이 이미 있으면 옮기지 않고 알려 줘요.
+   - 층 폴더는 그룹이면 그 세션들이 가장 많이 쓴 프로젝트 폴더, 세션 하나면 그 세션의 프로젝트 폴더예요
+     (worktree는 원래 프로젝트로 보고, 앱의 임시 폴더·없어진 폴더는 빼요).
+   - 그런 폴더가 없으면(‘이 컴퓨터’ 세션처럼 폴더 없이 만든 세션이면) 층을 만들 때 `~/agencity-teams/<팀 id>` 폴더를 새로 만들어 써요. 폴더는 직접 바꿀 수도 있어요.
      이렇게 층 폴더 밖에서 연 세션은 층 폴더의 `CLAUDE.local.md`를 읽지 않아서, 완료 화면에 나오는 절대 경로 한 줄
      (`@~/agencity-teams/<팀 id>/.office/RULES.md`)을 그 세션 폴더의 `CLAUDE.local.md`에 넣거나 세션 창에 한 번 보내요.
-   - 이미 다른 층에 앉은 세션은 자리에 미리 앉히지 않아요. 한 세션은 한 층에만 앉혀요.
+   - 이미 다른 층에 앉은 세션은 자리에 미리 앉히지 않아요. 한 세션은 한 자리, 한 층에만 앉혀요.
    - 총괄(코디네이터) 세션도 여기서 골라요. 하는 일은 `python3 bin/new_team.py`와 같아요.
 4. **공개 범위** — 층마다 비공개(기본)·건물만·층 이름·둘러보기 중에서 골라요. 건물(높이·등급·창문 불빛)은 여기서 고른 것과
    상관없이 token-meter 숫자로 서고, 실제로 나가는 층 정보는 ‘층 이름’과 ‘둘러보기’뿐이에요. 프로필 소개 한 줄은 층과 상관없이 함께 나가요.
@@ -197,10 +216,11 @@ Claude Code의 자동 모드 안전장치가 막아요. 그래서 공식 도구�
 python3 bin/new_team.py
 ```
 
-팀 id·이름·프로젝트 폴더·역할별 세션 id(모르면 비워 둬도 돼요)를 물어보고, `<프로젝트>/.office/` 팀 사무실과
+팀 id·이름·프로젝트 폴더, 기본 네 자리(팀장·개발자·디자이너·기획)의 세션 id(모르면 비워 둬도 돼요),
+더 둘 역할(쉼표로, 예: `마케팅, QA`, 없으면 엔터)과 그 세션 id를 물어보고, `<프로젝트>/.office/` 팀 사무실과
 `teams/<id>` 연결, `org.json`의 다음 층을 한 번에 만들어요. 팀 사무실에는 `.gitignore`(`*`)를 둬서 팀 기록이 커밋되지 않게 해요.
 끝나면 `@.office/RULES.md` 한 줄을 프로젝트의 `CLAUDE.local.md`에 넣으면 그 프로젝트의 세션들이 팀 규칙을 읽어요.
-세션 id(`local_…`)는 각 세션에서 "이 세션 id 알려 줘"라고 물으면 돼요.
+세션 id(`local_…`)는 각 세션에서 "이 세션 id 알려 줘"라고 물으면 돼요. 팀원은 나중에 설정 화면의 **팀원 고치기**로 바꿔요.
 
 사이트에서 보낸 말을 팀 세션에 전하려면 총괄(코디네이터)로 쓸 세션 하나에서 [docs/COORDINATOR.md](docs/COORDINATOR.md)대로 전달을 켜요.
 손으로 꾸리고 싶다면 `examples/teams/demo/` 구조와 [docs/TEAM_RULES.md](docs/TEAM_RULES.md)를 참고하세요.
@@ -215,7 +235,7 @@ python3 bin/new_team.py
   Claude 세션 기록에서는 세션 id·제목·폴더·마지막 활동만 읽어요. Claude 앱 설정 파일에서는 사이드바 그룹(그룹 이름·순서·어느 세션이
   어느 그룹인지)만 꺼내 쓰고, 다른 내용(MCP 서버 설정 등)은 페이지나 기록에 내지 않아요.
 - 전달 항목은 서버가 만든 것만 코디네이터가 보내요(`/api/outbox/check`로 내용 해시 확인). 1분 30개, 대기 40개로 양을 제한해요.
-- `bin/say.sh`는 정해진 대화 파일에만, `대표` 이름이 아닌 것만 쓸 수 있어요.
+- `bin/say.sh`는 정해진 대화 파일에만 써요. 보내는 사람은 역할 이름 모양(한글·영문·숫자 12자까지)이나 총괄만 되고, `대표`는 안 돼요.
 - 남는 위험: 같은 맥의 다른 프로그램(에이전트 포함)은 페이지를 받아 열쇠를 읽을 수 있어요. 그래서 사이트 메시지를 승인으로 쓰지 않는 규칙이 중요해요.
 - `python3 build.py --snapshot`은 팀 상태를 페이지 안에 담아 공유용 `artifact.html`을 만들어요. **팀 데이터가 그대로 들어가니** 공개하기 전에 꼭 확인하세요.
 
