@@ -39,7 +39,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   하루 한 번 새로 올리기는 켰을 때만(setup.json의 tokenMeter.auto)이에요.
 - 세션 만들기(/api/seat/*): 빈자리마다 claude://code/new 링크(층 폴더 + 첫 메시지)를 만들고, 새로 생긴 세션 기록을 3초마다 살펴
   자리 표시(AGC-…)가 첫 메시지에 있는 세션(첫 메시지를 아직 못 읽으면 층 폴더에서 연 세션 하나, 그 밖에는 대표가 골라요)을 그 자리에 앉혀요.
-  기다리는 자리는 setup.json의 pendingSeats.
+  기다리는 자리는 setup.json의 pendingSeats. 빈자리 모두 만들기(/api/seat/fill*)는 채울 자리를 fillQueue에 한 줄로 두고 한 자리씩 열어요
+  (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 앉으면 맥에서 서버가 open으로 열어요).
 - 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md에 '팀 간 대화' 덧붙이기).
   팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 보여 줘요.
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
@@ -4511,10 +4512,17 @@ def seat_relink(p):
 
 
 def api_seat_link(body):
-    """빈자리에 앉힐 새 세션 링크: {team, role} → {ok, url, marker, folder, display, expires}.
+    """빈자리에 앉힐 새 세션 링크: {team, role} → {ok, url, marker, folder, display, expires, team, role}."""
+    r = seat_open(body.get("team"), body.get("role"))
+    fill_opened(r["team"], r["role"])   # 채우기 줄의 지금 자리를 대표가 직접 열었으면 그렇게 적어요([다음 자리 열기]를 다시 띄우지 않게)
+    return r
+
+
+def seat_open(tid, role_in):
+    """빈자리의 세션 만들기 링크를 만들고 그 자리를 기다려요(세션 만들기와 빈자리 모두 만들기가 같이 써요).
     그 자리를 이미 기다리고 있거나 시간이 지난 지 한 시간이 안 됐으면 같은 자리 표시를 다시 쓰고 기다리는 시간만 늘려요(어느 링크로 연 세션이든 앉게)."""
     marker = "AGC-" + secrets.token_hex(4)
-    t, base, folder, role, url = seat_url(body.get("team"), body.get("role"), marker)
+    t, base, folder, role, url = seat_url(tid, role_in, marker)
     try:
         api_floor_rules_sync({"team": t["id"]})   # 새 팀원이 읽을 RULES.md에 ‘팀 간 대화’가 있게(이미 있으면 그대로)
     except ApiError:
@@ -4545,7 +4553,8 @@ def api_seat_link(body):
         url = seat_url(t["id"], role, marker)[4]
     seat_kick()
     log(base, role, "설정", f"‘{role}’ 자리의 세션 만들기 링크를 열었어요({marker})")
-    return {"ok": True, "url": url, "marker": marker, "folder": folder, "display": show_path(folder), "expires": entry["expires"]}
+    return {"ok": True, "url": url, "marker": marker, "folder": folder, "display": show_path(folder), "expires": entry["expires"],
+            "team": t["id"], "role": role}
 
 
 def session_records(since_ms):
@@ -4845,6 +4854,7 @@ def seat_watch():
         SEAT_WAKE.clear()
         try:
             active = seat_pass()
+            fill_step()   # 채우기 줄: 지금 자리가 앉았으면 다음 빈자리를 열어요(열면 seat_kick이 이 일을 다시 깨워요)
         except Exception:  # noqa: BLE001 — 살피기는 덤이에요. 서버는 그대로 두고, 기다리는 자리가 남았는지만 다시 봐요
             try:
                 active = seats_live(load_setup())
@@ -4868,21 +4878,23 @@ def seat_kick():
 
 
 def api_seat_pending(body):
-    """기다리는 자리들: {ok, pending: [{team, role, state, marker?, url?, sessionId?, candidates?, error?, started, expires, remaining?}]}.
-    url: 기다리는 자리의 링크(그 자리 표시 그대로). 다시 불러온 화면도 ‘다시 열기’로 같은 링크를 열어요."""
+    """기다리는 자리들: {ok, pending: [{team, role, state, marker?, url?, sessionId?, candidates?, error?, started, expires, remaining?}], boss, fill}.
+    url: 기다리는 자리의 링크(그 자리 표시 그대로). 다시 불러온 화면도 ‘다시 열기’로 같은 링크를 열어요. fill: 채우기 줄(fill_view, 없으면 null)."""
     if SEAT_RUN["active"]:
         seat_pass()   # 1초에 한 번까지
+    fill_step()   # 서버를 다시 켠 사이에 지금 자리가 앉았으면 여기서 이어요
     t = time.time()
     with SETUP_LOCK:
         s = load_setup()
         lst = pending_seats(s)
         bp = pending_boss(s)
         b = boss_tidy(s, bp, t)
+        f = fill_tidy(s, t)   # 다 채운 지 오래된 채우기 줄
         if seat_tidy(lst, t):
             save_seats(s, lst)
-        elif b:
+        elif b or f:
             write_json(SETUP, s)
-        bp = pending_boss(s)
+        bp, q = pending_boss(s), fill_queue(s)
     out, bv = [seat_view(p, t) for p in lst], seat_view(bp, t, boss=True) if bp else None
     for p, v in zip(lst, out):
         u = seat_relink(p) if p["state"] in SEAT_LIVE else ""
@@ -4893,7 +4905,7 @@ def api_seat_pending(body):
             bv["url"] = boss_url(bp["marker"], bp.get("prev"))
         except ApiError:
             pass
-    return {"ok": True, "pending": out, "boss": bv}
+    return {"ok": True, "pending": out, "boss": bv, "fill": fill_view(q, lst) if q else None}
 
 
 def seat_args(body, need_sid=False):
@@ -4919,6 +4931,7 @@ def api_seat_pick(body):
     ok, why = seat_apply(p["marker"], sid, "pick", title, want=("pick",), pick_only=True)
     if not ok:
         raise ApiError(409, why)
+    fill_step()   # 채우기 줄의 지금 자리였으면 다음 빈자리를 열어요
     return {"ok": True, "team": tid, "role": p["role"], "sessionId": sid}
 
 
@@ -4932,6 +4945,323 @@ def api_seat_cancel(body):
         if len(keep) != len(lst):
             save_seats(s, keep)
     return {"ok": True, "cancelled": len(keep) != len(lst)}
+
+
+# 빈자리 모두 만들기 ------------------------------------------------------------
+# [빈자리 모두 만들기](층 머리)·[팀원 세션 모두 만들기](층 만들기 결과): 채울 빈자리를 한 줄(setup.json의 fillQueue)로 세워 하나씩 세션 만들기를 해요.
+# 순서는 층 순서대로, 층 안에서는 팀장 먼저, 그다음 책상 순서예요. Codex 자리·예시 팀·이미 앉은 자리는 빼요(총괄은 층의 자리가 아니고 [총괄 만들기]로 해요).
+# 한 번에 한 자리만 기다려요. 세션 만들기로 이미 기다리는 자리가 있으면 링크를 하나 더 열지 않고 그 자리부터 기다려요.
+# 첫 링크는 대표가 누른 화면이 열어요(세션 만들기와 같아요). 그 자리가 앉으면 맥에서는 서버가 다음 링크를 open으로 열어요
+# (셸 없이, 서버가 지은 claude://code/new 링크 하나만 넘겨요). 맥이 아니거나 못 열면 화면에 [다음 자리 열기]가 떠요. Enter는 자리마다 대표가 눌러요.
+# 지금 자리가 고르기(pick)면 고를 때까지, 시간이 지났거나·못 앉혔거나·기다림을 취소했거나·자리가 없어지면 [다시 열기]·[건너뛰기]를 누를 때까지 멈춰요.
+# [멈추기]는 줄만 지워요. 열어 둔 자리는 세션 만들기처럼 그대로 기다려요.
+# 줄의 자리: {team, role, state: todo|open|seated|skipped, opened?: page|server|fail|adopt|opening, error?, at?, done?}
+
+FILL_ID = re.compile(r"f-[0-9a-f]{8}")
+FILL_MAX = 20 * MAX_MEMBERS     # 한 줄의 자리 수(층 만들기는 한 번에 20개 층까지)
+FILL_ITEM = ("todo", "open", "seated", "skipped")
+FILL_STALE = 60                  # ‘여는 중’인 채로 이만큼 지나면 멈춘 자리로 봐요(여는 사이에 서버가 꺼졌어요)
+CLAUDE_NEW = re.compile(r"claude://code/new\?folder=[A-Za-z0-9%._~-]+&q=[A-Za-z0-9%._~-]+")   # seat_url이 짓는 링크 모양(quote한 글자만)
+FILL_LOCK = threading.RLock()   # 줄은 한 걸음씩(다음 링크를 두 번 열지 않게). 순서: SEAT_PASS → FILL_LOCK → TEAM_LOCK → SETUP_LOCK
+
+
+def fill_queue(s):
+    """setup.json의 fillQueue(모양이 맞을 때만, 그 dict 그대로. 모양이 틀린 자리는 빼요). 없으면 None."""
+    q = s.get("fillQueue")
+    if not (isinstance(q, dict) and isinstance(q.get("id"), str) and FILL_ID.fullmatch(q["id"]) and q.get("state") in ("run", "done")
+            and isinstance(q.get("items"), list)):
+        return None
+    q["items"] = [it for it in q["items"][:FILL_MAX] if isinstance(it, dict) and isinstance(it.get("team"), str) and SAFE_ID.match(it["team"])
+                  and is_role(it.get("role")) and it.get("state") in FILL_ITEM]
+    return q
+
+
+def fill_save(s, q):
+    s["fillQueue"] = q
+    write_json(SETUP, s)
+
+
+def fill_running(s):
+    q = fill_queue(s)
+    return bool(q and q["state"] == "run")
+
+
+def fill_tidy(s, t):
+    """다 채운 지 오래된 줄과 모양이 틀린 줄은 치워요. s를 고쳤으면 True."""
+    q = fill_queue(s)
+    if "fillQueue" in s and (q is None or (q["state"] == "done" and (epoch_ms(q.get("done")) or 0) <= (t - SEAT_KEEP) * 1000)):
+        s.pop("fillQueue")
+        return True
+    return False
+
+
+def fill_floors():
+    """내 층(예시 팀 빼고)을 층 순서대로(org.json의 floor, 같으면 적힌 순서)."""
+    ts = [t for t in real_teams() if not is_example(t)]
+    no = lambda t: t["floor"] if isinstance(t.get("floor"), int) and not isinstance(t["floor"], bool) else 10 ** 6
+    return [t for _, t in sorted(enumerate(ts), key=lambda x: (no(x[1]), x[0]))]
+
+
+def fill_seats(tids):
+    """층들(tids)의 채울 빈자리 [(층 id, 자리 이름)]: 층 순서대로, 층 안에서는 팀장 먼저, 그다음 책상 순서(team.json 순서)예요.
+    세션이나 Codex가 앉은 자리는 빼요. 팀 사무실을 읽지 못하는 층은 건너뛰어요."""
+    out, roots = [], office_roots()
+    for t in fill_floors():
+        base = os.path.realpath(os.path.join(HERE, t["office"]))
+        if t["id"] not in tids or base not in roots:
+            continue
+        try:
+            raw = read_team_text(base)[1]["members"]
+        except ApiError:
+            continue
+        rows = shown_rows(raw)
+        out += [(t["id"], r) for i, r in [x for x in rows if x[1] == LEAD] + [x for x in rows if x[1] != LEAD] if seat_empty(raw[i])]
+    return out
+
+
+def seat_now(tid, role):
+    """층 tid의 role 자리가 지금 어떤지: 'empty'(빈자리) · 'filled'(세션이나 Codex가 앉음) · 'gone'(층이나 자리가 없어짐) · None(잠깐 못 읽음)."""
+    t = next((t for t in real_teams() if t["id"] == tid and not is_example(t)), None)
+    if t is None:
+        return "gone"
+    try:
+        raw = read_team_text(os.path.realpath(os.path.join(HERE, t["office"])))[1]["members"]
+    except ApiError:
+        return None
+    hit = seat_index(raw, role)
+    return "gone" if hit is None else "empty" if seat_empty(raw[hit[0]]) else "filled"
+
+
+def fill_entry(lst, it):
+    """줄의 자리 it를 기다리는 세션 만들기 항목(pendingSeats, 자리마다 하나). 없으면 None."""
+    return next((p for p in reversed(lst) if same_seat(p, it["team"], it["role"])), None)
+
+
+def fill_current(q):
+    """지금 자리: 링크를 연(open) 첫 자리, 없으면 아직 안 연(todo) 첫 자리. 다 끝났으면 None."""
+    return next((it for it in q["items"] if it["state"] == "open"), None) or next((it for it in q["items"] if it["state"] == "todo"), None)
+
+
+def fill_view(q, lst):
+    """줄을 화면에 알릴 모양: {id, state(run·done), total, seated, skipped, pos?, cur?, items: [{team, role, state}]}.
+    cur: 지금 자리 {team, role, state, opened, error?}. state는 그 자리 기다림의 상태(waiting·pick·seated·expired·failed), 기다림이 없어졌으면 cancel,
+    아직 안 열었으면 todo(못 열었으면 error). opened는 링크를 연 쪽(page·server·adopt, 서버가 못 열었으면 fail)."""
+    items = q["items"]
+    n = {k: sum(it["state"] == k for it in items) for k in ("seated", "skipped")}
+    v = {"id": q["id"], "state": q["state"], "total": len(items), "seated": n["seated"], "skipped": n["skipped"],
+         "items": [{"team": it["team"], "role": it["role"], "state": it["state"]} for it in items]}
+    cur = fill_current(q) if q["state"] == "run" else None
+    if cur is None:
+        return v
+    p = fill_entry(lst, cur) if cur["state"] == "open" else None
+    opening = cur.get("opened") == "opening" and time.time() * 1000 - (epoch_ms(cur.get("at")) or 0) < FILL_STALE * 1000
+    st = ("error" if cur.get("error") else "todo") if cur["state"] == "todo" else "todo" if opening and not p else p["state"] if p else "cancel"
+    c = {"team": cur["team"], "role": cur["role"], "state": st, "opened": cur.get("opened") if cur.get("opened") in ("page", "server", "fail", "adopt") else ""}
+    if st in ("error", "failed"):
+        c["error"] = one_line(cur["error"] if st == "error" else p.get("error") or "자리에 앉히지 못했어요", 200)
+    v.update(cur=c, pos=min(len(items), n["seated"] + n["skipped"] + 1))
+    return v
+
+
+def open_claude(url):
+    """서버가 지은 claude://code/new 링크를 맥의 Claude 앱으로 열어요. open(PATH의 것)에 링크 하나만 넘기고 셸은 거치지 않아요.
+    맥이 아니거나, 링크 모양이 다르거나, 못 열면 False예요(그러면 화면에 [다음 자리 열기]가 떠요)."""
+    if sys.platform != "darwin" or not isinstance(url, str) or not CLAUDE_NEW.fullmatch(url):
+        return False
+    try:
+        r = subprocess.run(["open", url], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
+def fill_step(by="server", qid=None):
+    """줄을 한 걸음 나아가요: 지금 자리가 앉았으면 다음 빈자리의 세션 만들기 링크를 만들어요(한 번에 한 자리만 기다려요).
+    by="page": 대표가 누른 일(시작·건너뛰기)이라 새로 연 링크를 돌려줘 그 화면이 열어요(세션 만들기와 같아요).
+    by="again": [다시 열기]·[다음 자리 열기]. 지금 자리의 링크를 같은 자리 표시로 다시 지어 돌려줘요.
+    by="server": 앉은 걸 알아챈 뒤예요. 맥이면 서버가 열고(open_claude), 못 열면 화면에 [다음 자리 열기]가 떠요.
+    qid: 이 줄일 때만. → 화면이 열 링크(seat_open의 답) 또는 None"""
+    with FILL_LOCK:
+        for _ in range(FILL_MAX + 2):
+            with SETUP_LOCK:
+                s = load_setup()
+                q = fill_queue(s)
+                if not q or q["state"] != "run" or (qid and q["id"] != qid):
+                    return None
+                lst = pending_seats(s)
+                changed = False
+                for it in q["items"]:
+                    p = fill_entry(lst, it) if it["state"] in ("todo", "open") else None
+                    if p and p["state"] == "seated" and it["state"] == "open":   # 기다리던 자리에 세션이 앉았어요
+                        it.update(state="seated", done=now())
+                        changed = True
+                    elif p and p["state"] in SEAT_LIVE and it["state"] == "todo":   # 세션 만들기로 이미 기다리는 자리: 링크를 하나 더 열지 않고 그 자리를 기다려요
+                        it.update(state="open", opened="adopt")
+                        it.pop("error", None)
+                        changed = True
+                cur = fill_current(q)
+                if cur is None:   # 다 채웠어요(건너뛴 자리 빼고)
+                    q.update(state="done", done=now())
+                    fill_save(s, q)
+                    return None
+                p = fill_entry(lst, cur)
+                live = bool(p and p["state"] in SEAT_LIVE)
+                st = None if live else seat_now(cur["team"], cur["role"])
+                if st == "filled":   # 그사이 다른 방법(팀원 고치기 등)으로 채웠어요
+                    cur.update(state="seated", done=now())
+                    cur.pop("error", None)
+                    fill_save(s, q)
+                    continue
+                if cur["state"] == "todo":
+                    if st != "empty" and (st == "gone" or by != "server"):   # 자리가 없어졌거나 team.json을 읽지 못했어요(뒤쪽 일은 잠깐 못 읽은 건 다음에 다시)
+                        msg = "그 자리가 없어졌어요(층이나 자리 이름이 바뀌었어요)" if st == "gone" else "이 층의 team.json을 읽지 못했어요"
+                        changed = changed or cur.get("error") != msg
+                        cur["error"] = msg
+                    wait = st != "empty" or (by == "server" and bool(cur.get("error")))   # 멈춘 자리는 대표가 [다시 열기]를 눌러야 열어요
+                else:   # 기다리거나(waiting·pick) 멈춘(시간 지남·못 앉힘·취소) 자리예요. [다시 열기]만 다시 열어요(고르는 중이면 그대로)
+                    wait = by != "again" or bool(p and p["state"] == "pick")
+                if wait:
+                    if changed:
+                        fill_save(s, q)
+                    return None
+                cur.update(state="open", opened="opening", at=now())
+                cur.pop("error", None)
+                fill_save(s, q)
+                key = (q["id"], cur["team"], cur["role"])
+            try:
+                r, err = seat_open(key[1], key[2]), None
+            except ApiError as e:
+                r, err = None, e.msg
+            ok = r is not None and by == "server" and open_claude(r["url"])
+            with SETUP_LOCK:
+                s = load_setup()
+                q = fill_queue(s)
+                it = next((x for x in q["items"] if x["team"] == key[1] and x["role"] == key[2]), None) if q and q["id"] == key[0] else None
+                if it is not None:
+                    if r is None:
+                        it.update(state="todo", error=err)
+                        it.pop("opened", None)
+                    else:
+                        it["opened"] = ("server" if ok else "fail") if by == "server" else "page"
+                    fill_save(s, q)
+            return r if r is not None and by != "server" else None
+    return None
+
+
+def fill_opened(tid, role):
+    """세션 만들기([다시 열기] 포함)로 연 자리가 줄의 지금 자리면 ‘화면이 열었어요’로 적어요(아직 안 연 자리였으면 그 자리를 기다려요)."""
+    with SETUP_LOCK:
+        s = load_setup()
+        q = fill_queue(s)
+        cur = fill_current(q) if q and q["state"] == "run" else None
+        if cur is None or not same_seat(cur, tid, role) or (cur["state"] == "open" and cur.get("opened") == "page"):
+            return
+        cur.update(state="open", opened="page")
+        cur.pop("error", None)
+        fill_save(s, q)
+
+
+def fill_answer(r):
+    """채우기 답: 화면이 열 링크(있으면)와 지금 줄."""
+    with SETUP_LOCK:
+        s = load_setup()
+        q = fill_queue(s)
+        v = fill_view(q, pending_seats(s)) if q else None
+    return dict(r or {}, ok=True, fill=v)
+
+
+def fill_id(body):
+    qid = body.get("id")
+    if not isinstance(qid, str) or not FILL_ID.fullmatch(qid):
+        raise ApiError(400, "채우기 줄(id)을 보내 주세요")
+    return qid
+
+
+FILL_GONE = "빈자리 채우기가 끝났거나 바뀌었어요. 화면을 새로 고쳐 주세요"
+
+
+def api_seat_fill(body):
+    """빈자리 모두 만들기: {teams: [층 id…]} → 그 층들의 빈자리를 줄에 세우고(도는 줄이 있으면 더해요) 첫 자리 링크를 줘요.
+    {id}만 보내면 지금 자리 링크를 다시 지어 줘요([다시 열기]·[다음 자리 열기]). → {ok, fill, url?, marker?, folder?, display?, expires?, team?, role?}
+    url은 대표가 누른 그 화면이 열어요(세션 만들기와 같아요). 지금 자리를 이미 기다리고 있으면 url 없이 줄만 알려요."""
+    tids = body.get("teams")
+    with FILL_LOCK:   # 줄을 세운 뒤 첫 링크는 이 화면이 열게(그사이에 뒤쪽 일이 먼저 열지 않게)
+        if tids is None:
+            qid = fill_id(body)
+            with SETUP_LOCK:
+                q = fill_queue(load_setup())
+            if q is None or q["id"] != qid or q["state"] != "run":
+                raise ApiError(409, FILL_GONE)
+            return fill_answer(fill_step("again", qid))
+        if not isinstance(tids, list) or not 0 < len(tids) <= 20 or not all(isinstance(x, str) for x in tids):
+            raise ApiError(400, "층(teams)은 팀 id 목록으로 20개까지 보내 주세요")
+        for tid in tids:
+            floor_of(tid, "예시 팀에는 세션을 앉힐 수 없어요. 내 층을 만든 뒤 해 주세요")
+        want = fill_seats(set(tids))
+        with SETUP_LOCK:
+            s = load_setup()
+            q = fill_queue(s)
+            if q is None or q["state"] != "run":
+                q = {"id": "f-" + secrets.token_hex(4), "state": "run", "started": now(), "items": []}
+            have = {(it["team"], it["role"].casefold()): it for it in q["items"]}
+            for tid, role in want:
+                it = have.get((tid, role.casefold()))
+                if it is None:
+                    q["items"].append({"team": tid, "role": role, "state": "todo"})
+                elif it["state"] in ("seated", "skipped"):   # 다시 비었거나 건너뛴 자리는 다시 채워요
+                    for k in ("opened", "error", "at", "done"):
+                        it.pop(k, None)
+                    it["state"] = "todo"
+            if not any(it["state"] in ("todo", "open") for it in q["items"]):
+                raise ApiError(409, "채울 빈자리가 없어요")
+            # 아직 안 연 자리는 층 순서·자리 순서대로 다시 세워요(더한 층이 앞 층이면 그 자리가 먼저예요)
+            rank = {(t, r.casefold()): i for i, (t, r) in enumerate(fill_seats({it["team"] for it in q["items"]}))}
+            todo = sorted((it for it in q["items"] if it["state"] == "todo"), key=lambda it: rank.get((it["team"], it["role"].casefold()), len(rank)))
+            live = [it for it in q["items"] if it["state"] == "open"]
+            fin = [it for it in q["items"] if it["state"] in ("seated", "skipped")]
+            room = FILL_MAX - len(live) - len(todo)
+            q["items"] = (fin[-room:] if room > 0 else []) + live + todo[:FILL_MAX - len(live)]
+            fill_save(s, q)
+        return fill_answer(fill_step("page", q["id"]))
+
+
+def api_seat_fill_skip(body):
+    """줄의 지금 자리를 건너뛰어요: {id, team, role}(지금 자리일 때만). 그 자리의 기다림도 그만두고 다음 자리 링크를 줘요(그 화면이 열어요)."""
+    qid = fill_id(body)
+    tid, role, _ = seat_args(body)
+    with FILL_LOCK:
+        with SETUP_LOCK:
+            s = load_setup()
+            q = fill_queue(s)
+            if q is None or q["id"] != qid or q["state"] != "run":
+                raise ApiError(409, FILL_GONE)
+            cur = fill_current(q)
+            if cur is None or not same_seat(cur, tid, role):
+                raise ApiError(409, "지금 채우는 자리가 아니에요. 화면을 새로 고쳐 주세요")
+            lst = pending_seats(s)
+            p = fill_entry(lst, cur)
+            if p and p["state"] in SEAT_LIVE:   # 그 자리의 기다림도 그만둬요(한 번에 한 자리만 기다리게)
+                lst.remove(p)
+                s["pendingSeats"] = lst
+            cur.update(state="seated" if p and p["state"] == "seated" else "skipped", done=now())
+            for k in ("opened", "error"):
+                cur.pop(k, None)
+            fill_save(s, q)
+        return fill_answer(fill_step("page", qid))
+
+
+def api_seat_fill_stop(body):
+    """줄을 그만둬요(다 채운 줄을 닫을 때도): {id}. 열어 둔 자리는 세션 만들기처럼 그대로 기다려요. {ok, stopped}."""
+    qid = fill_id(body)
+    with FILL_LOCK:   # 뒤쪽 일이 다음 링크를 여는 중이면 그 뒤에 그만둬요
+        with SETUP_LOCK:
+            s = load_setup()
+            q = fill_queue(s)
+            hit = q is not None and q["id"] == qid
+            if hit:
+                s.pop("fillQueue")
+                write_json(SETUP, s)
+    return {"ok": True, "stopped": hit}
 
 
 # 총괄 만들기 ------------------------------------------------------------------
@@ -5412,7 +5742,8 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/update/state": api_update_state, "/api/update/settings": api_update_settings, "/api/update/run": api_update_run,
           "/api/update/restart": api_update_restart,
           "/api/seat/link": api_seat_link, "/api/seat/pending": api_seat_pending, "/api/seat/pick": api_seat_pick,
-          "/api/seat/cancel": api_seat_cancel, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
+          "/api/seat/cancel": api_seat_cancel, "/api/seat/fill": api_seat_fill, "/api/seat/fill-skip": api_seat_fill_skip,
+          "/api/seat/fill-stop": api_seat_fill_stop, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
           "/api/setup/recommend": api_setup_recommend, "/api/codex/status": api_codex_status,
           "/api/boss/link": api_boss_link, "/api/boss/pending": api_boss_pending, "/api/boss/pick": api_boss_pick,
           "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules}
@@ -5496,7 +5827,8 @@ class Handler(SimpleHTTPRequestHandler):
             hdrs = [("Vary", "Origin")]
             if o is None or o in ORIGINS:
                 gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
-                res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None)
+                res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None,
+                           filling=fill_running(load_setup()))   # 빈자리 채우기 줄이 도는지(먼저 열어 둔 다른 탭도 그 줄을 보게)
                 try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
                     res["code"] = code_state(parse_qs(u.query).get("code") == ["now"])
                 except Exception:  # noqa: BLE001
@@ -5584,8 +5916,9 @@ def main():
     with open(PORT_FILE + ".tmp", "w") as f:
         f.write(str(PORT))
     os.replace(PORT_FILE + ".tmp", PORT_FILE)
-    try:   # 다시 켜기 전에 열어 둔 세션 만들기·총괄 만들기 링크가 아직 기다리는 중이면 이어서 살펴요
-        if seats_live(load_setup()):
+    try:   # 다시 켜기 전에 열어 둔 세션 만들기·총괄 만들기 링크가 아직 기다리는 중이거나 채우기 줄이 돌고 있으면 이어서 살펴요
+        s = load_setup()
+        if seats_live(s) or fill_running(s):
             seat_kick()
     except Exception:  # noqa: BLE001
         pass
