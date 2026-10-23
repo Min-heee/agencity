@@ -42,7 +42,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   기다리는 자리는 setup.json의 pendingSeats. 빈자리 모두 만들기(/api/seat/fill*)는 채울 자리를 fillQueue에 한 줄로 두고 한 자리씩 열어요
   (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 그 링크로 막 앉으면 맥에서 서버가 open으로 열어요).
 - 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md에 '팀 간 대화' 덧붙이기).
-  팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 보여 줘요.
+  팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 대화(T-…)별로 묶어 보여 줘요.
+  한 대화는 왕복 3번까지(bin/talk_thread.py가 잠금을 잡고 세요). 멈춘 대화는 /api/talk/allow로 대표가 3번 더 열어 줘요(허락 줄).
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
   층마다 팀을 추천해요(규칙으로, 이 맥 안에서만). 대표가 허락하면(setup.json의 readFirstMessages) 세션마다 첫 메시지 앞부분에서
   역할 낱말만 찾아요. 첫 메시지 글은 응답·기록·파일 어디에도 내지 않고, 맞은 낱말(우리 낱말 목록의 것)과 어디서 찾았는지만 알려요.
@@ -4304,7 +4305,9 @@ SEAT_TLOCK = threading.Lock()
 SEAT_PASS = threading.Lock()   # 한 번에 한 번만 살펴요
 SEAT_RUN = {"alive": False, "active": False, "last": 0.0}
 PLACEHOLDER_SID = "local_00000000"   # 예시·자리 표시용 세션 id
-TALK_OPEN, TALK_CLOSE = "<!-- agencity:team-talk -->", "<!-- /agencity:team-talk -->"
+# 층 RULES.md의 '팀 간 대화' 부분 표시(docs/TEAM_RULES.md 8장). 판 번호가 없는 예전 표시는 v1이에요
+TALK_OPEN, TALK_CLOSE = "<!-- agencity:team-talk v2 -->", "<!-- /agencity:team-talk -->"
+TALK_ANY = re.compile(r"<!-- agencity:team-talk(?: v[0-9]+)? -->")
 
 
 def iso_at(t):
@@ -5725,7 +5728,7 @@ def talk_rules(t, roots):
         if base not in roots or os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > 1024 * 1024:
             return None
         with open(path, encoding="utf-8", newline="") as f:
-            return TALK_OPEN in f.read()
+            return bool(TALK_ANY.search(f.read()))
     except (OSError, UnicodeDecodeError):
         return None
 
@@ -5758,7 +5761,7 @@ def api_floor_rules_sync(body):
                 text = f.read()
         except (OSError, UnicodeDecodeError):
             raise ApiError(409, "이 층의 RULES.md를 읽지 못했어요")
-        if TALK_OPEN in text:
+        if TALK_ANY.search(text):
             return {"ok": True, "added": False}
         nl = "\r\n" if "\r\n" in text else "\n"
         block = talk_block(t["id"]).replace("\n", nl)
@@ -5766,6 +5769,45 @@ def api_floor_rules_sync(body):
         write_text(path, text + sep + block + nl)
     log(base, "팀 전체", "설정", "팀 규칙(RULES.md)에 ‘팀 간 대화’를 더했어요")
     return {"ok": True, "added": True}
+
+
+TALK_MOD = []   # 읽어 둔 bin/talk_thread.py
+
+
+def talk_mod():
+    """bin/talk_thread.py(tell.sh가 쓰는 대화 세기·잠금)를 처음 쓸 때 한 번 읽어요. 서버와 tell.sh가 같은 규칙·잠금을 써요."""
+    with LOCK:
+        if TALK_MOD:
+            return TALK_MOD[0]
+    try:
+        spec = importlib.util.spec_from_file_location("agencity_talk_thread", os.path.join(HERE, "bin", "talk_thread.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        ok = callable(getattr(mod, "allow", None)) and isinstance(getattr(mod, "Refused", None), type) and isinstance(getattr(mod, "ROUNDS", None), int)
+    except Exception:  # noqa: BLE001 — 없거나 깨졌으면 아래에서 알려요
+        ok = False
+    if not ok:
+        raise ApiError(500, "팀 간 대화 도우미를 읽지 못했어요. 한 줄 설치를 다시 실행해 주세요")
+    with LOCK:
+        if not TALK_MOD:
+            TALK_MOD.append(mod)
+        return TALK_MOD[0]
+
+
+def api_talk_allow(body):
+    """멈춘 팀 간 대화(T-…)에 왕복 3번을 더 열어요: hq/teams.jsonl에 허락 줄 하나. {thread} → {ok, thread, n, cap, rounds}.
+    멈춤 줄(팀장이 한도를 넘겨 보내려다 막힌 때)이 마지막 허락 뒤에 있을 때만 받아요(두 번 눌러도 한 번만 더해요)."""
+    tid = body.get("thread")
+    if not isinstance(tid, str) or not re.match(r"^T-[0-9a-f]{6}\Z", tid):
+        raise ApiError(400, "대화 번호가 이상해요")
+    mod = talk_mod()
+    try:
+        r = mod.allow(HQ, tid)
+    except mod.Refused as e:
+        raise ApiError(409, str(e))
+    except OSError:
+        raise ApiError(500, "팀 간 대화 기록을 고치지 못했어요")
+    return {"ok": True, "thread": r["thread"], "n": r["n"], "cap": r["cap"], "rounds": r["cap"] // 2}
 
 
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
@@ -5786,7 +5828,7 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/seat/fill-stop": api_seat_fill_stop, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
           "/api/setup/recommend": api_setup_recommend, "/api/codex/status": api_codex_status,
           "/api/boss/link": api_boss_link, "/api/boss/pending": api_boss_pending, "/api/boss/pick": api_boss_pick,
-          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules}
+          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules, "/api/talk/allow": api_talk_allow}
 
 
 class Handler(SimpleHTTPRequestHandler):
