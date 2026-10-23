@@ -3542,14 +3542,17 @@ def api_update_run(body):
 #      만들거나 고쳐요(같은 gist의 agencity.json 같은 다른 파일은 그대로). 숫자가 그대로면 고치지 않아요(gist 수정 기록은 계속 공개라서).
 #   3) 참가(/api/setup/meter/join): token-meter 참가 이슈 주소(내 gist id가 채워져 있어요). 제출은 대표가 GitHub에서 직접 눌러요.
 #   4) 명단(/api/setup/meter/status): <TOKEN_METER_BASE>members.json을 몇 분 기억해요(로그인 정보 없이 읽어요).
+#      내 gist가 아직 있는지도 몇 분 기억해요. 지운 gist는 setup.json에서 빼고 다시 ‘내 숫자 세어 보기’부터 보여요.
 # 하루 한 번 새로 올리기(setup.json의 tokenMeter.auto, 기본 꺼짐)는 새 버전 확인과 같은 때(/api/update/state) 뒤에서,
-# 로그인돼 있고 명단에 있을 때만, 20시간에 한 번까지, 숫자가 바뀌었을 때만 해요. GitHub 토큰은 어떤 답·기록에도 넣지 않아요.
+# 로그인돼 있고 명단에 있을 때만, 20시간에 한 번까지, 숫자가 바뀌었을 때만 명단의 그 gist를 고쳐요(새 gist는 만들지 않아요).
+# GitHub 토큰은 어떤 답·기록에도 넣지 않아요.
 # setup.json의 tokenMeter: {gist, login, t(마지막으로 gist에 쓴 때), hash(그때 숫자의 지문), auto, autoAt(하루 한 번을 해 본 때), joinAt}
 
 TM_BASE = _update_url("AGENCITY_TOKEN_METER_BASE", "https://min-heee.github.io/token-meter") + "/"   # 시험용 주소는 https나 127.0.0.1의 http만
 TM_MEMBERS_TTL = 180        # 명단은 이만큼 기억해요(초)
 TM_FRESH_GAP = 30           # fresh(새로 읽기)라도 이 초 안에 읽은 명단은 그대로 써요
-TM_FOUND_TTL = 600          # 내 gist 목록에서 찾은 것(없음도)은 이만큼 기억해요
+TM_FOUND_TTL = 600          # 내 gist 목록에서 찾은 것(없음도)과 내 gist가 아직 있는지는 이만큼 기억해요
+TM_NET_WAIT = 8             # 명단 받기는 모두 합쳐 이 초까지만 기다려요(조금씩 천천히 오는 답도 여기서 끊어요)
 TM_PREVIEW_TTL = 3600       # 센 숫자는 이만큼 지나면 다시 세요
 TM_AUTO_GAP = 20 * 3600     # 하루 한 번 새로 올리기는 이보다 자주 하지 않아요
 TM_MAX_BYTES = 256 * 1024   # gist에 올리는 글의 상한(collect.mjs의 MAX_GIST_BYTES)
@@ -3565,6 +3568,7 @@ TM = {"state": "idle", "seq": 0, "started": 0.0, "finished": 0.0, "login": "", "
       "summary": None, "error": "", "gist": None, "member": None, "old": False}
 TM_MEMBERS = {"at": 0.0, "failed": 0.0, "list": None}   # list: {로그인 소문자: gist id 소문자}
 TM_FOUND = {"at": 0.0, "login": "", "gist": None}
+TM_ALIVE = {}               # {(로그인 소문자, gist id 소문자): (확인한 때, 아직 있는지)}
 TM_AUTO = {"running": False}
 
 
@@ -3705,6 +3709,31 @@ def tm_mine(login, c=None):
     return c["gist"] if c["login"] and c["login"].lower() == login.lower() else None
 
 
+def tm_forget(gid):
+    """없어진(지웠거나 token-meter.json을 뺀) gist가 setup.json에 적어 둔 내 gist면 빼요(올린 때·숫자 지문·참가 신청한 때도).
+    하루 한 번 새로 올리기를 켜 둔 것은 그대로예요. 그러면 상자는 다시 ‘내 숫자 세어 보기’부터 보여요."""
+    with SETUP_LOCK:
+        s = load_setup()
+        c = tm_conf(s)
+        if not c["gist"] or c["gist"].lower() != gid.lower():
+            return
+        c.update(gist=None, login=None, t=None, hash=None, joinAt=None)
+        s["tokenMeter"] = {k: v for k, v in c.items() if v is not None}
+        write_json(SETUP, s)
+
+
+def tm_mark(gid, login, ok):
+    """gist가 아직 있는지 확인한 것을 적어요. 없어졌으면 setup.json(tm_forget)과 찾은 gist 기억에서도 빼요."""
+    with TM_LOCK:
+        if len(TM_ALIVE) > 50:
+            TM_ALIVE.clear()
+        TM_ALIVE[(login.lower(), gid.lower())] = (time.time(), ok)
+        if not ok and TM_FOUND["gist"] and TM_FOUND["gist"].lower() == gid.lower():
+            TM_FOUND.update(at=0.0, gist=None)   # 다음에 내 gist 목록을 새로 봐요
+    if not ok:
+        tm_forget(gid)
+
+
 def gist_call(method, path, body=None):
     """내 GitHub 로그인으로 GitHub API를 불러요(path는 'gists/…' 같은 상대 주소). (상태 코드, JSON dict·list)
     앱의 기기 로그인이면 그 토큰으로 바로(github_call), gh 로그인이면 gh api로 불러요(토큰은 gh가 쓰고 여기서는 읽지 않아요).
@@ -3772,15 +3801,15 @@ def tm_gist_url(g, login, gid):
 
 def tm_read(gid, login):
     """내 gist 하나: {id, url, doc(지금의 token-meter.json 문서, 못 읽으면 None)}.
-    없거나(404) 내 공개 gist가 아니거나 token-meter.json이 없으면 None. GitHub이 다른 까닭으로 답하지 않으면 ApiError(새 gist를 잘못 만들지 않게)."""
+    없거나(404) 내 공개 gist가 아니거나 token-meter.json이 없으면 None(tm_mark로 없어졌다고 적어요).
+    GitHub이 다른 까닭으로 답하지 않으면 ApiError(새 gist를 잘못 만들거나 있는 gist를 잊지 않게)."""
     code, g = gist_call("GET", f"gists/{gid}")
-    if code == 404:
-        return None
-    if code != 200 or not isinstance(g, dict):
+    if code != 404 and (code != 200 or not isinstance(g, dict)):
         raise tm_gh_fail(code) if code == 401 else ApiError(502, "내 gist를 확인하지 못했어요. 잠시 뒤 다시 해 주세요")
-    files = g.get("files") if isinstance(g.get("files"), dict) else {}
+    files = g.get("files") if code == 200 and isinstance(g.get("files"), dict) else {}
     name = tm_mod().GIST_FILE
-    if not tm_owner(g, login) or g.get("public") is not True or name not in files:
+    if code == 404 or not tm_owner(g, login) or g.get("public") is not True or name not in files:
+        tm_mark(gid, login, False)
         return None
     f, doc = files[name], None
     if isinstance(f, dict) and f.get("truncated") is not True and isinstance(f.get("content"), str):
@@ -3788,7 +3817,21 @@ def tm_read(gid, login):
             doc = json.loads(f["content"])
         except ValueError:
             doc = None
+    tm_mark(gid, login, True)
     return {"id": gid, "url": tm_gist_url(g, login, gid), "doc": doc if isinstance(doc, dict) else None}
+
+
+def tm_alive(gid, login, fresh=False):
+    """내 token-meter gist가 아직 있는지(tm_read로 읽히는지) True·False, GitHub에 못 물으면 None(있는 것으로 봐요).
+    TM_FOUND_TTL초 기억하고, fresh면 TM_FRESH_GAP초보다 오래된 것은 다시 물어요."""
+    with TM_LOCK:
+        hit = TM_ALIVE.get((login.lower(), gid.lower()))
+    if hit and 0 <= time.time() - hit[0] < (TM_FRESH_GAP if fresh else TM_FOUND_TTL):
+        return hit[1]
+    try:
+        return tm_read(gid, login) is not None
+    except ApiError:
+        return None
 
 
 def tm_find(login):
@@ -3828,15 +3871,32 @@ def tm_found(login):
 
 
 def tm_fetch_members():
-    """members.json을 받아 {로그인 소문자: gist id 소문자}. 못 읽으면 None. 로그인 정보(토큰)는 보내지 않아요."""
+    """members.json을 받아 {로그인 소문자: gist id 소문자}. 못 읽으면 None. 로그인 정보(토큰)는 보내지 않아요.
+    timeout은 한 번 읽을 때마다라서, 받기는 뒤에서 하고 모두 합쳐 TM_NET_WAIT초까지만 기다려요(명단을 기다리는 다른 요청이 오래 줄 서지 않게)."""
     url = f"{TM_BASE}members.json?t={int(time.time() * 1000)}"   # Pages 캐시를 피해요(collect.mjs와 같아요)
     req = urllib.request.Request(url, headers={"User-Agent": f"agencity/{VERSION}", "Accept": "application/json", "Cache-Control": "no-cache"})
+    end, box = time.monotonic() + TM_NET_WAIT, {}
+
+    def get():
+        try:
+            opener = LOCAL if urlsplit(url).hostname in ("127.0.0.1", "localhost") else urllib.request.build_opener()
+            with opener.open(req, timeout=TM_NET_WAIT) as r:
+                buf = bytearray()
+                while len(buf) <= TM_READ_MAX and time.monotonic() < end:   # 너무 크거나 기한이 지나면 받다 말아요(못 읽음)
+                    b = r.read1(65536)
+                    if not b:
+                        box["raw"] = bytes(buf)
+                        return
+                    buf += b
+        except Exception:  # noqa: BLE001 — 못 받으면 None(연결·HTTP 오류·이상한 답 모두)
+            pass
+    th = threading.Thread(target=get, name="meter-members", daemon=True)
+    th.start()
+    th.join(TM_NET_WAIT + 0.5)
+    raw = box.get("raw")
     try:
-        opener = LOCAL if urlsplit(url).hostname in ("127.0.0.1", "localhost") else urllib.request.build_opener()
-        with opener.open(req, timeout=8) as r:
-            raw = r.read(TM_READ_MAX + 1)
-        doc = json.loads(raw.decode("utf-8")) if len(raw) <= TM_READ_MAX else None
-    except (urllib.error.URLError, OSError, ValueError, UnicodeDecodeError):
+        doc = json.loads(raw.decode("utf-8")) if raw is not None else None
+    except (ValueError, UnicodeDecodeError):
         return None
     if not isinstance(doc, dict) or not isinstance(doc.get("members"), list):
         return None
@@ -3872,18 +3932,20 @@ def tm_members(fresh=False):
 
 def tm_where(login, fresh=False):
     """(내 token-meter gist id 또는 None, 명단에 이 gist로 있는지 True·False·None(명단을 못 읽음), 예전 gist로 올라 있는지).
-    이 맥에서 올린 gist → 명단에 있는 내 gist → 내 gist 목록(몇 분 기억) 순서로 찾아요."""
+    이 맥에서 올린 gist → 명단에 있는 내 gist → 내 gist 목록(몇 분 기억) 순서로 찾아요. 앞의 둘은 아직 있는지 봐서(몇 분 기억)
+    지운 gist는 건너뛰어요(이 맥에서 올린 것이면 setup.json에서도 빼요). 그래야 탈퇴하고 지운 뒤나 다른 gist로 다시 참가한 뒤에 옛 gist에 묶이지 않아요."""
     members = tm_members(fresh)
     listed = members.get(login.lower()) if members is not None else None
-    gid = tm_mine(login) or listed or tm_found(login)
+    gid = next((g for g in (tm_mine(login), listed) if g and tm_alive(g, login, fresh) is not False), None) or tm_found(login)
     member = None if members is None else bool(gid and listed == gid.lower())
     return gid, member, bool(gid and listed and listed != gid.lower())
 
 
-def tm_publish(text, login):
+def tm_publish(text, login, only=None):
     """token-meter.json(text)을 내 공개 gist에 만들거나 고쳐요. 반환 {ok, gist, url, created, unchanged, member, joinUrl}.
     올리기 전에 이 로그인(토큰)의 진짜 아이디가 문서의 login과 같은지 봐요(다르면 올리지 않아요).
     gist는 이 맥에서 올린 것 → 명단에 있는 것 → public.json의 gist → 내 gist 목록 순으로 찾고(token-meter.json이 든 내 공개 gist만), 없으면 새로 만들어요.
+    only(하루 한 번 새로 올리기)를 주면 그 gist만 고쳐요. 없어졌으면 새로 만들지 않고 그만둬요(새 공개 gist는 ‘gist에 올리기’를 눌러야 만들어요).
     고칠 때는 token-meter.json만 보내서 같은 gist의 다른 파일(agencity.json 등)은 그대로예요. 숫자가 그대로면 고치지 않아요."""
     mod, doc = tm_mod(), json.loads(text)
     if not doc.get("entries"):
@@ -3893,13 +3955,16 @@ def tm_publish(text, login):
         if me.lower() != str(doc.get("login") or "").lower() or me.lower() != login.lower():
             raise ApiError(409, f"GitHub 로그인(@{me})과 올릴 숫자의 아이디(@{one_line(doc.get('login'), 40)})가 달라요. 올리지 않았어요")
         members = tm_members()
-        cands, seen, cur = [tm_mine(me), (members or {}).get(me.lower()), str(load_public().get("gist") or "")], set(), None
+        cands = [only] if only else [tm_mine(me), (members or {}).get(me.lower()), str(load_public().get("gist") or "")]
+        seen, cur = set(), None
         for gid in cands:
             if gid and GIST_RE.match(gid) and gid.lower() not in seen:
                 seen.add(gid.lower())
                 cur = tm_read(gid, me)
                 if cur:
                     break
+        if not cur and only:
+            raise ApiError(409, "명단에 있는 내 gist가 없어져서 올리지 않았어요. 설정 4단계에서 다시 올려 주세요")
         if not cur:
             gid = tm_find(me)
             cur = tm_read(gid, me) if gid else None
@@ -3916,7 +3981,9 @@ def tm_publish(text, login):
             if code not in (200, 201) or not GIST_RE.match(gid):
                 raise tm_gh_fail(code) if code not in (200, 201) else ApiError(502, "만든 gist를 확인하지 못했어요. GitHub에서 내 gist를 확인해 주세요")
             cur, created = {"id": gid, "url": tm_gist_url(res, me, gid)}, True
-        tm_save(gist=cur["id"], login=me, hash=tm_digest(doc), **({} if unchanged else {"t": now()}))
+            tm_mark(gid, me, True)
+        # 새 gist면 예전 gist로 한 참가 신청(joinAt)은 지워요(이 gist로 다시 신청해야 해요)
+        tm_save(gist=cur["id"], login=me, hash=tm_digest(doc), **({} if unchanged else {"t": now()}), **({"joinAt": None} if created else {}))
         with TM_LOCK:
             TM_FOUND.update(at=time.time(), login=me.lower(), gist=cur["id"])
     listed = members.get(me.lower()) if members is not None else None
@@ -4045,7 +4112,7 @@ def tm_auto_run(login):
         text = tm_text(tm_build(login))
         if tm_digest(json.loads(text)) == tm_conf()["hash"]:
             return                           # 숫자가 그대로예요
-        tm_publish(text, login)
+        tm_publish(text, login, only=gid)    # 명단의 그 gist만 고쳐요(없어졌으면 새로 만들지 않아요)
     except ApiError as e:
         err = e.msg
     except Exception as e:  # noqa: BLE001 — 덤이에요. 서버는 그대로 둬요

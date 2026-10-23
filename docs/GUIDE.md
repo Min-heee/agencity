@@ -354,9 +354,9 @@ Codex 세션도 층의 자리에 앉혀요. 지금은 **하는 일만 보는** �
 3. **참가 신청 열기 ↗**: GitHub에서 **Submit new issue**를 누르면 봇이 몇 분 안에 명단에 넣어요. 화면은 저절로 바뀌어요.
 4. **도시에 건물이 서 있어요**가 뜨면 끝이에요. 숫자는 **숫자 다시 올리기**로 새로 올려요.
 
-- **하루 한 번 새로 올리기**(기본 꺼짐)를 켜면 사무실을 열어 둔 날 하루 한 번까지, 숫자가 바뀌었을 때만 올려요. gist 수정 기록은 계속 공개로 남아요.
+- **하루 한 번 새로 올리기**(기본 꺼짐)를 켜면 사무실을 열어 둔 날 하루 한 번까지, 숫자가 바뀌었을 때만 명단에 있는 그 gist를 고쳐요(새 gist는 만들지 않아요). gist 수정 기록은 계속 공개로 남아요.
 - token-meter로 이미 참가했다면 바로 4번 화면이 떠요.
-- 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고, GitHub의 gist 페이지에서 그 gist를 지워요.
+- 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고, GitHub의 gist 페이지에서 그 gist를 지워요. 지운 뒤에는 이 상자가 다시 **내 숫자 세어 보기**부터 보여요.
 
 #### 층 공개 범위
 
@@ -684,7 +684,7 @@ python3 bin/new_team.py
 
 ### 도시에 올릴 때
 
-- 내 건물(`token-meter.json`)에는 token-meter와 같은 항목만 나가요: 도구별 토큰 수와 API 환산액, 응답·세션 수, 날짜별 합계, 모델 이름(경로·메일 모양은 `(other)`), 시간대. 이름·프로젝트·경로·세션 id·대화는 나가지 않아요.
+- 내 건물(`token-meter.json`)에는 token-meter와 같은 항목만 나가요: 도구별 토큰 수와 API 환산액, 응답·세션·서브에이전트 수, 날짜별 합계, 모델 이름(경로·메일 모양은 `(other)`), 시간대. 이름·프로젝트·경로·세션 id·대화는 나가지 않아요.
 - **gist에 올리기**를 누를 때(켜 두면 하루 한 번 새로 올리기)만 올려요. 올리기 전에 GitHub 로그인의 아이디가 올릴 문서의 아이디와 같은지 확인해요. 같은 gist의 다른 파일은 건드리지 않아요.
 - 명단은 `https://min-heee.github.io/token-meter/members.json`을 로그인 정보 없이 읽어요.
 - 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고 gist를 지워요. 지우기 전까지는 지난 수정 기록도 공개로 남아요.

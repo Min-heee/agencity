@@ -2569,7 +2569,7 @@ function pubBlock() {
 }
 function pubHint() {
   const p = SU.st.published;
-  if (!withdraw()) return '올리려면 위에서 내 건물(token-meter gist)을 먼저 세워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
+  if (!withdraw()) return `${mtStage() === 'none' ? '올리려면 위에서 내 건물(token-meter gist)을 먼저 세워요. ' : ''}누르면 무엇이 나가는지 한 번 더 보여 줘요.`;
   if (p && p.current === true && p.floors === 0) return '도시에 올라간 층 정보는 이미 비어 있어요. 소개 한 줄을 고쳤다면 다시 눌러 반영해요.';
   return '도시에 올라간 층 정보를 비워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
 }
@@ -3405,7 +3405,7 @@ function mtPvHTML() {
       <p><b>모두 ${esc(tmNum(n(sm.total)))} 토큰</b> · 활동한 날 ${esc(n(sm.days))}일${sm.since && sm.until ? ` (${esc(sm.since)} ~ ${esc(sm.until)})` : ''}</p>
       ${tools ? `<p class="hint">${esc(tools)}</p>` : ''}
       <details id="suMtJson"${MT.jsonOpen ? ' open' : ''}><summary class="hint" style="cursor:pointer">올라갈 내용 그대로 보기</summary><pre class="d-pre">${esc(pv.json || '')}</pre></details>
-      <p class="hint">토큰 수·날짜별 합계·모델 이름만 나가요. 대화·경로는 나가지 않아요.</p>
+      <p class="hint">숫자(토큰·횟수·API 환산액)와 모델 이름·날짜·시간대만 나가요. 대화·경로는 나가지 않아요.</p>
       <p id="suMtCf"><b>누구나 보는 공개 gist에 올라가고, 수정 기록도 계속 공개로 남아요.</b></p>
       <div class="su-actions"><button type="button" class="btn primary" id="suMtPub" data-su="mt-pub" aria-describedby="suMtCf">gist에 올리기</button><button type="button" class="btn" data-su="mt-cancel">취소</button></div></div>`;
 }
@@ -3421,8 +3421,8 @@ function mtHTML() {
   else if (st === 'join') {
     const wait = s.member === null ? '명단을 확인하지 못했어요. 잠시 뒤 다시 볼게요' : s.joinAt ? '명단에 들어오기를 기다리는 중이에요…' : '';
     body = `${note}${s.old ? '<p class="hint">예전 gist로 참가돼 있어요. 다시 신청하면 이 gist로 바뀌어요.</p>' : ''}
-      ${s.joinUrl ? `<div class="su-actions"><a class="btn primary" id="suMtJoin" href="${esc(s.joinUrl)}" target="_blank" rel="noopener" data-su="mt-join">참가 신청 열기 ↗</a></div>
-      <p class="hint" style="margin-top:6px">GitHub에서 Submit new issue를 누르면 몇 분 안에 명단에 들어가요</p>` : ''}
+      <div class="su-actions">${s.joinUrl ? `<a class="btn primary" id="suMtJoin" href="${esc(s.joinUrl)}" target="_blank" rel="noopener" data-su="mt-join">참가 신청 열기 ↗</a>` : ''}${pv ? '' : '<button type="button" class="btn" id="suMtCount" data-su="mt-count">숫자 다시 올리기</button>'}</div>
+      ${s.joinUrl ? '<p class="hint" style="margin-top:6px">GitHub에서 Submit new issue를 누르면 몇 분 안에 명단에 들어가요</p>' : ''}
       ${wait ? `<p class="hint" role="status">${esc(wait)}</p>` : ''}${pv}`;
   } else {
     const last = s.last && agoAt(s.last) ? `마지막으로 올린 때 · ${agoAt(s.last)}` : '';
@@ -3441,6 +3441,8 @@ function mtPaint(focus) {
   if (!box) return;
   const html = mtHTML();
   if (html === box._h && !focus) return;
+  const why = $('#suPubWhy');
+  if (why) why.textContent = pubBlock() || pubHint();   // ‘도시에 올리기’ 안내도 건물 상태를 따라가요
   const a = document.activeElement, key = focus || (a && box.contains(a) ? (a.id ? '#' + a.id : a.dataset.su ? `[data-su="${a.dataset.su}"]` : '') : '');
   if (!html) { box.remove(); return; }
   box.outerHTML = html;
@@ -4146,7 +4148,7 @@ $('#setup').addEventListener('click', e => {
   else if (a === 'pub-yes') suRun(b, publishNow, 'pub');
   else if (a === 'mt-count') suRun(b, mtCount, 'mt');
   else if (a === 'mt-pub') suRun(b, mtPublish, 'mt');
-  else if (a === 'mt-cancel') { MT.pv = null; MT.jsonOpen = false; mtPaint(mtStage() === 'none' ? '#suMtCount' : '#suMeterH'); }
+  else if (a === 'mt-cancel') { MT.pv = null; MT.jsonOpen = false; mtPaint('#suMtCount'); }   // 세기 단추로(없으면 상자 제목으로)
   else if (a === 'mt-join') mtJoined();
   else if (a === 'mt-reload') { MT.err = ''; mtLoad(true); }
   else if (a === 'upd-check') suRun(b, updCheckNow);
