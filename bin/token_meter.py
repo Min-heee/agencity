@@ -9,9 +9,11 @@ collect.mjs가 바뀌면 여기를 똑같이 고치고, 맨 위 커밋을 바꾸
 build_doc()은 collect.mjs --publish가 올릴 문서(dict), serialize()는 올릴 글(바이트까지 같아요)이에요.
 
 읽는 것: ~/.claude/projects, ~/.codex/sessions·archived_sessions, ~/.gemini/tmp/…/chats 로그의
-토큰 수·모델 이름·시각·세션 id뿐이에요. 대화 내용은 쓰지 않아요. 로그는 한 줄씩 흘려 읽어요
-(구형 Gemini .json만 collect.mjs처럼 통째로, 256MB까지). 나가는 칸은 collect.mjs의 화이트리스트(sanitizeEntry)
-그대로라 이름·경로·프로젝트·세션 id는 안 나가요. 이 파일은 아무것도 올리지 않아요.
+토큰 수·모델 이름·시각·세션 id뿐이에요. 대화 내용은 쓰지 않고 남겨 두지도 않아요. 로그는 한 줄씩 흘려 읽어요
+(구형 Gemini .json만 collect.mjs처럼 통째로, 256MB까지 — 읽는 동안 그 파일 크기의 두세 배를 써요).
+build_doc()은 따로 띄운 파이썬에서 세서, 그 메모리는 부른 쪽(서버)에 남지 않아요.
+나가는 칸은 collect.mjs의 화이트리스트(sanitizeEntry) 그대로라 이름·경로·프로젝트·세션 id는 안 나가요.
+이 파일은 아무것도 올리지 않아요.
 
 다시 맞춰 보는 법(진짜 HOME·GitHub은 쓰지 않아요):
   1. 가짜 HOME에 로그 폴더(.claude/projects, .codex, .gemini)를 만들어요.
@@ -22,15 +24,22 @@ build_doc()은 collect.mjs --publish가 올릴 문서(dict), serialize()는 올�
 JS와 일부러 맞춘 것: JSON.parse(NaN·Infinity 거절, 숫자는 모두 double), 없는 칸(undefined)과 null의 차이, Map·Set 열쇠,
 모델 이름이 constructor·toString 같은 Object.prototype 이름일 때(모델별에서 빠지고 환산액이 0), 정렬 순서,
 new Date(…).toLocaleDateString('sv-SE')(이 컴퓨터 시간대), 시간대 이름의 ICU 표기.
-다른 것: V8의 옛 날짜 꼴('Aug 1, 2026'·'2026-08-01 10:00')은 못 읽은 날짜로, 1000단 넘게 겹친 JSON 줄은 건너뛰어요
-(세 도구 로그에는 없는 꼴). 모델 이름이 __proto__이면 collect.mjs --publish는 gh를 못 띄우고 실패해요(d76ad51의 버그) —
-여기서는 collect.mjs가 그때까지 센 값(--json-only)과 같게 셈해요.
+다른 것: V8의 옛 날짜 꼴('Aug 1, 2026'·'2026-08-01 10:00')은 못 읽은 날짜로, 1000단쯤 넘게 겹친 JSON 줄은 건너뛰어요
+(세 도구 로그에는 없는 꼴). 날짜는 OS의 시간대 자료(time.localtime)로, Node는 자기 ICU 자료로 셈해요. 두 자료의 판이
+다르면(예: OS 2026e·Node 26의 ICU 2026a, Africa/Casablanca의 2026년 끝 규칙) 자정 가까운 기록이 다른 날로 갈 수 있어요.
+OS와 ICU가 다르게 알아듣는 TZ 값도 그래요: posix/·right/로 시작하는 이름(ICU는 앞을 떼요. macOS에는 그 폴더가 없어
+여기서는 UTC로, 리눅스 right/는 윤초만큼 27초 안에서 달라요), ICU만 아는 옛 이름(US/Pacific-New·SystemV/…),
+숫자 뒤에 글자가 더 붙은 POSIX 꼴(EST5EDT,M3.2.0,M11.1.0·<+09>-9 — ICU는 버리고 /etc/localtime을 써요).
+TZ가 없거나 보통 IANA 이름이면 같아요.
+모델 이름이 __proto__이면 collect.mjs --publish는 gh를 못 띄우고 실패해요(d76ad51의 버그) — 여기서는 collect.mjs가
+그때까지 센 값(--json-only)과 같게 셈해요.
 """
 import argparse
 import json
 import math
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -174,8 +183,7 @@ def _numstr(x):
     return (s if k == 1 else s[0] + "." + s[1:]) + "e" + ("+" if e >= 0 else "-") + str(abs(e))
 
 
-def _str(v):
-    """String(v) — 객체 칸 이름으로 쓸 때(byModel[model] 등)."""
+def _str1(v):
     t = type(v)
     if t is str:
         return v
@@ -187,9 +195,28 @@ def _str(v):
         return "null"
     if v is _UNDEF:
         return "undefined"
-    if t is list:
-        return ",".join("" if x is None or x is _UNDEF else _str(x) for x in v)
     return "[object Object]"
+
+
+def _str(v):
+    """String(v) — 객체 칸 이름으로 쓸 때(byModel[model] 등). 배열은 join(',')처럼, 안의 null은 빈칸으로.
+    깊게 겹친 배열(JSON은 1000단 가까이 읽혀요)에도 멈추지 않게 되부름 없이 풀어요."""
+    if type(v) is not list:
+        return _str1(v)
+    parts, stack = [], [(v, 0)]
+    while stack:
+        a, i = stack.pop()
+        if i >= len(a):
+            continue
+        if i:
+            parts.append(",")
+        stack.append((a, i + 1))
+        x = a[i]
+        if type(x) is list:
+            stack.append((x, 0))
+        elif x is not None and x is not _UNDEF:
+            parts.append(_str1(x))
+    return "".join(parts)
 
 
 _WS = "\t\n\v\f\r \xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"   # JS의 공백·줄 끝 글자(StrWhiteSpaceChar)
@@ -374,7 +401,8 @@ class _Days:
 
 
 # ── 시간대 이름: Intl.DateTimeFormat().resolvedOptions().timeZone ──────
-# ICU가 다르게 부르는 이름(바뀐 이름<IANA 이름들). Node 26·ICU 78.3에서 zoneinfo의 모든 이름을 TZ로 돌려 뽑았어요.
+# ICU가 다르게 부르는 이름(바뀐 이름<IANA 이름들). Node 26·ICU 78.3에서 zoneinfo의 모든 이름을 TZ로 돌려 뽑았어요
+# (US/Pacific-New만 ICU에만 있는 이름).
 _TZ_ALIAS = {src: dst for line in """
 Africa/Asmera<Africa/Asmara Africa/Bamako<Africa/Timbuktu Africa/Cairo<Egypt Africa/Tripoli<Libya
 America/Adak<America/Atka,US/Aleutian America/Anchorage<US/Alaska
@@ -387,7 +415,7 @@ America/Edmonton<America/Yellowknife,Canada/Mountain America/Godthab<America/Nuu
 America/Halifax<Canada/Atlantic America/Havana<Cuba America/Indiana/Knox<America/Knox_IN,US/Indiana-Starke
 America/Indianapolis<America/Fort_Wayne,America/Indiana/Indianapolis,US/East-Indiana
 America/Iqaluit<America/Pangnirtung America/Jamaica<Jamaica America/Jujuy<America/Argentina/Jujuy
-America/Los_Angeles<PST8PDT,US/Pacific America/Louisville<America/Kentucky/Louisville
+America/Los_Angeles<PST8PDT,US/Pacific,US/Pacific-New America/Louisville<America/Kentucky/Louisville
 America/Manaus<Brazil/West America/Mazatlan<Mexico/BajaSur America/Mendoza<America/Argentina/Mendoza
 America/Mexico_City<Mexico/General America/New_York<EST5EDT,US/Eastern America/Noronha<Brazil/DeNoronha
 America/Panama<EST America/Phoenix<MST,US/Arizona America/Regina<Canada/Saskatchewan
@@ -432,6 +460,8 @@ def _tz_name():
         name = link[i + 10:]
     else:
         name = tz[1:] if tz.startswith(":") else tz
+    if name.startswith(("posix/", "right/")):   # ICU처럼 하나만 떼요
+        name = name[6:]
     if name in ("", "Factory"):
         return "Etc/Unknown"
     if name == "GMT":
@@ -441,8 +471,13 @@ def _tz_name():
     if name.startswith("/") or ".." in name.split("/") or name in ("posixrules", "leapseconds", "localtime"):
         return None
     for d in _ZONEINFO:
+        p = d
         try:
-            with open(os.path.join(d, name), "rb") as f:
+            for part in name.split("/"):   # 대소문자까지 같은 이름만(macOS는 파일 이름의 대소문자를 안 가려요: asia/seoul)
+                if part not in os.listdir(p):
+                    raise OSError
+                p = os.path.join(p, part)
+            with open(p, "rb") as f:
                 if f.read(4) == b"TZif":
                     return name
         except OSError:
@@ -489,7 +524,7 @@ def _walk(top, exts):
     return out
 
 
-def _jsonl(path, want=None):
+def _jsonl(path, want=None, loads=_loads):
     """한 줄씩 흘려 읽어 JSON 값을 내요. want(바이트 또는 바이트 정규식)가 있으면 그것이 든 줄만 — 글자로 풀기 전에
     바이트로 걸러도 같아요(ASCII는 풀어도 그대로라). 깨진 줄은 건너뛰어요."""
     try:
@@ -506,20 +541,20 @@ def _jsonl(path, want=None):
                 elif want is not None and not want.search(raw):
                     continue
                 try:
-                    yield _loads(raw.decode("utf-8", "replace"))
+                    yield loads(raw.decode("utf-8", "replace"))
                 except (ValueError, RecursionError):
                     pass
         except OSError:
             return
 
 
-def _read_doc(path, max_bytes=256 * 1024 * 1024):
-    """구형 Gemini 세션(.json, 들여쓴 단일 문서) — collect.mjs처럼 통째로."""
+def _read_doc(path, loads=_loads, max_bytes=256 * 1024 * 1024):
+    """구형 Gemini 세션(.json, 들여쓴 단일 문서) — collect.mjs처럼 통째로(읽는 동안 파일 크기의 두세 배를 써요)."""
     try:
         if os.stat(path).st_size > max_bytes:
             return None
         with open(path, "rb") as f:
-            return _loads(f.read().decode("utf-8", "replace"))
+            return loads(f.read().decode("utf-8", "replace"))
     except (OSError, ValueError, RecursionError):
         return None
 
@@ -709,16 +744,39 @@ def _gemini_rate(model):
     return GEMINI_FALLBACK
 
 
+# Gemini 기록은 대화 내용을 같이 담고 있어요. 셈에 쓰는 칸만 남겨 두면 로그가 커도 메모리가 늘지 않아요.
+# 읽을 때부터 이 칸만 남기는 해석기(어느 깊이의 객체든 같은 칸만 — 셈이 읽는 값은 그대로예요).
+_GEM_KEEP = frozenset(("sessionId", "projectHash", "kind", "messages", "$set", "$rewindTo", "id", "type", "tokens",
+                       "timestamp", "model", "input", "cached", "output", "thoughts"))
+_loads_gem = json.JSONDecoder(parse_int=float, parse_constant=_no_const,
+                              object_pairs_hook=lambda kv: {k: v for k, v in kv if k in _GEM_KEEP}).decode
+
+
+def _gem_one(m, day_of):
+    """메시지 하나(dict)에서 셈에 쓰는 것만 (input, cached, output, 날짜, 모델)으로. 셈에 안 들어가면 None —
+    그래도 자리는 남겨요($rewindTo가 그 id부터 잘라요)."""
+    tk = m.get("tokens", _UNDEF)
+    if m.get("type") != "gemini" or type(tk) not in _OBJ:
+        return None
+    raw_in = _num(_get(tk, "input"))
+    cached = min(_num(_get(tk, "cached")), raw_in)
+    inp = raw_in - cached
+    out = _num(_get(tk, "output")) + _num(_get(tk, "thoughts"))   # 추론 포함
+    if inp + cached + out == 0:
+        return None
+    return raw_in, cached, out, day_of(m.get("timestamp", _UNDEF)), m["model"] if type(m.get("model")) is str else "(gemini)"
+
+
 def _gemini(root):
     files = [f for f in _walk(os.path.join(root, "tmp"), (".jsonl", ".json")) if "chats" in f.split(os.sep)]
     if not files:
         return None
-    sessions = {}   # 열쇠 → (kind, msgs, fmt)
+    sessions, day_of = {}, _Days()   # 열쇠 → (kind, msgs, fmt), msgs: id 열쇠 → _gem_one 값
     for file in files:
         sid, kind, msgs = None, "main", {}
         is_jsonl = file.endswith(".jsonl")
         if is_jsonl:
-            for rec in _jsonl(file):
+            for rec in _jsonl(file, loads=_loads_gem):
                 if type(rec) is not dict:
                     continue
                 rid = rec.get("id", _UNDEF)
@@ -732,7 +790,7 @@ def _gemini(root):
                         msgs.clear()
                         for m in ms:
                             if _truthy(_get(m, "id")):
-                                msgs[_key(m["id"])] = m
+                                msgs[_key(m["id"])] = _gem_one(m, day_of)
                     continue
                 rw = rec.get("$rewindTo", _UNDEF)
                 if _truthy(rw):
@@ -743,16 +801,17 @@ def _gemini(root):
                             del msgs[kk]
                     continue
                 if _truthy(rid):
-                    msgs[_key(rid)] = rec   # 다시 오면 스트리밍 갱신 → 자리는 그대로 두고 교체
+                    msgs[_key(rid)] = _gem_one(rec, day_of)   # 다시 오면 스트리밍 갱신 → 자리는 그대로 두고 교체
         else:
-            doc = _read_doc(file)
+            doc = _read_doc(file, _loads_gem)
             if type(doc) is not dict or type(doc.get("messages")) is not list:
                 continue
             sid = doc["sessionId"] if _truthy(doc.get("sessionId")) else file
             kind = doc["kind"] if _truthy(doc.get("kind")) else "main"
             for m in doc["messages"]:
                 if _truthy(_get(m, "id")):
-                    msgs[_key(m["id"])] = m
+                    msgs[_key(m["id"])] = _gem_one(m, day_of)
+            doc = None
         if not msgs:
             continue
         key = _key(sid if _truthy(sid) else file)
@@ -763,23 +822,16 @@ def _gemini(root):
     if not sessions:
         return None
 
-    totals, by_model, by_day, day_of = _blank(), {}, {}, _Days()
+    totals, by_model, by_day = _blank(), {}, {}
     session_ids, subs, split, unknown = set(), set(), {"main": 0.0, "sub": 0.0}, 0.0
     for sid, (kind, msgs, _) in sessions.items():
         touched = False
-        for m in msgs.values():
-            tk = m.get("tokens", _UNDEF)
-            if m.get("type") != "gemini" or type(tk) not in _OBJ:
+        for r in msgs.values():
+            if r is None:
                 continue
-            raw_in = _num(_get(tk, "input"))
-            cached = min(_num(_get(tk, "cached")), raw_in)
+            raw_in, cached, out, day, model = r
             inp = raw_in - cached
-            out = _num(_get(tk, "output")) + _num(_get(tk, "thoughts"))   # 추론 포함
-            if inp + cached + out == 0:
-                continue
-            day = day_of(m.get("timestamp", _UNDEF))
             touched = True
-            model = m["model"] if type(m.get("model")) is str else "(gemini)"
             rt = _gemini_rate(model)
             long = "pro" in model and raw_in > GEMINI_LONG_CTX
             cost = (inp / 1e6) * rt["in"] * (2 if long else 1) + (cached / 1e6) * rt["cached"] * (2 if long else 1) \
@@ -889,17 +941,48 @@ def build_doc(login, roots=None, now=None):
     roots: {"claude": 경로, "codex": 경로, "gemini": 경로}. 빠진 칸·None이면 collect.mjs의 기본 폴더예요.
     now: updatedAt·generatedAt에 쓸 시각(datetime, UTC). 없으면 지금.
     도구가 하나도 없으면 entries가 비어요 — collect.mjs는 이때 올리지 않아요(로그 없음).
+    세기는 따로 띄운 파이썬(-I)에서 하고 결과만 받아요. 큰 로그를 읽느라 쓴 메모리가 부른 쪽(오래 켜 두는 서버)에
+    남지 않게요(macOS는 큰 글을 푼 메모리를 잘 돌려주지 않아요). 띄우지 못하면 여기서 바로 세요 — 결과는 같아요.
     """
+    _check_login(login)
+    roots, at = roots or {}, _iso(now)
+    doc = _in_child(login, roots, at)
+    return doc if doc is not None else _build(login, roots, at)
+
+
+def _check_login(login):
     if login is not None and not (isinstance(login, str) and LOGIN_RE.match(login)):
         raise ValueError("GitHub 아이디 꼴이 아니에요")
-    base, roots = default_roots(), roots or {}
-    at, tz = _iso(now), _tz_name()
+
+
+def _build(login, roots, at):
+    base, tz = default_roots(), _tz_name()
     entries = []
     for tool, fn in (("claude", _claude), ("codex", _codex), ("gemini", _gemini)):
         e = fn(_norm(roots.get(tool) or base[tool]))
         if e is not None:
             entries.append(_sanitize(e, at, tz))
     return _clean({"schema": SCHEMA, "app": "token-meter", "login": login, "updatedAt": at, "entries": entries})
+
+
+def _in_child(login, roots, at):
+    """_build를 python3 -I <이 파일> --_child 로 돌려 문서만 받아요(환경 변수 TZ·HOME은 그대로 물려줘요). 못 하면 None."""
+    if not sys.executable:
+        return None
+    try:
+        arg = json.dumps({"login": login, "roots": {t: roots.get(t) for t in TOOLS}, "at": at}).encode()
+        p = subprocess.run([sys.executable, "-I", "-B", os.path.abspath(__file__), "--_child"], input=arg,
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+        doc = json.loads(p.stdout) if p.returncode == 0 else None
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        return None
+    return doc if type(doc) is dict and doc.get("updatedAt") == at and type(doc.get("entries")) is list else None
+
+
+def _child():
+    a = json.loads(sys.stdin.buffer.read())
+    _check_login(a["login"])
+    sys.stdout.write(json.dumps(_build(a["login"], a["roots"], a["at"])))
 
 
 def summary(doc):
@@ -961,6 +1044,8 @@ def serialize(doc):
 
 # ── 실행 ────────────────────────────────────────────────────────────────
 def main():
+    if sys.argv[1:] == ["--_child"]:   # build_doc이 띄운 자리(표준 입력으로 받고 표준 출력으로 내요)
+        return _child()
     ap = argparse.ArgumentParser(description="내 토큰 숫자 세기(token-meter와 같은 셈). 아무것도 올리지 않아요.")
     ap.add_argument("--json", action="store_true", help="gist에 올라갈 token-meter.json 그대로 보기")
     ap.add_argument("--login", help="문서에 넣을 GitHub 아이디(--json과 같이)")
@@ -970,9 +1055,10 @@ def main():
     a = ap.parse_args()
     roots = {"claude": a.dir, "codex": a.codex_dir, "gemini": a.gemini_dir}
     try:
-        doc = build_doc(a.login, roots)
+        _check_login(a.login)
     except ValueError as e:
         sys.exit(f"--login: {e}")
+    doc = _build(a.login, roots, _iso(None))   # 명령으로 돌리면 끝나면서 메모리를 다 돌려줘요
     if not doc["entries"]:
         r = {k: _norm(v or default_roots()[k]) for k, v in roots.items()}
         sys.exit(f"로그를 못 찾았어요 (Claude: {r['claude']} / Codex: {r['codex']}/sessions / Gemini: {r['gemini']}/tmp).")
