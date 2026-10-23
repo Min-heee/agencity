@@ -1764,14 +1764,16 @@ function madeFillHTML() {
 const fillDone = q => (q.skipped ? (q.seated ? `빈자리 ${q.seated}개를 채웠어요 · ${q.skipped}개는 건너뛰었어요` : `빈자리 ${q.skipped}개를 모두 건너뛰었어요`) : `빈자리 ${q.seated}개를 모두 채웠어요`);
 const FILL_MSG = { waiting: 'Claude 창에서 Enter를 눌러요', pick: '새 세션을 골라 주세요', seated: '다음 자리를 여는 중…', todo: '여는 중…', expired: '시간이 지나 멈췄어요', cancel: '기다림을 취소해서 멈췄어요' };
 const fillStopped = c => ['expired', 'failed', 'cancel', 'error'].includes(c.state);   // [다시 열기]·[건너뛰기]를 기다려요
-const fillMsg = c => (c.state === 'waiting' && c.opened === 'fail' ? '다음 자리를 열어 주세요' : c.state === 'failed' || c.state === 'error' ? c.error || '자리에 앉히지 못했어요' : FILL_MSG[c.state] || FILL_MSG.waiting);
+// [다음 자리 열기]를 기다려요: 서버가 못 열었거나(fail), 앞 자리가 막 앉은 게 아니라서 서버가 저절로 열지 않는 자리(ready: 멈춘 자리가 다른 방법으로 찼을 때 등)
+const fillNeed = c => c.state === 'ready' || (c.state === 'waiting' && c.opened === 'fail');
+const fillMsg = c => (fillNeed(c) ? '다음 자리를 열어 주세요' : c.state === 'failed' || c.state === 'error' ? c.error || '자리에 앉히지 못했어요' : FILL_MSG[c.state] || FILL_MSG.waiting);
 function fillLineHTML(w) {   // w: 'o' 사무실 · 's' 설정(단추 id가 겹치지 않게)
   const q = FILL.q, off = FILL.busy ? ' disabled' : '';
   const b = (act, label, cls = '', aria = '') => `<button type="button" class="btn${cls}" id="${w}fl${act}" data-fill="${act}"${aria ? ` aria-label="${esc(aria)}"` : ''}${off}>${esc(label)}</button>`;
   const err = FILL.err ? `<p class="fill-err" role="alert">${esc(FILL.err)}</p>` : '';
   if (!q) return FILL.note ? `<p class="fill-st">${esc(FILL.note)}</p>${err}` : err;
   if (!q.cur) return `<p class="fill-st ok">${esc(fillDone(q))}${q.seated ? ' <b aria-hidden="true">✓</b>' : ''}</p><div class="fill-acts">${b('close', '닫기', '', '빈자리 채우기 알림 닫기')}</div>${err}`;
-  const c = q.cur, who = seatWho(c.team, c.role), stop = fillStopped(c), need = c.state === 'waiting' && c.opened === 'fail';
+  const c = q.cur, who = seatWho(c.team, c.role), stop = fillStopped(c), need = fillNeed(c);
   const main = need ? b('open', '다음 자리 열기', ' primary', `${who} 자리 링크 열기`) : stop ? b('open', '다시 열기', ' primary', `${who} 자리 링크 다시 열기`) : '';
   // 고르기는 그 자리 상자에서 해요. 이 화면에 그 상자가 안 보이면(다른 층을 보는 중이거나 설정 화면) 이 줄 아래에 같은 상자를 보여요
   const k = seatKey(c.team, c.role), area = w === 's' ? '#suBody' : '#rooms';
@@ -1819,7 +1821,7 @@ function fillMerge(v, at) {
   if (q) FILL.note = '';
   const c = q && q.cur, w = was && was.cur, same = !!(c && w && c.team === w.team && c.role === w.role), who = c ? seatWho(c.team, c.role) : '';
   if (q && !c && w) seatSay(fillDone(q));
-  else if (c && w && !same && c.state === 'waiting') seatSay(c.opened === 'fail' ? `다음 자리는 ${who}예요. [다음 자리 열기]를 눌러 주세요` : `다음 자리를 열었어요: ${who}. Claude 창에서 Enter를 눌러요`);
+  else if (c && w && !same && (c.state === 'waiting' || c.state === 'ready')) seatSay(fillNeed(c) ? `다음 자리는 ${who}예요. [다음 자리 열기]를 눌러 주세요` : `다음 자리를 열었어요: ${who}. Claude 창에서 Enter를 눌러요`);
   else if (c && w && c.state === 'waiting' && c.opened === 'fail' && w.opened !== 'fail') seatSay(`${who} 자리 링크를 열지 못했어요. [다음 자리 열기]를 눌러 주세요`);
   else if (c && fillStopped(c) && !(same && w.state === c.state)) seatSay(`${who} 자리에서 멈췄어요: ${fillMsg(c)}`);
   fillRefresh();
@@ -1864,12 +1866,12 @@ async function fillSkip() {
   } catch (e) { fillFail(e, '건너뛰지 못했어요'); }
   seatSchedule();
 }
-async function fillOpen() {   // [다음 자리 열기](서버가 못 열었을 때)·[다시 열기](시간 지남·못 앉힘·취소·못 연 자리)
-  const q = FILL.q;
-  if (FILL.busy || !q || !q.cur) return;
+async function fillOpen() {   // [다음 자리 열기](서버가 못 열었거나 저절로 열지 않는 자리)·[다시 열기](시간 지남·못 앉힘·취소·못 연 자리)
+  const q = FILL.q, c = q && q.cur;
+  if (FILL.busy || !c) return;
   FILL.busy = 'open'; FILL.err = ''; FILL.at = Date.now();
   fillRefresh();
-  try { fillGot(await post('api/seat/fill', { id: q.id })); }
+  try { fillGot(await post('api/seat/fill', { id: q.id, team: c.team, role: c.role })); }   // 보던 자리일 때만 열어요(그사이 줄이 나아갔으면 409)
   catch (e) { fillFail(e, '링크를 만들지 못했어요'); }
   seatSchedule();
 }
