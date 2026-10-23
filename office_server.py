@@ -41,7 +41,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   자리 표시(AGC-…)가 첫 메시지에 있는 세션(첫 메시지를 아직 못 읽으면 층 폴더에서 연 세션 하나, 그 밖에는 대표가 골라요)을 그 자리에 앉혀요.
   기다리는 자리는 setup.json의 pendingSeats. 빈자리 모두 만들기(/api/seat/fill*)는 채울 자리를 fillQueue에 한 줄로 두고 한 자리씩 열어요
   (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 그 링크로 막 앉으면 맥에서 서버가 open으로 열어요).
-- 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md에 '팀 간 대화' 덧붙이기).
+- 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md의
+  에이전시티 부분(팀 간 대화·일 맡기기)을 docs/TEAM_RULES.md의 새 판으로, 없으면 덧붙이기. 바꾸기 전 파일은 RULES.md.bak).
   팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 보여 줘요.
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
   층마다 팀을 추천해요(규칙으로, 이 맥 안에서만). 대표가 허락하면(setup.json의 readFirstMessages) 세션마다 첫 메시지 앞부분에서
@@ -3202,8 +3203,16 @@ def api_setup_state(body):
                 if m.get("codexId"):
                     m["codex"] = codex_state(m["codexId"], files, titles, now_t)
     roots = office_roots()
-    for f, t in zip(floors, teams):   # 규칙 맞추기가 필요한지: RULES.md에 '팀 간 대화'가 있으면 true, 없으면 false(알 수 없으면 null)
-        f["talkRules"] = talk_rules(t, roots)
+    try:
+        cur = {k: v for k, (v, _) in rule_doc().items()}
+    except ApiError:
+        cur = {}
+    # 규칙 맞추기가 필요한지: rules는 RULES.md의 에이전시티 부분 판({이름: 판, 없으면 null}), outdated는 하나라도 없거나 예전 판이면 true.
+    # 알 수 없으면(예시 팀·링크·너무 큰 파일 등) 둘 다 null. talkRules는 0.8.x 이름이라 한 판만 남겨요(outdated의 반대)
+    for f, t in zip(floors, teams):
+        f["rules"] = floor_rules(t, roots)
+        f["outdated"] = rules_outdated(f["rules"], cur)
+        f["talkRules"] = None if f["outdated"] is None else not f["outdated"]
     return {"ok": True, "done": done, "platform": platform_name(), "version": VERSION, "intro": intro,
             "github": github_state(s), "deviceFlow": bool(client_id()), "ghAvailable": bool(shutil.which("gh")),
             "claude": {"app": claude_app(), "sessions": len(claude_sessions())},
@@ -4304,7 +4313,10 @@ SEAT_TLOCK = threading.Lock()
 SEAT_PASS = threading.Lock()   # 한 번에 한 번만 살펴요
 SEAT_RUN = {"alive": False, "active": False, "last": 0.0}
 PLACEHOLDER_SID = "local_00000000"   # 예시·자리 표시용 세션 id
-TALK_OPEN, TALK_CLOSE = "<!-- agencity:team-talk -->", "<!-- /agencity:team-talk -->"
+# 층 RULES.md에서 에이전시티가 맞추는 부분: docs/TEAM_RULES.md의 '<!-- agencity:<이름> v<판> -->' … '<!-- /agencity:<이름> -->'(판이 없으면 1판).
+# 글과 판은 docs/TEAM_RULES.md 한 곳에만 있어요(새 층은 bin/new_team.py가 그 문서를 그대로 복사해요). (이름, 화면·기록에 쓰는 이름), 더하는 순서
+RULE_BLOCKS = (("team-talk", "팀 간 대화"), ("handoff", "일 맡기기"))
+RULES_MAX = 1024 * 1024   # 이보다 큰 RULES.md는 읽지도 고치지도 않아요
 
 
 def iso_at(t):
@@ -4524,7 +4536,7 @@ def seat_open(tid, role_in):
     marker = "AGC-" + secrets.token_hex(4)
     t, base, folder, role, url = seat_url(tid, role_in, marker)
     try:
-        api_floor_rules_sync({"team": t["id"]})   # 새 팀원이 읽을 RULES.md에 ‘팀 간 대화’가 있게(이미 있으면 그대로)
+        api_floor_rules_sync({"team": t["id"]})   # 새 세션이 읽을 RULES.md를 새 판으로(이미 맞으면 그대로)
     except ApiError:
         pass
     t0 = time.time()
@@ -5715,57 +5727,136 @@ def floor_sidebar(t, base):
     return {"ok": True, "queued": True, "group": name, "sessions": len(seats)}
 
 
-def talk_rules(t, roots):
-    """층 RULES.md에 '팀 간 대화' 부분이 있는지: True·False. 예시 팀, RULES.md가 없거나 링크이거나 못 읽으면 None(규칙 맞추기로도 못 넣어요)."""
-    if is_example(t):
+def rule_block(text, name):
+    """text 안의 그 이름 표시 부분: (시작, 끝, 판). 없으면 None. 여는 줄이 둘 이상이거나 그 뒤에 닫는 줄이 없으면 ValueError(이름)."""
+    hits = list(re.finditer(r"<!-- agencity:" + re.escape(name) + r"(?: v([1-9][0-9]{0,5}))? -->", text))
+    if not hits:
         return None
-    base = os.path.realpath(os.path.join(HERE, t["office"]))
-    path = os.path.join(base, "RULES.md")
-    try:
-        if base not in roots or os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > 1024 * 1024:
-            return None
-        with open(path, encoding="utf-8", newline="") as f:
-            return TALK_OPEN in f.read()
-    except (OSError, UnicodeDecodeError):
-        return None
+    close = f"<!-- /agencity:{name} -->"
+    j = text.find(close, hits[0].end())
+    if len(hits) > 1 or j < 0:
+        raise ValueError(name)
+    return hits[0].start(), j + len(close), int(hits[0].group(1) or 1)
 
 
-def talk_block(tid):
-    """docs/TEAM_RULES.md의 '팀 간 대화' 부분(표시 줄 포함), 설치 폴더와 층 id를 채운 것."""
+def rule_versions(text):
+    """RULES.md 글의 표시 부분 판: {이름: 판, 없으면 None}. 표시가 깨졌으면 ValueError(이름)."""
+    out = {}
+    for name, _ in RULE_BLOCKS:
+        hit = rule_block(text, name)
+        out[name] = hit[2] if hit else None
+    return out
+
+
+def rule_doc(tid=None):
+    """docs/TEAM_RULES.md의 표시 부분들: {이름: (판, 여는 줄부터 닫는 줄까지의 글)}. tid를 주면 설치 폴더와 그 층 id를 채워요
+    (bin/new_team.py가 새 층에 채우는 것과 같아요). 못 찾으면 ApiError(500)."""
     try:
         with open(os.path.join(HERE, "docs", "TEAM_RULES.md"), encoding="utf-8") as f:
             doc = f.read()
     except (OSError, UnicodeDecodeError):
         doc = ""
-    i = doc.find(TALK_OPEN)
-    j = doc.find(TALK_CLOSE, i + 1) if i >= 0 else -1
-    if i < 0 or j < 0:
-        raise ApiError(500, "docs/TEAM_RULES.md에서 ‘팀 간 대화’ 부분을 찾지 못했어요")
-    return fill_here(doc[i:j + len(TALK_CLOSE)]).replace("<내 층 id>", tid)
+    out = {}
+    for name, label in RULE_BLOCKS:
+        try:
+            hit = rule_block(doc, name)
+        except ValueError:
+            hit = None
+        if hit is None:
+            raise ApiError(500, f"docs/TEAM_RULES.md에서 ‘{label}’ 부분을 찾지 못했어요")
+        body = doc[hit[0]:hit[1]]
+        out[name] = (hit[2], fill_here(body).replace("<내 층 id>", tid) if tid else body)
+    return out
+
+
+def sync_rules_text(text, blocks):
+    """RULES.md 글을 blocks(rule_doc)에 맞춘 (새 글, 맨 끝에 더한 이름들, 새 판으로 바꾼 이름들).
+    없는 부분은 맨 끝에 더하고, 예전 판은 여는 줄부터 닫는 줄까지만 바꾸고, 같거나 새 판은 그대로 둬요. 표시 밖의 글은 한 글자도 바꾸지 않아요.
+    줄바꿈은 그 파일을 따라요(\\r\\n이 있으면 \\r\\n). 표시가 깨졌으면 ValueError(이름)."""
+    nl = "\r\n" if "\r\n" in text else "\n"
+    appended, updated = [], []
+    for name, _ in RULE_BLOCKS:
+        ver, body = blocks[name]
+        body = body.replace("\n", nl)
+        hit = rule_block(text, name)
+        if hit is None:
+            sep = "" if not text else nl if text.endswith("\n") else nl + nl
+            text = text + sep + body + nl
+            appended.append(name)
+        elif hit[2] < ver:
+            text = text[:hit[0]] + body + text[hit[1]:]
+            updated.append(name)
+    return text, appended, updated
+
+
+def floor_rules(t, roots):
+    """층 RULES.md의 표시 부분 판: {이름: 판, 없으면 None}. 예시 팀, 쓸 수 없는 사무실, RULES.md가 없거나 링크이거나 너무 크거나
+    못 읽거나 표시가 깨졌으면 None(규칙 맞추기로도 못 맞춰요)."""
+    if is_example(t):
+        return None
+    base = os.path.realpath(os.path.join(HERE, t["office"]))
+    path = os.path.join(base, "RULES.md")
+    try:
+        if base not in roots or os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > RULES_MAX:
+            return None
+        with open(path, encoding="utf-8", newline="") as f:
+            return rule_versions(f.read())
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def rules_outdated(have, cur):
+    """규칙 맞추기가 필요한지: 하나라도 없거나 예전 판이면 True. 층(have)이나 문서(cur)를 모르면 None."""
+    if have is None or not cur:
+        return None
+    return any((have.get(k) or 0) < v for k, v in cur.items())
 
 
 def api_floor_rules_sync(body):
-    """층의 RULES.md에 '팀 간 대화' 부분이 없을 때만 맨 끝에 덧붙여요(다른 글은 그대로, 임시 파일을 쓰고 바꿔치기). {ok, added}."""
+    """층 RULES.md의 에이전시티 부분(RULE_BLOCKS)을 docs/TEAM_RULES.md에 맞춰요(sync_rules_text). 이미 맞으면 쓰지 않고,
+    고칠 때는 임시 파일을 쓰고 바꿔치기해요. 예전 판을 바꿀 때는 바꾸기 전 파일을 RULES.md.bak에 먼저 남겨요(표시 사이를 고쳐 썼어도 되찾게).
+    {ok, changed, added(changed와 같아요, 0.8.x 이름), appended: [이름], updated: [이름], rules: {이름: 판}, backup: 'RULES.md.bak' 또는 None}."""
     t, base = floor_of(body.get("team"), "예시 팀의 규칙은 고칠 수 없어요")
+    blocks = rule_doc(t["id"])
     path = os.path.join(base, "RULES.md")
+    bak = path + ".bak"
     with TEAM_LOCK:
         if os.path.islink(path):
             raise ApiError(409, "이 층의 RULES.md가 링크예요. 고치지 않았어요")
         if not os.path.isfile(path):
             raise ApiError(409, "이 층의 팀 사무실에는 RULES.md가 없어요(이미 있던 사무실이라 만들지 않았어요). docs/TEAM_RULES.md를 참고해 주세요")
         try:
-            with open(path, encoding="utf-8", newline="") as f:
-                text = f.read()
+            big = os.path.getsize(path) > RULES_MAX
+            if not big:
+                with open(path, encoding="utf-8", newline="") as f:
+                    text = f.read()
         except (OSError, UnicodeDecodeError):
             raise ApiError(409, "이 층의 RULES.md를 읽지 못했어요")
-        if TALK_OPEN in text:
-            return {"ok": True, "added": False}
-        nl = "\r\n" if "\r\n" in text else "\n"
-        block = talk_block(t["id"]).replace("\n", nl)
-        sep = "" if not text else nl if text.endswith("\n") else nl + nl
-        write_text(path, text + sep + block + nl)
-    log(base, "팀 전체", "설정", "팀 규칙(RULES.md)에 ‘팀 간 대화’를 더했어요")
-    return {"ok": True, "added": True}
+        if big:
+            raise ApiError(409, "이 층의 RULES.md가 너무 커요(1MB 넘게). 고치지 않았어요")
+        try:
+            new, appended, updated = sync_rules_text(text, blocks)
+        except ValueError as e:
+            raise ApiError(409, f"이 층 RULES.md의 ‘{dict(RULE_BLOCKS).get(str(e), str(e))}’ 표시가 깨졌어요(여는 줄이 둘이거나 닫는 줄이 없어요). 고치지 않았어요")
+        if updated:   # 표시 사이를 바꾸면 그 안에 써 둔 글이 사라져요: 바꾸기 전 파일을 그대로 남겨요(링크·폴더면 고치지 않아요)
+            if os.path.islink(bak) or os.path.isdir(bak):
+                raise ApiError(409, "이 층의 RULES.md.bak이 링크나 폴더라 예전 글을 남길 수 없어요. 고치지 않았어요")
+            try:
+                write_text(bak, text)
+            except OSError as e:
+                raise ApiError(409, f"예전 글을 RULES.md.bak에 남기지 못해서 고치지 않았어요({e.strerror or type(e).__name__})")
+        if new != text:
+            try:
+                write_text(path, new)
+            except OSError as e:
+                raise ApiError(409, f"이 층의 RULES.md를 쓰지 못했어요({e.strerror or type(e).__name__})")
+    changed = bool(appended or updated)
+    if changed:
+        lab = dict(RULE_BLOCKS)
+        log(base, "팀 전체", "설정", "팀 규칙(RULES.md)을 맞췄어요: " + ", ".join([f"‘{lab[n]}’ 더함" for n in appended] + [f"‘{lab[n]}’ 새 판" for n in updated])
+            + (" (바꾸기 전 글은 RULES.md.bak)" if updated else ""))
+    return {"ok": True, "changed": changed, "added": changed, "appended": appended, "updated": updated, "rules": rule_versions(new),
+            "backup": "RULES.md.bak" if updated else None}
 
 
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
