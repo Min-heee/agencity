@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>에이전시티 · 도시</title>
+<meta name="description" content="참가한 사람마다 토큰 작업량만큼 높은 건물이 서요. 건물을 누르면 주인이 공개한 층만 둘러봐요.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://min-heee.github.io/agencity/">
+<meta property="og:title" content="에이전시티 도시">
+<meta property="og:description" content="참가한 사람마다 토큰 작업량만큼 높은 건물이 서요. 건물을 누르면 주인이 공개한 층만 둘러봐요.">
+<meta property="og:image" content="https://min-heee.github.io/agencity/city.jpg">
+<meta property="og:image:width" content="800">
+<meta property="og:image:height" content="500">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+// 내 컴퓨터의 에이전시티 앱(127.0.0.1)이 아니면 공개 도시예요: 설치·참가 안내를 보여요.
+// 그리기 전에 정해서 깜빡이지 않아요(글꼴 스타일시트보다 먼저라 기다리지도 않아요).
+if (!(location.protocol.startsWith('http') && /^(127\.0\.0\.1|localhost)$/.test(location.hostname))) document.documentElement.classList.add('visit');
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -11,7 +25,8 @@
 /* 에이전시티 도시: 등록한 사람마다 건물 하나. 높이는 토큰 작업량(로그 눈금), 금빛 띠는 공개한 층(팀).
    숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약은 같은 gist의 agencity.json에서 읽어요
    (그 파일이 없으면 예전 이름 때 올린 claude-office.json).
-   이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요). */
+   이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요).
+   공개 도시 https://min-heee.github.io/agencity/ 도 이 파일이에요(.github/workflows/city.yml이 올려요). */
 :root{
   --sky-1:#0B1222; --sky-2:#1B2742; --ground:#121A2B; --street:#1A2438;
   --panel:#FFFFFF; --panel-2:#F2F4F8; --ink:#172030; --ink-2:#4F5D72; --ink-3:#8591A3; --line:#D6DDE7;
@@ -33,6 +48,7 @@ button{font:inherit}
 .top > *{pointer-events:auto}
 .plate{margin:0; font:400 26px/1 var(--font-display); color:#F3F5F8; background:#0A0E14; padding:9px 16px 7px; border-radius:6px; box-shadow:inset 0 0 0 2px #3A4659}
 .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:6px; background:rgba(10,14,20,.72); color:#E4E8EE; border:1px solid #3A4659; font-size:12.5px; text-decoration:none}
+.chip[hidden]{display:none}   /* 위의 display가 hidden을 덮지 않게(공개 도시에서는 ‘← 내 사무실’이 없어요) */
 .chip b{font-family:var(--font-mono); font-weight:500}
 .chip.warn{border-color:#FFB224; color:#FFD27A}
 .sp{flex:1}
@@ -47,6 +63,9 @@ button{font:inherit}
 .name{font:600 11px var(--font-body); fill:#E4E8EE; paint-order:stroke; stroke:#0B1222; stroke-width:3px; cursor:pointer}
 .name.sel{fill:var(--gold)}
 .hint{position:fixed; z-index:4; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%); color:#A9B4C3; font-size:12px; background:rgba(10,14,20,.6); padding:5px 10px; border-radius:6px; white-space:nowrap}
+.hint a, .msg a{color:#E4E8EE}
+/* 공개 도시에서만 보이는 것(설치·참가 안내). 내 컴퓨터의 앱에서는 숨겨요. */
+:root:not(.visit) .visit-only{display:none}
 .zoom{position:fixed; z-index:7; right:max(16px, env(safe-area-inset-right)); bottom:max(48px, calc(env(safe-area-inset-bottom) + 40px)); display:flex; flex-direction:column; gap:6px}
 .zoom button{width:38px; height:38px; border-radius:8px; border:1px solid #3A4659; background:rgba(10,14,20,.85); color:#E4E8EE; font-size:18px; cursor:pointer}
 .msg{position:fixed; z-index:4; left:50%; top:46%; transform:translate(-50%,-50%); color:#C8D0DC; text-align:center; max-width:min(520px, calc(100% - 32px))}
@@ -109,11 +128,12 @@ button{font:inherit}
   <span class="sp"></span>
   <a class="chip" id="home" href="./" hidden>← 내 사무실</a>
   <a class="chip" href="https://github.com/Min-heee/agencity/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
+  <a class="chip visit-only" href="https://github.com/Min-heee/agencity#설치" target="_blank" rel="noopener">에이전시티 설치 ↗</a>
 </header>
 <div id="stage" aria-label="에이전시티 도시 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
 <div class="msg" id="msg" hidden></div>
 <div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
-<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요</p>
+<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물을 세우려면 <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">token-meter로 참가</a>하고, 층은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>에서 도시에 올려요</span></span></p>
 <aside class="card" id="card" hidden aria-live="polite"></aside>
 <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle"><div class="tour-box" id="tourBox"></div></div>
 
@@ -129,6 +149,7 @@ const NS = 'http://www.w3.org/2000/svg';
 // 기본: token-meter 공개 명단. 로컬 사무실 서버에서는 org.json의 city 칸으로 바꿀 수 있어요({registry, me}).
 const CONFIG = { registry: 'https://min-heee.github.io/token-meter/', gistRaw: 'https://gist.githubusercontent.com/', meterFile: 'token-meter.json', officeFile: 'agencity.json', oldOfficeFile: 'claude-office.json', me: '' };
 const params = new URLSearchParams(location.search);
+const LOCAL = !document.documentElement.classList.contains('visit');   // 내 컴퓨터의 앱(127.0.0.1)인지, 머리에서 정했어요
 const DEMO = params.has('demo');
 const DEMO_NOW = new Date('2026-10-21T09:00:00+09:00');   // 예시 데이터의 기준 날짜(언제 열어도 같은 모습)
 const now = () => DEMO ? DEMO_NOW : new Date();
@@ -432,7 +453,6 @@ function card(p) {
   const tsum = tools.reduce((a, [, v]) => a + v, 0) || 1;
   const fams = Object.keys(m.models).filter(f => m.models[f] > 0).sort((a, b) => m.models[b] - m.models[a]).slice(0, 4);
   const isMe = CONFIG.me && CONFIG.me.toLowerCase() === p.login.toLowerCase();
-  const local = location.protocol.startsWith('http') && /^(127\.0\.0\.1|localhost)$/.test(location.hostname);
   const officeAgo = o ? daysAgo(o.updatedAt) : -1;
   $('#card').innerHTML = `
     <div class="card-head">${p.demo ? '' : `<img alt="" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=88" referrerpolicy="no-referrer">`}
@@ -451,7 +471,7 @@ function card(p) {
     ${o && o.floors.length ? `<ul class="floors">${o.floors.map(f => `<li><b>${f.floor}층</b><span class="u">${esc(f.name)}</span>${f.district ? ` <small>· ${esc(DISTRICTS[f.district])}</small>` : ''}${f.summary ? `<p class="u">${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul>
       ${o.floors.some(f => f.level === 'tour') ? '<button type="button" class="btn" id="tourBtn">사무실 둘러보기</button>' : ''}`
       : '<p class="note" style="margin-top:0">아직 공개한 층이 없어요. 건물 크기만 보여요.</p>'}
-    ${isMe && !p.demo && local ? '<a class="btn ghost" href="./">내 사무실 열기</a>' : ''}
+    ${isMe && !p.demo && LOCAL ? '<a class="btn ghost" href="./">내 사무실 열기</a>' : ''}
     <p class="note">숫자는 각자 token-meter로 세어 올린 자기 신고 값이에요. 작업량은 캐시 읽기를 10분의 1로 센 값이라 token-meter 순위판의 총 토큰보다 작아요. 대화·경로·세션 정보는 올리지 않아요.</p>`;
   $('#card').hidden = false;
   document.body.classList.add('carded');
@@ -566,7 +586,8 @@ addEventListener('resize', () => {
 });
 
 /* ---------- 시작 ---------- */
-function message(title, body) { const m = $('#msg'); m.innerHTML = `<h2>${esc(title)}</h2><p>${esc(body)}</p>`; m.hidden = false; }
+// html: 페이지에 미리 적어 둔 글(#join)만 넘겨요. 남이 만든 글은 body로(esc).
+function message(title, body, html) { const m = $('#msg'); m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body)}</p>`; m.hidden = false; }
 function addPerson(m) {
   const w = work(m.meter), h = hash(m.login);
   people.push(Object.assign(m, { w, floors: floorsOf(w), level: levelOf(w), recent: recentDays(m.meter), stale: daysAgo(m.meter.updatedAt),
@@ -575,8 +596,8 @@ function addPerson(m) {
   scheduleDraw();
 }
 (async () => {
-  // 로컬 사무실 서버라면 org.json의 city 설정(registry, me)을 써요. 정적 호스팅이면 그냥 기본값.
-  try {
+  // 로컬 사무실 서버라면 org.json의 city 설정(registry, me)을 써요. 공개 도시·정적 호스팅이면 읽지 않고 그냥 기본값.
+  if (LOCAL) try {
     const org = JSON.parse(await getCapped('org.json', MAX_BYTES, true));
     if (org && org.city && typeof org.city === 'object') {
       if (typeof org.city.registry === 'string' && /^https:\/\//.test(org.city.registry)) CONFIG.registry = org.city.registry;
@@ -591,7 +612,7 @@ function addPerson(m) {
     if (res.failed || res.cut) $('#count').classList.add('warn');
     if (!people.length) {
       if (res.listed) message('건물을 불러오지 못했어요', `명단의 ${res.listed}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`);
-      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.');
+      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? '' : $('#join').innerHTML);
       return;
     }
     layout(); draw();

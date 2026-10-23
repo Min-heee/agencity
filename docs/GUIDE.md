@@ -563,6 +563,7 @@ python3 bin/new_team.py
 
 - 사무실 위쪽 **도시 보기 →**
 - 또는 `http://127.0.0.1:8765/city.html` (예시 도시는 `city.html?demo=1`)
+- 설치하지 않아도 [min-heee.github.io/agencity](https://min-heee.github.io/agencity/)에서 봐요. **도시 보기 →**와 같은 페이지인데, **← 내 사무실**이 없고 내 `org.json`의 도시 설정은 쓰지 않아요.
 - `city.html`은 정적 파일이라 GitHub Pages 같은 곳에 그대로 올려도 돼요.
 
 ### 건물은 이렇게 서요

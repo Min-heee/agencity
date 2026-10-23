@@ -57,6 +57,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 등록한 사람마다 **토큰 작업량만큼 높은 건물**이 서요. 건물을 누르면 주인이 공개한 층만 읽기 전용으로 둘러봐요.
 
 - 사무실 위쪽 **도시 보기 →**로 열어요.
+- 설치하지 않은 사람도 [min-heee.github.io/agencity](https://min-heee.github.io/agencity/)에서 봐요.
 - 기본은 비공개예요. 올리려면 [token-meter](https://github.com/Min-heee/token-meter)로 내 숫자를 먼저 올리고, GitHub에 연결한 뒤 **설정 → 공개 범위**에서 골라요.
 
 [도시 안내](docs/GUIDE.md#에이전시티-도시) · [앞으로의 계획](docs/VISION.md)
@@ -88,6 +89,7 @@ On first run it skims your session list (Claude Code and Codex) and recommends a
 From one page you can message any session, run meetings, and approve what team leads file.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
+The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed).
 Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
 
 ```bash
