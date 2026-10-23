@@ -4286,8 +4286,9 @@ def tm_maybe_auto():
 # (최근 5시간·오늘·이번 주, 도구별·층별. 작업량 = 도시 건물과 같은 셈: 캐시 읽기는 0.1). 셈은 token_meter.py의 규칙 그대로예요.
 # /api/state를 받으면 10분에 한 번까지 뒤에서 세고(요청은 기다리지 않아요), 한 번에 하나만 돌아요. ‘지금 세기’(/api/usage/state {now})는 20초에 한 번까지.
 # 따로 띄우는 까닭: 큰 로그를 읽어도 서버가 느려지지 않고 그 메모리가 서버에 남지 않게요.
-# 숫자는 이 메모리와 .usage/cache.json(파일마다 크기·시각과 기간 안 기록의 숫자, 0600) 하나에만 두고 어디에도 보내지 않아요.
-# 끄면 아무것도 읽지 않고 그 기억 파일도 지워요. 한도(usage.limits: h5·day·week)는 작업량 숫자이고, 화면이 80%·100%에서 알려요.
+# 숫자는 이 메모리와 .usage/cache.json(파일마다 크기·시각, 기간 안 기록의 숫자·응답과 세션 id·작업 폴더, 0600) 하나에만 두고 어디에도 보내지 않아요.
+# 끄면 아무것도 읽지 않고(세는 중이던 도우미도 멈춰요) 그 기억 파일도 지워요. 자정·월요일 자정이 지나면 어제 숫자는 내지 않고 바로 다시 세요.
+# 한도(usage.limits: h5·day·week)는 작업량 숫자이고, 화면이 80%·100%에서 알려요.
 USAGE_DIR = os.path.join(HERE, ".usage")
 USAGE_CACHE = os.path.join(USAGE_DIR, "cache.json")
 USAGE_EVERY = int_in(os.environ.get("AGENCITY_USAGE_EVERY"), 600, 5, 86400)   # 시험 때만 바꿔요
@@ -4297,11 +4298,13 @@ USAGE_RETRY = 120           # 못 셌으면 이만큼 뒤에 다시
 USAGE_WINDOWS = ("h5", "day", "week")
 USAGE_MAX = 10 ** 15
 USAGE_LOCK = threading.Lock()
-USAGE = {"running": False, "again": False, "at": 0.0, "forced": 0.0, "failed": 0.0, "res": None, "error": None}
-# 한도 글: 1500만, 1억 5천만, 15M, 1.5k, 2,000,000 (쉼표·빈칸은 빼고 읽어요)
-USAGE_KO = {"조": 10 ** 12, "천억": 10 ** 11, "백억": 10 ** 10, "십억": 10 ** 9, "억": 10 ** 8, "천만": 10 ** 7, "백만": 10 ** 6,
-            "십만": 10 ** 5, "만": 10 ** 4, "천": 10 ** 3, "백": 100, "십": 10, "": 1}
-USAGE_KO_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)(조|천억|백억|십억|억|천만|백만|십만|만|천|백|십)?")
+USAGE_OLD = 2 * USAGE_EVERY + 300   # 5시간 숫자가 이보다 오래되면(두 번 넘게 못 셌어요) 내지 않아요
+USAGE = {"running": False, "again": False, "at": 0.0, "forced": 0.0, "failed": 0.0, "res": None, "error": None, "gen": 0, "proc": None}
+# 한도 글: 1500만, 1억 5천만, 1천5백만, 천만, 15M, 1.5k, 2,000,000 (쉼표·빈칸은 빼고 읽어요)
+# 조·억·만마다 한 묶음, 묶음 안은 천·백·십이에요. 2억5천(2억 5천만?)·1천5(1005? 1500?)처럼 헷갈리는 건 받지 않아요.
+USAGE_BIG = {"조": 10 ** 12, "억": 10 ** 8, "만": 10 ** 4}
+USAGE_SMALL = {"천": 1000, "백": 100, "십": 10}
+USAGE_KO_RE = re.compile(r"[0-9]+(?:\.[0-9]+)?|[조억만천백십]")
 USAGE_EN_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)([kmbg]?)\Z")
 USAGE_EN = {"": 1, "k": 10 ** 3, "m": 10 ** 6, "b": 10 ** 9, "g": 10 ** 9}
 
@@ -4325,24 +4328,44 @@ def usage_amount(v):
         if len(s) > 40:
             raise bad
         m = USAGE_EN_RE.match(s)
-        if m:
-            n = float(m.group(1)) * USAGE_EN[m.group(2)]
-        else:
-            parts = USAGE_KO_RE.findall(s)
-            if not parts or "".join(a + b for a, b in parts) != s:
-                raise bad
-            n, last = 0.0, None
-            for num, unit in parts:   # 큰 단위부터(1억 5천만). 단위 없는 숫자는 맨 끝에만
-                u = USAGE_KO[unit]
-                if last is not None and u >= last:
-                    raise bad
-                n, last = n + float(num) * u, u
+        n = float(m.group(1)) * USAGE_EN[m.group(2)] if m else usage_ko(s)
+        if n is None:
+            raise bad
     else:
         raise bad
     n = int(round(n))
     if n > USAGE_MAX:
         raise ApiError(400, "한도가 너무 커요")
     return n or None
+
+
+def usage_ko(s):
+    """1억 5천만·1천5백만·천만 → 수. 못 읽으면 None, 헷갈리면(2억5천, 1천5) ApiError."""
+    amb = ApiError(400, "2억 5천만·1천5백만처럼 단위까지 써요")
+    toks = USAGE_KO_RE.findall(s)
+    if not toks or "".join(toks) != s:
+        return None
+    total, group, num, big, small = 0.0, 0.0, None, None, None   # num: 아직 단위가 안 붙은 숫자
+    for t in toks:
+        if t in USAGE_SMALL:   # 천·백·십: 큰 것부터, 숫자가 없으면 1(천만)
+            v = USAGE_SMALL[t]
+            if small is not None and v >= small:
+                return None
+            group, num, small = group + (1 if num is None else num) * v, None, v
+        elif t in USAGE_BIG:   # 조·억·만: 큰 것부터, 앞에 묶음이 있어야 해요
+            v = USAGE_BIG[t]
+            if (big is not None and v >= big) or (num is None and small is None):
+                return None   # 1만 1억, 1억만
+            if num is not None and small is not None:
+                raise amb   # 1천5만
+            total, group, num, big, small = total + (group + (num or 0)) * v, 0.0, None, v, None
+        else:
+            num = float(t)
+    if num is not None or small is not None:   # 끝 묶음(단위 없음)은 만 뒤에만(1만 2천). 2억5천·1천5는 헷갈려요
+        if (num is not None and small is not None) or (big is not None and big > USAGE_BIG["만"]):
+            raise amb
+        total += group + (num or 0)
+    return total
 
 
 def usage_conf(s=None):
@@ -4384,8 +4407,9 @@ def usage_clean(r, ids):
             "stats": {k: n(st.get(k)) for k in ("files", "old", "same", "tail", "full", "bytes", "ms")}}
 
 
-def usage_count():
-    """bin/usage_meter.py --count를 따로 띄워(낮은 우선순위) 결과만 받아요. 오래 걸리면 그만두게 해요."""
+def usage_count(gen=None):
+    """bin/usage_meter.py --count를 따로 띄워(낮은 우선순위) 결과만 받아요. 오래 걸리면 그만두게 해요.
+    gen: usage_run이 시작할 때 본 USAGE["gen"]. 그새 껐으면(바뀌었으면) 띄우자마자 멈춰요."""
     floors = usage_floors()
     arg = json.dumps({"roots": tm_roots(), "floors": floors, "cache": USAGE_CACHE}).encode("utf-8")
     if not sys.executable:
@@ -4395,12 +4419,19 @@ def usage_count():
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=True)
     except OSError:
         raise ApiError(500, "사용량 도우미(bin/usage_meter.py)를 켜지 못했어요")
+    with USAGE_LOCK:
+        USAGE["proc"] = p   # 세는 동안 끄면 바로 멈추게(api_usage_settings)
+        if gen is not None and USAGE["gen"] != gen:
+            p.kill()
     try:
         out, _ = p.communicate(arg, timeout=USAGE_TIMEOUT)
     except subprocess.TimeoutExpired:
         p.kill()
         p.communicate()
         raise ApiError(504, "사용량을 세는 데 너무 오래 걸렸어요")
+    finally:
+        with USAGE_LOCK:
+            USAGE["proc"] = None
     if p.returncode != 0:
         raise ApiError(500, "사용량을 세지 못했어요")
     try:
@@ -4422,19 +4453,25 @@ def usage_drop_cache():
 
 def usage_run():
     while True:
+        with USAGE_LOCK:
+            gen = USAGE["gen"]
         res, err = None, None
         try:
-            res = usage_count()
+            res = usage_count(gen)
         except ApiError as e:
             err = e.msg
         except Exception as e:  # noqa: BLE001 — 알림은 덤이에요. 서버는 그대로 둬요
             err = f"사용량을 세지 못했어요({type(e).__name__})"
-        on = usage_conf()["enabled"]
         with USAGE_LOCK:
-            if not on:   # 세는 동안 껐어요: 센 것도, 기억 파일도 남기지 않아요
-                USAGE.update(running=False, again=False, res=None, error=None, at=0.0)
+            # 끄는 쪽은 setup.json을 쓴 뒤에 이 자물쇠를 잡아요. 그래서 켜짐은 자물쇠 안에서 읽어야 끈 걸 놓치지 않아요
+            on = usage_conf()["enabled"]
+            if not on or USAGE["gen"] != gen:   # 세는 동안 껐어요: 센 것도, 기억 파일도 남기지 않아요
+                USAGE.update(res=None, error=None, at=0.0, again=False)
                 usage_drop_cache()
-                return
+                if not on:
+                    USAGE["running"] = False
+                    return
+                continue   # 그새 다시 켰어요: 처음부터 한 번 더
             t = time.time()
             if res is not None:
                 USAGE.update(res=res, error=None, at=t, failed=0.0)
@@ -4461,23 +4498,52 @@ def usage_kick(force=False, conf=None):
             USAGE["again"] = USAGE["again"] or force
             return
         if not force:
-            if USAGE["at"] and -60 <= t - USAGE["at"] < USAGE_EVERY:
+            fresh = USAGE["at"] and -60 <= t - USAGE["at"] < USAGE_EVERY
+            if fresh and USAGE["res"] and t - USAGE["at"] >= USAGE_GAP and usage_stale(USAGE["res"], t) & {"day", "week"}:
+                fresh = False   # 자정(월요일 자정)이 지났어요: 어제 숫자를 오늘 것으로 두지 않게 바로 다시 세요
+            if fresh:
                 return
             if USAGE["failed"] and t - USAGE["failed"] < min(USAGE_EVERY, USAGE_RETRY):
                 return
+        if not usage_conf()["enabled"]:   # 부른 쪽이 읽은 설정은 그새 낡았을 수 있어요(방금 껐으면 읽지 않아요)
+            return
         USAGE["running"] = True
     threading.Thread(target=usage_run, name="usage-count", daemon=True).start()
 
 
+def usage_stale(r, t=None):
+    """센 결과에서 지금은 맞지 않는 기간들: 자정(월요일 자정)이 지나 어제(지난주) 것이 된 day(week), 너무 오래된 h5."""
+    t = time.time() if t is None else t
+    out = set()
+    try:
+        today = datetime.fromtimestamp(t).date()
+        starts = {"day": today, "week": today - timedelta(days=today.weekday())}   # 이 맥 시간대의 날짜로 견줘요(서머타임에도 그날 첫 시각이에요)
+        for w, d in starts.items():
+            if datetime.fromtimestamp(r["windows"][w]["from"]).date() != d:
+                out.add(w)
+    except (OverflowError, OSError, ValueError):
+        out.update(("day", "week"))
+    try:
+        at = datetime.fromisoformat(str(r["at"]))
+        age = t - at.timestamp() if at.tzinfo else None
+    except (OverflowError, OSError, ValueError):
+        age = None
+    if age is None or not -60 <= age <= USAGE_OLD:
+        out.add("h5")
+    return out
+
+
 def usage_view(conf=None):
-    """설정 화면용: {enabled, limits, counting, error, at, windows, floors, stats}."""
+    """설정 화면용: {enabled, limits, counting, error, at, windows, floors, stats}. 지금은 맞지 않는 기간은 빼요(곧 다시 세요)."""
     c = conf or usage_conf()
     with USAGE_LOCK:
         r, running, err = USAGE["res"], USAGE["running"], USAGE["error"]
     out = {"ok": True, "enabled": c["enabled"], "limits": c["limits"], "counting": bool(running and c["enabled"]),
            "error": err if c["enabled"] else None, "at": None}
     if c["enabled"] and r:
-        out.update(at=r["at"], windows=r["windows"], floors=r["floors"], stats=r["stats"])
+        old = usage_stale(r)
+        out.update(at=r["at"], windows={k: x for k, x in r["windows"].items() if k not in old},
+                   floors={k: {w: n for w, n in x.items() if w not in old} for k, x in r["floors"].items()}, stats=r["stats"])
     return out
 
 
@@ -4486,7 +4552,7 @@ def usage_brief(c):
     v = usage_view(c)
     w = v.get("windows") or {}
     return {"limits": v["limits"], "at": v["at"], "counting": v["counting"], "error": v["error"],
-            "win": {k: w[k]["work"] for k in w}, "floors": {k: x["day"] for k, x in (v.get("floors") or {}).items()}}
+            "win": {k: w[k]["work"] for k in w}, "floors": {k: x["day"] for k, x in (v.get("floors") or {}).items() if "day" in x}}
 
 
 def api_usage_state(body):
@@ -4522,8 +4588,13 @@ def api_usage_settings(body):
     if ch.get("enabled") is True:
         usage_kick(force=True, conf=u)
     elif ch.get("enabled") is False:
-        with USAGE_LOCK:   # 세는 중이면 끝난 뒤 usage_run이 지워요
-            USAGE.update(res=None, error=None, at=0.0, again=False)
+        with USAGE_LOCK:   # 세는 중이면 도우미를 멈추고, 끝난 뒤 usage_run이 기억 파일을 지워요
+            USAGE.update(res=None, error=None, at=0.0, again=False, gen=USAGE["gen"] + 1)
+            if USAGE["proc"] is not None:
+                try:
+                    USAGE["proc"].kill()
+                except OSError:
+                    pass
             if not USAGE["running"]:
                 usage_drop_cache()
     return usage_view(u)

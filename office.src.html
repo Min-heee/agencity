@@ -4878,7 +4878,7 @@ function usgSetHTML() {
   if (!u) return '<div id="suUsgBox" hidden></div>';   // 아직 못 읽었으면 자리만(읽으면 채워요)
   const d = USG.draft || {};
   const more = !u.enabled ? '' : `<div class="su-usg-lim">${USG_WIN.map(([w, , short]) => `<label for="suUsg-${w}">${short}</label><input type="text" id="suUsg-${w}" data-su-in="usg-lim" data-w="${w}" value="${esc(w in d ? d[w] : usgLimText(u.limits[w]))}" placeholder="한도 없음" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suUsgL">`).join('')}</div>
-      <p class="hint" id="suUsgL">한도는 작업량(캐시 읽기 ×0.1, 도시와 같은 셈)이에요. 1500만·15M처럼 쓰고, 비우면 한도 없음. 80%·100%가 되면 위에 알려요.</p>
+      <p class="hint" id="suUsgL">작업량(캐시 읽기 ×0.1)으로 1500만·15M처럼 써요. 비우면 한도가 없어요. 80%·100%가 되면 위에 알려요.</p>
       <p class="hint" id="suUsgS">${esc(usgLine(u))}</p>
       <p class="err" role="alert" id="suUsgErr">${esc(USG.err)}</p>
       <div class="su-actions"><button type="button" class="btn" data-su="usg-save">한도 저장</button><button type="button" class="btn" data-su="usg-now">지금 세기</button></div>`;
