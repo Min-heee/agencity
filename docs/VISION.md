@@ -56,7 +56,7 @@ GitHub 활동을 3D 도시로 보여 주는 [Git City](https://github.com/srizzo
 
 ## 숫자는 어디서 오나요
 
-- **내 사용량**: Claude Code·Codex·Gemini CLI의 사용량을 내 컴퓨터의 세션 기록에서 **숫자만** 세요. 본인이 원할 때만 자기 GitHub gist에 올리고, [참가 이슈](https://github.com/Min-heee/token-meter)로 등록해요. 대화 내용, 경로, 프로젝트 이름, 세션 id는 올리지 않아요.
+- **내 사용량**: Claude Code·Codex·Gemini CLI의 사용량을 내 컴퓨터의 세션 기록에서 **숫자만** 세요. 본인이 원할 때만 자기 GitHub gist에 올리고, 참가 이슈로 [도시 명단](https://github.com/Min-heee/token-meter)에 등록해요. 대화 내용, 경로, 프로젝트 이름, 세션 id는 올리지 않아요.
 - 에이전시티 사무실 등록도 같은 방식으로 해요: GitHub 로그인 + 본인 gist 확인(gist 주인 = 등록한 사람).
 - 숫자는 각자 신고한 값이라 검증할 수 없어요. 그래서 도시에는 정확한 수치 대신 **등급**만 보여 주고, 지나친 값은 상한으로 자르고, "자기 신고"라고 표시해요.
 - 나중에는 Claude Code의 OpenTelemetry 지표(`claude_code.token.usage`)도 고를 수 있게 할 수 있어요.

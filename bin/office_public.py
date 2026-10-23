@@ -2,19 +2,19 @@
 
 python3 -I bin/office_public.py                    # 미리보기만(아무것도 쓰거나 올리지 않음)
 python3 -I bin/office_public.py --write <파일>      # 로컬 파일로 저장
-python3 -I bin/office_public.py --publish           # 내 token-meter gist에 agencity.json으로 올리기(한 번 더 확인)
+python3 -I bin/office_public.py --publish           # 내 사용량 gist에 agencity.json으로 올리기(한 번 더 확인)
 python3 -I bin/office_public.py --publish --yes     # 확인 없이 올리기(앱의 공개하기 버튼이 써요). 결과는 표준 출력에 JSON 한 줄
 
 GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)을 했으면 그 토큰(<설정 폴더>/github-token.json)을 쓰고
 (gh가 있으면 GH_TOKEN으로 넘기고, 없으면 파이썬으로 GitHub API를 바로 불러요), 아니면 gh에 로그인된 계정을 써요.
-토큰은 화면에 내지 않아요. public.json에 gist가 없으면 앱이 token-meter 숫자를 올린 gist(setup.json의 tokenMeter),
-그것도 없으면 내 gist 중 token-meter.json이 든 것을 찾아 써요.
+토큰은 화면에 내지 않아요. public.json에 gist가 없으면 앱이 사용량 숫자를 올린 gist(setup.json의 tokenMeter),
+그것도 없으면 내 gist 중 사용량 파일이 든 것을 찾아 써요.
 예전 이름(클로드 오피스) 때 올린 claude-office.json이 그 gist에 있으면 올릴 때 같이 지워요(도시는 agencity.json을 먼저 읽어요).
 
 무엇을 공개할지는 public.json(이 폴더, git에 안 올라감)에 직접 적어요. 적지 않은 층은 공개하지 않아요.
 {
   "login": "<내 GitHub 아이디>",
-  "gist": "<token-meter gist id>",
+  "gist": "<내 사용량 gist id>",
   "profile": {"intro": "소개 한 줄", "district": "app|web|data|content|tool|game|etc"},
   "floors": {
     "<org.json의 팀 id>": {"public": "name|tour", "name": "공개용 층 이름(꼭 적기)", "summary": "공개용 소개",
@@ -24,7 +24,7 @@ GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)�
 - "name": 층 이름과 소개만. "tour": 여기에 책상(역할 이름)과 상태(일하는 중·대기 …)를 더해요.
   역할 이름은 층에서 지은 그대로 나가요(앱의 공개 확인 상자가 나갈 이름을 보여 줘요).
   "building"·"private": 층 정보는 내보내지 않아요(앱의 공개 범위 화면이 적어 둬요. 비공개로 바꾼 층도 손으로 적은 이름·소개는 지우지 않아요).
-  건물(높이·등급·창문 불빛)은 이 파일과 상관없이 token-meter gist의 숫자로 서요.
+  건물(높이·등급·창문 불빛)은 이 파일과 상관없이 사용량 gist의 숫자로 서요.
 - "tasks": true일 때만 책상마다 '지금 하는 일' 한 줄을, "board": true일 때만 업무판 제목을 넣어요(둘 다 기본 꺼짐).
   넣을 때도 경로·파일 이름·주소·메일·전화번호·주민번호·카드번호·키 모양 값·따옴표 속 인용은 지우거나 그 줄을 빼요.
   사람 이름은 자동으로 다 찾을 수 없으니, 켜기 전에 미리보기를 꼭 읽어 보세요.
