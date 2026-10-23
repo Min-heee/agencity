@@ -42,7 +42,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   기다리는 자리는 setup.json의 pendingSeats. 빈자리 모두 만들기(/api/seat/fill*)는 채울 자리를 fillQueue에 한 줄로 두고 한 자리씩 열어요
   (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 그 링크로 막 앉으면 맥에서 서버가 open으로 열어요).
 - 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md의
-  에이전시티 부분(팀 간 대화·일 맡기기)을 docs/TEAM_RULES.md의 새 판으로, 없으면 덧붙이기).
+  에이전시티 부분(팀 간 대화·일 맡기기)을 docs/TEAM_RULES.md의 새 판으로, 없으면 덧붙이기. 바꾸기 전 파일은 RULES.md.bak).
   팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 보여 줘요.
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
   층마다 팀을 추천해요(규칙으로, 이 맥 안에서만). 대표가 허락하면(setup.json의 readFirstMessages) 세션마다 첫 메시지 앞부분에서
@@ -5814,10 +5814,12 @@ def rules_outdated(have, cur):
 
 def api_floor_rules_sync(body):
     """층 RULES.md의 에이전시티 부분(RULE_BLOCKS)을 docs/TEAM_RULES.md에 맞춰요(sync_rules_text). 이미 맞으면 쓰지 않고,
-    고칠 때는 임시 파일을 쓰고 바꿔치기해요. {ok, changed, added(changed와 같아요, 0.8.x 이름), appended: [이름], updated: [이름], rules: {이름: 판}}."""
+    고칠 때는 임시 파일을 쓰고 바꿔치기해요. 예전 판을 바꿀 때는 바꾸기 전 파일을 RULES.md.bak에 먼저 남겨요(표시 사이를 고쳐 썼어도 되찾게).
+    {ok, changed, added(changed와 같아요, 0.8.x 이름), appended: [이름], updated: [이름], rules: {이름: 판}, backup: 'RULES.md.bak' 또는 None}."""
     t, base = floor_of(body.get("team"), "예시 팀의 규칙은 고칠 수 없어요")
     blocks = rule_doc(t["id"])
     path = os.path.join(base, "RULES.md")
+    bak = path + ".bak"
     with TEAM_LOCK:
         if os.path.islink(path):
             raise ApiError(409, "이 층의 RULES.md가 링크예요. 고치지 않았어요")
@@ -5836,6 +5838,13 @@ def api_floor_rules_sync(body):
             new, appended, updated = sync_rules_text(text, blocks)
         except ValueError as e:
             raise ApiError(409, f"이 층 RULES.md의 ‘{dict(RULE_BLOCKS).get(str(e), str(e))}’ 표시가 깨졌어요(여는 줄이 둘이거나 닫는 줄이 없어요). 고치지 않았어요")
+        if updated:   # 표시 사이를 바꾸면 그 안에 써 둔 글이 사라져요: 바꾸기 전 파일을 그대로 남겨요(링크·폴더면 고치지 않아요)
+            if os.path.islink(bak) or os.path.isdir(bak):
+                raise ApiError(409, "이 층의 RULES.md.bak이 링크나 폴더라 예전 글을 남길 수 없어요. 고치지 않았어요")
+            try:
+                write_text(bak, text)
+            except OSError as e:
+                raise ApiError(409, f"예전 글을 RULES.md.bak에 남기지 못해서 고치지 않았어요({e.strerror or type(e).__name__})")
         if new != text:
             try:
                 write_text(path, new)
@@ -5844,8 +5853,10 @@ def api_floor_rules_sync(body):
     changed = bool(appended or updated)
     if changed:
         lab = dict(RULE_BLOCKS)
-        log(base, "팀 전체", "설정", "팀 규칙(RULES.md)을 맞췄어요: " + ", ".join([f"‘{lab[n]}’ 더함" for n in appended] + [f"‘{lab[n]}’ 새 판" for n in updated]))
-    return {"ok": True, "changed": changed, "added": changed, "appended": appended, "updated": updated, "rules": rule_versions(new)}
+        log(base, "팀 전체", "설정", "팀 규칙(RULES.md)을 맞췄어요: " + ", ".join([f"‘{lab[n]}’ 더함" for n in appended] + [f"‘{lab[n]}’ 새 판" for n in updated])
+            + (" (바꾸기 전 글은 RULES.md.bak)" if updated else ""))
+    return {"ok": True, "changed": changed, "added": changed, "appended": appended, "updated": updated, "rules": rule_versions(new),
+            "backup": "RULES.md.bak" if updated else None}
 
 
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
