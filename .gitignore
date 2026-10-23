@@ -10,6 +10,8 @@
 /guards/
 # 앱 안 업데이트의 진행 상태·기록(bin/self_update.py)
 /.update/
+# 사용량 알림의 기억(bin/usage_meter.py, 켰을 때만)
+/.usage/
 .out/
 __pycache__/
 *.pyc

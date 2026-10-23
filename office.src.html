@@ -523,6 +523,10 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .upd.ok span::before{content:"✓ "; color:var(--ok)}
 .upd-x{min-width:26px; height:26px; padding:0 4px; border:0; border-radius:5px; background:none; color:var(--ink-2); font-size:15px; line-height:1; cursor:pointer}
 .upd-x:hover{background:var(--surface-2); color:var(--ink)}
+/* 사용량 알림: 머리말 칩(80%는 조용히, 100%는 alert)과 설정 5단계의 한도 칸 */
+.usg{gap:6px; min-height:32px; padding:3px 4px 3px 12px}
+.su-usg-lim{display:grid; grid-template-columns:max-content minmax(0, 12em); align-items:center; gap:6px 10px; margin-top:10px}
+.su-usg-lim label{font-size:13px; font-weight:600; color:var(--ink-2)}
 .upd-modal{position:fixed; inset:0; z-index:70; display:grid; place-items:center; padding:16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px))}
 .upd-scrim{position:absolute; inset:0; background:var(--scrim)}
 .upd-card{position:relative; width:min(480px, 100%); max-height:calc(100vh - 32px); overflow-y:auto; padding:18px 20px 16px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); box-shadow:0 24px 60px -24px rgba(0,0,0,.55); animation:slideup .18s ease-out}
@@ -735,7 +739,7 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
     <div class="sign">
       <h1 class="plate">에이전시티</h1>
     </div>
-    <div style="display:flex; gap:6px; flex-wrap:wrap"><div class="upd" id="upd" role="group" aria-label="새 버전 알림" hidden></div><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><button type="button" class="live alert" id="bossHint" data-act="boss-find" hidden>총괄 없음 · 총괄 만들기</button><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap"><div class="upd" id="upd" role="group" aria-label="새 버전 알림" hidden></div><div class="live usg" id="usg" role="group" aria-label="사용량 알림" hidden></div><button type="button" class="live" id="apprBtn" data-act="appr-open" hidden>결재함 <b id="apprN">0</b></button><span class="live" id="relay" hidden></span><button type="button" class="live alert" id="bossHint" data-act="boss-find" hidden>총괄 없음 · 총괄 만들기</button><a class="live" href="city.html" style="text-decoration:none">도시 보기 →</a><a class="live" id="notionLink" href="#" target="_blank" rel="noopener" hidden style="text-decoration:none">노션 회의록·할 일·일정 ↗</a><button type="button" class="live" id="setupBtn" hidden>설정</button><span class="live" id="live"><i></i><span id="liveText">불러오는 중</span></span></div>
   </header>
 
   <section class="org" aria-label="층 안내">
@@ -1273,6 +1277,7 @@ function render() {
   renderRules();
   fillPaint();   // 빈자리 채우기 줄(방을 그린 뒤에: 지금 자리 상자가 방에 보이는지 봐요)
   updPaint();   // 새 코드(다시 켜기)·새로고침 알림은 /api/state(state.relay)를 따라가요
+  usgPaint();   // 사용량 알림도 /api/state(state.relay.usage)를 따라가요
   document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
   if (nmFocus && nmEl.isConnected === false) { const i = $('#nmIn'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(nmSel[0], nmSel[1]); } catch (e) {} } }
@@ -1326,7 +1331,7 @@ function roomHTML(t, d) {
        ${API && exampleTeam(t.id) ? `<p class="hint" style="margin-top:8px">${EX_NO_MEET}</p>` : API ? leadGap || `<div class="meet-actions"><button type="button" class="btn primary" data-meet-new="${esc(t.id)}">회의 시작</button></div>` : '<p class="hint" style="margin-top:8px">회의는 대표만 열 수 있어요. 로컬 페이지에서 ‘회의 시작’을 눌러요.</p>'}`;
   return `<section class="room" data-team="${esc(t.id)}" data-tone="${toneOf(t)}" id="team-${esc(t.id)}" aria-label="${esc(t.name)} 팀 사무실">
     <div class="room-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<span class="tn">${esc(t.name)}</span><span class="kind">${esc(t.state)}</span>
-      <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span><code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}${mine ? fillBtnHTML(t, d) + floorToolsHTML(t) : ''}</div></div>
+      <div class="meta"><span>일하는 중 <b>${working}</b></span><span>회의 중 <b>${meeting}</b></span><span>열린 업무 <b>${open.length}</b></span>${usgFloorHTML(t.id)}<code>${esc(t.folder || '')}</code>${t.notion ? `<a class="notion" href="${esc(t.notion)}" target="_blank" rel="noopener">노션 ${esc(floorLabel(t))} ↗</a>` : ''}${API && SU.st && !String(t.office || '').startsWith('examples/') ? `<button type="button" class="notion" data-act="edit-team" data-team="${esc(t.id)}">팀원 고치기</button>` : ''}${mine ? fillBtnHTML(t, d) + floorToolsHTML(t) : ''}</div></div>
     ${mine ? floorNoteHTML(t.id) : ''}
     <div class="room-grid">
       <div class="desks${ms.length > 4 ? ' many' : ''}">${ms.map(m => deskHTML(m, d.status[m.role], t.id, unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]), cx)).join('')}</div>
@@ -3766,6 +3771,7 @@ function doneHTML() {
       <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.visDirty || SU.introDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
     </dl>
     ${updSetHTML()}
+    ${usgSetHTML()}
     ${rulesHTML('suRulesCopy2')}
     ${st.boss ? `<p class="hint" style="margin-top:12px">사이트에서 보낸 말을 팀 세션에 전하려면 총괄 세션에서 ${coordLink()}대로 전달을 켜요.</p>`
       : `${bossMakeHTML('d')}<p class="hint" style="margin-top:8px">[총괄 만들기]로 연 총괄은 ${coordLink()}의 지시를 받아 전달을 바로 켜요. 있는 세션을 총괄로 쓰려면 3단계에서 골라요.</p>`}
@@ -3820,6 +3826,7 @@ function openSetup(step) {
   renderSetup('#suHead');
   if (UPD.ov || UPD.ask) { const f = $('#updRunT') || $('#updAskCard'); if (f) f.focus(); }
   updRefresh().catch(() => {});   // 5단계의 ‘새 버전 알림’도 새로
+  usgRefresh().catch(() => {});   // 5단계의 ‘사용량 알림’도
   // 열 때마다 세션 목록을 새로 읽어요(앱은 며칠씩 켜 두니 새 프로젝트·터미널에서 만든 층이 보이게). 늦게 온 옛 답은 loadClaude가 버려요.
   loadClaude();
   if (SU.step === 2) ensureRec(true);
@@ -3858,12 +3865,12 @@ async function suNext() {
 async function suRun(btn, fn, where) {
   if (btn.dataset.busy) return;
   btn.dataset.busy = '1'; btn.disabled = true;
-  SU.err = ''; SU.pubErr = ''; if (where === 'mt') MT.err = '';
-  for (const id of ['#suErr', '#suPubErr', '#suMeterErr']) { const el = $(id); if (el && (id !== '#suMeterErr' || where === 'mt')) el.textContent = ''; }
+  SU.err = ''; SU.pubErr = ''; if (where === 'mt') MT.err = ''; if (where === 'usg') USG.err = '';
+  for (const id of ['#suErr', '#suPubErr', '#suMeterErr', '#suUsgErr']) { const el = $(id); if (el && (id !== '#suMeterErr' || where === 'mt') && (id !== '#suUsgErr' || where === 'usg')) el.textContent = ''; }
   try { await fn(); }
   catch (e) {
-    const msg = e.message || '안 됐어요', box = where === 'pub' ? $('#suPubErr') : where === 'mt' ? $('#suMeterErr') : null;
-    if (box) { if (where === 'mt') MT.err = msg; else SU.pubErr = msg; box.innerHTML = linkify(msg); } else { SU.err = msg; const el = $('#suErr'); if (el) el.textContent = msg; }
+    const msg = e.message || '안 됐어요', box = where === 'pub' ? $('#suPubErr') : where === 'mt' ? $('#suMeterErr') : where === 'usg' ? $('#suUsgErr') : null;
+    if (box) { if (where === 'mt') MT.err = msg; else if (where === 'usg') USG.err = msg; else SU.pubErr = msg; box.innerHTML = linkify(msg); } else { SU.err = msg; const el = $('#suErr'); if (el) el.textContent = msg; }
     const el = box || $('#suErr');
     if (el && !e.quiet) el.scrollIntoView({ block: 'nearest' });   // 화면 밖에 나오면 아무 일도 없는 것처럼 보여요(고칠 곳으로 옮겼으면 그대로)
   }
@@ -4348,6 +4355,8 @@ $('#setup').addEventListener('click', e => {
   else if (a === 'mt-reload') { MT.err = ''; mtLoad(true); }
   else if (a === 'upd-check') suRun(b, updCheckNow);
   else if (a === 'upd-unskip') suRun(b, updUnskip);
+  else if (a === 'usg-save') suRun(b, usgSave, 'usg');
+  else if (a === 'usg-now') suRun(b, usgNow, 'usg');
   else if (a === 'pub-clear-intro') suRun(b, async () => { SU.intro = ''; SU.introDirty = true; await pubAsk(); suSay('소개 한 줄을 지웠어요. 확인 상자를 다시 봐 주세요'); }, 'pub');
   else if (a === 'finish') suRun(b, async () => {
     if (SU.visDirty || SU.introDirty) await visSave();
@@ -4367,6 +4376,8 @@ function suInput(e) {
   const t = e.target, kind = t.dataset && t.dataset.suIn;
   if (!kind) return;
   if (kind === 'upd') { updSetEnabled(t); return; }   // 새 버전 알림 받기(5단계)
+  if (kind === 'usg') { usgSetEnabled(t); return; }   // 사용량 알림(5단계)
+  if (kind === 'usg-lim') { USG.draft = Object.assign(USG.draft || {}, { [t.dataset.w]: t.value }); return; }   // 한도 칸(다시 그리지 않아요)
   if (kind === 'mt-auto') { mtAuto(t); return; }        // 4단계: 하루 한 번 새로 올리기
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
   if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 5단계: 팀 규칙 한 줄을 ‘사무실 열기’ 때 넣을지
@@ -4771,6 +4782,179 @@ async function updUnskip() {
   suSay('새 버전 알림을 다시 보여요');
 }
 
+/* ---------- 사용량 알림 ---------- */
+// 켜 두면 서버가 이 맥의 Claude·Codex·Gemini 로그를 10분마다 세어 /api/state의 usage({limits, at, win: {h5, day, week}, floors: {팀 id: 오늘}})로 줘요.
+// 한도를 정한 기간이 80%·100%가 되면 머리말에 칩 하나: 가장 급한 기간(넘은 것 → 비율이 큰 것)만. ✕는 그 기간·그 단계를 오늘만 닫아요(100%가 되면 다시 떠요).
+// 숫자는 도시 카드처럼 만·억으로. 서버에서 온 숫자는 Number()로만 쓰고, 글은 모두 esc()를 거쳐요.
+const USG = { st: null, gone: false, busy: '', err: '', draft: null, said: '', hide: {} };
+const USG_HIDE = 'agencity.usage.hide';   // 닫은 칩 {기간: '날짜|단계'}(localStorage, 이 브라우저만)
+const USG_WIN = [['h5', '최근 5시간', '5시간'], ['day', '오늘', '하루'], ['week', '이번 주', '이번 주']];
+try { const h = JSON.parse(localStorage.getItem(USG_HIDE) || '{}'); if (h && typeof h === 'object') USG.hide = h; } catch (e) {}
+// city.html의 korNum(만·억·조)과 같아요. 다만 10억 아래의 억은 소수 한 자리까지(1.5억을 2억으로 보이지 않게)
+function korNum(n) {
+  n = Math.round(n);
+  if (n >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + '조';
+  if (n >= 1e9) return Math.round(n / 1e8).toLocaleString('ko-KR') + '억';
+  if (n >= 1e8) return (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억';
+  if (n >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만';
+  return n.toLocaleString('ko-KR');
+}
+const usgDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const usgRelay = () => (API && state && state.relay && state.relay.usage && typeof state.relay.usage === 'object' ? state.relay.usage : null);
+// 가장 급한 칩 하나 {w, label, level: 'warn'|'over', pct, used, lim}, 없으면 null. hide: 닫은 것 {기간: '날짜|단계'}
+function usgPick(u, day, hide) {
+  if (!u || !u.limits || !u.win) return null;
+  let best = null;
+  for (const [w, label] of USG_WIN) {
+    const lim = Number(u.limits[w]), used = Number(u.win[w]);
+    if (!(lim > 0) || !(used >= 0)) continue;
+    const r = used / lim, level = r >= 1 ? 'over' : r >= 0.8 ? 'warn' : '';
+    if (!level || (hide && hide[w] === `${day}|${level}`)) continue;
+    if (!best || (level === 'over' && best.level !== 'over') || (level === best.level && r > best.r)) best = { w, label, level, r, pct: Math.floor(r * 100), used, lim };
+  }
+  return best;
+}
+function usgChipHTML(c) {
+  const nums = `${esc(korNum(c.used))}/${esc(korNum(c.lim))}`, x = '<button type="button" class="upd-x" data-usg="x" aria-label="오늘은 이 알림 닫기" title="오늘은 닫기">✕</button>';
+  return c.level === 'over' ? `<span>${esc(c.label)} 한도를 넘었어요 · ${nums}</span>${x}` : `<span>${esc(c.label)} 사용량 <b>${esc(c.pct)}%</b> · ${nums}</span>${x}`;
+}
+function usgPaint() {
+  const el = $('#usg'), u = usgRelay();
+  if (u && USG.st && USG.st.enabled) {   // 설정 5단계의 숫자도 같은 답으로(따로 묻지 않아요)
+    USG.st = usgNorm({ enabled: true, counting: u.counting, at: u.at, error: u.error, limits: u.limits, windows: Object.fromEntries(USG_WIN.map(([w]) => [w, { work: u.win && u.win[w] }])) });
+    if (SU.open) usgSetPaint();
+  }
+  if (!el) return;
+  const c = usgPick(u, usgDay(), USG.hide), a = document.activeElement, had = !!a && el.contains(a);
+  el.hidden = !c;
+  if (!c) { put(el, ''); USG.said = ''; return; }
+  el.className = 'live usg' + (c.level === 'over' ? ' alert' : '');
+  el.dataset.w = c.w; el.dataset.level = c.level;
+  if (put(el, usgChipHTML(c)) && had) { const b = $('[data-usg]', el); if (b) b.focus({ preventScroll: true }); }
+  const say = `${c.w}|${c.level}`;
+  if (say !== USG.said) { USG.said = say; updSay(c.level === 'over' ? `${c.label} 사용 한도를 넘었어요` : `${c.label} 사용량이 한도의 ${c.pct}%예요`); }   // 단계가 바뀔 때만 읽어 줘요
+}
+function usgClose() {
+  const el = $('#usg'), w = el && el.dataset.w, lv = el && el.dataset.level, d = usgDay();
+  if (!w || !lv) return;
+  for (const k of Object.keys(USG.hide)) if (!String(USG.hide[k]).startsWith(d + '|')) delete USG.hide[k];   // 지난 날 것은 버려요
+  USG.hide[w] = `${d}|${lv}`;
+  try { localStorage.setItem(USG_HIDE, JSON.stringify(USG.hide)); } catch (e) {}
+  usgPaint();
+  const n = $('#usg'), b = n && !n.hidden ? $('[data-usg]', n) : !$('#setupBtn').hidden && $('#setupBtn');
+  if (b) b.focus();
+  updSay('이 알림은 오늘 다시 보이지 않아요');
+}
+// 층 머리글의 ‘오늘 1,234만’: 사용량 알림을 켰고, 그 층 폴더에서 오늘 쓴 작업량이 있을 때만
+function usgFloorHTML(tid) {
+  const u = usgRelay(), n = u && u.floors && typeof u.floors === 'object' && Object.prototype.hasOwnProperty.call(u.floors, tid) ? Number(u.floors[tid]) : 0;
+  return n > 0 ? `<span title="오늘 이 층 폴더에서 쓴 작업량(캐시 읽기 ×0.1)">오늘 <b>${esc(korNum(n))}</b></span>` : '';
+}
+
+/* 설정(5단계 ‘완료’)의 ‘사용량 알림’: 켜기·끄기, 기간별 한도(작업량, 1500만·15M처럼), 지금 센 숫자 */
+function usgNorm(j) {
+  const s = j && typeof j === 'object' ? j : {}, lim = s.limits && typeof s.limits === 'object' ? s.limits : {}, win = s.windows && typeof s.windows === 'object' ? s.windows : {};
+  const n = v => (v !== null && v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : null);
+  return { enabled: s.enabled === true, counting: s.counting === true, at: typeof s.at === 'string' ? s.at : '', error: typeof s.error === 'string' ? s.error : '',
+    limits: Object.fromEntries(USG_WIN.map(([w]) => [w, n(lim[w]) || null])),
+    win: Object.fromEntries(USG_WIN.map(([w]) => [w, win[w] && typeof win[w] === 'object' ? n(win[w].work) : null])) };
+}
+// 저장한 한도를 칸에 다시 쓸 때: 다시 저장해도 같은 숫자가 되게(만으로 나눠떨어질 때만 억·만으로)
+function usgLimText(n) {
+  if (!(n > 0)) return '';
+  if (n % 1e4) return n.toLocaleString('ko-KR');
+  const eok = Math.floor(n / 1e8), man = (n % 1e8) / 1e4;
+  return [eok ? `${eok.toLocaleString('ko-KR')}억` : '', man ? `${man.toLocaleString('ko-KR')}만` : ''].filter(Boolean).join(' ');
+}
+function usgLine(u) {
+  if (!u || !u.enabled) return '';
+  const w = u.win;
+  if (USG_WIN.some(([k]) => w[k] === null)) return u.counting ? '세는 중이에요…' : u.error || '곧 세요';
+  return [`5시간 ${korNum(w.h5)}`, `오늘 ${korNum(w.day)}`, `이번 주 ${korNum(w.week)}`, u.counting ? '다시 세는 중' : u.at ? `${ago(u.at)} 기준` : '', u.error].filter(Boolean).join(' · ');
+}
+function usgSetHTML() {
+  if (!API || USG.gone) return '';
+  const u = USG.st;
+  if (!u) return '<div id="suUsgBox" hidden></div>';   // 아직 못 읽었으면 자리만(읽으면 채워요)
+  const d = USG.draft || {};
+  const more = !u.enabled ? '' : `<div class="su-usg-lim">${USG_WIN.map(([w, , short]) => `<label for="suUsg-${w}">${short}</label><input type="text" id="suUsg-${w}" data-su-in="usg-lim" data-w="${w}" value="${esc(w in d ? d[w] : usgLimText(u.limits[w]))}" placeholder="한도 없음" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suUsgL">`).join('')}</div>
+      <p class="hint" id="suUsgL">한도는 작업량(캐시 읽기 ×0.1, 도시와 같은 셈)이에요. 1500만·15M처럼 쓰고, 비우면 한도 없음. 80%·100%가 되면 위에 알려요.</p>
+      <p class="hint" id="suUsgS">${esc(usgLine(u))}</p>
+      <p class="err" role="alert" id="suUsgErr">${esc(USG.err)}</p>
+      <div class="su-actions"><button type="button" class="btn" data-su="usg-save">한도 저장</button><button type="button" class="btn" data-su="usg-now">지금 세기</button></div>`;
+  return `<div class="su-box su-upd su-usg" id="suUsgBox">
+      <label class="su-check"><input type="checkbox" id="suUsg" data-su-in="usg"${u.enabled ? ' checked' : ''} aria-describedby="suUsgH"> 사용량 알림</label>
+      <p class="hint" id="suUsgH">이 맥의 Claude·Codex·Gemini 로그에서 토큰 수만 10분마다 세요. 밖으로 보내지 않고, 끄면 읽지 않아요.</p>
+      ${more}
+    </div>`;
+}
+function usgSetPaint() {
+  const box = $('#suUsgBox');
+  if (!box) return;
+  const a = document.activeElement;
+  if (USG.busy || (a && box.contains(a) && a.type === 'text')) {   // 기다리는 동안·한도 칸에 쓰는 동안은 글만 바꿔요(칸이 다시 그려지지 않게)
+    const s = $('#suUsgS');
+    if (s && USG.st) s.textContent = USG.busy === 'now' && !USG.st.counting ? '세는 중이에요…' : usgLine(USG.st);
+    box._h = '';
+    return;
+  }
+  const html = usgSetHTML();
+  if (html === box._h) return;
+  const key = a && box.contains(a) ? (a.id ? '#' + a.id : a.dataset.su ? `[data-su="${a.dataset.su}"]` : '') : '';
+  if (!html) { box.remove(); return; }
+  box.outerHTML = html;
+  const nb = $('#suUsgBox');
+  if (nb) nb._h = html;
+  if (key) { const n = $(key, $('#setup')); if (n) n.focus({ preventScroll: true }); }   // 다시 그려도 키보드 위치는 그대로
+}
+async function usgRefresh(now) {
+  if (!API || USG.gone) return USG.st;
+  try { USG.st = usgNorm(await updPost('api/usage/state', now ? { now: true } : {})); }
+  catch (e) { if (e.status === 404) USG.gone = true; else throw e; }   // 사용량 주소가 없는 예전 서버: 칸 없이 지금처럼
+  usgSetPaint();
+  return USG.st;
+}
+async function usgSetEnabled(t) {
+  const on = t.checked;
+  t.disabled = true; USG.busy = 'toggle'; USG.err = '';
+  try {
+    USG.st = usgNorm(await updPost('api/usage/settings', { enabled: on }));
+    USG.draft = null;
+    suSay(on ? '사용량 알림을 켰어요. 곧 세요' : '사용량 알림을 껐어요. 센 기록도 지웠어요');
+    load();   // 머리말 칩·층 머리글도 바로
+  } catch (e) {
+    t.checked = !on; SU.err = e.message;
+    const el = $('#suErr'); if (el) el.textContent = e.message;
+  } finally {
+    t.disabled = false; USG.busy = '';
+    usgSetPaint();
+    const c = $('#suUsg'), a = document.activeElement;
+    if (c && (!a || a === document.body)) c.focus({ preventScroll: true });   // 기다리는 동안 칸이 꺼지면서 잃은 키보드 위치를 돌려줘요
+  }
+}
+async function usgSave() {
+  const u = USG.st, d = USG.draft || {}, limits = {};
+  if (!u) return;
+  for (const [w] of USG_WIN) { const el = $(`#suUsg-${w}`); limits[w] = el ? el.value : w in d ? d[w] : usgLimText(u.limits[w]); }
+  USG.busy = 'save';
+  try { USG.st = usgNorm(await updPost('api/usage/settings', { limits })); USG.draft = null; }
+  finally { USG.busy = ''; }
+  usgSetPaint();
+  const b = $('#setup [data-su="usg-save"]'); if (b) b.focus({ preventScroll: true });
+  suSay('한도를 저장했어요');
+  load();
+}
+async function usgNow() {
+  USG.busy = 'now';
+  try {
+    let u = await usgRefresh(true);
+    for (let i = 0; i < 30 && u && u.counting; i++) { await new Promise(r => setTimeout(r, 1000)); u = await usgRefresh(false); }   // 서버가 뒤에서 세요
+  } finally { USG.busy = ''; }
+  setTimeout(usgSetPaint, 0);   // suRun이 단추를 다시 켠 뒤에 그려요(키보드 위치가 그대로 남게)
+  if (USG.st) suSay(usgLine(USG.st));
+  load();
+}
+
 /* 머리말의 [건너뛰기]·[업데이트]. 건너뛰면 그 자리에 ‘vX는 건너뛰었어요 · [다시 알리기] ✕’가 남아요(설정까지 가지 않고 되돌리게) */
 async function updSkip(b) {
   const u = UPD.st;
@@ -5151,6 +5335,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('a[href^="claude://"]')) return;
   const ub = e.target.closest('[data-upd]');
   if (ub) { updClick(ub); return; }
+  if (e.target.closest('[data-usg]')) { usgClose(); return; }
   const cp = e.target.closest('[data-copy]');
   if (cp) {
     const done = ok => { const o = cp.textContent; cp.textContent = ok ? '복사했어요' : '직접 선택해 복사하세요'; setTimeout(() => { cp.textContent = o; }, 1600); };

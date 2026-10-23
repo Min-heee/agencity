@@ -51,6 +51,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
 - 총괄 만들기(/api/boss/*): 설치 폴더로 새 세션 링크(docs/COORDINATOR.md의 지시 + 자리 표시)를 만들고, 자리 표시가 맞는 새 세션을
   org.json의 boss.sessionId로 정해요(표시가 없으면 저절로 고르지 않고 대표가 골라요). 기다리는 총괄은 setup.json의 pendingBoss.
   총괄이 바뀌면 층마다 RULES.md에 적힌 총괄 id(new_team.py가 쓴 '지금은 local_…' 조각)만 새 id로 고쳐요.
+- 사용량 알림(/api/usage/*, 기본 꺼짐): 켜면 bin/usage_meter.py를 따로 띄워 Claude·Codex·Gemini 로그의 토큰 수·시각·작업 폴더만
+  10분에 한 번까지 세요(최근 5시간·오늘·이번 주, 층별). 숫자는 /api/state의 usage로만 내고 어디에도 보내지 않아요. 기억은 .usage/cache.json뿐이에요.
 - 규칙 줄 넣기(/api/floor/link-rules): 층 폴더의 CLAUDE.local.md에 '@.office/RULES.md' 한 줄을 (없을 때만) 더하고,
   git 저장소면 .git/info/exclude에 CLAUDE.local.md를 (아직 무시되지 않을 때만) 더해요. 다른 글은 지우거나 순서를 바꾸지 않아요.
 """
@@ -4279,6 +4281,254 @@ def tm_maybe_auto():
     threading.Thread(target=tm_auto_run, args=(g["login"],), name="meter-auto", daemon=True).start()
 
 
+# ---------- 사용량 알림 ----------
+# 켰을 때만(setup.json의 usage.enabled, 기본 꺼짐) bin/usage_meter.py를 따로 띄워 이 맥의 Claude·Codex·Gemini 로그에서 최근 사용량만 세요
+# (최근 5시간·오늘·이번 주, 도구별·층별. 작업량 = 도시 건물과 같은 셈: 캐시 읽기는 0.1). 셈은 token_meter.py의 규칙 그대로예요.
+# /api/state를 받으면 10분에 한 번까지 뒤에서 세고(요청은 기다리지 않아요), 한 번에 하나만 돌아요. ‘지금 세기’(/api/usage/state {now})는 20초에 한 번까지.
+# 따로 띄우는 까닭: 큰 로그를 읽어도 서버가 느려지지 않고 그 메모리가 서버에 남지 않게요.
+# 숫자는 이 메모리와 .usage/cache.json(파일마다 크기·시각과 기간 안 기록의 숫자, 0600) 하나에만 두고 어디에도 보내지 않아요.
+# 끄면 아무것도 읽지 않고 그 기억 파일도 지워요. 한도(usage.limits: h5·day·week)는 작업량 숫자이고, 화면이 80%·100%에서 알려요.
+USAGE_DIR = os.path.join(HERE, ".usage")
+USAGE_CACHE = os.path.join(USAGE_DIR, "cache.json")
+USAGE_EVERY = int_in(os.environ.get("AGENCITY_USAGE_EVERY"), 600, 5, 86400)   # 시험 때만 바꿔요
+USAGE_TIMEOUT = 900         # 이보다 오래 세면 그만두게 해요(초)
+USAGE_GAP = 20              # ‘지금 세기’는 이 초에 한 번까지
+USAGE_RETRY = 120           # 못 셌으면 이만큼 뒤에 다시
+USAGE_WINDOWS = ("h5", "day", "week")
+USAGE_MAX = 10 ** 15
+USAGE_LOCK = threading.Lock()
+USAGE = {"running": False, "again": False, "at": 0.0, "forced": 0.0, "failed": 0.0, "res": None, "error": None}
+# 한도 글: 1500만, 1억 5천만, 15M, 1.5k, 2,000,000 (쉼표·빈칸은 빼고 읽어요)
+USAGE_KO = {"조": 10 ** 12, "천억": 10 ** 11, "백억": 10 ** 10, "십억": 10 ** 9, "억": 10 ** 8, "천만": 10 ** 7, "백만": 10 ** 6,
+            "십만": 10 ** 5, "만": 10 ** 4, "천": 10 ** 3, "백": 100, "십": 10, "": 1}
+USAGE_KO_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)(조|천억|백억|십억|억|천만|백만|십만|만|천|백|십)?")
+USAGE_EN_RE = re.compile(r"([0-9]+(?:\.[0-9]+)?)([kmbg]?)\Z")
+USAGE_EN = {"": 1, "k": 10 ** 3, "m": 10 ** 6, "b": 10 ** 9, "g": 10 ** 9}
+
+
+def usage_amount(v):
+    """한도 하나(숫자나 글) → 정수 작업량, 비었거나 0이면 None(한도 없음). 못 읽으면 ApiError."""
+    bad = ApiError(400, "한도는 1500만·15M처럼 숫자로 써요")
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        raise bad
+    if isinstance(v, (int, float)):
+        if not math.isfinite(v) or v < 0:
+            raise bad
+        n = v
+    elif isinstance(v, str):
+        s = re.sub(r"[\s,_]", "", v).lower()
+        s = re.sub(r"(?:토큰|tokens?)\Z", "", s)
+        if not s:
+            return None
+        if len(s) > 40:
+            raise bad
+        m = USAGE_EN_RE.match(s)
+        if m:
+            n = float(m.group(1)) * USAGE_EN[m.group(2)]
+        else:
+            parts = USAGE_KO_RE.findall(s)
+            if not parts or "".join(a + b for a, b in parts) != s:
+                raise bad
+            n, last = 0.0, None
+            for num, unit in parts:   # 큰 단위부터(1억 5천만). 단위 없는 숫자는 맨 끝에만
+                u = USAGE_KO[unit]
+                if last is not None and u >= last:
+                    raise bad
+                n, last = n + float(num) * u, u
+    else:
+        raise bad
+    n = int(round(n))
+    if n > USAGE_MAX:
+        raise ApiError(400, "한도가 너무 커요")
+    return n or None
+
+
+def usage_conf(s=None):
+    """setup.json의 usage를 고르게 다듬은 것. 기본은 꺼짐·한도 없음."""
+    u = (load_setup() if s is None else s).get("usage")
+    u = u if isinstance(u, dict) else {}
+    lim = u.get("limits") if isinstance(u.get("limits"), dict) else {}
+
+    def ok(v):
+        return v if isinstance(v, int) and not isinstance(v, bool) and 0 < v <= USAGE_MAX else None
+    return {"enabled": u.get("enabled") is True, "limits": {k: ok(lim.get(k)) for k in USAGE_WINDOWS}}
+
+
+def usage_floors():
+    """층별로 나눌 내 층 폴더들(예시 팀은 빼요)."""
+    out = []
+    for t in real_teams():
+        f = t.get("folder")
+        if not is_example(t) and isinstance(f, str) and f.strip() and not SURROGATE.search(f):
+            out.append({"id": t["id"], "folder": os.path.expanduser(f)})
+    return out
+
+
+def usage_clean(r, ids):
+    """도우미가 돌려준 것을 고르게(음이 아닌 정수만, 아는 층만)."""
+    def n(v):
+        return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and 0 <= v <= USAGE_MAX * 1000 else 0
+    if not isinstance(r, dict) or r.get("ok") is not True or not isinstance(r.get("windows"), dict) or iso_age(r.get("at")) is None:
+        raise ValueError("모양이 이상해요")
+    win = {}
+    for w in USAGE_WINDOWS:
+        x = r["windows"].get(w) if isinstance(r["windows"].get(w), dict) else {}
+        tools = x.get("tools") if isinstance(x.get("tools"), dict) else {}
+        win[w] = {"work": n(x.get("work")), "from": n(x.get("from")), "tools": {t: n(tools.get(t)) for t in ("claude", "codex", "gemini")}}
+    fl = r.get("floors") if isinstance(r.get("floors"), dict) else {}
+    floors = {k: {w: n(v.get(w)) for w in USAGE_WINDOWS} for k, v in fl.items() if k in ids and isinstance(v, dict)}
+    st = r.get("stats") if isinstance(r.get("stats"), dict) else {}
+    return {"at": r["at"], "windows": win, "floors": floors,
+            "stats": {k: n(st.get(k)) for k in ("files", "old", "same", "tail", "full", "bytes", "ms")}}
+
+
+def usage_count():
+    """bin/usage_meter.py --count를 따로 띄워(낮은 우선순위) 결과만 받아요. 오래 걸리면 그만두게 해요."""
+    floors = usage_floors()
+    arg = json.dumps({"roots": tm_roots(), "floors": floors, "cache": USAGE_CACHE}).encode("utf-8")
+    if not sys.executable:
+        raise ApiError(500, "사용량 도우미를 켜지 못했어요")
+    try:
+        p = subprocess.Popen([sys.executable, "-I", "-B", os.path.join(HERE, "bin", "usage_meter.py"), "--count"], cwd=HERE,
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, close_fds=True)
+    except OSError:
+        raise ApiError(500, "사용량 도우미(bin/usage_meter.py)를 켜지 못했어요")
+    try:
+        out, _ = p.communicate(arg, timeout=USAGE_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.communicate()
+        raise ApiError(504, "사용량을 세는 데 너무 오래 걸렸어요")
+    if p.returncode != 0:
+        raise ApiError(500, "사용량을 세지 못했어요")
+    try:
+        return usage_clean(json.loads(out), {f["id"] for f in floors})
+    except ValueError:
+        raise ApiError(500, "사용량 도우미의 답을 읽지 못했어요")
+
+
+def usage_drop_cache():
+    """기억 파일(.usage/)을 지워요. 세는 중이 아닐 때만 불러요."""
+    try:
+        for n in os.listdir(USAGE_DIR):
+            if n.startswith("cache.json"):
+                os.remove(os.path.join(USAGE_DIR, n))
+        os.rmdir(USAGE_DIR)
+    except OSError:
+        pass
+
+
+def usage_run():
+    while True:
+        res, err = None, None
+        try:
+            res = usage_count()
+        except ApiError as e:
+            err = e.msg
+        except Exception as e:  # noqa: BLE001 — 알림은 덤이에요. 서버는 그대로 둬요
+            err = f"사용량을 세지 못했어요({type(e).__name__})"
+        on = usage_conf()["enabled"]
+        with USAGE_LOCK:
+            if not on:   # 세는 동안 껐어요: 센 것도, 기억 파일도 남기지 않아요
+                USAGE.update(running=False, again=False, res=None, error=None, at=0.0)
+                usage_drop_cache()
+                return
+            t = time.time()
+            if res is not None:
+                USAGE.update(res=res, error=None, at=t, failed=0.0)
+            else:
+                USAGE.update(error=err, failed=t)
+            if not USAGE["again"]:
+                USAGE["running"] = False
+                return
+            USAGE["again"] = False
+
+
+def usage_kick(force=False, conf=None):
+    """셀 때가 됐으면(10분이 지났거나 force) 뒤에서 세요. 꺼져 있으면 아무것도 읽지 않아요.
+    이미 세는 중이면 force는 끝난 뒤 한 번 더 세요."""
+    if not (conf or usage_conf())["enabled"]:
+        return
+    t = time.time()
+    with USAGE_LOCK:
+        if force and t - USAGE["forced"] >= USAGE_GAP:
+            USAGE["forced"] = t
+        else:
+            force = False
+        if USAGE["running"]:
+            USAGE["again"] = USAGE["again"] or force
+            return
+        if not force:
+            if USAGE["at"] and -60 <= t - USAGE["at"] < USAGE_EVERY:
+                return
+            if USAGE["failed"] and t - USAGE["failed"] < min(USAGE_EVERY, USAGE_RETRY):
+                return
+        USAGE["running"] = True
+    threading.Thread(target=usage_run, name="usage-count", daemon=True).start()
+
+
+def usage_view(conf=None):
+    """설정 화면용: {enabled, limits, counting, error, at, windows, floors, stats}."""
+    c = conf or usage_conf()
+    with USAGE_LOCK:
+        r, running, err = USAGE["res"], USAGE["running"], USAGE["error"]
+    out = {"ok": True, "enabled": c["enabled"], "limits": c["limits"], "counting": bool(running and c["enabled"]),
+           "error": err if c["enabled"] else None, "at": None}
+    if c["enabled"] and r:
+        out.update(at=r["at"], windows=r["windows"], floors=r["floors"], stats=r["stats"])
+    return out
+
+
+def usage_brief(c):
+    """/api/state에 붙이는 짧은 것(켰을 때만): {limits, at, counting, win: {h5, day, week}, floors: {층 id: 오늘}}."""
+    v = usage_view(c)
+    w = v.get("windows") or {}
+    return {"limits": v["limits"], "at": v["at"], "counting": v["counting"], "error": v["error"],
+            "win": {k: w[k]["work"] for k in w}, "floors": {k: x["day"] for k, x in (v.get("floors") or {}).items()}}
+
+
+def api_usage_state(body):
+    if body.get("now") is True:
+        usage_kick(force=True)
+    else:
+        usage_kick()
+    return usage_view()
+
+
+def api_usage_settings(body):
+    ch = {}
+    if "enabled" in body:
+        if not isinstance(body["enabled"], bool):
+            raise ApiError(400, "enabled는 true나 false예요")
+        ch["enabled"] = body["enabled"]
+    if "limits" in body:
+        lim = body["limits"]
+        if not isinstance(lim, dict) or not set(lim) <= set(USAGE_WINDOWS):
+            raise ApiError(400, "limits는 h5·day·week만 받아요")
+        ch["limits"] = {k: usage_amount(v) for k, v in lim.items()}
+    if not ch:
+        raise ApiError(400, "바꿀 설정(enabled, limits)이 없어요")
+    with SETUP_LOCK:
+        s = load_setup()
+        u = usage_conf(s)
+        if "enabled" in ch:
+            u["enabled"] = ch["enabled"]
+        if "limits" in ch:
+            u["limits"].update(ch["limits"])
+        s["usage"] = u
+        write_json(SETUP, s)
+    if ch.get("enabled") is True:
+        usage_kick(force=True, conf=u)
+    elif ch.get("enabled") is False:
+        with USAGE_LOCK:   # 세는 중이면 끝난 뒤 usage_run이 지워요
+            USAGE.update(res=None, error=None, at=0.0, again=False)
+            if not USAGE["running"]:
+                usage_drop_cache()
+    return usage_view(u)
+
+
 # ---------- 세션 만들기 · 섹션 맞추기 · 규칙 맞추기 ----------
 # 빈자리의 [세션 만들기]: claude://code/new?folder=<층 폴더>&q=<첫 메시지> 링크를 돌려줘요. 대표가 Claude 앱에서 폴더를 확인하고 Enter를 눌러요.
 # 앱은 새 세션 id를 알려 주지 않아서, 앱이 남기는 세션 기록(SESSIONS_DIR)에서 링크를 만든 뒤 생긴 세션을 찾아요:
@@ -5780,7 +6030,7 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/setup/meter/join": api_setup_meter_join, "/api/setup/meter/status": api_setup_meter_status,
           "/api/setup/meter/settings": api_setup_meter_settings,
           "/api/update/state": api_update_state, "/api/update/settings": api_update_settings, "/api/update/run": api_update_run,
-          "/api/update/restart": api_update_restart,
+          "/api/update/restart": api_update_restart, "/api/usage/state": api_usage_state, "/api/usage/settings": api_usage_settings,
           "/api/seat/link": api_seat_link, "/api/seat/pending": api_seat_pending, "/api/seat/pick": api_seat_pick,
           "/api/seat/cancel": api_seat_cancel, "/api/seat/fill": api_seat_fill, "/api/seat/fill-skip": api_seat_fill_skip,
           "/api/seat/fill-stop": api_seat_fill_stop, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
@@ -5867,8 +6117,16 @@ class Handler(SimpleHTTPRequestHandler):
             hdrs = [("Vary", "Origin")]
             if o is None or o in ORIGINS:
                 gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
+                su = load_setup()
                 res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None,
-                           filling=fill_running(load_setup()))   # 빈자리 채우기 줄이 도는지(먼저 열어 둔 다른 탭도 그 줄을 보게)
+                           filling=fill_running(su))   # 빈자리 채우기 줄이 도는지(먼저 열어 둔 다른 탭도 그 줄을 보게)
+                try:   # 사용량 알림(켰을 때만): 센 숫자만 붙이고, 셀 때가 됐으면 뒤에서 세요(이 답은 기다리지 않아요)
+                    uc = usage_conf(su)
+                    if uc["enabled"]:
+                        usage_kick(conf=uc)
+                        res["usage"] = usage_brief(uc)
+                except Exception:  # noqa: BLE001
+                    pass
                 try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
                     res["code"] = code_state(parse_qs(u.query).get("code") == ["now"])
                 except Exception:  # noqa: BLE001
@@ -5930,8 +6188,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         try:
             res = fn(body)
-            # 처음 설정·업데이트·세션 만들기·총괄 만들기·Codex 상태 답에는 전달 상태를 붙이지 않아요(세션 만들기 답의 pending은 기다리는 자리 목록이에요)
-            if not path.startswith(("/api/setup/", "/api/update/", "/api/seat/", "/api/boss/", "/api/codex/")):
+            # 처음 설정·업데이트·사용량·세션 만들기·총괄 만들기·Codex 상태 답에는 전달 상태를 붙이지 않아요(세션 만들기 답의 pending은 기다리는 자리 목록이에요)
+            if not path.startswith(("/api/setup/", "/api/update/", "/api/usage/", "/api/seat/", "/api/boss/", "/api/codex/")):
                 res.update({k: v for k, v in api_state().items() if k != "ok"})
             self.send_json(200, res)
         except ApiError as e:
