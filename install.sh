@@ -88,8 +88,8 @@ main() {
 
   # 코드만 덮어써요. 받은 임시 사본의 맨 위에서 내 정보 자리(있을 리 없지만)를 먼저 지운 뒤 통째로 복사해요.
   # (tar --exclude는 하위 폴더 이름까지 걸러서 examples/teams 같은 것도 빠지므로 쓰지 않아요.)
-  # .update/는 앱 안 업데이트의 진행 상태·기록이에요(받은 사본에 있으면 덮어쓰지 않게 빼요). 설치 폴더의 것은 지우지 않아요.
-  for x in org.json teams hq outbox public.json agencity.json claude-office.json setup.json .update .git; do rm -rf "${SRC:?}/$x"; done
+  # .update/는 앱 안 업데이트의 진행 상태·기록, .usage/는 사용량 알림의 기억이에요(받은 사본에 있으면 덮어쓰지 않게 빼요). 설치 폴더의 것은 지우지 않아요.
+  for x in org.json teams hq outbox public.json agencity.json claude-office.json setup.json .update .usage .git; do rm -rf "${SRC:?}/$x"; done
   # GNU tar는 './'의 권한을 설치 폴더에 덮어쓰므로, 원래 권한(예: chmod 700)을 기억했다가 되돌려요.
   OLD_MODE=
   if [ -d "$DIR" ]; then
