@@ -6,8 +6,8 @@
 > token usage, and whose floors are their teams. Clicking a building flies the camera to it and
 > opens a card; if the owner has made floors public, visitors can walk through a read-only view of what
 > that person's teams are working on. Nothing is public by default, and raw chats, approvals, reports,
-> paths and session ids are never published. Token numbers come from
-> [token-meter](https://github.com/Min-heee/token-meter) (counted locally, published by the owner).
+> paths and session ids are never published. Token numbers are counted locally and published by the owner,
+> who joins the [city member list](https://github.com/Min-heee/token-meter).
 > Inspired by [Git City](https://github.com/srizzon/git-city) — ideas only; it is AGPL-3.0, so we write our own code under MIT.
 
 ## 한 줄로
@@ -56,7 +56,7 @@ GitHub 활동을 3D 도시로 보여 주는 [Git City](https://github.com/srizzo
 
 ## 숫자는 어디서 오나요
 
-- **[token-meter](https://github.com/Min-heee/token-meter)**: Claude Code·Codex·Gemini CLI의 사용량을 내 컴퓨터의 세션 기록에서 **숫자만** 세요. 본인이 원할 때만 자기 GitHub gist에 올리고, 참가 이슈로 등록해요. 대화 내용, 경로, 프로젝트 이름, 세션 id는 올리지 않아요.
+- **내 사용량**: Claude Code·Codex·Gemini CLI의 사용량을 내 컴퓨터의 세션 기록에서 **숫자만** 세요. 본인이 원할 때만 자기 GitHub gist에 올리고, [참가 이슈](https://github.com/Min-heee/token-meter)로 등록해요. 대화 내용, 경로, 프로젝트 이름, 세션 id는 올리지 않아요.
 - 에이전시티 사무실 등록도 같은 방식으로 해요: GitHub 로그인 + 본인 gist 확인(gist 주인 = 등록한 사람).
 - 숫자는 각자 신고한 값이라 검증할 수 없어요. 그래서 도시에는 정확한 수치 대신 **등급**만 보여 주고, 지나친 값은 상한으로 자르고, "자기 신고"라고 표시해요.
 - 나중에는 Claude Code의 OpenTelemetry 지표(`claude_code.token.usage`)도 고를 수 있게 할 수 있어요.
@@ -65,7 +65,7 @@ GitHub 활동을 3D 도시로 보여 주는 [Git City](https://github.com/srizzo
 
 ```
 내 에이전시티     ──(미리보기 → 내가 공개)──► 내 gist: agencity.json (공개 층 요약만)
-token-meter       ──(내가 공개)───────────► 내 gist: token-meter.json (숫자만)
+내 사용량         ──(내가 공개)───────────► 내 gist: 사용량 파일 (숫자만)
                                                    │
 등록 명단(members.json, 참가 이슈로 추가) ─────────┤
                                                    ▼
@@ -93,7 +93,7 @@ token-meter       ──(내가 공개)───────────► 내 
 
 1. **지금**: 로컬 에이전시티(층별 사무실, 말 걸기, 회의, 결재) — 완료
 2. **공개 요약 내보내기**: 내 사무실에서 공개용 요약을 만들고 미리보기 → 직접 공개 — 첫 버전(`bin/office_public.py`)
-3. **토큰계량기 연결**: 등록과 본인 확인(gist 주인 확인) — token-meter 명단·gist를 그대로 읽어요
+3. **도시 명단 연결**: 등록과 본인 확인(gist 주인 확인) — 도시 명단과 각자의 gist를 그대로 읽어요
 4. **2D 도시**: 정적 페이지에 건물을 세우고, 누르면 카드 — 첫 버전(`city.html`, 아이소메트릭 SVG)
 5. **둘러보기와 3D**: 읽기 전용 사무실, 비행 카메라, 방문 수·응원·비교
 

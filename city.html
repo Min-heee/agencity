@@ -134,7 +134,7 @@ button{font:inherit}
 <div id="stage" aria-label="에이전시티 도시 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
 <div class="msg" id="msg" hidden></div>
 <div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
-<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물을 세우려면 <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">token-meter로 참가</a>하고, 층은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>에서 도시에 올려요. 에이전시티에서 바로 참가해도 돼요</span></span></p>
+<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>를 설치하고 설정에서 세워요. <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">직접 참가</a>해도 돼요</span></span></p>
 <aside class="card" id="card" hidden aria-live="polite"></aside>
 <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle"><div class="tour-box" id="tourBox"></div></div>
 
@@ -462,7 +462,7 @@ function card(p) {
     ${o && o.intro ? `<p class="u" style="margin:10px 0 0">${esc(o.intro)}</p>` : ''}
     <div class="stats">
       <div class="stat"><span>작업량(캐시 읽기 ×0.1)</span><b>${korNum(p.w)} 토큰</b></div>
-      <div class="stat"><span>총 토큰(token-meter)</span><b>${korNum(totalOf(m))}</b></div>
+      <div class="stat"><span>총 토큰</span><b>${korNum(totalOf(m))}</b></div>
       <div class="stat"><span>활동한 날 · 최근 7일</span><b>${activeDays(m)}일 · ${p.recent}일</b></div>
       <div class="stat"><span>숫자 마지막 갱신</span><b>${agoLabel(p.stale)}</b></div>
     </div>
@@ -473,7 +473,7 @@ function card(p) {
       ${o.floors.some(f => f.level === 'tour') ? '<button type="button" class="btn" id="tourBtn">사무실 둘러보기</button>' : ''}`
       : '<p class="note" style="margin-top:0">아직 공개한 층이 없어요. 건물 크기만 보여요.</p>'}
     ${isMe && !p.demo && LOCAL ? '<a class="btn ghost" href="./">내 사무실 열기</a>' : ''}
-    <p class="note">숫자는 각자 token-meter로 세어 올린 자기 신고 값이에요. 작업량은 캐시 읽기를 10분의 1로 센 값이라 token-meter 순위판의 총 토큰보다 작아요. 대화·경로·세션 정보는 올리지 않아요.</p>`;
+    <p class="note">숫자는 각자 세어 올린 자기 신고 값이에요. 작업량은 캐시 읽기를 10분의 1로 센 값이라 총 토큰보다 작아요. 대화·경로·세션 정보는 올리지 않아요.</p>`;
   $('#card').hidden = false;
   document.body.classList.add('carded');
   $('#cardX').addEventListener('click', closeCard);
@@ -621,7 +621,7 @@ function addPerson(m) {
     if (missing) $('#build').hidden = false;
     if (!people.length) {
       if (res.listed) message('건물을 불러오지 못했어요', `명단의 ${res.listed}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`);
-      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? (missing ? '<a href="./?setup=4">설정 4단계</a>에서 내 건물을 세우면 첫 건물이 서요.' : '') : $('#join').innerHTML);
+      else message('아직 건물이 없어요', '내 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? (missing ? '<a href="./?setup=4">설정 4단계</a>에서 내 건물을 세우면 첫 건물이 서요.' : '') : $('#join').innerHTML);
       return;
     }
     layout(); draw();

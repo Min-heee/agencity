@@ -3586,7 +3586,7 @@ def tm_mod():
     except Exception:  # noqa: BLE001 — 없거나 깨졌으면 아래에서 알려요
         ok = False
     if not ok:
-        raise ApiError(500, "숫자 세기 도우미(bin/token_meter.py)를 읽지 못했어요. 한 줄 설치를 다시 실행해 주세요")
+        raise ApiError(500, "숫자 세기 도우미를 읽지 못했어요. 한 줄 설치를 다시 실행해 주세요")
     with TM_LOCK:
         if not TM_MOD:
             TM_MOD.append(mod)
@@ -4076,7 +4076,7 @@ def api_setup_meter_join(body):
     gid, member, _ = tm_where(login)
     url = tm_join_url(gid) if gid else None
     if not url:
-        raise ApiError(409, "아직 내 token-meter gist가 없어요. 먼저 숫자를 올려 주세요")
+        raise ApiError(409, "아직 내 사용량 gist가 없어요. 먼저 숫자를 올려 주세요")
     tm_save(joinAt=now())
     return {"ok": True, "url": url, "gist": gid, "member": member}
 

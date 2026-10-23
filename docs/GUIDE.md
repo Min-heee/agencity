@@ -190,7 +190,7 @@ d=~/agencity; p=$(cat "$d/.update/server.pid") && ps -p "$p" -o command= | grep 
 | 4. 공개 범위 | 도시에 내 건물 세우기, 층마다 보일 것 고르기 | 아니요 (기본은 비공개) |
 | 5. 완료 | 정리해 보고 사무실 열기 | |
 
-고른 것은 설치 폴더에 적어요. 설정은 `setup.json`(GitHub 아이디·공개 범위·첫 메시지 읽기 허락·token-meter gist, 토큰은 없어요), 층은 `org.json`과 `teams/`, 공개 범위는 `public.json`에도 적어요. 모두 내 정보라 다시 설치해도 그대로 둬요.
+고른 것은 설치 폴더에 적어요. 설정은 `setup.json`(GitHub 아이디·공개 범위·첫 메시지 읽기 허락·사용량 gist, 토큰은 없어요), 층은 `org.json`과 `teams/`, 공개 범위는 `public.json`에도 적어요. 모두 내 정보라 다시 설치해도 그대로 둬요.
 
 ### 1단계 로그인
 
@@ -256,7 +256,7 @@ Claude 세션은 Claude 앱 사이드바와 같은 모양으로 묶어 보여 �
 
 추천 대신 직접 고르려면 추천 팀 아래의 **직접 고르기**를 써요.
 
-- 2단계와 같은 나무 모양으로 보여 줘요. 예: 내가 만든 그룹(정산앱·토큰계량기·취직) → 프로젝트 폴더(RunningGround) → **이 컴퓨터**
+- 2단계와 같은 나무 모양으로 보여 줘요. 예: 내가 만든 그룹(정산앱·블로그·취직) → 프로젝트 폴더(RunningGround) → **이 컴퓨터**
 - 항목을 펼치면 그 안의 세션이 보여요. 환경별이든 섹션별이든 정리해 둔 그대로 골라요.
 - 그룹(또는 폴더) 하나도, 펼쳐서 고른 세션 하나도 **층으로**를 누르면 층(팀) 하나가 돼요.
   - 예: ‘취직’을 고르면 취직 층
@@ -347,15 +347,15 @@ Codex 세션도 층의 자리에 앉혀요. 지금은 **하는 일만 보는** �
 
 #### 도시에 내 건물 세우기
 
-건물은 [token-meter](https://github.com/Min-heee/token-meter) 명단에 있는 사람마다 서요. 여기서 바로 참가해요(node·gh 없이, 1단계 GitHub 로그인만 있으면 돼요).
+건물은 [도시 명단](https://github.com/Min-heee/token-meter)에 있는 사람마다 서요. 여기서 바로 참가해요(node·gh 없이, 1단계 GitHub 로그인만 있으면 돼요).
 
 1. **내 숫자 세어 보기**: 이 맥의 Claude Code·Codex·Gemini CLI 로그에서 토큰 수를 세요. 올라갈 내용을 그대로 보여 줘요. 이때는 아무것도 나가지 않아요.
-2. **gist에 올리기**: 내 GitHub 계정의 공개 gist에 `token-meter.json`을 올려요. 이미 있으면 그 파일만 고치고(`agencity.json`은 그대로), 숫자가 그대로면 고치지 않아요.
+2. **gist에 올리기**: 내 GitHub 계정의 공개 gist에 사용량 파일을 올려요. 이미 있으면 그 파일만 고치고(`agencity.json`은 그대로), 숫자가 그대로면 고치지 않아요.
 3. **참가 신청 열기 ↗**: GitHub에서 **Submit new issue**를 누르면 봇이 몇 분 안에 명단에 넣어요. 화면은 저절로 바뀌어요.
 4. **도시에 건물이 서 있어요**가 뜨면 끝이에요. 숫자는 **숫자 다시 올리기**로 새로 올려요.
 
 - **하루 한 번 새로 올리기**(기본 꺼짐)를 켜면 사무실을 열어 둔 날 하루 한 번까지, 숫자가 바뀌었을 때만 명단에 있는 그 gist를 고쳐요(새 gist는 만들지 않아요). gist 수정 기록은 계속 공개로 남아요.
-- token-meter로 이미 참가했다면 바로 4번 화면이 떠요.
+- 이미 참가했다면 바로 4번 화면이 떠요.
 - 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고, GitHub의 gist 페이지에서 그 gist를 지워요. 지운 뒤에는 이 상자가 다시 **내 숫자 세어 보기**부터 보여요.
 
 #### 층 공개 범위
@@ -369,11 +369,11 @@ Codex 세션도 층의 자리에 앉혀요. 지금은 **하는 일만 보는** �
 | 층 이름 | 층 이름과 소개 |
 | 둘러보기 | 층 이름과 소개, 책상(역할 이름)과 상태 |
 
-- 건물(높이·등급·창문 불빛)은 여기서 고른 것과 상관없이 token-meter 숫자로 서요.
+- 건물(높이·등급·창문 불빛)은 여기서 고른 것과 상관없이 사용량 숫자로 서요.
 - 프로필 소개 한 줄은 층과 상관없이 함께 나가요.
 - **저장**은 이 맥에만 적어요. 앱에서 저장하면 업무판 제목과 책상의 지금 하는 일은 늘 꺼져요. 넣고 싶으면 [터미널에서](#내-층-공개하기) 켜요.
-- **도시에 올리기**를 누르면 나갈 내용을 한 번 더 보여 줘요. 확인하면 내 token-meter gist에 올려요.
-- 그래서 token-meter gist가 있어야 해요. 없으면 위의 [도시에 내 건물 세우기](#도시에-내-건물-세우기)로 먼저 올려요.
+- **도시에 올리기**를 누르면 나갈 내용을 한 번 더 보여 줘요. 확인하면 내 사용량 gist에 올려요.
+- 그래서 사용량 gist가 있어야 해요. 없으면 위의 [도시에 내 건물 세우기](#도시에-내-건물-세우기)로 먼저 올려요.
 - 올린 뒤 모든 층을 비공개나 건물만으로 바꾸면 버튼이 **도시에서 내리기**로 바뀌어요. 층 정보를 비운 요약을 올려서 도시에서 내려요. 다만 gist 수정 기록에는 예전 판이 남을 수 있어요.
 - ‘아직 도시에 올리지 않았어요’나 ‘도시에는 예전 내용이 올라가 있어요’가 보이면, 저장한 설정이 아직 도시에 반영되지 않은 거예요.
 
@@ -583,7 +583,7 @@ python3 bin/new_team.py
 
 ### 건물은 이렇게 서요
 
-[token-meter](https://github.com/Min-heee/token-meter) 명단(`members.json`)과 각자의 공개 gist를 읽어요. 내 건물은 [4단계](#도시에-내-건물-세우기)에서 세워요.
+[도시 명단](https://github.com/Min-heee/token-meter)(`members.json`)과 각자의 공개 gist를 읽어요. 내 건물은 [4단계](#도시에-내-건물-세우기)에서 세워요.
 
 | 도시에서 | 뜻 |
 |---|---|
@@ -604,7 +604,7 @@ python3 bin/new_team.py
 **터미널에서**:
 
 1. `public.example.json`을 `public.json`으로 복사해서 공개할 층만 적어요. 업무판 제목(`board`)과 책상의 지금 하는 일(`tasks`)은 따로 켜야 나가요. 둘 다 ‘둘러보기’(`tour`) 층에서만 나가요.
-   - `gist`를 비워 두면 앱이 숫자를 올린 gist(`setup.json`), 없으면 내 gist 중 `token-meter.json`이 든 것을 찾아 써요.
+   - `gist`를 비워 두면 앱이 숫자를 올린 gist(`setup.json`), 없으면 내 gist 중 사용량 파일이 든 것을 찾아 써요.
    - 층 이름(`name`)을 적지 않으면 내부 팀 이름 대신 ‘n층’으로 나가요.
 2. 미리보기로 나갈 내용을 확인해요. 경로·주소·메일·전화번호·키 모양 값·인용은 지우거나 그 줄을 빼요. 사람 이름은 자동으로 다 찾지 못하니 미리보기를 꼭 읽어 봐요.
 
@@ -614,7 +614,7 @@ python3 bin/new_team.py
 
    파일로 남기려면 `python3 bin/office_public.py --write agencity.json`처럼 해요.
 
-3. 괜찮으면 내 token-meter gist에 `agencity.json`으로 올려요. 올리기 전에 한 번 더 묻고, gist 주인·GitHub 로그인·`public.json`의 `login`이 같은지도 확인해요.
+3. 괜찮으면 내 사용량 gist에 `agencity.json`으로 올려요. 올리기 전에 한 번 더 묻고, gist 주인·GitHub 로그인·`public.json`의 `login`이 같은지도 확인해요.
 
    ```bash
    python3 bin/office_public.py --publish
@@ -626,7 +626,7 @@ python3 bin/new_team.py
 
 - 건물의 층은 그 사람의 팀이에요.
 - 기본은 비공개이고, 대화·결재·보고서 원문은 공개하지 않아요.
-- 토큰 숫자는 [token-meter](https://github.com/Min-heee/token-meter)가 내 컴퓨터에서 세고, 본인이 원할 때만 올려요.
+- 토큰 숫자는 내 컴퓨터에서 세고, 본인이 원할 때만 올려서 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요.
 
 자세한 내용은 [VISION.md](VISION.md)에 있어요.
 
@@ -684,9 +684,9 @@ python3 bin/new_team.py
 
 ### 도시에 올릴 때
 
-- 내 건물(`token-meter.json`)에는 token-meter와 같은 항목만 나가요: 도구별 토큰 수와 API 환산액, 응답·세션·서브에이전트 수, 날짜별 합계, 모델 이름(경로·메일 모양은 `(other)`), 시간대. 이름·프로젝트·경로·세션 id·대화는 나가지 않아요.
+- 내 건물(사용량 파일)에는 이것만 나가요: 도구별 토큰 수와 API 환산액, 응답·세션·서브에이전트 수, 날짜별 합계, 모델 이름(경로·메일 모양은 `(other)`), 시간대. 이름·프로젝트·경로·세션 id·대화는 나가지 않아요.
 - **gist에 올리기**를 누를 때(켜 두면 하루 한 번 새로 올리기)만 올려요. 올리기 전에 GitHub 로그인의 아이디가 올릴 문서의 아이디와 같은지 확인해요. 같은 gist의 다른 파일은 건드리지 않아요.
-- 명단은 `https://min-heee.github.io/token-meter/members.json`을 로그인 정보 없이 읽어요.
+- [도시 명단](https://min-heee.github.io/token-meter/members.json)은 로그인 정보 없이 읽어요.
 - 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고 gist를 지워요. 지우기 전까지는 지난 수정 기록도 공개로 남아요.
 - 층 요약(`agencity.json`)을 만들 때 대화·결재·보고서·회의록·로그 파일은 어떤 경우에도 읽지 않아요.
 - 책상의 지금 하는 일과 업무판 제목은 따로 켜야 나가요. 켜도 경로·주소·메일·전화번호·키 모양 값·인용은 지우거나 그 줄을 빼요.
@@ -750,7 +750,7 @@ curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh |
 | `org.json`, `teams/` | 층 목록, 총괄, 팀 사무실 연결 |
 | `hq/` | 총괄과의 대화 |
 | `outbox/` | 전달할 메시지 |
-| `setup.json` | 처음 설정 (GitHub 아이디·공개 범위·새 버전 알림·첫 메시지 읽기 허락·token-meter gist와 하루 한 번 새로 올리기, 토큰은 없어요) |
+| `setup.json` | 처음 설정 (GitHub 아이디·공개 범위·새 버전 알림·첫 메시지 읽기 허락·사용량 gist와 하루 한 번 새로 올리기, 토큰은 없어요) |
 | `public.json`, `agencity.json` | 도시 공개 설정과 파일로 내보낸 요약 (예전 이름 때의 `claude-office.json`도 그대로 둬요) |
 | `.update/` | 앱 안 업데이트의 진행 상태와 기록 |
 | `<프로젝트>/.office/` | 팀 사무실 (대화·상태·업무판·회의·결재·보고서) |

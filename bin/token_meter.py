@@ -1046,8 +1046,8 @@ def serialize(doc):
 def main():
     if sys.argv[1:] == ["--_child"]:   # build_doc이 띄운 자리(표준 입력으로 받고 표준 출력으로 내요)
         return _child()
-    ap = argparse.ArgumentParser(description="내 토큰 숫자 세기(token-meter와 같은 셈). 아무것도 올리지 않아요.")
-    ap.add_argument("--json", action="store_true", help="gist에 올라갈 token-meter.json 그대로 보기")
+    ap = argparse.ArgumentParser(description="내 토큰 숫자 세기. 아무것도 올리지 않아요.")
+    ap.add_argument("--json", action="store_true", help="gist에 올라갈 내용 그대로 보기")
     ap.add_argument("--login", help="문서에 넣을 GitHub 아이디(--json과 같이)")
     ap.add_argument("--dir", help="Claude Code 로그 폴더(기본 ~/.claude/projects)")
     ap.add_argument("--codex-dir", help="Codex 폴더(기본 ~/.codex)")

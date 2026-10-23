@@ -269,8 +269,8 @@ def publish(cfg, login, text, yes=False):
     if not GIST_RE.match(gist):
         gist = meter_gist_saved(me) or hub.meter_gist(me)
         if not gist:
-            sys.exit("아직 token-meter gist가 없어요. 앱의 설정 4단계 ‘도시에 내 건물 세우기’(또는 token-meter)로 내 숫자를 먼저 올려 주세요.")
-        print(f"· public.json에 gist가 없어서 내 token-meter gist({gist})에 올려요.", file=sys.stderr)
+            sys.exit("아직 사용량 gist가 없어요. 앱의 설정 4단계 ‘도시에 내 건물 세우기’에서 내 숫자를 먼저 올려 주세요.")
+        print(f"· public.json에 gist가 없어서 내 사용량 gist({gist})에 올려요.", file=sys.stderr)
     info = hub.call("GET", f"gists/{gist}")
     if not isinstance(info, dict):
         sys.exit(f"gist({gist})를 확인하지 못했어요. gist id와 로그인 상태를 확인해 주세요.")
@@ -279,7 +279,7 @@ def publish(cfg, login, text, yes=False):
     if owner.lower() != login.lower() or me.lower() != login.lower():
         sys.exit(f"gist 주인({owner})·GitHub 로그인({me})·public.json login({login})이 같지 않아요. 올리지 않았어요.")
     if "token-meter.json" not in files:
-        sys.exit("이 gist에는 token-meter.json이 없어요. token-meter로 만든 gist만 써요.")
+        sys.exit("이 gist에는 사용량 숫자가 없어요. 내 숫자를 올린 gist만 써요.")
     if not yes:
         if not sys.stdin.isatty():
             sys.exit("확인을 받을 수 없어서 올리지 않았어요. 터미널에서 직접 실행해 주세요.")
@@ -307,7 +307,7 @@ def main():
     ap = argparse.ArgumentParser(description="에이전시티 도시 공개 요약 만들기(기본은 미리보기)")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--write", metavar="파일", help="로컬 파일로 저장")
-    g.add_argument("--publish", action="store_true", help="내 token-meter gist에 올리기(확인 후)")
+    g.add_argument("--publish", action="store_true", help="내 사용량 gist에 올리기(확인 후)")
     ap.add_argument("--yes", action="store_true", help="--publish를 확인 없이(앱이 써요)")
     a = ap.parse_args()
     if a.write and a.write.startswith("-"):
