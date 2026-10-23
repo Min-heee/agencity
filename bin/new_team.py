@@ -494,6 +494,8 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
     open(os.path.join(office, "log.jsonl"), "a", encoding="utf-8").close()
     rules = os.path.join(office, "RULES.md")
     if not os.path.exists(rules):
+        # 문서의 '<!-- agencity:<이름> v<판> -->' 부분(팀 간 대화·일 맡기기)은 서버의 규칙 맞추기가 예전 층에도 같은 글로 맞춰요.
+        # 그 부분 안에서는 <에이전시티>와 <내 층 id>만 채워요(office_server.py의 rule_doc과 같게). 다른 바꾸기는 그 부분 밖의 글에만 닿아요
         with open(os.path.join("docs", "TEAM_RULES.md"), encoding="utf-8") as f:
             text = f.read()
         text = text.replace("`$O`(팀 사무실 폴더의 절대경로)", f"`$O`(= {office})").replace("`XX-`", f"`{prefix}`").replace("XX-n", f"{prefix}n")

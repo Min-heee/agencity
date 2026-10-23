@@ -291,6 +291,13 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .composer textarea{min-height:76px; resize:vertical}
 .composer .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
 .composer .row .hint{flex:1 1 220px}
+.composer .acts{display:flex; gap:6px; align-items:center}
+/* 일 맡기기 네 칸: 이름표 | 칸. 한 줄로 시작해서 Shift+Enter로 줄을 늘려요 */
+.composer .ho{margin:0; padding:0; border:0; min-width:0}
+.composer .ho-g{display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px 8px; align-items:center}
+.composer .ho-g label{font-size:12.5px; font-weight:600; color:var(--ink-2); white-space:nowrap}
+.drawer-panel .composer .ho textarea[data-ho]{min-height:0; padding:6px 9px; resize:none; field-sizing:content; max-height:20vh}
+.composer .ho-tg[aria-pressed="true"]{border-color:var(--ink); background:var(--chip-wash)}
 .keys{color:var(--ink-2); font-weight:600}
 /* 대화 서랍(총괄·팀원·회의): 제목(d-head)은 맨 위에, 작성창은 맨 아래에 붙어 있고, 그 사이(d-main)만 스크롤해요. 대화(thread)는 d-main 맨 아래에서 남는 자리를 채워요. */
 .drawer-panel.chat{display:flex; flex-direction:column; overflow:hidden; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))}
@@ -669,7 +676,7 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .room-head button.notion[aria-disabled="true"]{opacity:.62; cursor:not-allowed}
 .room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
 .room-note.bad{border-color:color-mix(in srgb, var(--err) 45%, var(--line)); color:var(--err-ink)}
-/* 팀 간 대화 규칙이 없는 층이 있으면 층 안내 아래 한 줄: [모두 맞추기] → [팀장에게 보내기] */
+/* 규칙이 예전 판인 층이 있으면 층 안내 아래 한 줄: [모두 맞추기] → [팀장에게 보내기] */
 .rules-note{display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin:0 0 10px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
 .rules-note[hidden]{display:none}
 .rules-note .btn{padding:4px 10px; font-size:12.5px}
@@ -1894,17 +1901,17 @@ async function fillStop() {   // [멈추기]·다 채운 뒤 [닫기]: 줄만 �
 /* ---------- 층 머리: 섹션 맞추기 · 규칙 맞추기 ---------- */
 // [섹션 맞추기]: Claude 앱 사이드바에 층 이름의 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요(/api/floor/sidebar).
 //   사이드바는 Claude 세션만 고칠 수 있어서 총괄 세션이 해요. 진짜 총괄(org.json의 boss, 자리 표시용 id 말고)이 없으면 누를 수 없어요.
-// [규칙 맞추기]: 층의 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 덧붙여요(/api/floor/rules-sync, 다른 글은 건드리지 않아요).
+// [규칙 맞추기]: 층 RULES.md의 에이전시티 부분(팀 간 대화·일 맡기기)을 새 판으로 맞춰요(/api/floor/rules-sync: 없으면 덧붙이고, 예전 판이면 그 부분만 바꾸고, 다른 글은 건드리지 않아요).
 const FNOTE = new Map();   // 층 id → { text, bad, busy: ''|'sidebar'|'rules', kind, at }: 층 머리 아래 한 줄 알림(kind: 어느 단추의 결과인지)
 const FNOTE_MS = 60e3;
 const NO_BOSS = '총괄 세션이 없어서 쓸 수 없어요. 위쪽 ‘총괄 없음 · 총괄 만들기’나 설정(3단계)에서 총괄을 정하면 돼요';
 const realBoss = () => { const b = state && state.org && state.org.boss, sid = b && typeof b.sessionId === 'string' ? b.sessionId : ''; return SID_RE.test(sid) && !sid.startsWith('local_00000000'); };
 function floorToolsHTML(t) {
   const n = FNOTE.get(t.id), busy = !!(n && n.busy), boss = realBoss(), id = esc(t.id), sf = SU.st && SU.st.floors.find(f => f.id === t.id);
-  // 규칙 맞추기는 그 층 RULES.md에 ‘팀 간 대화’가 없을 때만(설정 상태를 모르면 늘). 눌러서 나온 알림이 떠 있는 동안은 그대로 둬요(키보드 자리)
-  const rules = !sf || sf.talkRules !== true || (n && (n.busy === 'rules' || (n.kind === 'rules' && Date.now() - n.at <= FNOTE_MS)));
+  // 규칙 맞추기는 그 층 RULES.md가 예전 판일 때만(설정 상태를 모르면 늘). 눌러서 나온 알림이 떠 있는 동안은 그대로 둬요(키보드 자리)
+  const rules = !sf || sf.outdated !== false || (n && (n.busy === 'rules' || (n.kind === 'rules' && Date.now() - n.at <= FNOTE_MS)));
   return `<button type="button" class="notion" data-act="floor-sidebar" data-team="${id}" aria-describedby="fh-${id}"${!boss || busy ? ' aria-disabled="true"' : ''} title="${esc(boss ? `Claude 앱 사이드바에 ‘${t.name}’ 그룹(섹션)을 만들고 이 층 세션들을 옮기도록 총괄에게 맡겨요` : NO_BOSS)}">섹션 맞추기</button>`
-    + (rules ? `<button type="button" class="notion" data-act="floor-rules" data-team="${id}"${busy ? ' aria-disabled="true"' : ''} title="이 층 RULES.md에 ‘팀 간 대화’ 규칙이 없으면 넣어요">규칙 맞추기</button>` : '')
+    + (rules ? `<button type="button" class="notion" data-act="floor-rules" data-team="${id}"${busy ? ' aria-disabled="true"' : ''} title="이 층 RULES.md의 에이전시티 규칙(팀 간 대화·일 맡기기)을 새 판으로 맞춰요">규칙 맞추기</button>` : '')
     + `<span class="su-sr" id="fh-${id}">${esc(boss ? '사이드바 정리는 총괄 세션이 해요' : NO_BOSS)}</span>`;
 }
 function floorNoteHTML(tid) {
@@ -1930,25 +1937,26 @@ async function floorTool(btn) {
     } else {
       const r = await post('api/floor/rules-sync', { team: tid });
       const sf = SU.st && SU.st.floors.find(f => f.id === tid);
-      if (sf) sf.talkRules = true;   // 이제 들어 있어요: 층 안내 아래 알림에서 빠지고, 알림이 사라지면 단추도 숨어요
-      if (r.added === true) {   // 모두 맞추기처럼 층 안내 아래에 [팀장 N명에게 보내기]가 뜨게 맞춘 층에 더해요
+      if (sf) rulesDone(sf, r);   // 이제 새 판이에요: 층 안내 아래 알림에서 빠지고, 알림이 사라지면 단추도 숨어요
+      if (r.changed === true) {   // 모두 맞추기처럼 층 안내 아래에 [팀장 N명에게 보내기]가 뜨게 맞춘 층에 더해요
         if (Date.now() - RUL.at > RULES_MS) Object.assign(RUL, { done: null, sent: null, bad: [], err: '' });
         if (!(RUL.done || []).some(x => x.id === tid)) RUL.done = [...(RUL.done || []), { id: tid, name: sf ? sf.name : t.name }];
         Object.assign(RUL, { sent: null, err: '', at: Date.now() });   // 앞서 보낸 결과 대신 ‘맞췄어요’ 줄과 보내기 단추를 보여요
       }
       const leads = (RUL.done || []).filter(f => leadOn(f.id)).length;
-      note(r.added === true ? `${t.name} 층에 ‘팀 간 대화’ 규칙을 넣었어요.${leadOn(tid) ? ` 켜져 있는 팀장에게는 층 안내 아래 ‘팀장 ${leads}명에게 보내기’로 알려요.` : ''}` : '‘팀 간 대화’ 규칙이 이미 들어 있어요');
+      note(r.changed === true ? `${t.name} 층 규칙을 새 판으로 맞췄어요.${leadOn(tid) ? ` 켜져 있는 팀장에게는 층 안내 아래 ‘팀장 ${leads}명에게 보내기’로 알려요.` : ''}` : RULES_SAME);
     }
   } catch (e) { note(seatErr(e, kind === 'sidebar' ? '총괄에게 맡기지 못했어요' : '규칙을 맞추지 못했어요'), true); }
 }
 
-// 층 안내 아래 한 줄: RULES.md에 ‘팀 간 대화’가 없는 층(0.5.x 이하로 만든 층)이 있으면 [모두 맞추기]로 그 층들에 규칙 맞추기를 차례로 해요.
+// 층 안내 아래 한 줄: RULES.md가 예전 판인 층(에이전시티 부분이 없거나 낮은 판, 0.8.x 이하로 만든 층)이 있으면 [모두 맞추기]로 그 층들에 규칙 맞추기를 차례로 해요.
 // 맞춘 뒤에는 켜져 있는 팀장이 RULES.md를 다시 읽게 [팀장에게 보내기]로 팀장마다 한 줄을 보내요(바로 말 걸기와 같은 전달, outbox).
-// 층마다 있는지는 설정 상태(/api/setup/state의 floors[].talkRules)로 알아요. 그 값을 모르는 서버면 보이지 않아요.
+// 층마다 예전 판인지는 설정 상태(/api/setup/state의 floors[].outdated, 부분마다 판은 rules)로 알아요. 그 값을 모르는 서버면 보이지 않아요.
 const RUL = { busy: false, done: null, sent: null, bad: [], err: '', at: 0 };   // done: 맞췄지만 아직 팀장에게 안 보낸 층들, sent: 보낸 팀장 수
 // bad: 못 맞춘 층들 [{id, text}](아직 없는 층만 보여요, [다시 맞추기]), err: 못 보낸 층
-const RULES_MS = 5 * 60e3, RULES_TELL = '[규칙] RULES.md를 다시 읽어 주세요';
-const rulesMiss = () => (API && SU.st && mode !== 'snap' ? SU.st.floors.filter(f => !f.example && f.talkRules === false) : []);
+const RULES_MS = 5 * 60e3, RULES_TELL = '[규칙] RULES.md를 다시 읽어 주세요', RULES_SAME = '규칙이 이미 새 판이에요';
+const rulesMiss = () => (API && SU.st && mode !== 'snap' ? SU.st.floors.filter(f => !f.example && f.outdated === true) : []);
+const rulesDone = (f, r) => { f.outdated = false; f.talkRules = true; if (r && r.rules && typeof r.rules === 'object') f.rules = r.rules; };   // 맞춘 층: 서버가 알려 준 판으로
 const leadOn = id => { const d = state && state.teams[id], m = d && d.team.members.find(x => x.role === LEAD); return !!m && SID_RE.test(String(m.sessionId || '')) && !m.sessionId.startsWith('local_00000000'); };
 function rulesNoteHTML() {
   if (RUL.busy) return `<span>${RUL.busy === 'tell' ? '팀장에게 보내는 중…' : '규칙을 맞추는 중…'}</span>`;
@@ -1961,7 +1969,7 @@ function rulesNoteHTML() {
   if (leads) out.push(tell);   // 보내기 전이거나, 못 보낸 팀장에게 다시
   const bad = RUL.bad.filter(b => miss.some(f => f.id === b.id));   // 그새 맞춘 층(층 머리글 단추)은 빼요
   if (bad.length) out.push(`<span class="bad">${esc(`못 맞춘 층: ${bad.map(b => b.text).join(' / ')}`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">다시 맞추기</button>`);
-  else if (miss.length) out.push(`<span>${esc(`${miss.length}개 층 규칙에 팀 간 대화가 없어요`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">모두 맞추기</button>`);
+  else if (miss.length) out.push(`<span>${esc(`${miss.length}개 층 규칙이 예전 판이에요`)}</span><button type="button" class="btn" id="rulesAll" data-act="rules-all">모두 맞추기</button>`);
   return out.join('');
 }
 function renderRules() {
@@ -1976,18 +1984,18 @@ async function rulesAll() {
   const done = (RUL.done || []).slice(), bad = [];
   Object.assign(RUL, { busy: 'sync', sent: null, err: '' });
   renderRules();
-  for (const f of miss) {   // 같은 규칙 맞추기를 층마다(이미 들어 있으면 아무것도 하지 않아요)
+  for (const f of miss) {   // 같은 규칙 맞추기를 층마다(이미 새 판이면 아무것도 하지 않아요)
     try {
       const r = await post('api/floor/rules-sync', { team: f.id });
-      f.talkRules = true;
-      if (r.added === true && !done.some(x => x.id === f.id)) done.push({ id: f.id, name: f.name });
+      rulesDone(f, r);
+      if (r.changed === true && !done.some(x => x.id === f.id)) done.push({ id: f.id, name: f.name });
     } catch (e) { bad.push({ id: f.id, text: `${f.name} — ${seatErr(e, '규칙을 맞추지 못했어요')}` }); }
   }
   Object.assign(RUL, { busy: false, done: done.length ? done : null, bad, at: Date.now() });
   render();
   ($('#rulesTell') || $('#rulesAll') || $('#rulesNote')).focus();
   const leads = done.filter(f => leadOn(f.id)).length, why = bad.length ? `못 맞춘 층: ${bad.map(b => b.text).join(' / ')}` : '';
-  seatSay(!done.length ? why || '‘팀 간 대화’ 규칙이 이미 들어 있어요' : [`${done.length}개 층 규칙을 맞췄어요`, leads ? '켜져 있는 팀장은 RULES.md를 다시 읽어야 해요' : '', why].filter(Boolean).join('. '));
+  seatSay(!done.length ? why || RULES_SAME : [`${done.length}개 층 규칙을 맞췄어요`, leads ? '켜져 있는 팀장은 RULES.md를 다시 읽어야 해요' : '', why].filter(Boolean).join('. '));
 }
 async function rulesTell() {
   const list = (RUL.done || []).filter(f => leadOn(f.id));
@@ -2138,13 +2146,52 @@ const EX_NO_MEET = '예시 팀이에요. 설정에서 내 층을 만들면 회�
 function exampleTeam(tid) { return String(((state.org.teams.find(t => t.id === tid) || {}).office) || '').startsWith('examples/'); }
 const exampleSeat = (tid, sid) => exampleTeam(tid) || String(sid || '').startsWith('local_00000000');
 // 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
-function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '') {
+// ho: 팀장·팀원 작성창에만 [일 맡기기] 단추를 둬요(총괄·회의·Codex 자리·예시 팀에는 없어요).
+function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '', ho = false) {
   if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
-  return `<form class="composer" data-form="${form}" data-key="${esc(key)}">${extra}
-    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"></textarea>
-    <div class="row"><p class="hint"><span class="keys" id="sayKeys">Enter 보내기 · Shift+Enter 줄바꿈</span><br>총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><button type="submit" class="btn primary">보내기</button></div>
+  const on = ho && HO.has(key);
+  const box = ho ? `<fieldset class="ho"${on ? '' : ' hidden disabled'}><legend class="su-sr">일 맡기기</legend><div class="ho-g">${HO_FIELDS.map(([k, l, ph], i) =>
+    `<label for="ho-${esc(k)}">${esc(l)}</label><textarea id="ho-${esc(k)}" name="${esc(k)}" data-ho="${esc(k)}" rows="1" maxlength="${HO_MAX}"${i ? '' : ' required'} placeholder="${esc(ph)}" aria-describedby="sayKeys"></textarea>`).join('')}</div></fieldset>` : '';
+  return `<form class="composer" data-form="${form}" data-key="${esc(key)}"${ho ? ` data-ho="${on ? 1 : 0}"` : ''}>${extra}
+    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"${on ? ' hidden disabled' : ''}></textarea>${box}
+    <div class="row"><p class="hint"><span class="keys" id="sayKeys">${esc(on ? HO_KEYS : SAY_KEYS)}</span><br>총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><span class="acts">${ho ? `<button type="button" class="btn ho-tg" data-ho-toggle aria-pressed="${on ? 'true' : 'false'}">일 맡기기</button>` : ''}<button type="submit" class="btn primary">보내기</button></span></div>
     <p class="relay-note" role="status">${relayNote()}</p>
     <p class="err" role="alert"></p></form>`;
+}
+// 일 맡기기: 켜면 작성창 대신 네 칸이 나오고, 보내면 한 메시지(docs/TEAM_RULES.md 9장 모양)로 보통 말 걸기처럼 보내요.
+// 켠 자리는 HO(작성창 key)에 남아서 서랍을 다시 열어도 그대로고, 칸마다 쓰던 글은 drafts에 남아요. 끄면 예전 작성창 그대로예요.
+const HO_FIELDS = [['goal', '목표', '무엇을 이루면 되나요 (꼭)'], ['out', '결과물', '예: PR 하나, 보고서'], ['tools', '쓸 도구', '예: Figma, 테스트'], ['scope', '범위·완료 기준', '어디까지 하면 끝인가요']];
+const HO = new Set(), HO_MAX = 900, HO_NEED = '목표를 써 주세요';
+const SAY_KEYS = 'Enter 보내기 · Shift+Enter 줄바꿈', HO_KEYS = 'Enter 다음 칸 · 마지막 칸에서 Enter 보내기 · Shift+Enter 줄바꿈';
+function handoffText(v) {   // 빈 칸의 줄은 빼요. 목표가 비었으면 ''
+  const val = k => String(v[k] == null ? '' : v[k]).trim();
+  if (!val('goal')) return '';
+  return ['[일 맡기기]', ...HO_FIELDS.filter(([k]) => val(k)).map(([k, l]) => `${l}: ${val(k)}`)].join('\n');
+}
+function hoSet(form, on) {   // 숨긴 쪽은 disabled라 FormData와 필수 칸 검사에서 빠져요. 쓰던 글은 양쪽 다 그대로예요
+  const fs = $('.ho', form), ta = $('textarea[name="text"]', form), keys = $('#sayKeys', form);
+  if (!fs || !ta) return;
+  form.dataset.ho = on ? '1' : '0';
+  fs.hidden = fs.disabled = !on;
+  ta.hidden = ta.disabled = on;
+  $('[data-ho-toggle]', form).setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (keys) keys.textContent = on ? HO_KEYS : SAY_KEYS;
+  $('.err', form).textContent = '';
+  if (on) HO.add(form.dataset.key); else HO.delete(form.dataset.key);
+  (on ? $('textarea[data-ho="goal"]', form) : ta).focus();
+}
+// 일 맡기기 칸의 Enter: 다음 칸으로, 마지막 칸에서는 보내기(목표가 비었으면 목표 칸으로). Shift+Enter는 줄바꿈.
+// 한글 조합 중·조합 직후(IME_GAP)의 Enter는 보통 작성창과 같이 건드리지 않아요
+function hoKey(e, t) {
+  if (e.isComposing || e.keyCode === 229 || e.shiftKey) return;
+  e.preventDefault();
+  if (e.repeat || performance.now() - (t._imeEnd || -Infinity) < IME_GAP) return;
+  const form = t.form, boxes = $$('textarea[data-ho]', form), i = boxes.indexOf(t);
+  if (i >= 0 && i < boxes.length - 1) { boxes[i + 1].focus(); return; }
+  const btn = form.querySelector('button[type="submit"]'), goal = boxes[0];
+  if (!btn || btn.disabled || form.dataset.busy || !goal) return;
+  if (!goal.value.trim()) { $('.err', form).textContent = HO_NEED; goal.focus(); return; }
+  form.requestSubmit(btn);
 }
 function openThread(file, opts = {}) {
   live = Object.assign({ file, last: null }, opts);
@@ -2192,7 +2239,7 @@ function memberDrawer(tid, role) {
       ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}</details>
     <h3 class="d-sec">바로 대화</h3>
     <ul class="thread" id="thread" aria-live="polite"></ul></div>
-    ${API && exampleSeat(tid, m.sessionId) ? `<p class="hint" style="margin-top:10px">${EX_NO_TALK}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`)}`, tid, true);
+    ${API && exampleSeat(tid, m.sessionId) ? `<p class="hint" style="margin-top:10px">${EX_NO_TALK}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`, tid, true);
   openThread(d.base + 'chat/' + role + '.jsonl', { tid });
 }
 
@@ -2325,12 +2372,15 @@ async function submitForm(form, submitter) {
   btns.forEach(b => { b.disabled = true; });
   try {
     if (form.dataset.form === 'say') {
-      const body = { team: fd.get('team'), thread: fd.get('thread'), text: String(fd.get('text') || '') };
+      const ho = form.dataset.ho === '1';   // 일 맡기기: 네 칸을 한 메시지로
+      const text = ho ? handoffText(Object.fromEntries(HO_FIELDS.map(([k]) => [k, fd.get(k)]))) : String(fd.get('text') || '');
+      if (ho && !text) { $('textarea[data-ho="goal"]', form).focus(); throw new Error(HO_NEED); }
+      const body = { team: fd.get('team'), thread: fd.get('thread'), text };
       const to = fd.getAll('to');
       if (String(body.thread).startsWith('meeting:')) { if (!to.length) throw new Error('받는 사람을 한 명 이상 골라요'); body.to = to; }
       const res = await post('api/say', body);
-      const ta = form.querySelector('textarea');
-      drafts.delete(draftKey(ta)); ta.value = '';
+      (ho ? $$('textarea[data-ho]', form) : [form.querySelector('textarea')]).forEach(ta => { drafts.delete(draftKey(ta)); ta.value = ''; });
+      if (ho && form.isConnected) $('textarea[data-ho="goal"]', form).focus();   // 다음 일을 바로 맡길 수 있게
       if (state) state.relay = Object.assign({}, state.relay || {}, res);
       const note = $('.relay-note', form); if (note) note.innerHTML = relayNote();
       await refreshThread(true);
@@ -5149,6 +5199,8 @@ document.addEventListener('keydown', e => {
 /* ---------- 이벤트 ---------- */
 document.addEventListener('click', e => {
   if (e.target.closest('a[href^="claude://"]')) return;
+  const hot = e.target.closest('[data-ho-toggle]');   // 작성창의 [일 맡기기] 켜기·끄기
+  if (hot) { if (hot.form) hoSet(hot.form, hot.form.dataset.ho !== '1'); return; }
   const ub = e.target.closest('[data-upd]');
   if (ub) { updClick(ub); return; }
   const cp = e.target.closest('[data-copy]');
@@ -5228,7 +5280,7 @@ document.addEventListener('submit', e => {
   if (!e.submitter || e.submitter.type !== 'submit') return;
   submitForm(form, e.submitter);
 });
-// 대화 작성창(총괄·팀원·회의)은 Enter로 보내고 Shift+Enter로 줄을 바꿔요. 결재 메모는 버튼으로만, 회의 열기 메모는 예전처럼 버튼(또는 ⌘/Ctrl+Enter)으로 보내요.
+// 대화 작성창(총괄·팀원·회의)은 Enter로 보내고 Shift+Enter로 줄을 바꿔요(일 맡기기 칸은 Enter로 다음 칸, 마지막 칸에서 보내요: hoKey). 결재 메모는 버튼으로만, 회의 열기 메모는 예전처럼 버튼(또는 ⌘/Ctrl+Enter)으로 보내요.
 // 한글 입력: 조합 중인 키(isComposing, 또는 맥 앱의 WKWebView·Safari가 주는 keyCode 229)는 글자를 확정하는 키라 건드리지 않고,
 // 조합이 끝난 바로 뒤(IME_GAP 안)에 오는 Enter도 보내지 않아요(그 Enter가 줄바꿈으로 들어가지도 않게 막아요). 빈 글은 보내지 않고, 보내는 중에는 다시 보내지 않아요.
 const SAY_BOX = 'form[data-form="say"] textarea';
@@ -5256,6 +5308,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || !e.target.matches) return;
   const t = e.target;
   if (t.matches('form[data-form] input')) { if (!e.isComposing) e.preventDefault(); return; }
+  if (t.matches(SAY_BOX) && t.dataset.ho) { hoKey(e, t); return; }   // 일 맡기기 칸
   if (t.matches(SAY_BOX)) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.shiftKey) return;   // 줄바꿈
