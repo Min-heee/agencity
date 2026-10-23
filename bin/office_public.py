@@ -7,7 +7,8 @@ python3 -I bin/office_public.py --publish --yes     # 확인 없이 올리기(�
 
 GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)을 했으면 그 토큰(<설정 폴더>/github-token.json)을 쓰고
 (gh가 있으면 GH_TOKEN으로 넘기고, 없으면 파이썬으로 GitHub API를 바로 불러요), 아니면 gh에 로그인된 계정을 써요.
-토큰은 화면에 내지 않아요. public.json에 gist가 없으면 내 gist 중 token-meter.json이 든 것을 찾아 써요.
+토큰은 화면에 내지 않아요. public.json에 gist가 없으면 앱이 token-meter 숫자를 올린 gist(setup.json의 tokenMeter),
+그것도 없으면 내 gist 중 token-meter.json이 든 것을 찾아 써요.
 예전 이름(클로드 오피스) 때 올린 claude-office.json이 그 gist에 있으면 올릴 때 같이 지워요(도시는 agencity.json을 먼저 읽어요).
 
 무엇을 공개할지는 public.json(이 폴더, git에 안 올라감)에 직접 적어요. 적지 않은 층은 공개하지 않아요.
@@ -190,6 +191,14 @@ def build():
     return cfg, doc, notes
 
 
+def meter_gist_saved(me):
+    """앱의 ‘도시에 내 건물 세우기’가 token-meter 숫자를 올린 gist(setup.json의 tokenMeter, 같은 아이디일 때만). 없으면 ""."""
+    c = load(os.path.join(HERE, "setup.json"), {})
+    c = c.get("tokenMeter") if isinstance(c, dict) else None
+    gist, login = (str(c.get("gist", "")), str(c.get("login", ""))) if isinstance(c, dict) else ("", "")
+    return gist if GIST_RE.match(gist) and login.lower() == me.lower() else ""
+
+
 def saved_token():
     """앱의 GitHub 기기 로그인으로 받은 토큰(없으면 None). 화면이나 로그에 내지 않아요."""
     t = load(TOKEN_FILE)
@@ -258,9 +267,9 @@ def publish(cfg, login, text, yes=False):
         sys.exit("GitHub 계정을 확인하지 못했어요. 로그인이 끝났는지 확인해 주세요(gh를 쓰면 gh auth status).")
     gist = str(cfg.get("gist", ""))
     if not GIST_RE.match(gist):
-        gist = hub.meter_gist(me)
+        gist = meter_gist_saved(me) or hub.meter_gist(me)
         if not gist:
-            sys.exit("아직 token-meter gist가 없어요. token-meter로 내 숫자를 먼저 올린 뒤 다시 해 주세요: https://github.com/Min-heee/token-meter")
+            sys.exit("아직 token-meter gist가 없어요. 앱의 설정 4단계 ‘도시에 내 건물 세우기’(또는 token-meter)로 내 숫자를 먼저 올려 주세요.")
         print(f"· public.json에 gist가 없어서 내 token-meter gist({gist})에 올려요.", file=sys.stderr)
     info = hub.call("GET", f"gists/{gist}")
     if not isinstance(info, dict):

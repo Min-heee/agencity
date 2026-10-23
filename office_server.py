@@ -30,6 +30,10 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   /api/setup/floors의 층마다 floor(1~지금 층 수+1)를 보내면 지금 그 층 앞에 넣고 나머지를 한 층씩 올려요(안 보내면 맨 뒤).
 - 새 버전 알림(/api/update/*): 하루 한 번까지 <GitHub>/<저장소>/releases/latest가 넘겨 주는 태그 주소만 읽어요(API·토큰 없음,
   User-Agent만 보내요). 업데이트는 bin/self_update.py를 따로 켜서 그 태그의 install.sh로 코드만 새로 받고 다시 켜요(.update/).
+- 도시에 내 건물 세우기(/api/setup/meter/*): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)로 Claude·Codex·Gemini 로그의
+  토큰 수·모델 이름·시각만 세어(대화 글은 읽지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
+  token-meter.json만 만들거나 고쳐요. 참가 이슈는 대표가 GitHub에서 제출하고, 명단(token-meter의 members.json)을 읽어 확인해요.
+  하루 한 번 새로 올리기는 켰을 때만(setup.json의 tokenMeter.auto)이에요.
 - 세션 만들기(/api/seat/*): 빈자리마다 claude://code/new 링크(층 폴더 + 첫 메시지)를 만들고, 새로 생긴 세션 기록을 3초마다 살펴
   자리 표시(AGC-…)가 첫 메시지에 있는 세션(첫 메시지를 아직 못 읽으면 층 폴더에서 연 세션 하나, 그 밖에는 대표가 골라요)을 그 자리에 앉혀요.
   기다리는 자리는 setup.json의 pendingSeats.
@@ -48,6 +52,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
 """
 import glob
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -1079,26 +1084,30 @@ def set_github(login, via):
     write_json(SETUP, s)
 
 
-def github_call(url, form=None, token=None):
-    """GitHub(시험 때는 가짜 서버)에 묻고 (상태 코드, JSON dict)를 돌려줘요. 토큰은 Authorization 머리글로만 보내요."""
+def github_call(url, form=None, token=None, method=None, body=None, limit=MAX_BODY, lists=False):
+    """GitHub(시험 때는 가짜 서버)에 묻고 (상태 코드, JSON dict)를 돌려줘요. 토큰은 Authorization 머리글로만 보내요.
+    body는 JSON으로 보내요(gist 만들기·고치기). lists면 목록(JSON 배열) 답도 그대로 돌려줘요. 답은 limit 바이트까지만 읽어요."""
     headers = {"Accept": "application/json", "User-Agent": f"agencity/{VERSION}"}
     data = None
     if form is not None:
         data = urlencode(form).encode("utf-8")
         headers["Content-Type"] = "application/x-www-form-urlencoded"
+    elif body is not None:
+        data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        headers["Content-Type"] = "application/json"
     if token:
         headers.update({"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}", "X-GitHub-Api-Version": "2022-11-28"})
-    req = urllib.request.Request(url, data=data, headers=headers)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         if urlsplit(url).hostname in ("127.0.0.1", "localhost"):
             r = LOCAL.open(req, timeout=15)
         else:
             r = urllib.request.urlopen(req, timeout=15)
         with r:
-            code, raw = r.status, r.read(MAX_BODY)
+            code, raw = r.status, r.read(limit)
     except urllib.error.HTTPError as e:
         try:
-            code, raw = e.code, e.read(MAX_BODY)
+            code, raw = e.code, e.read(limit)
         except OSError:
             code, raw = e.code, b""
     except (urllib.error.URLError, OSError, ValueError) as e:
@@ -1109,7 +1118,7 @@ def github_call(url, form=None, token=None):
         obj = json.loads(raw.decode("utf-8"))
     except (ValueError, UnicodeDecodeError):
         obj = None
-    return code, obj if isinstance(obj, dict) else {}
+    return code, obj if isinstance(obj, (dict, list) if lists else dict) else {}
 
 
 def gh_login():
@@ -3468,6 +3477,7 @@ def update_state():
 
 def api_update_state(body):
     maybe_check(body.get("force") is True)
+    tm_maybe_auto()   # 하루 한 번 새로 올리기(켰을 때만, 아래 token-meter 참가)
     return update_state()
 
 
@@ -3522,6 +3532,615 @@ def api_update_run(body):
             raise ApiError(500, "업데이트 도우미(bin/self_update.py)를 켜지 못했어요")
         RUN.update(proc=proc, to=tag, started=now())
     return {"ok": True, "started": True}
+
+
+# ---------- 도시에 내 건물 세우기(token-meter 참가) ----------
+# 건물은 token-meter 명단(members.json)에 있는 사람의 공개 gist(token-meter.json) 숫자로 서요. node·gh 없이 여기서 다 해요:
+#   1) 세기(/api/setup/meter/preview): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)가 뒤에서 로그의 토큰 수·모델 이름·시각만 세요.
+#      대화 글은 읽지 않아요. 올라갈 글(token-meter.json) 그대로와 요약을 돌려주고, 세기만 해서는 아무것도 나가지 않아요.
+#   2) 올리기(/api/setup/meter/publish, confirm과 미리보기의 digest가 있어야 해요): 내 GitHub 로그인으로 공개 gist에 token-meter.json만
+#      만들거나 고쳐요(같은 gist의 agencity.json 같은 다른 파일은 그대로). 숫자가 그대로면 고치지 않아요(gist 수정 기록은 계속 공개라서).
+#   3) 참가(/api/setup/meter/join): token-meter 참가 이슈 주소(내 gist id가 채워져 있어요). 제출은 대표가 GitHub에서 직접 눌러요.
+#   4) 명단(/api/setup/meter/status): <TOKEN_METER_BASE>members.json을 몇 분 기억해요(로그인 정보 없이 읽어요).
+#      내 gist가 아직 있는지도 몇 분 기억해요. 지운 gist는 setup.json에서 빼고 다시 ‘내 숫자 세어 보기’부터 보여요.
+# 하루 한 번 새로 올리기(setup.json의 tokenMeter.auto, 기본 꺼짐)는 새 버전 확인과 같은 때(/api/update/state) 뒤에서,
+# 로그인돼 있고 명단에 있을 때만, 20시간에 한 번까지, 숫자가 바뀌었을 때만 명단의 그 gist를 고쳐요(새 gist는 만들지 않아요).
+# GitHub 토큰은 어떤 답·기록에도 넣지 않아요.
+# setup.json의 tokenMeter: {gist, login, t(마지막으로 gist에 쓴 때), hash(그때 숫자의 지문), auto, autoAt(하루 한 번을 해 본 때), joinAt}
+
+TM_BASE = _update_url("AGENCITY_TOKEN_METER_BASE", "https://min-heee.github.io/token-meter") + "/"   # 시험용 주소는 https나 127.0.0.1의 http만
+TM_MEMBERS_TTL = 180        # 명단은 이만큼 기억해요(초)
+TM_FRESH_GAP = 30           # fresh(새로 읽기)라도 이 초 안에 읽은 명단은 그대로 써요
+TM_FOUND_TTL = 600          # 내 gist 목록에서 찾은 것(없음도)과 내 gist가 아직 있는지는 이만큼 기억해요
+TM_NET_WAIT = 8             # 명단 받기는 모두 합쳐 이 초까지만 기다려요(조금씩 천천히 오는 답도 여기서 끊어요)
+TM_PREVIEW_TTL = 3600       # 센 숫자는 이만큼 지나면 다시 세요
+TM_AUTO_GAP = 20 * 3600     # 하루 한 번 새로 올리기는 이보다 자주 하지 않아요
+TM_MAX_BYTES = 256 * 1024   # gist에 올리는 글의 상한(collect.mjs의 MAX_GIST_BYTES)
+TM_READ_MAX = 4 * 1024 * 1024   # gist·명단 답은 이만큼까지만 읽어요
+TM_PAGES = 10               # 내 gist 목록은 100개씩 이만큼까지 봐요
+TM_JOIN_RE = re.compile(r"^https://github\.com/[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}/issues/new\?[A-Za-z0-9=&%._-]{1,300}\Z")
+TM_FOLD = re.compile(r"\[\n\s*(-?[\d.eE+-]+(?:,\n\s*-?[\d.eE+-]+)*)\n\s*\]")   # 날짜별 [총, 출력, 환산] 배열은 한 줄로
+TM_LOCK = threading.Lock()  # TM·명단·찾은 gist 기억
+TM_NET = threading.Lock()   # 명단 받기는 한 번에 하나씩
+TM_PUB = threading.Lock()   # 올리기는 한 번에 하나씩(손으로 누른 것과 하루 한 번이 겹치지 않게)
+TM_MOD = []                 # 읽어 둔 bin/token_meter.py
+TM = {"state": "idle", "seq": 0, "started": 0.0, "finished": 0.0, "login": "", "doc": None, "text": "", "digest": "",
+      "summary": None, "error": "", "gist": None, "member": None, "old": False}
+TM_MEMBERS = {"at": 0.0, "failed": 0.0, "list": None}   # list: {로그인 소문자: gist id 소문자}
+TM_FOUND = {"at": 0.0, "login": "", "gist": None}
+TM_ALIVE = {}               # {(로그인 소문자, gist id 소문자): (확인한 때, 아직 있는지)}
+TM_AUTO = {"running": False}
+
+
+def tm_mod():
+    """bin/token_meter.py를 처음 쓸 때 한 번 읽어요(서버는 -I로 켜서 bin/이 import 경로에 없어요)."""
+    with TM_LOCK:
+        if TM_MOD:
+            return TM_MOD[0]
+    try:
+        spec = importlib.util.spec_from_file_location("agencity_token_meter", os.path.join(HERE, "bin", "token_meter.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        ok = all(callable(getattr(mod, k, None)) for k in ("build_doc", "summary", "JOIN_URL")) \
+            and re.match(r"^[\w.-]{1,100}\.json\Z", str(getattr(mod, "GIST_FILE", ""))) and isinstance(getattr(mod, "GIST_DESCRIPTION", None), str)
+    except Exception:  # noqa: BLE001 — 없거나 깨졌으면 아래에서 알려요
+        ok = False
+    if not ok:
+        raise ApiError(500, "숫자 세기 도우미(bin/token_meter.py)를 읽지 못했어요. 한 줄 설치를 다시 실행해 주세요")
+    with TM_LOCK:
+        if not TM_MOD:
+            TM_MOD.append(mod)
+        return TM_MOD[0]
+
+
+def tm_roots():
+    """세는 곳: collect.mjs의 기본값(~/.claude/projects, ~/.codex, ~/.gemini). 시험 때는 세션 목록과 같은 환경 변수를 따라요."""
+    return {"claude": PROJECTS_DIR, "codex": CODEX_DIR, "gemini": os.path.join(HOME_RAW, ".gemini")}
+
+
+def tm_text(doc):
+    """gist에 올릴 글: collect.mjs의 serializePayload와 같은 모양(한 칸 들여 쓰고 숫자 배열은 한 줄). 256KB를 넘으면 줄바꿈 없이, 그래도 넘으면 못 올려요.
+    도우미에 serialize(숫자 표기까지 collect.mjs와 같아요)가 있으면 그걸 쓰고, 그 글이 문서와 다르면 여기서 만들어요."""
+    ser = getattr(tm_mod(), "serialize", None)
+    try:
+        s = ser(doc) if callable(ser) else None
+        if isinstance(s, str) and len(s.encode("utf-8")) <= TM_MAX_BYTES and tm_same(json.loads(s), doc):
+            return s
+    except Exception:  # noqa: BLE001 — 너무 크거나 이상하면 아래에서 다시 만들고 같은 까닭으로 알려요
+        pass
+    pretty = TM_FOLD.sub(lambda m: "[" + re.sub(r"\s+", "", m.group(1)) + "]", json.dumps(doc, ensure_ascii=False, indent=1, allow_nan=False))
+    compact = json.dumps(doc, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    for s in (pretty, compact):
+        if len(s.encode("utf-8")) <= TM_MAX_BYTES:
+            return s
+    raise ApiError(409, f"올릴 숫자({math.ceil(len(compact.encode('utf-8')) / 1024)}KB)가 gist 상한 256KB를 넘어요")
+
+
+def tm_canon(v):
+    """비교용: 정수인 실수는 정수로(12.0과 12가 같게)."""
+    if isinstance(v, dict):
+        return {k: tm_canon(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [tm_canon(x) for x in v]
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    return v
+
+
+def tm_dump(v):
+    """비교용 글(키 순서·12.0과 12는 따지지 않아요)."""
+    return json.dumps(tm_canon(v), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def tm_same(a, b):
+    """두 문서가 시각까지 똑같은지."""
+    return tm_dump(a) == tm_dump(b)
+
+
+def tm_plain(doc):
+    """시각(문서의 updatedAt, 기록마다 generatedAt)을 뺀 문서의 글: 숫자가 바뀌었는지 볼 때 써요(collect.mjs의 samePublished)."""
+    d = dict(doc, updatedAt=None)
+    if isinstance(d.get("entries"), list):
+        d["entries"] = [dict(e, generatedAt=None) if isinstance(e, dict) else e for e in d["entries"]]
+    return tm_dump(d)
+
+
+def tm_digest(doc):
+    return hashlib.sha256(tm_plain(doc).encode("utf-8")).hexdigest()
+
+
+def tm_build(login):
+    """내 숫자를 세어 올릴 문서(collect.mjs --publish가 올리는 것과 같은 모양)를 만들어요. 오래 걸릴 수 있어요."""
+    doc = tm_mod().build_doc(login, roots=tm_roots())
+    if not isinstance(doc, dict) or doc.get("schema") != 1 or doc.get("app") != "token-meter" or doc.get("login") != login \
+            or not isinstance(doc.get("entries"), list):
+        raise ApiError(500, "숫자 세기 도우미가 이상한 문서를 냈어요. 올리지 않았어요")
+    return doc
+
+
+def tm_summary(doc):
+    """미리보기 요약(token_meter.summary)을 화면에 보낼 모양으로 다듬어요."""
+    s = tm_mod().summary(doc)
+    s = s if isinstance(s, dict) else {}
+
+    def n(v):
+        return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v >= 0 else 0
+
+    def day(v):
+        return v if isinstance(v, str) and re.match(r"^\d{4}-\d{2}-\d{2}\Z", v) else None
+    tools = s.get("tools") if isinstance(s.get("tools"), dict) else {}
+    return {"total": n(s.get("total")), "days": n(s.get("days")), "since": day(s.get("since")), "until": day(s.get("until")),
+            "tools": {k: n(tools.get(k)) for k in ("claude", "codex", "gemini")}}
+
+
+def tm_join_url(gid):
+    u = str(tm_mod().JOIN_URL(gid))
+    return u if TM_JOIN_RE.match(u) else None
+
+
+def tm_conf(s=None):
+    """setup.json의 tokenMeter를 고르게 다듬은 것. 하루 한 번 새로 올리기는 기본 꺼짐이에요."""
+    c = (load_setup() if s is None else s).get("tokenMeter")
+    c = c if isinstance(c, dict) else {}
+    gid, login = str(c.get("gist") or ""), str(c.get("login") or "")
+    mine = bool(GIST_RE.match(gid) and LOGIN_RE.match(login))
+    h = c.get("hash")
+
+    def at(k):
+        return c[k] if iso_age(c.get(k)) is not None else None
+    return {"gist": gid if mine else None, "login": login if mine else None, "t": at("t"),
+            "hash": h if isinstance(h, str) and re.match(r"^[0-9a-f]{64}\Z", h) else None,
+            "auto": c.get("auto") is True, "autoAt": at("autoAt"), "autoErr": one_line(c.get("autoErr"), 200) if isinstance(c.get("autoErr"), str) else None,
+            "joinAt": at("joinAt")}
+
+
+def tm_save(**kw):
+    with SETUP_LOCK:
+        s = load_setup()
+        c = tm_conf(s)
+        c.update(kw)
+        s["tokenMeter"] = {k: v for k, v in c.items() if v is not None}
+        write_json(SETUP, s)
+
+
+def tm_mine(login, c=None):
+    """이 맥에서 숫자를 올린 내 gist(같은 아이디일 때만)."""
+    c = tm_conf() if c is None else c
+    return c["gist"] if c["login"] and c["login"].lower() == login.lower() else None
+
+
+def tm_forget(gid):
+    """없어진(지웠거나 token-meter.json을 뺀) gist가 setup.json에 적어 둔 내 gist면 빼요(올린 때·숫자 지문·참가 신청한 때도).
+    하루 한 번 새로 올리기를 켜 둔 것은 그대로예요. 그러면 상자는 다시 ‘내 숫자 세어 보기’부터 보여요."""
+    with SETUP_LOCK:
+        s = load_setup()
+        c = tm_conf(s)
+        if not c["gist"] or c["gist"].lower() != gid.lower():
+            return
+        c.update(gist=None, login=None, t=None, hash=None, joinAt=None)
+        s["tokenMeter"] = {k: v for k, v in c.items() if v is not None}
+        write_json(SETUP, s)
+
+
+def tm_mark(gid, login, ok):
+    """gist가 아직 있는지 확인한 것을 적어요. 없어졌으면 setup.json(tm_forget)과 찾은 gist 기억에서도 빼요."""
+    with TM_LOCK:
+        if len(TM_ALIVE) > 50:
+            TM_ALIVE.clear()
+        TM_ALIVE[(login.lower(), gid.lower())] = (time.time(), ok)
+        if not ok and TM_FOUND["gist"] and TM_FOUND["gist"].lower() == gid.lower():
+            TM_FOUND.update(at=0.0, gist=None)   # 다음에 내 gist 목록을 새로 봐요
+    if not ok:
+        tm_forget(gid)
+
+
+def gist_call(method, path, body=None):
+    """내 GitHub 로그인으로 GitHub API를 불러요(path는 'gists/…' 같은 상대 주소). (상태 코드, JSON dict·list)
+    앱의 기기 로그인이면 그 토큰으로 바로(github_call), gh 로그인이면 gh api로 불러요(토큰은 gh가 쓰고 여기서는 읽지 않아요).
+    gh는 진짜 GitHub에만 붙어요(시험용 API 주소면 쓰지 않아요, office_public.py와 같아요). 오류 글(gh의 표준 오류 포함)은 답에 넣지 않아요."""
+    g = github_state()
+    if not g:
+        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 1단계)")
+    if g["via"] == "device":
+        t = load_token()
+        if not t:
+            raise ApiError(409, "GitHub 로그인이 풀렸어요. 설정 1단계에서 다시 로그인해 주세요")
+        return github_call(f"{GITHUB_API}/{path}", token=t["token"], method=method, body=body, limit=TM_READ_MAX, lists=True)
+    if GITHUB_API != "https://api.github.com" or not shutil.which("gh"):
+        raise ApiError(409, "gh를 찾지 못했어요. 설정 1단계에서 GitHub로 다시 로그인해 주세요")
+    args = ["gh", "api", "--hostname", "github.com", "-X", method, path] + (["--input", "-"] if body is not None else [])
+    env = {k: v for k, v in os.environ.items() if k not in ("GH_DEBUG", "DEBUG", "GH_HOST")}   # 디버그 출력에는 인증 머리글이 찍혀요
+    env.update(GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1", NO_COLOR="1")
+    try:
+        r = subprocess.run(args, input=json.dumps(body, ensure_ascii=False) if body is not None else "", capture_output=True,
+                           text=True, timeout=60, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        raise ApiError(502, "GitHub에 연결하지 못했어요. 인터넷 연결을 확인해 주세요")
+    if r.returncode == 0:
+        try:
+            obj = json.loads(r.stdout or "null")
+        except ValueError:
+            obj = None
+        return (201 if method == "POST" else 200), obj if isinstance(obj, (dict, list)) else {}
+    m = re.search(r"\(HTTP (\d{3})\)", r.stderr or "")
+    if m:
+        return int(m.group(1)), {}
+    if re.search(r"gh auth login|not logged in|authentication required|bad credentials", r.stderr or "", re.I):
+        return 401, {}
+    raise ApiError(502, "GitHub에 연결하지 못했어요. 인터넷 연결을 확인해 주세요")
+
+
+def tm_gh_fail(code):
+    if code == 401:
+        return ApiError(409, "GitHub 로그인이 풀렸어요. 설정 1단계에서 다시 로그인해 주세요")
+    if code in (403, 404):
+        return ApiError(409, "gist에 쓰지 못했어요. GitHub 로그인에 gist 권한이 있는지 확인해 주세요(로그아웃 뒤 다시 로그인)")
+    return ApiError(502, f"GitHub이 받지 않았어요({code}). 잠시 뒤 다시 해 주세요")
+
+
+def tm_user():
+    """이 로그인(토큰)의 진짜 GitHub 아이디."""
+    code, me = gist_call("GET", "user")
+    login = str(me.get("login") or "") if isinstance(me, dict) else ""
+    if code == 401:
+        raise tm_gh_fail(401)
+    if code != 200 or not LOGIN_RE.match(login):
+        raise ApiError(502, "GitHub 아이디를 확인하지 못했어요. 잠시 뒤 다시 해 주세요")
+    return login
+
+
+def tm_owner(g, login):
+    o = g.get("owner") if isinstance(g, dict) else None
+    return isinstance(o, dict) and str(o.get("login") or "").lower() == login.lower()
+
+
+def tm_gist_url(g, login, gid):
+    u = str(g.get("html_url") or "") if isinstance(g, dict) else ""
+    return u if re.match(r"^https://gist\.github\.com/[\w./-]+\Z", u) else f"https://gist.github.com/{login}/{gid}"
+
+
+def tm_read(gid, login):
+    """내 gist 하나: {id, url, doc(지금의 token-meter.json 문서, 못 읽으면 None)}.
+    없거나(404) 내 공개 gist가 아니거나 token-meter.json이 없으면 None(tm_mark로 없어졌다고 적어요).
+    GitHub이 다른 까닭으로 답하지 않으면 ApiError(새 gist를 잘못 만들거나 있는 gist를 잊지 않게)."""
+    code, g = gist_call("GET", f"gists/{gid}")
+    if code != 404 and (code != 200 or not isinstance(g, dict)):
+        raise tm_gh_fail(code) if code == 401 else ApiError(502, "내 gist를 확인하지 못했어요. 잠시 뒤 다시 해 주세요")
+    files = g.get("files") if code == 200 and isinstance(g.get("files"), dict) else {}
+    name = tm_mod().GIST_FILE
+    if code == 404 or not tm_owner(g, login) or g.get("public") is not True or name not in files:
+        tm_mark(gid, login, False)
+        return None
+    f, doc = files[name], None
+    if isinstance(f, dict) and f.get("truncated") is not True and isinstance(f.get("content"), str):
+        try:
+            doc = json.loads(f["content"])
+        except ValueError:
+            doc = None
+    tm_mark(gid, login, True)
+    return {"id": gid, "url": tm_gist_url(g, login, gid), "doc": doc if isinstance(doc, dict) else None}
+
+
+def tm_alive(gid, login, fresh=False):
+    """내 token-meter gist가 아직 있는지(tm_read로 읽히는지) True·False, GitHub에 못 물으면 None(있는 것으로 봐요).
+    TM_FOUND_TTL초 기억하고, fresh면 TM_FRESH_GAP초보다 오래된 것은 다시 물어요."""
+    with TM_LOCK:
+        hit = TM_ALIVE.get((login.lower(), gid.lower()))
+    if hit and 0 <= time.time() - hit[0] < (TM_FRESH_GAP if fresh else TM_FOUND_TTL):
+        return hit[1]
+    try:
+        return tm_read(gid, login) is not None
+    except ApiError:
+        return None
+
+
+def tm_find(login):
+    """내 gist 중 token-meter.json이 든 공개 gist(가장 최근에 고친 것)의 id, 없으면 None(collect.mjs의 searchGist와 같아요).
+    목록을 못 읽으면 ApiError예요(없다고 보고 새로 만들지 않게)."""
+    name, found = tm_mod().GIST_FILE, []
+    for page in range(1, TM_PAGES + 1):
+        code, lst = gist_call("GET", f"gists?per_page=100&page={page}")
+        if code != 200 or not isinstance(lst, list):
+            raise tm_gh_fail(code) if code == 401 else ApiError(502, "내 gist 목록을 읽지 못했어요. 잠시 뒤 다시 해 주세요")
+        for g in lst:
+            if isinstance(g, dict) and GIST_RE.match(str(g.get("id") or "")) and g.get("public") is True and tm_owner(g, login) \
+                    and isinstance(g.get("files"), dict) and name in g["files"]:
+                found.append((str(g.get("updated_at") or ""), g["id"]))
+        if len(lst) < 100:
+            break
+    found.sort(reverse=True)
+    gid = found[0][1] if found else None
+    with TM_LOCK:
+        TM_FOUND.update(at=time.time(), login=login.lower(), gist=gid)
+    return gid
+
+
+def tm_found(login):
+    """tm_find를 몇 분 기억해요. 못 물으면 None(1분 뒤에 다시 물어요)."""
+    t = time.time()
+    with TM_LOCK:
+        f = dict(TM_FOUND)
+    if f["login"] == login.lower() and 0 <= t - f["at"] < TM_FOUND_TTL:
+        return f["gist"]
+    try:
+        return tm_find(login)
+    except ApiError:
+        with TM_LOCK:
+            TM_FOUND.update(at=t - TM_FOUND_TTL + 60, login=login.lower(), gist=None)
+        return None
+
+
+def tm_fetch_members():
+    """members.json을 받아 {로그인 소문자: gist id 소문자}. 못 읽으면 None. 로그인 정보(토큰)는 보내지 않아요.
+    timeout은 한 번 읽을 때마다라서, 받기는 뒤에서 하고 모두 합쳐 TM_NET_WAIT초까지만 기다려요(명단을 기다리는 다른 요청이 오래 줄 서지 않게)."""
+    url = f"{TM_BASE}members.json?t={int(time.time() * 1000)}"   # Pages 캐시를 피해요(collect.mjs와 같아요)
+    req = urllib.request.Request(url, headers={"User-Agent": f"agencity/{VERSION}", "Accept": "application/json", "Cache-Control": "no-cache"})
+    end, box = time.monotonic() + TM_NET_WAIT, {}
+
+    def get():
+        try:
+            opener = LOCAL if urlsplit(url).hostname in ("127.0.0.1", "localhost") else urllib.request.build_opener()
+            with opener.open(req, timeout=TM_NET_WAIT) as r:
+                buf = bytearray()
+                while len(buf) <= TM_READ_MAX and time.monotonic() < end:   # 너무 크거나 기한이 지나면 받다 말아요(못 읽음)
+                    b = r.read1(65536)
+                    if not b:
+                        box["raw"] = bytes(buf)
+                        return
+                    buf += b
+        except Exception:  # noqa: BLE001 — 못 받으면 None(연결·HTTP 오류·이상한 답 모두)
+            pass
+    th = threading.Thread(target=get, name="meter-members", daemon=True)
+    th.start()
+    th.join(TM_NET_WAIT + 0.5)
+    raw = box.get("raw")
+    try:
+        doc = json.loads(raw.decode("utf-8")) if raw is not None else None
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(doc, dict) or not isinstance(doc.get("members"), list):
+        return None
+    out = {}
+    for m in doc["members"][:5000]:
+        if isinstance(m, dict) and LOGIN_RE.match(str(m.get("login") or "")) and GIST_RE.match(str(m.get("gist") or "")):
+            out[m["login"].lower()] = m["gist"].lower()
+    return out
+
+
+def tm_members(fresh=False):
+    """token-meter 명단. TM_MEMBERS_TTL초 기억하고, fresh면 TM_FRESH_GAP초보다 오래된 것은 새로 읽어요.
+    못 읽으면 30분 안의 지난 명단, 그것도 없으면 None(모름)."""
+    with TM_NET:
+        t = time.time()
+        with TM_LOCK:
+            m = dict(TM_MEMBERS)
+        age = t - m["at"]
+        if m["list"] is not None and 0 <= age < (TM_FRESH_GAP if fresh else TM_MEMBERS_TTL):
+            return m["list"]
+        if m["failed"] and 0 <= t - m["failed"] < TM_FRESH_GAP:
+            return m["list"] if m["list"] is not None and 0 <= age < 1800 else None
+        lst = tm_fetch_members()
+        with TM_LOCK:
+            if lst is None:
+                TM_MEMBERS["failed"] = time.time()
+            else:
+                TM_MEMBERS.update(at=time.time(), failed=0.0, list=lst)
+        if lst is None:
+            return m["list"] if m["list"] is not None and 0 <= age < 1800 else None
+        return lst
+
+
+def tm_where(login, fresh=False):
+    """(내 token-meter gist id 또는 None, 명단에 이 gist로 있는지 True·False·None(명단을 못 읽음), 예전 gist로 올라 있는지).
+    이 맥에서 올린 gist → 명단에 있는 내 gist → 내 gist 목록(몇 분 기억) 순서로 찾아요. 앞의 둘은 아직 있는지 봐서(몇 분 기억)
+    지운 gist는 건너뛰어요(이 맥에서 올린 것이면 setup.json에서도 빼요). 그래야 탈퇴하고 지운 뒤나 다른 gist로 다시 참가한 뒤에 옛 gist에 묶이지 않아요."""
+    members = tm_members(fresh)
+    listed = members.get(login.lower()) if members is not None else None
+    gid = next((g for g in (tm_mine(login), listed) if g and tm_alive(g, login, fresh) is not False), None) or tm_found(login)
+    member = None if members is None else bool(gid and listed == gid.lower())
+    return gid, member, bool(gid and listed and listed != gid.lower())
+
+
+def tm_publish(text, login, only=None):
+    """token-meter.json(text)을 내 공개 gist에 만들거나 고쳐요. 반환 {ok, gist, url, created, unchanged, member, joinUrl}.
+    올리기 전에 이 로그인(토큰)의 진짜 아이디가 문서의 login과 같은지 봐요(다르면 올리지 않아요).
+    gist는 이 맥에서 올린 것 → 명단에 있는 것 → public.json의 gist → 내 gist 목록 순으로 찾고(token-meter.json이 든 내 공개 gist만), 없으면 새로 만들어요.
+    only(하루 한 번 새로 올리기)를 주면 그 gist만 고쳐요. 없어졌으면 새로 만들지 않고 그만둬요(새 공개 gist는 ‘gist에 올리기’를 눌러야 만들어요).
+    고칠 때는 token-meter.json만 보내서 같은 gist의 다른 파일(agencity.json 등)은 그대로예요. 숫자가 그대로면 고치지 않아요."""
+    mod, doc = tm_mod(), json.loads(text)
+    if not doc.get("entries"):
+        raise ApiError(409, "이 맥에서 센 토큰이 없어서 올리지 않았어요")   # collect.mjs도 로그가 없으면 올리지 않아요
+    with TM_PUB:
+        me = tm_user()
+        if me.lower() != str(doc.get("login") or "").lower() or me.lower() != login.lower():
+            raise ApiError(409, f"GitHub 로그인(@{me})과 올릴 숫자의 아이디(@{one_line(doc.get('login'), 40)})가 달라요. 올리지 않았어요")
+        members = tm_members()
+        cands = [only] if only else [tm_mine(me), (members or {}).get(me.lower()), str(load_public().get("gist") or "")]
+        seen, cur = set(), None
+        for gid in cands:
+            if gid and GIST_RE.match(gid) and gid.lower() not in seen:
+                seen.add(gid.lower())
+                cur = tm_read(gid, me)
+                if cur:
+                    break
+        if not cur and only:
+            raise ApiError(409, "명단에 있는 내 gist가 없어져서 올리지 않았어요. 설정 4단계에서 다시 올려 주세요")
+        if not cur:
+            gid = tm_find(me)
+            cur = tm_read(gid, me) if gid else None
+        created = unchanged = False
+        if cur and cur["doc"] is not None and tm_plain(cur["doc"]) == tm_plain(doc):
+            unchanged = True
+        elif cur:
+            code, res = gist_call("PATCH", f"gists/{cur['id']}", {"description": mod.GIST_DESCRIPTION, "files": {mod.GIST_FILE: {"content": text}}})
+            if code != 200 or not isinstance(res, dict):
+                raise tm_gh_fail(code)
+        else:
+            code, res = gist_call("POST", "gists", {"description": mod.GIST_DESCRIPTION, "public": True, "files": {mod.GIST_FILE: {"content": text}}})
+            gid = str(res.get("id") or "") if isinstance(res, dict) else ""
+            if code not in (200, 201) or not GIST_RE.match(gid):
+                raise tm_gh_fail(code) if code not in (200, 201) else ApiError(502, "만든 gist를 확인하지 못했어요. GitHub에서 내 gist를 확인해 주세요")
+            cur, created = {"id": gid, "url": tm_gist_url(res, me, gid)}, True
+            tm_mark(gid, me, True)
+        # 새 gist면 예전 gist로 한 참가 신청(joinAt)은 지워요(이 gist로 다시 신청해야 해요)
+        tm_save(gist=cur["id"], login=me, hash=tm_digest(doc), **({} if unchanged else {"t": now()}), **({"joinAt": None} if created else {}))
+        with TM_LOCK:
+            TM_FOUND.update(at=time.time(), login=me.lower(), gist=cur["id"])
+    listed = members.get(me.lower()) if members is not None else None
+    return {"ok": True, "gist": cur["id"], "url": cur["url"], "created": created, "unchanged": unchanged,
+            "member": None if members is None else listed == cur["id"].lower(), "joinUrl": tm_join_url(cur["id"])}
+
+
+def tm_count_run(seq, login):
+    try:
+        text = tm_text(tm_build(login))
+        doc = json.loads(text)   # 보여 주고 올리는 건 실제로 올라갈 글을 되읽은 것
+        gid, member, old = tm_where(login)
+        res = {"state": "ready", "doc": doc, "text": text, "digest": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+               "summary": tm_summary(doc), "gist": gid, "member": member, "old": old}
+    except ApiError as e:
+        res = {"state": "failed", "error": e.msg}
+    except Exception as e:  # noqa: BLE001 — 세다가 난 오류도 화면에 알려요(서버는 그대로)
+        res = {"state": "failed", "error": f"숫자를 세지 못했어요({type(e).__name__})"}
+    with TM_LOCK:
+        if TM["seq"] == seq:
+            TM.update(res, finished=time.time())
+
+
+def tm_view(login):
+    """세기 상태: idle → counting(elapsed) → ready(요약·올라갈 글·digest·내 gist·명단) 또는 failed(error)."""
+    with TM_LOCK:
+        v = dict(TM)
+    t = time.time()
+    if v["login"].lower() != login.lower() or (v["state"] == "ready" and not 0 <= t - v["finished"] < TM_PREVIEW_TTL):
+        return {"ok": True, "state": "idle"}
+    out = {"ok": True, "state": v["state"]}
+    if v["state"] == "counting":
+        out["elapsed"] = max(0, int(t - v["started"]))
+    elif v["state"] == "failed":
+        out["error"] = v["error"]
+    elif v["state"] == "ready":
+        gid = v["gist"]
+        out.update(summary=v["summary"], json=v["text"], digest=v["digest"], bytes=len(v["text"].encode("utf-8")), gist=gid,
+                   member=v["member"], old=v["old"], joinUrl=tm_join_url(gid) if gid else None)
+    return out
+
+
+def tm_login():
+    g = github_state()
+    if not g:
+        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 1단계)")
+    return g["login"]
+
+
+def api_setup_meter_preview(body):
+    """{start: true}면 숫자를 새로 세기 시작해요(이미 세는 중이면 그대로). 늘 지금 세기 상태를 돌려줘요. 아무것도 올리지 않아요."""
+    login = tm_login()
+    tm_mod()   # 도우미가 없으면 바로 알려요
+    if body.get("start") is True:
+        with TM_LOCK:
+            go = TM["state"] != "counting"
+            if go:
+                TM["seq"] += 1
+                TM.update(state="counting", started=time.time(), finished=0.0, login=login, doc=None, text="", digest="",
+                          summary=None, error="", gist=None, member=None, old=False)
+                seq = TM["seq"]
+        if go:
+            threading.Thread(target=tm_count_run, args=(seq, login), name="meter-count", daemon=True).start()
+    return tm_view(login)
+
+
+def api_setup_meter_publish(body):
+    """미리보기로 보여 준 그 글을 올려요. {confirm: true, digest: 미리보기의 digest}가 있어야 해요."""
+    if body.get("confirm") is not True:
+        raise ApiError(400, "올리려면 확인(confirm)이 있어야 해요")
+    login = tm_login()
+    with TM_LOCK:
+        v = dict(TM)
+    d = body.get("digest")
+    if v["state"] != "ready" or not isinstance(d, str) or not re.match(r"^[0-9a-f]{64}\Z", d) or not secrets.compare_digest(d, v["digest"]) \
+            or not 0 <= time.time() - v["finished"] < TM_PREVIEW_TTL:
+        raise ApiError(409, "보여 드린 숫자가 바뀌었거나 오래됐어요. 다시 세어 주세요")
+    if v["login"].lower() != login.lower():
+        raise ApiError(409, "센 숫자의 GitHub 아이디가 지금 로그인과 달라요. 다시 세어 주세요")
+    res = tm_publish(v["text"], login)
+    with TM_LOCK:
+        if TM["seq"] == v["seq"]:
+            TM.update(gist=res["gist"], member=res["member"], old=False)
+    return res
+
+
+def api_setup_meter_join(body):
+    """참가 신청 주소(token-meter 저장소의 참가 이슈, 내 gist id가 채워져 있어요). 제출은 대표가 GitHub에서 눌러요."""
+    login = tm_login()
+    gid, member, _ = tm_where(login)
+    url = tm_join_url(gid) if gid else None
+    if not url:
+        raise ApiError(409, "아직 내 token-meter gist가 없어요. 먼저 숫자를 올려 주세요")
+    tm_save(joinAt=now())
+    return {"ok": True, "url": url, "gist": gid, "member": member}
+
+
+def api_setup_meter_status(body):
+    """{login, gist, url, member(True·False·None), old, joinUrl, auto, last, autoAt, autoErr, joinAt, count}. fresh: true면 명단을 새로 읽어요(30초에 한 번까지)."""
+    g, c = github_state(), tm_conf()
+    out = {"ok": True, "login": g["login"] if g else None, "gist": None, "url": None, "member": None, "old": False, "joinUrl": None,
+           "auto": c["auto"], "last": c["t"], "autoAt": c["autoAt"], "autoErr": c["autoErr"], "joinAt": c["joinAt"]}
+    if not g:
+        return out
+    gid, member, old = tm_where(g["login"], fresh=body.get("fresh") is True)
+    out.update(gist=gid, member=member, old=old, count=tm_view(g["login"])["state"])
+    if gid:
+        out.update(url=f"https://gist.github.com/{g['login']}/{gid}", joinUrl=tm_join_url(gid))
+    return out
+
+
+def api_setup_meter_settings(body):
+    if not isinstance(body.get("auto"), bool):
+        raise ApiError(400, "auto는 true나 false예요")
+    tm_save(auto=body["auto"], autoErr=None)
+    return {"ok": True, "auto": body["auto"]}
+
+
+def tm_auto_run(login):
+    err = None
+    try:
+        tm_save(autoAt=now())                # 해 본 때부터 적어요(못 해도 20시간 뒤에 다시)
+        gid, member, _ = tm_where(login)
+        if member is not True:               # 명단에 있을 때만
+            return
+        text = tm_text(tm_build(login))
+        if tm_digest(json.loads(text)) == tm_conf()["hash"]:
+            return                           # 숫자가 그대로예요
+        tm_publish(text, login, only=gid)    # 명단의 그 gist만 고쳐요(없어졌으면 새로 만들지 않아요)
+    except ApiError as e:
+        err = e.msg
+    except Exception as e:  # noqa: BLE001 — 덤이에요. 서버는 그대로 둬요
+        err = f"숫자를 세지 못했어요({type(e).__name__})"
+    finally:
+        try:
+            tm_save(autoErr=err)
+        except Exception:  # noqa: BLE001
+            pass
+        with TM_LOCK:
+            TM_AUTO["running"] = False
+
+
+def tm_maybe_auto():
+    """하루 한 번 새로 올리기: 켰을 때만, 로그인돼 있을 때만, 마지막으로 올리거나 해 본 지 20시간이 지났을 때만 뒤에서 해요(요청은 기다리지 않아요)."""
+    c = tm_conf()
+    g = github_state() if c["auto"] else None
+    if not g:
+        return
+    for k in ("t", "autoAt"):
+        age = iso_age(c[k])
+        if age is not None and -300 <= age < TM_AUTO_GAP:
+            return
+    with TM_LOCK:
+        if TM_AUTO["running"]:
+            return
+        TM_AUTO["running"] = True
+    threading.Thread(target=tm_auto_run, args=(g["login"],), name="meter-auto", daemon=True).start()
 
 
 # ---------- 세션 만들기 · 섹션 맞추기 · 규칙 맞추기 ----------
@@ -4652,6 +5271,9 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/setup/floors": api_setup_floors, "/api/setup/members": api_setup_members,
           "/api/setup/member-name": api_setup_member_name, "/api/setup/floor-order": api_setup_floor_order, "/api/setup/visibility": api_setup_visibility,
           "/api/setup/publish": api_setup_publish, "/api/setup/done": api_setup_done,
+          "/api/setup/meter/preview": api_setup_meter_preview, "/api/setup/meter/publish": api_setup_meter_publish,
+          "/api/setup/meter/join": api_setup_meter_join, "/api/setup/meter/status": api_setup_meter_status,
+          "/api/setup/meter/settings": api_setup_meter_settings,
           "/api/update/state": api_update_state, "/api/update/settings": api_update_settings, "/api/update/run": api_update_run,
           "/api/seat/link": api_seat_link, "/api/seat/pending": api_seat_pending, "/api/seat/pick": api_seat_pick,
           "/api/seat/cancel": api_seat_cancel, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
@@ -4736,7 +5358,8 @@ class Handler(SimpleHTTPRequestHandler):
             o = self.headers.get("Origin")
             hdrs = [("Vary", "Origin")]
             if o is None or o in ORIGINS:
-                res = dict(api_state(), version=VERSION, home=HOME_ID)
+                gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
+                res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None)
             else:
                 res = {"ok": True, "version": VERSION, "home": HOME_ID}
                 if office_page_origin(o):

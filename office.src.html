@@ -543,6 +543,15 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .upd-alt{margin:8px 0 0; padding-left:18px; font-size:13px}
 .su-upd .su-check{font-weight:600}
 .su-upd .su-actions{margin-top:8px}
+/* 4단계 ‘도시에 내 건물 세우기’(token-meter 참가) */
+.su-meter h3{margin:0 0 6px; font-size:14.5px}
+.su-meter h3:focus{outline:none}
+.su-meter .su-actions{margin-top:8px}
+.su-meter .su-check{margin-top:10px; font-weight:600}
+.su-meter details{margin-top:8px}
+.su-meter .d-pre{max-height:40vh; overflow:auto; margin-top:6px}
+.su-mt-pv{margin-top:10px; padding-top:10px; border-top:1px solid var(--line)}
+.su-mt-pv:focus{outline:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (max-width:559px){ .upd .dot{display:none} .upd-runbox{padding:16px} }
 
@@ -2560,7 +2569,7 @@ function pubBlock() {
 }
 function pubHint() {
   const p = SU.st.published;
-  if (!withdraw()) return '올리려면 token-meter로 만든 내 gist가 있어야 해요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
+  if (!withdraw()) return `${mtStage() === 'none' ? '올리려면 위에서 내 건물(token-meter gist)을 먼저 세워요. ' : ''}누르면 무엇이 나가는지 한 번 더 보여 줘요.`;
   if (p && p.current === true && p.floors === 0) return '도시에 올라간 층 정보는 이미 비어 있어요. 소개 한 줄을 고쳤다면 다시 눌러 반영해요.';
   return '도시에 올라간 층 정보를 비워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
 }
@@ -3368,6 +3377,142 @@ function saveNote() {   // '저장'을 누른 뒤: 이 맥에만 적었다는 �
   if (p.current === true) return '저장했어요. 도시에 올라간 내용과 같아요.';
   return `저장했어요. 이 맥의 public.json에만 적었어요. 도시에는 예전 내용이 ${p.current === false ? '그대로 있으니' : '있을 수 있으니'} ${act}를 눌러 반영해요.`;
 }
+/* 4단계 ‘도시에 내 건물 세우기’: 서버(/api/setup/meter/*)가 내 토큰 숫자를 세고(bin/token_meter.py, 대화 글은 읽지 않아요),
+   ‘gist에 올리기’를 눌러야 내 공개 gist에 token-meter.json을 올려요. 참가 신청(token-meter 저장소의 이슈)은 GitHub에서 대표가 직접 제출해요.
+   신청을 기다리는 동안은 45초마다(창으로 돌아오면 바로) 명단을 다시 물어요. 서버에서 온 글은 모두 esc()를 거쳐요. */
+const MT = { st: null, at: 0, loading: false, none: false, pv: null, pvAt: 0, pvBusy: false, err: '', note: '', jsonOpen: false };
+const tmNum = n => (n >= 1e8 ? (n / 1e8).toFixed(n >= 1e9 ? 1 : 2) + '억' : n >= 1e4 ? (n / 1e4).toFixed(n >= 1e6 ? 0 : 1) + '만' : Math.round(n).toLocaleString('ko-KR'));
+// login: GitHub 로그인 전 · wait: 확인하는 중 · none: 아직 gist 없음 · join: gist는 있고 명단에 없음(또는 모름) · built: 명단에 있음
+function mtStage() {
+  const s = MT.st;
+  if (!SU.st || !SU.st.github || (s && !s.login)) return 'login';   // 서버가 로그아웃으로 보면(토큰 파일이 없어짐 등) 로그인부터
+  if (!s) return 'wait';
+  if (s.member === true) return 'built';
+  return s.gist ? 'join' : 'none';
+}
+function mtPvHTML() {
+  const pv = MT.pv;
+  if (!pv) return '';
+  if (pv.state === 'counting') return `<div class="su-mt-pv" id="suMtPv" tabindex="-1"><p class="hint" role="status">내 숫자를 세는 중이에요${pv.elapsed ? ` · ${esc(pv.elapsed)}초` : ''}…</p></div>`;
+  if (pv.state === 'failed') return `<div class="su-mt-pv" id="suMtPv" tabindex="-1"><p class="err" role="alert">${esc(pv.error || '숫자를 세지 못했어요')}</p>
+    <div class="su-actions"><button type="button" class="btn" data-su="mt-count">다시 세기</button><button type="button" class="btn" data-su="mt-cancel">닫기</button></div></div>`;
+  if (pv.state !== 'ready') return '';
+  const sm = pv.summary && typeof pv.summary === 'object' ? pv.summary : {}, t = sm.tools && typeof sm.tools === 'object' ? sm.tools : {}, n = v => Number(v) || 0;
+  const tools = [['Claude', t.claude], ['Codex', t.codex], ['Gemini', t.gemini]].filter(([, v]) => n(v) > 0).map(([k, v]) => `${k} ${tmNum(n(v))}`).join(' · ');
+  if (!n(sm.total)) return `<div class="su-mt-pv" id="suMtPv" tabindex="-1"><p class="hint">이 맥에서 센 토큰이 없어요. Claude Code·Codex·Gemini CLI를 쓴 뒤 다시 세어 봐요.</p>
+    <div class="su-actions"><button type="button" class="btn" data-su="mt-cancel">닫기</button></div></div>`;
+  return `<div class="su-mt-pv" id="suMtPv" tabindex="-1">
+      <p><b>모두 ${esc(tmNum(n(sm.total)))} 토큰</b> · 활동한 날 ${esc(n(sm.days))}일${sm.since && sm.until ? ` (${esc(sm.since)} ~ ${esc(sm.until)})` : ''}</p>
+      ${tools ? `<p class="hint">${esc(tools)}</p>` : ''}
+      <details id="suMtJson"${MT.jsonOpen ? ' open' : ''}><summary class="hint" style="cursor:pointer">올라갈 내용 그대로 보기</summary><pre class="d-pre">${esc(pv.json || '')}</pre></details>
+      <p class="hint">숫자(토큰·횟수·API 환산액)와 모델 이름·날짜·시간대만 나가요. 대화·경로는 나가지 않아요.</p>
+      <p id="suMtCf"><b>누구나 보는 공개 gist에 올라가고, 수정 기록도 계속 공개로 남아요.</b></p>
+      <div class="su-actions"><button type="button" class="btn primary" id="suMtPub" data-su="mt-pub" aria-describedby="suMtCf">gist에 올리기</button><button type="button" class="btn" data-su="mt-cancel">취소</button></div></div>`;
+}
+function mtHTML() {
+  if (!API || MT.none) return '';
+  const st = mtStage(), s = MT.st || {}, pv = mtPvHTML();
+  const note = MT.note ? `<p role="status"><i class="sd here"></i>${esc(MT.note)}</p>` : '';
+  let body;
+  if (st === 'login') body = `<p class="hint">GitHub에 로그인하면 여기서 바로 내 건물을 세워요.</p><div class="su-actions"><button type="button" class="btn" data-su="go" data-step="0">1단계 로그인으로</button></div>`;
+  else if (st === 'wait') body = `<p class="hint" role="status">${MT.loading || !MT.err ? '확인하는 중이에요…' : ''}</p>${MT.err ? '<div class="su-actions"><button type="button" class="btn" data-su="mt-reload">다시 확인</button></div>' : ''}`;
+  else if (st === 'none') body = `${note}<p class="hint">내 토큰 숫자만큼 도시에 건물이 서요. 먼저 무엇이 올라가는지 봐요.</p>
+      ${pv || '<div class="su-actions"><button type="button" class="btn primary" id="suMtCount" data-su="mt-count">내 숫자 세어 보기</button></div>'}`;
+  else if (st === 'join') {
+    const wait = s.member === null ? '명단을 확인하지 못했어요. 잠시 뒤 다시 볼게요' : s.joinAt ? '명단에 들어오기를 기다리는 중이에요…' : '';
+    body = `${note}${s.old ? '<p class="hint">예전 gist로 참가돼 있어요. 다시 신청하면 이 gist로 바뀌어요.</p>' : ''}
+      <div class="su-actions">${s.joinUrl ? `<a class="btn primary" id="suMtJoin" href="${esc(s.joinUrl)}" target="_blank" rel="noopener" data-su="mt-join">참가 신청 열기 ↗</a>` : ''}${pv ? '' : '<button type="button" class="btn" id="suMtCount" data-su="mt-count">숫자 다시 올리기</button>'}</div>
+      ${s.joinUrl ? '<p class="hint" style="margin-top:6px">GitHub에서 Submit new issue를 누르면 몇 분 안에 명단에 들어가요</p>' : ''}
+      ${wait ? `<p class="hint" role="status">${esc(wait)}</p>` : ''}${pv}`;
+  } else {
+    const last = s.last && agoAt(s.last) ? `마지막으로 올린 때 · ${agoAt(s.last)}` : '';
+    body = `${note}<p><i class="sd here"></i>도시에 건물이 서 있어요</p>
+      ${pv || `<div class="su-actions"><a class="btn" href="city.html?who=${esc(encodeURIComponent(s.login))}">도시 보기</a><button type="button" class="btn" id="suMtCount" data-su="mt-count">숫자 다시 올리기</button></div>`}
+      <label class="su-check"><input type="checkbox" id="suMtAuto" data-su-in="mt-auto"${s.auto ? ' checked' : ''} aria-describedby="suMtAutoH"> 하루 한 번 새로 올리기</label>
+      <p class="hint" id="suMtAutoH">숫자가 바뀐 날만 올려요. gist 수정 기록은 계속 공개로 남아요.</p>
+      ${last ? `<p class="hint">${esc(last)}</p>` : ''}${s.auto && s.autoErr ? `<p class="hint">지난번 하루 한 번 올리기는 못 했어요: ${esc(s.autoErr)}</p>` : ''}`;
+  }
+  return `<div class="su-box su-meter" id="suMeterBox" role="group" aria-labelledby="suMeterH"><h3 id="suMeterH" tabindex="-1">도시에 내 건물 세우기</h3>${body}
+    <p class="err" role="alert" id="suMeterErr" style="margin-top:6px">${linkify(MT.err)}</p></div>`;
+}
+// 상자만 다시 그려요(다른 칸은 그대로). 키보드 위치는 같은 id·data-su로, focus를 주면 그곳으로
+function mtPaint(focus) {
+  const box = $('#suMeterBox');
+  if (!box) return;
+  const html = mtHTML();
+  if (html === box._h && !focus) return;
+  const why = $('#suPubWhy');
+  if (why) why.textContent = pubBlock() || pubHint();   // ‘도시에 올리기’ 안내도 건물 상태를 따라가요
+  const a = document.activeElement, key = focus || (a && box.contains(a) ? (a.id ? '#' + a.id : a.dataset.su ? `[data-su="${a.dataset.su}"]` : '') : '');
+  if (!html) { box.remove(); return; }
+  box.outerHTML = html;
+  const nb = $('#suMeterBox');
+  if (nb) nb._h = html;
+  if (key) { const el = $(key, $('#setup')) || (focus && $('#suMeterH')); if (el) el.focus({ preventScroll: !focus }); }
+}
+async function mtLoad(fresh) {
+  if (!API || MT.loading || MT.none) return;
+  MT.loading = true;
+  try { MT.st = await sp('meter/status', fresh ? { fresh: true } : {}); MT.err = ''; }
+  catch (e) { if (/없는 주소/.test(e.message || '')) MT.none = true; else MT.err = e.message || '확인하지 못했어요'; }
+  finally { MT.loading = false; MT.at = Date.now(); }
+  if (MT.st && MT.st.count === 'counting' && !MT.pv) MT.pv = { state: 'counting' };   // 전에 시작한 세기가 아직 돌아요: 이어서 봐요
+  mtPaint();
+}
+// 4단계를 그릴 때: 30초 넘게 지났거나 로그인이 바뀌었으면 상태를 새로 받아요
+function mtEnsure() {
+  const g = SU.st && SU.st.github;
+  if (!g || MT.loading) return;
+  if (!MT.st || MT.st.login !== g.login || Date.now() - MT.at > 30e3) { if (MT.st && MT.st.login !== g.login) { MT.pv = null; MT.note = ''; } mtLoad(); }
+}
+async function mtCount() {
+  MT.note = ''; MT.jsonOpen = false;
+  MT.pv = await sp('meter/preview', { start: true });
+  MT.pvAt = Date.now();
+  mtPaint('#suMtPv');
+  suSay('내 숫자를 세는 중이에요');
+}
+async function mtPvPoll() {
+  MT.pvBusy = true;
+  let r = null;
+  try { r = await sp('meter/preview'); }
+  catch (e) { MT.err = e.message || ''; MT.pv = null; }
+  finally { MT.pvBusy = false; MT.pvAt = Date.now(); }
+  if (!r) { mtPaint(); return; }
+  const was = MT.pv && MT.pv.state;
+  MT.pv = r.state === 'idle' ? null : r;
+  if (was === 'counting' && r.state !== 'counting') {
+    mtPaint('#suMtPv');   // 다 셌으면 요약부터 읽게(올리기 단추로 바로 옮기지 않아요)
+    suSay(r.state === 'ready' ? '다 셌어요. 올라갈 숫자를 확인해 주세요' : '숫자를 세지 못했어요');
+  } else mtPaint();
+}
+async function mtPublish() {
+  const pv = MT.pv;
+  if (!pv || pv.state !== 'ready') return;
+  const r = await sp('meter/publish', { confirm: true, digest: pv.digest });
+  MT.pv = null; MT.jsonOpen = false;
+  MT.note = r.unchanged ? '바뀐 숫자가 없어서 gist를 그대로 뒀어요' : r.created ? '공개 gist를 만들고 숫자를 올렸어요' : '숫자를 올렸어요';
+  MT.st = Object.assign({}, MT.st, { gist: r.gist, url: r.url, member: r.member, joinUrl: r.joinUrl, old: false }, r.unchanged ? {} : { last: new Date().toISOString() });
+  mtPaint(MT.st.member === true ? '#suMeterH' : '#suMtJoin');
+  suSay(MT.note);
+}
+function mtJoined() {   // 링크는 그대로 열리고(새 창·맥 앱은 기본 브라우저), 연 때만 서버에 적어요
+  post('api/setup/meter/join', {}).then(() => { if (MT.st) MT.st.joinAt = new Date().toISOString(); MT.at = Date.now(); mtPaint(); }).catch(() => {});
+}
+async function mtAuto(t) {
+  const on = t.checked;
+  t.disabled = true;
+  try {
+    await sp('meter/settings', { auto: on });
+    if (MT.st) { MT.st.auto = on; MT.st.autoErr = null; }
+    suSay(on ? '하루 한 번 새로 올리기를 켰어요' : '하루 한 번 새로 올리기를 껐어요');
+  } catch (e) {
+    t.checked = !on; MT.err = e.message || '안 됐어요';
+  } finally {
+    t.disabled = false;
+    mtPaint('#suMtAuto');
+  }
+}
 function visHTML() {
   const fl = myFloors(), why = pubBlock(), out = withdraw(), ps = pubState(true);
   const rows = fl.length ? fl.map((f, i) => `<fieldset class="su-vis"><legend><span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span>${esc(f.name)}</legend>
@@ -3406,6 +3551,7 @@ function visHTML() {
   return `<h2 class="su-h" id="suHead" tabindex="-1">공개 범위</h2>
     <p class="su-lead">에이전시티 도시에서 내 건물에 어떤 층 정보를 보여 줄지 층마다 정해요. 기본은 비공개예요. <b>저장</b>은 이 맥에만 적고, <b>도시에 올리기</b>를 눌러야 공개돼요.</p>
     <p class="hint" style="margin-top:6px">건물 자체(높이·등급·창문 불빛)는 여기서 고른 것과 상관없이 token-meter gist의 숫자로 서요. 어느 단계든 대화·결재·보고서 원문·파일 경로·세션 id·프롬프트는 나가지 않아요. 업무판 제목과 책상의 ‘지금 하는 일’도 여기서는 켜지 않아요.</p>
+    ${mtHTML()}
     <p class="hint su-pubstate" id="suPubState"${ps ? '' : ' hidden'}>· ${esc(ps)}</p>
     ${rows}
     <div class="su-field su-intro-f"><label for="suIntroIn">프로필 소개 한 줄 <small>(선택 · 올리면 층 공개 범위와 상관없이 함께 나가요)</small></label><input type="text" id="suIntroIn" data-su-in="intro" maxlength="120" value="${esc(SU.intro)}" placeholder="예: 앱 세 개를 팀 셋으로 굴려요" autocomplete="off"></div>
@@ -3454,6 +3600,7 @@ function renderSetup(focus) {
   $('#suIntro').textContent = st.done ? '바꾸고 싶은 단계를 눌러요. 고른 값은 저장하거나 만들기를 눌러야 바뀌어요.' : '몇 가지만 고르면 이 맥의 Claude Code 세션들이 층(팀)이 돼요. 나중에 위의 ‘설정’에서 언제든 바꿀 수 있어요.';
   $('#suSteps').innerHTML = SU_STEPS.map((n, i) => `<li><button type="button" data-su="go" data-step="${i}"${i === SU.step ? ' aria-current="step"' : ''}><span class="n">${i + 1}단계</span><b>${n}</b><small>${esc(stepNote(i))}</small></button></li>`).join('');
   $('#suBody').innerHTML = [loginHTML, claudeHTML, floorsHTML, visHTML, doneHTML][SU.step]() + navHTML();
+  if (SU.step === 3) mtEnsure();   // 4단계의 ‘도시에 내 건물 세우기’ 상태
   applyFilter();
   // focus는 선택자 하나나 목록(그린 뒤에 앞에서부터 있는 것). 찾기로 숨은 곳이면 다음 것, 없으면 제목으로
   let el = keep ? [].concat(keep).map(k => $(k, $('#setup'))).find(x => x && x.getClientRects().length) || null : null;
@@ -3516,12 +3663,12 @@ async function suNext() {
 async function suRun(btn, fn, where) {
   if (btn.dataset.busy) return;
   btn.dataset.busy = '1'; btn.disabled = true;
-  SU.err = ''; SU.pubErr = '';
-  for (const id of ['#suErr', '#suPubErr']) { const el = $(id); if (el) el.textContent = ''; }
+  SU.err = ''; SU.pubErr = ''; if (where === 'mt') MT.err = '';
+  for (const id of ['#suErr', '#suPubErr', '#suMeterErr']) { const el = $(id); if (el && (id !== '#suMeterErr' || where === 'mt')) el.textContent = ''; }
   try { await fn(); }
   catch (e) {
-    const msg = e.message || '안 됐어요', box = where === 'pub' && $('#suPubErr');
-    if (box) { SU.pubErr = msg; box.innerHTML = linkify(msg); } else { SU.err = msg; const el = $('#suErr'); if (el) el.textContent = msg; }
+    const msg = e.message || '안 됐어요', box = where === 'pub' ? $('#suPubErr') : where === 'mt' ? $('#suMeterErr') : null;
+    if (box) { if (where === 'mt') MT.err = msg; else SU.pubErr = msg; box.innerHTML = linkify(msg); } else { SU.err = msg; const el = $('#suErr'); if (el) el.textContent = msg; }
     const el = box || $('#suErr');
     if (el && !e.quiet) el.scrollIntoView({ block: 'nearest' });   // 화면 밖에 나오면 아무 일도 없는 것처럼 보여요(고칠 곳으로 옮겼으면 그대로)
   }
@@ -3999,6 +4146,11 @@ $('#setup').addEventListener('click', e => {
   else if (a === 'pub-ask') { if (!pubBlock()) suRun(b, pubAsk); }
   else if (a === 'pub-no') { SU.confirm = false; SU.preview = null; SU.pubErr = ''; renderSetup('#suPub'); }
   else if (a === 'pub-yes') suRun(b, publishNow, 'pub');
+  else if (a === 'mt-count') suRun(b, mtCount, 'mt');
+  else if (a === 'mt-pub') suRun(b, mtPublish, 'mt');
+  else if (a === 'mt-cancel') { MT.pv = null; MT.jsonOpen = false; mtPaint('#suMtCount'); }   // 세기 단추로(없으면 상자 제목으로)
+  else if (a === 'mt-join') mtJoined();
+  else if (a === 'mt-reload') { MT.err = ''; mtLoad(true); }
   else if (a === 'upd-check') suRun(b, updCheckNow);
   else if (a === 'upd-unskip') suRun(b, updUnskip);
   else if (a === 'pub-clear-intro') suRun(b, async () => { SU.intro = ''; SU.introDirty = true; await pubAsk(); suSay('소개 한 줄을 지웠어요. 확인 상자를 다시 봐 주세요'); }, 'pub');
@@ -4020,6 +4172,7 @@ function suInput(e) {
   const t = e.target, kind = t.dataset && t.dataset.suIn;
   if (!kind) return;
   if (kind === 'upd') { updSetEnabled(t); return; }   // 새 버전 알림 받기(5단계)
+  if (kind === 'mt-auto') { mtAuto(t); return; }        // 4단계: 하루 한 번 새로 올리기
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
   if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 5단계: 팀 규칙 한 줄을 ‘사무실 열기’ 때 넣을지
   if (kind === 'boss') {
@@ -4163,6 +4316,14 @@ $('#setup').addEventListener('change', e => {
   }
 });
 $('#setup').addEventListener('search', e => { if (e.target.id === 'suQ') suInput(e); });   // 찾기 칸의 지우기(×) 단추
+$('#setup').addEventListener('toggle', e => { if (e.target.id === 'suMtJson') MT.jsonOpen = e.target.open; }, true);   // 다시 그려도 펼친 채로
+// 4단계를 보는 동안: 세는 중이면 1초마다 진행을, 참가 신청을 기다리면 45초마다(창으로 돌아오면 바로) 명단을 물어요
+setInterval(() => {
+  if (!API || !SU.open || SU.step !== 3 || document.visibilityState === 'hidden') return;
+  if (MT.pv && MT.pv.state === 'counting') { if (!MT.pvBusy && Date.now() - MT.pvAt >= 1000) mtPvPoll(); }
+  else if (mtStage() === 'join' && !MT.loading && Date.now() - MT.at >= 45e3) mtLoad();
+}, 1000);
+window.addEventListener('focus', () => { if (SU.open && SU.step === 3 && mtStage() === 'join' && Date.now() - MT.at > 5e3) mtLoad(true); });
 // 자리 고르기 칸을 떠나면(다른 칸·단추로 가면) 이어 고르기가 끝나요. 다시 그린 뒤 같은 칸(같은 id)으로 돌아오는 건 떠난 게 아니에요.
 $('#setup').addEventListener('focusin', e => {
   for (const ed of [...picksList(), ...Object.values(SU.edit)]) if (ed.seatSnap && ed.seatSnap.id !== e.target.id) ed.seatSnap = null;
@@ -4185,7 +4346,10 @@ async function initSetup() {
     await refreshSetup();
     $('#setupBtn').hidden = false;
     if (state) render();   // 층 안내의 ‘층 순서 바꾸기’는 설정 주소가 있는 서버에서만 보여요
-    if (!SU.st.done) openSetup(0);
+    const want = new URLSearchParams(location.search).get('setup');   // 도시 페이지의 ‘내 건물 세우기’는 ?setup=4로 와요
+    if (want) { try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} }
+    if (/^[1-5]$/.test(want || '')) openSetup(Number(want) - 1);
+    else if (!SU.st.done) openSetup(0);
   } catch (e) {
     // 예전 서버라 설정 주소가 없으면(404) 설정 없이 지금처럼 사무실만 보여요
   } finally {

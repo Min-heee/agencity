@@ -127,13 +127,14 @@ button{font:inherit}
   <span class="chip" id="count" role="status">불러오는 중</span>
   <span class="sp"></span>
   <a class="chip" id="home" href="./" hidden>← 내 사무실</a>
+  <a class="chip" id="build" href="./?setup=4" hidden>내 건물 세우기 →</a>
   <a class="chip" href="https://github.com/Min-heee/agencity/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
   <a class="chip visit-only" href="https://github.com/Min-heee/agencity#설치" target="_blank" rel="noopener">에이전시티 설치 ↗</a>
 </header>
 <div id="stage" aria-label="에이전시티 도시 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
 <div class="msg" id="msg" hidden></div>
 <div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
-<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물을 세우려면 <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">token-meter로 참가</a>하고, 층은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>에서 도시에 올려요</span></span></p>
+<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물을 세우려면 <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">token-meter로 참가</a>하고, 층은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>에서 도시에 올려요. 에이전시티에서 바로 참가해도 돼요</span></span></p>
 <aside class="card" id="card" hidden aria-live="polite"></aside>
 <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle"><div class="tour-box" id="tourBox"></div></div>
 
@@ -249,7 +250,7 @@ async function loadMembers(onPerson) {
       const meter = cleanMeter(p.meter, login);
       if (meter) onPerson({ login, demo: true, meter, office: cleanOffice(p.office, login) });
     }
-    return { listed: ppl.length, failed: 0 };
+    return { listed: ppl.length, failed: 0, logins: [] };
   }
   const doc = JSON.parse(await getCapped(new URL('members.json', new URL(CONFIG.registry)).href, MEMBERS_BYTES, true));
   const list = (Array.isArray(doc.members) ? doc.members : []).slice(0, MAX_MEMBERS).filter(m => m && LOGIN_RE.test(m.login) && GIST_RE.test(m.gist));
@@ -269,7 +270,7 @@ async function loadMembers(onPerson) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONC, list.length) }, worker));
-  return { listed: list.length, failed, cut: Math.max(0, list.length - i) };
+  return { listed: list.length, failed, cut: Math.max(0, list.length - i), logins: list.map(m => m.login.toLowerCase()) };
 }
 
 /* ---------- 건물 크기 ---------- */
@@ -586,7 +587,7 @@ addEventListener('resize', () => {
 });
 
 /* ---------- 시작 ---------- */
-// html: 페이지에 미리 적어 둔 글(#join)만 넘겨요. 남이 만든 글은 body로(esc).
+// html: 페이지에 미리 적어 둔 글(#join이나 고정 링크)만 넘겨요. 남이 만든 글은 body로(esc).
 function message(title, body, html) { const m = $('#msg'); m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body)}</p>`; m.hidden = false; }
 function addPerson(m) {
   const w = work(m.meter), h = hash(m.login);
@@ -605,14 +606,22 @@ function addPerson(m) {
     }
     $('#home').hidden = false;
   } catch (e) {}
+  // 이 맥의 사무실에 GitHub로 로그인했으면 그 아이디(서버가 알려 줘요). 명단에 없으면 설정 4단계(내 건물 세우기)로 이어 줘요.
+  let me = '';
+  if (LOCAL && !DEMO) try {
+    const st = JSON.parse(await getCapped('api/state', MAX_BYTES, true));
+    if (st && typeof st.github === 'string' && LOGIN_RE.test(st.github)) { me = st.github; if (!CONFIG.me) CONFIG.me = me; }
+  } catch (e) {}
   try {
     const res = await loadMembers(addPerson);
     const extra = [res.failed ? `${res.failed}명 못 불러옴` : '', res.cut ? `${res.cut}명은 시간이 걸려 뺐어요` : '', DEMO ? '예시' : ''].filter(Boolean).join(' · ');
     $('#count').innerHTML = `건물 <b>${people.length}</b>채${extra ? ' · ' + esc(extra) : ''}`;
     if (res.failed || res.cut) $('#count').classList.add('warn');
+    const missing = !!me && !res.logins.includes(me.toLowerCase());
+    if (missing) $('#build').hidden = false;
     if (!people.length) {
       if (res.listed) message('건물을 불러오지 못했어요', `명단의 ${res.listed}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`);
-      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? '' : $('#join').innerHTML);
+      else message('아직 건물이 없어요', 'token-meter로 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? (missing ? '<a href="./?setup=4">설정 4단계</a>에서 내 건물을 세우면 첫 건물이 서요.' : '') : $('#join').innerHTML);
       return;
     }
     layout(); draw();
