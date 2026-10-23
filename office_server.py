@@ -43,7 +43,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 그 링크로 막 앉으면 맥에서 서버가 open으로 열어요).
 - 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md에 '팀 간 대화' 덧붙이기).
   팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 대화(T-…)별로 묶어 보여 줘요.
-  한 대화는 왕복 3번까지(bin/talk_thread.py가 잠금을 잡고 세요). 멈춘 대화는 /api/talk/allow로 대표가 3번 더 열어 줘요(허락 줄).
+  한 대화는 왕복 3번까지(bin/talk_thread.py가 잠금을 잡고 세요). 다 쓴 대화는 /api/talk/allow로 대표가 3번 더 열어 줘요(허락 줄).
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
   층마다 팀을 추천해요(규칙으로, 이 맥 안에서만). 대표가 허락하면(setup.json의 readFirstMessages) 세션마다 첫 메시지 앞부분에서
   역할 낱말만 찾아요. 첫 메시지 글은 응답·기록·파일 어디에도 내지 않고, 맞은 낱말(우리 낱말 목록의 것)과 어디서 찾았는지만 알려요.
@@ -5795,8 +5795,8 @@ def talk_mod():
 
 
 def api_talk_allow(body):
-    """멈춘 팀 간 대화(T-…)에 왕복 3번을 더 열어요: hq/teams.jsonl에 허락 줄 하나. {thread} → {ok, thread, n, cap, rounds}.
-    멈춤 줄(팀장이 한도를 넘겨 보내려다 막힌 때)이 마지막 허락 뒤에 있을 때만 받아요(두 번 눌러도 한 번만 더해요)."""
+    """왕복을 다 쓴 팀 간 대화(T-…)에 왕복 3번을 더 열어요: hq/teams.jsonl에 허락 줄 하나. {thread} → {ok, thread, n, cap, rounds}.
+    말 수가 한도에 닿았을 때만 받아요(멈춤 줄은 없어도 돼요). 열면 한도가 늘어서 두 번 눌러도 한 번만 더해요."""
     tid = body.get("thread")
     if not isinstance(tid, str) or not re.match(r"^T-[0-9a-f]{6}\Z", tid):
         raise ApiError(400, "대화 번호가 이상해요")

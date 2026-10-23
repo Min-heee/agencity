@@ -6,7 +6,9 @@ python3 -I talk_thread.py send <hq 폴더> auto|topic|re [<주제 또는 T-…>]
   'T-xxxxxx n cap'을 찍어요. 한도를 넘으면 보내지 않고(끝 코드 1) 그 대화에 멈춤 줄을 한 번 남겨요.
   auto: 24시간 안에 같은 두 층(어느 쪽이 보냈든)이 나눈 마지막 대화를 이어요. 없으면 새 대화예요.
         그 대화가 한도에 닿았으면 새 대화로 넘어가지 않고 막아요(주제 없이 보내기만 되풀이해서 끝없이 오가지 않게).
-office_server.py는 대표가 화면에서 [3번 더 하게 두기]를 누르면 allow()를 불러요(허락 줄).
+        막을 때 ‘정말 다른 주제면 --topic’도 알려요.
+office_server.py는 대표가 화면에서 [3번 더 하게 두기]를 누르면 allow()를 불러요(허락 줄). 왕복을 다 쓴 대화면
+멈춤 줄이 없어도(마지막 말로 끝났어도) 받아요.
 세기와 덧붙이기는 늘 hq/.teams.lock(flock)을 잡은 채로 해요. 두 팀장이 한꺼번에 보내도 둘 다 한도를 넘지 못하고 줄이 섞이지 않아요.
 
 줄 모양(한 줄에 하나):
@@ -159,8 +161,9 @@ def threads(rows):
     return th
 
 
-def capped_text(tid, cap):
-    return f"멈췄어요: 대화 #{tid}는 왕복 {cap // 2}번을 다 했어요. 더 보내지 말고 총괄에게 [보고]로 올려요"
+def capped_text(tid, cap, auto=False):
+    t = f"멈췄어요: 대화 #{tid}는 왕복 {cap // 2}번을 다 했어요. 더 보내지 말고 총괄에게 [보고]로 올려요"
+    return t + ". 정말 다른 주제면 --topic '주제'를 붙여요" if auto else t   # --re 없이 보냈으면 새 주제였을 수도 있어요
 
 
 def send(hq, mode, arg, rec):
@@ -198,7 +201,7 @@ def send(hq, mode, arg, rec):
                 if not s["stopped"]:   # 화면이 ‘멈춤 · 대표 확인 필요’를 보여 줘요(대화마다 한 번)
                     append(path, {"t": now(), "kind": "stop", "thread": tid, "topic": topic,
                                   "from": rec["from"], "to": rec["to"], "n": s["n"], "cap": s["cap"]})
-                raise Refused(capped_text(tid, s["cap"]))
+                raise Refused(capped_text(tid, s["cap"], mode == "auto"))
             n, cap = s["n"] + 1, s["cap"]
         else:
             used = {r.get("thread") for r in rows}
@@ -212,7 +215,8 @@ def send(hq, mode, arg, rec):
 
 
 def allow(hq, tid):
-    """멈춘 대화에 왕복 ROUNDS번을 더 열어요(허락 줄). {thread, n, cap}. 멈춘 대화가 아니면 Refused."""
+    """왕복을 다 쓴 대화(n ≥ cap)에 왕복 ROUNDS번을 더 열어요(허락 줄). {thread, n, cap}. 아직 남았으면 Refused.
+    멈춤 줄은 없어도 돼요: 규칙대로 6/6에서 끝난 대화도 대표가 더 열 수 있어요. 열면 cap이 늘어서 두 번 눌러도 한 번만 더해요."""
     if not isinstance(tid, str) or not THREAD_RE.match(tid):
         raise Refused("대화 번호가 이상해요")
     path = os.path.join(hq, FILE)
@@ -220,10 +224,8 @@ def allow(hq, tid):
         s = threads(rows_of(path)).get(tid)
         if not s:
             raise Refused("이 대화를 찾지 못했어요")
-        if not s["stopped"]:
-            if s["n"] >= s["cap"]:   # 한도에 닿았지만 아직 더 보내려 한 적이 없어요(마지막 말로 끝났을 수 있어요)
-                raise Refused("이 대화는 아직 멈추지 않았어요(팀장이 더 보내려 할 때 멈춰요)")
-            raise Refused("이미 더 하게 뒀어요" if s["allow"] else "이 대화는 멈춰 있지 않아요")
+        if s["n"] < s["cap"]:
+            raise Refused("이미 더 하게 뒀어요" if s["allow"] else "이 대화는 아직 왕복이 남아 있어요")
         cap = s["cap"] + CAP
         append(path, {"t": now(), "kind": "allow", "thread": tid, "add": CAP, "cap": cap, "by": "대표"})
     return {"thread": tid, "n": s["n"], "cap": cap}
