@@ -43,7 +43,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   (첫 링크는 누른 화면이, 다음 링크는 앞 자리가 그 링크로 막 앉으면 맥에서 서버가 open으로 열어요).
 - 층 머리글의 섹션 맞추기(/api/floor/sidebar: 총괄에게 [사이드바 정리] 전달)와 규칙 맞추기(/api/floor/rules-sync: RULES.md의
   에이전시티 부분(팀 간 대화·일 맡기기)을 docs/TEAM_RULES.md의 새 판으로, 없으면 덧붙이기. 바꾸기 전 파일은 RULES.md.bak).
-  팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 보여 줘요.
+  팀장끼리의 대화는 bin/tell.sh가 hq/teams.jsonl에 남기고, 화면은 그 파일을 읽어 대화(T-…)별로 묶어 보여 줘요.
+  한 대화는 왕복 3번까지(bin/talk_thread.py가 잠금을 잡고 세요). 다 쓴 대화는 /api/talk/allow로 대표가 3번 더 열어 줘요(허락 줄).
 - 추천 팀(/api/setup/recommend): Claude 세션 목록(제목·폴더·그룹·마지막 활동)과 Codex 세션 목록(~/.codex의 id·폴더·제목·마지막 활동)으로
   층마다 팀을 추천해요(규칙으로, 이 맥 안에서만). 대표가 허락하면(setup.json의 readFirstMessages) 세션마다 첫 메시지 앞부분에서
   역할 낱말만 찾아요. 첫 메시지 글은 응답·기록·파일 어디에도 내지 않고, 맞은 낱말(우리 낱말 목록의 것)과 어디서 찾았는지만 알려요.
@@ -5859,6 +5860,45 @@ def api_floor_rules_sync(body):
             "backup": "RULES.md.bak" if updated else None}
 
 
+TALK_MOD = []   # 읽어 둔 bin/talk_thread.py
+
+
+def talk_mod():
+    """bin/talk_thread.py(tell.sh가 쓰는 대화 세기·잠금)를 처음 쓸 때 한 번 읽어요. 서버와 tell.sh가 같은 규칙·잠금을 써요."""
+    with LOCK:
+        if TALK_MOD:
+            return TALK_MOD[0]
+    try:
+        spec = importlib.util.spec_from_file_location("agencity_talk_thread", os.path.join(HERE, "bin", "talk_thread.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        ok = callable(getattr(mod, "allow", None)) and isinstance(getattr(mod, "Refused", None), type) and isinstance(getattr(mod, "ROUNDS", None), int)
+    except Exception:  # noqa: BLE001 — 없거나 깨졌으면 아래에서 알려요
+        ok = False
+    if not ok:
+        raise ApiError(500, "팀 간 대화 도우미를 읽지 못했어요. 한 줄 설치를 다시 실행해 주세요")
+    with LOCK:
+        if not TALK_MOD:
+            TALK_MOD.append(mod)
+        return TALK_MOD[0]
+
+
+def api_talk_allow(body):
+    """왕복을 다 쓴 팀 간 대화(T-…)에 왕복 3번을 더 열어요: hq/teams.jsonl에 허락 줄 하나. {thread} → {ok, thread, n, cap, rounds}.
+    말 수가 한도에 닿았을 때만 받아요(멈춤 줄은 없어도 돼요). 열면 한도가 늘어서 두 번 눌러도 한 번만 더해요."""
+    tid = body.get("thread")
+    if not isinstance(tid, str) or not re.match(r"^T-[0-9a-f]{6}\Z", tid):
+        raise ApiError(400, "대화 번호가 이상해요")
+    mod = talk_mod()
+    try:
+        r = mod.allow(HQ, tid)
+    except mod.Refused as e:
+        raise ApiError(409, str(e))
+    except OSError:
+        raise ApiError(500, "팀 간 대화 기록을 고치지 못했어요")
+    return {"ok": True, "thread": r["thread"], "n": r["n"], "cap": r["cap"], "rounds": r["cap"] // 2}
+
+
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
           "/api/meeting/end": api_meeting_end, "/api/meeting/close": api_meeting_close, "/api/decide": api_decide,
           "/api/setup/state": api_setup_state, "/api/setup/github/start": api_setup_github_start,
@@ -5877,7 +5917,7 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/seat/fill-stop": api_seat_fill_stop, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
           "/api/setup/recommend": api_setup_recommend, "/api/codex/status": api_codex_status,
           "/api/boss/link": api_boss_link, "/api/boss/pending": api_boss_pending, "/api/boss/pick": api_boss_pick,
-          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules}
+          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules, "/api/talk/allow": api_talk_allow}
 
 
 class Handler(SimpleHTTPRequestHandler):
