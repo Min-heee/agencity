@@ -11,6 +11,9 @@ OFFICE_PORT=8766 python3 start.py   # 다른 포트로
 --app: 서버가 켜지면(이 폴더의 사무실이 이미 켜져 있으면 바로) AGENCITY_URL=http://127.0.0.1:<포트>/ 한 줄을 알려 줘요.
   이미 켜져 있었으면 그 줄만 알리고 끝나요. 아니면 종료 신호(SIGTERM·SIGHUP)를 받거나, 앱과 이어진 표준입력(파이프)이
   닫힐 때까지(앱이 강제로 꺼진 경우) 켜 둬요. 앱에 따로 보여 줄 말은 AGENCITY_NOTE=<말> 줄로 먼저 알려요.
+
+이 폴더의 사무실이 예전 코드로 켜져 있으면(새로 설치·git pull 뒤) 새로 켜지 않고 화면 위 ‘다시 켜기’로 안내해요
+(그 단추가 없는 예전 서버면 끄고 다시 켜라고 알려요).
 """
 import hashlib
 import json
@@ -121,12 +124,23 @@ def main():
             print(f"· 참고: {p} 포트에는 {what} 에이전시티가 켜져 있어요.")
             continue
         old = st.get("version") or "?"
-        if st.get("version") != ver:
+        # 화면 위 ‘다시 켜기’가 있는 서버(code.canRestart)면 그 단추로 안내해요. 그 전 서버는 예전처럼 끄고 다시 켜라고 해요.
+        code = st.get("code") if isinstance(st.get("code"), dict) else {}
+        button = code.get("canRestart") is True
+        if st.get("version") != ver and button:
+            print(f"· 이 폴더의 예전 버전({old})이 {url} 에 켜져 있어요. 화면 위 ‘다시 켜기’를 누르면 새 버전({ver})이 적용돼요.")
+            if app:
+                print(f"AGENCITY_NOTE=화면 위 ‘다시 켜기’를 누르면 새 버전({ver})이 적용돼요(지금 {old}).")   # 앱 알림 제목: ‘예전 버전이 켜져 있어요’
+        elif st.get("version") != ver:
             print(f"· 이 폴더의 예전 버전({old})이 {url} 에 켜져 있어요."
                   f" 새 버전({ver})은 그 창에서 Ctrl-C로 끄고 python3 start.py로 다시 켜야 적용돼요.")
             if app:
                 print(f"AGENCITY_NOTE=이 폴더의 예전 버전({old}) 사무실이 이미 켜져 있어서 그 화면을 보여 줘요."
                       f" 새 버전({ver})을 쓰려면 예전 사무실을 켠 창에서 끈 뒤(터미널은 Ctrl-C, 앱은 ⌘Q) 앱을 다시 열어 주세요.")
+        elif button and code.get("changed") is True:   # 버전은 같고 코드만 바뀜(git pull, 손으로 고침)
+            print(f"· 이 폴더의 사무실이 예전 코드로 {url} 에 켜져 있어요. 화면 위 ‘다시 켜기’를 누르면 새 코드가 적용돼요.")
+            if app:
+                print("AGENCITY_NOTE=화면 위 ‘다시 켜기’를 누르면 새 코드가 적용돼요.")
         else:
             print(f"· 이미 켜져 있어요: {url}")
         if app:

@@ -4,6 +4,7 @@
 #   sh bin/make_mac_app.sh              # ~/Applications/Agencity.app 을 만들어요(있으면 새로 만들어 바꿔요)
 #   sh bin/make_mac_app.sh --open       # 만든 뒤 열어요(켜져 있던 앱은 먼저 끄고 새로 열어요)
 #   sh bin/make_mac_app.sh --if-needed  # 이 폴더용 같은 판이 이미 있으면 다시 만들지 않아요(--open과 같이 쓰면 그냥 열어요)
+#   sh bin/make_mac_app.sh --if-needed --reopen  # --open과 같지만, 다시 만들지 않을 때도 켜져 있던 앱을 끄고 새로 열어요(화면의 ‘다시 켜기’)
 #   AGENCITY_APP_DEST=<폴더> sh bin/make_mac_app.sh   # 다른 곳에 만들기
 #
 # - 필요한 것: Xcode 명령어 도구(swiftc). 없으면 xcode-select --install 로 설치한 뒤 다시 실행해요.
@@ -21,11 +22,13 @@ fail() { printf '앱을 만들지 못했어요: %s\n' "$*" >&2; exit 1; }
 
 OPEN=no
 IF_NEEDED=no
+REOPEN=no
 for a in "$@"; do
   case "$a" in
     --open) OPEN=yes ;;
+    --reopen) OPEN=yes; REOPEN=yes ;;
     --if-needed) IF_NEEDED=yes ;;
-    *) fail "모르는 옵션이에요: $a (쓸 수 있는 것: --open, --if-needed)" ;;
+    *) fail "모르는 옵션이에요: $a (쓸 수 있는 것: --open, --reopen, --if-needed)" ;;
   esac
 done
 
@@ -56,9 +59,10 @@ VER=$(sed -n '1{s/[^0-9.]//g;p;}' "$HERE/VERSION" 2>/dev/null || true)
 STAMP="$(cat "$SRC" "$HERE/bin/make_mac_app.sh" "$HERE/VERSION" 2>/dev/null | cksum | tr ' ' '-') $HERE"
 
 # 그 실행 파일로 켜져 있는 앱의 프로세스 번호들(경로 속 정규식 글자는 이스케이프)
+# -a: 앱 안 업데이트·다시 켜기는 앱 → start.py → 서버 → 도우미 → 이 스크립트로 이어져서 앱이 조상이에요. 맥 pgrep은 조상을 빼서 넣어 줘요.
 running_pids() {
   re=$(printf '%s' "$1" | sed 's/[][\.*^$+?(){}|]/\\&/g')
-  pgrep -f "^$re" 2>/dev/null || true
+  pgrep -a -f "^$re" 2>/dev/null || true
 }
 
 # 켜져 있으면 끄고 6초까지 기다려요. 다 꺼졌으면 성공.
@@ -110,7 +114,7 @@ if [ "$IF_NEEDED" = yes ] && [ -x "$EXE" ] \
   && codesign --verify "$APP" >/dev/null 2>&1; then
   say "앱이 이미 있어요: $APP"
   remove_old_name_app
-  if [ "$OPEN" = yes ]; then open_app keep; fi
+  if [ "$REOPEN" = yes ]; then open_app restart; elif [ "$OPEN" = yes ]; then open_app keep; fi
   exit 0
 fi
 

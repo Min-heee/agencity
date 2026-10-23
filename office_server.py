@@ -30,6 +30,8 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   /api/setup/floors의 층마다 floor(1~지금 층 수+1)를 보내면 지금 그 층 앞에 넣고 나머지를 한 층씩 올려요(안 보내면 맨 뒤).
 - 새 버전 알림(/api/update/*): 하루 한 번까지 <GitHub>/<저장소>/releases/latest가 넘겨 주는 태그 주소만 읽어요(API·토큰 없음,
   User-Agent만 보내요). 업데이트는 bin/self_update.py를 따로 켜서 그 태그의 install.sh로 코드만 새로 받고 다시 켜요(.update/).
+- 새 코드 다시 켜기: 켠 뒤에 디스크의 코드가 바뀌면(한 줄 설치를 다시 실행, git pull, 손으로 고침) /api/state의 code.changed로 알리고,
+  /api/update/restart는 받지 않고 같은 도우미(--restart-only)로 끄고 다시 켜요. 페이지에는 이 서버의 버전·표시(BOOT)를 넣어요.
 - 도시에 내 건물 세우기(/api/setup/meter/*): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)로 Claude·Codex·Gemini 로그의
   토큰 수·모델 이름·시각만 세어(대화 글은 읽지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
   token-meter.json만 만들거나 고쳐요. 참가 이슈는 대표가 GitHub에서 제출하고, 명단(token-meter의 members.json)을 읽어 확인해요.
@@ -112,6 +114,8 @@ try:
         VERSION = _f.read().strip() or "dev"
 except OSError:
     VERSION = "dev"
+PAGE_VERSION = VERSION if re.match(r"^[0-9A-Za-z._-]{1,40}\Z", VERSION) else "dev"   # 페이지에 넣는 버전(글자를 골라서)
+BOOT = secrets.token_hex(6)   # 이 서버 프로세스의 표시. 다시 켜졌는지(화면이 예전 서버에서 받은 것인지) 알아볼 때만 써요
 MAX_BODY = 64 * 1024
 MAX_TEXT = 4000
 MAX_PENDING = 40          # outbox에 이만큼 쌓이면 더 받지 않아요(총괄이 아직 전달 중)
@@ -3404,12 +3408,9 @@ def app_bundle_ok(b):
     return isinstance(info, dict) and info.get("CFBundleIdentifier") == APP_ID and bool(d) and os.path.realpath(d) == HERE
 
 
-def update_mode():
-    """업데이트할 수 있으면 ("app", 앱 경로) 또는 ("browser", None), 못 하면 (None, 이유)."""
-    if os.path.exists(os.path.join(HERE, ".git")):
-        return None, "git"
-    if ver_tuple(VERSION) is None:
-        return None, "dev"
+def restart_mode():
+    """다시 켤 수 있으면 ("app", 앱 경로) 또는 ("browser", None), 못 하면 (None, 이유). 업데이트와 같은 방법으로 끄고 켜요.
+    git 폴더·개발용 판도 돼요(받지 않고 디스크의 코드로 다시 켜기만 해서요)."""
     if not os.access(HERE, os.W_OK) or not os.path.isfile(os.path.join(HERE, "bin", "self_update.py")):
         return None, "not-writable"
     if os.environ.get("AGENCITY_APP") == "1":
@@ -3418,6 +3419,95 @@ def update_mode():
             return None, "app-moved"
         return "app", b
     return "browser", None
+
+
+def update_mode():
+    """업데이트할 수 있으면 ("app", 앱 경로) 또는 ("browser", None), 못 하면 (None, 이유)."""
+    if os.path.exists(os.path.join(HERE, ".git")):
+        return None, "git"
+    if ver_tuple(VERSION) is None:
+        return None, "dev"
+    return restart_mode()
+
+
+# 새 코드 알아채기: 켤 때 코드 파일의 크기·고친 시각·내용 해시를 적어 두고(CODE_BASE), /api/state를 받으면 10초에 한 번까지 다시 봐요(code_state).
+# 크기·시각이 그대로면 그대로로 보고, 시각만 바뀐 파일은 내용을 다시 읽어 비교해요(같은 판을 다시 깔아도 바뀐 걸로 보지 않게).
+# 내 팀 정보(org.json, setup.json, teams/, hq/, outbox/)와 .update/, 켤 때 만든 index.html은 보지 않아요.
+CODE_NAMES = ("office_server.py", "office.src.html", "build.py", "start.py", "city.html", "VERSION")
+CODE_EVERY = 10
+
+
+def code_files():
+    out = [os.path.join(HERE, n) for n in CODE_NAMES]
+    try:
+        out += sorted(os.path.join(HERE, "bin", n) for n in os.listdir(os.path.join(HERE, "bin")) if n.endswith((".py", ".sh")))
+    except OSError:
+        pass
+    return out
+
+
+def code_mark(path):
+    """(크기, 고친 시각 ns, sha256). 없거나 못 읽으면 None."""
+    try:
+        st = os.stat(path)
+        with open(path, "rb") as f:
+            h = hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return None
+    return (st.st_size, st.st_mtime_ns, h)
+
+
+CODE_BASE = {p: code_mark(p) for p in code_files()}   # 서버를 켤 때(이 줄을 읽을 때) 한 번
+CODE_LOCK = threading.Lock()
+CODE = {"at": None, "changed": False, "disk": VERSION, "mode": None, "why": None}
+
+
+def code_changed():
+    """켤 때와 코드 파일이 달라졌는지. 시각만 바뀌고 내용이 같은 파일은 새 시각을 기억해 다음엔 다시 읽지 않아요(CODE_LOCK 안에서)."""
+    files = code_files()
+    if set(files) != set(CODE_BASE):   # bin/에 파일이 생기거나 없어졌어요
+        return True
+    for p in files:
+        old = CODE_BASE[p]
+        try:
+            st = os.stat(p)
+        except OSError:
+            if old is None:
+                continue
+            return True
+        if old is None or st.st_size != old[0]:
+            return True
+        if st.st_mtime_ns == old[1]:
+            continue
+        new = code_mark(p)
+        if new is None or new[2] != old[2]:
+            return True
+        CODE_BASE[p] = new
+    return False
+
+
+def code_state():
+    """/api/state의 code: {running, disk, changed, boot, canRestart, why}. 파일은 10초에 한 번까지만 다시 봐요.
+    무엇이 잘못돼도 직전 값으로 답해요(state 답을 막지 않게)."""
+    with CODE_LOCK:
+        t = time.monotonic()
+        if CODE["at"] is None or t - CODE["at"] >= CODE_EVERY:
+            CODE["at"] = t
+            try:
+                CODE["changed"] = code_changed()
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as f:
+                    CODE["disk"] = f.read(64).strip() or "dev"
+            except (OSError, ValueError):
+                CODE["disk"] = "dev"
+            try:
+                CODE["mode"], CODE["why"] = restart_mode()
+            except Exception:  # noqa: BLE001
+                CODE["mode"], CODE["why"] = None, "not-writable"
+        return {"running": VERSION, "disk": CODE["disk"], "changed": CODE["changed"], "boot": BOOT,
+                "canRestart": CODE["mode"] is not None, "why": None if CODE["mode"] else CODE["why"]}
 
 
 def pid_alive(pid):
@@ -3432,13 +3522,18 @@ def pid_alive(pid):
     return True
 
 
+BOOT_RE = re.compile(r"^[0-9a-f]{6,32}\Z")
+
+
 def update_progress():
-    """(running {to, started} 또는 None, last {state, to, finished, message, installed} 또는 None)
-    installed: 새 코드는 받았고 다시 켜기만 못 했어요(다시 시도해도 같은 데서 막히기 쉬워요. 화면은 ‘닫기’를 앞에 둬요)."""
+    """(running {to, started, kind, boot} 또는 None, last {state, to, finished, message, installed, kind, boot, started} 또는 None)
+    installed: 새 코드는 받았고 다시 켜기만 못 했어요(다시 시도해도 같은 데서 막히기 쉬워요. 화면은 ‘닫기’를 앞에 둬요).
+    kind: update(업데이트) 또는 restart(새 코드 다시 켜기). boot: 다시 켜기로 끈 서버의 표시(code.boot)."""
     with RUN_LOCK:
         p = RUN.get("proc")
         if p is not None and p.poll() is None:
-            return {"to": RUN["to"], "started": RUN["started"]}, None
+            k = RUN.get("kind") or "update"
+            return {"to": RUN["to"], "started": RUN["started"], "kind": k, "boot": BOOT if k == "restart" else None}, None
     try:
         st = load_json(UPDATE_STATUS)
     except (OSError, ValueError):
@@ -3448,16 +3543,19 @@ def update_progress():
     to = st.get("to") if isinstance(st.get("to"), str) and TAG_RE.match(st["to"]) else None
     started = st.get("started") if iso_age(st.get("started")) is not None else None
     installed = st.get("installed") is True
+    kind = "restart" if st.get("kind") == "restart" else "update"
+    boot = st.get("oldBoot") if kind == "restart" and isinstance(st.get("oldBoot"), str) and BOOT_RE.match(st["oldBoot"]) else None
     if st.get("state") == "running":
         pid, age = st.get("pid"), iso_age(started)
         if isinstance(pid, int) and not isinstance(pid, bool) and pid > 1 and pid_alive(pid) and age is not None and age < UPDATE_STALE:
-            return {"to": to, "started": started}, None
+            return {"to": to, "started": started, "kind": kind, "boot": boot}, None
         return None, {"state": "failed", "to": to, "finished": st.get("updated") if iso_age(st.get("updated")) is not None else None,
-                      "message": "업데이트가 중간에 멈췄어요. 다시 시도해 주세요", "installed": installed}
+                      "message": "다시 켜기가 중간에 멈췄어요. 다시 시도해 주세요" if kind == "restart" else "업데이트가 중간에 멈췄어요. 다시 시도해 주세요",
+                      "installed": installed, "kind": kind, "boot": boot, "started": started}
     if st.get("state") in ("done", "failed"):
         fin = st.get("finished")
         return None, {"state": st["state"], "to": to, "finished": fin if iso_age(fin) is not None else None,
-                      "message": str(st.get("message") or "")[:2000], "installed": installed}
+                      "message": str(st.get("message") or "")[:2000], "installed": installed, "kind": kind, "boot": boot, "started": started}
     return None, None
 
 
@@ -3512,25 +3610,61 @@ def api_update_run(body):
     if mode is None:
         raise ApiError(409, WHY_TEXT.get(extra, "이 설치본은 앱에서 업데이트할 수 없어요"), {"why": extra})
     with RUN_LOCK:
-        if update_progress()[0] is not None:
-            raise ApiError(409, "이미 업데이트하는 중이에요")
-        cmd = [sys.executable, "-I", os.path.join(HERE, "bin", "self_update.py"), "--to", tag, "--dir", HERE]
-        if mode == "app":
-            cmd += ["--app-bundle", extra]
-        else:
-            # 브라우저: 이 서버를 켠 start.py(start.py가 AGENCITY_START_PID로 알려 줘요)를 끄면 서버도 같이 꺼져요.
-            # start.py 없이 켠 서버면 서버 자신을 꺼요.
-            ppid = os.getppid()
-            launcher = ppid if ppid > 1 and os.environ.get("AGENCITY_START_PID") == str(ppid) else os.getpid()
-            cmd += ["--stop-pid", str(launcher), "--server-pid", str(os.getpid())]
-        try:
-            os.makedirs(UPDATE_DIR, mode=0o700, exist_ok=True)
-            with open(UPDATE_LOG, "wb") as log:
-                proc = subprocess.Popen(cmd, cwd=HERE, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
-                                        start_new_session=True, close_fds=True)
-        except OSError:
-            raise ApiError(500, "업데이트 도우미(bin/self_update.py)를 켜지 못했어요")
-        RUN.update(proc=proc, to=tag, started=now())
+        running = update_progress()[0]
+        if running is not None:
+            raise ApiError(409, "지금 다시 켜는 중이에요" if running.get("kind") == "restart" else "이미 업데이트하는 중이에요")
+        helper_start(["--to", tag] + helper_target(mode, extra), tag, "update")
+    return {"ok": True, "started": True}
+
+
+def helper_target(mode, extra):
+    """도우미가 끄고 다시 켤 것. 앱이면 그 앱을 다시 열고, 브라우저면 이 서버를 켠 start.py(start.py가 AGENCITY_START_PID로
+    알려 줘요)를 꺼요(그러면 서버도 같이 꺼져요). start.py 없이 켠 서버면 서버 자신을 꺼요."""
+    if mode == "app":
+        return ["--app-bundle", extra]
+    ppid = os.getppid()
+    launcher = ppid if ppid > 1 and os.environ.get("AGENCITY_START_PID") == str(ppid) else os.getpid()
+    return ["--stop-pid", str(launcher), "--server-pid", str(os.getpid())]
+
+
+def helper_start(args, to, kind):
+    """bin/self_update.py를 세션을 떼어 켜요(업데이트·다시 켜기 같이 써요). RUN_LOCK 안에서 불러요. 기록은 .update/last.log."""
+    cmd = [sys.executable, "-I", os.path.join(HERE, "bin", "self_update.py"), "--dir", HERE] + args
+    try:
+        os.makedirs(UPDATE_DIR, mode=0o700, exist_ok=True)
+        with open(UPDATE_LOG, "wb") as log:
+            proc = subprocess.Popen(cmd, cwd=HERE, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                    start_new_session=True, close_fds=True)
+    except OSError:
+        raise ApiError(500, "업데이트 도우미(bin/self_update.py)를 켜지 못했어요")
+    RUN.update(proc=proc, to=to, started=now(), kind=kind)
+
+
+def api_update_restart(body):
+    """새 코드 다시 켜기(화면의 ‘다시 켜기’를 눌렀을 때만): 아무것도 받지 않고 디스크에 있는 코드로 이 사무실을 다시 켜요.
+    끄고 켜는 건 업데이트와 같은 도우미(bin/self_update.py --restart-only)가 해요. 같은 포트·같은 설치 폴더로 켜고,
+    start.py가 페이지(index.html)를 새로 만들어요. 업데이트나 다시 켜기가 이미 진행 중이면 받지 않아요."""
+    mode, extra = restart_mode()
+    if mode is None:
+        raise ApiError(409, WHY_TEXT.get(extra, "여기서는 다시 켤 수 없어요"), {"why": extra})
+    helper = os.path.join(HERE, "bin", "self_update.py")
+    try:   # 디스크의 도우미가 예전 판(다시 켜기를 모름)이면 켜지 않아요
+        with open(helper, "rb") as f:
+            knows = b"--restart-only" in f.read(MAX_BODY * 4)
+    except OSError:
+        knows = False
+    if not knows:
+        raise ApiError(409, "설치된 코드가 ‘다시 켜기’를 몰라요. 사무실을 끄고(터미널은 Ctrl-C, 앱은 ⌘Q) 다시 켜 주세요", {"why": "old-helper"})
+    try:
+        with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as f:
+            disk = f.read(64).strip()
+    except (OSError, ValueError):
+        disk = ""
+    with RUN_LOCK:
+        running = update_progress()[0]
+        if running is not None:
+            raise ApiError(409, "지금 다시 켜는 중이에요" if running.get("kind") == "restart" else "지금 업데이트하는 중이에요")
+        helper_start(["--restart-only", "--old-boot", BOOT] + helper_target(mode, extra), "v" + disk if ver_tuple(disk) else None, "restart")
     return {"ok": True, "started": True}
 
 
@@ -5275,6 +5409,7 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/setup/meter/join": api_setup_meter_join, "/api/setup/meter/status": api_setup_meter_status,
           "/api/setup/meter/settings": api_setup_meter_settings,
           "/api/update/state": api_update_state, "/api/update/settings": api_update_settings, "/api/update/run": api_update_run,
+          "/api/update/restart": api_update_restart,
           "/api/seat/link": api_seat_link, "/api/seat/pending": api_seat_pending, "/api/seat/pick": api_seat_pick,
           "/api/seat/cancel": api_seat_cancel, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
           "/api/setup/recommend": api_setup_recommend, "/api/codex/status": api_codex_status,
@@ -5338,7 +5473,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             try:
                 with open(os.path.join(HERE, "index.html"), encoding="utf-8") as f:
-                    page = f.read().replace("@@OFFICE_TOKEN@@", TOKEN)
+                    # 열쇠와 이 서버의 표시(버전·BOOT): 페이지가 다시 켜진 서버를 만나면 [새로고침]을 보여요
+                    page = f.read().replace("@@OFFICE_TOKEN@@", TOKEN).replace("@@OFFICE_BOOT@@", BOOT).replace("@@OFFICE_VERSION@@", PAGE_VERSION)
             except OSError:
                 self.send_error(404)
                 return
@@ -5360,6 +5496,10 @@ class Handler(SimpleHTTPRequestHandler):
             if o is None or o in ORIGINS:
                 gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
                 res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None)
+                try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
+                    res["code"] = code_state()
+                except Exception:  # noqa: BLE001
+                    pass
             else:
                 res = {"ok": True, "version": VERSION, "home": HOME_ID}
                 if office_page_origin(o):

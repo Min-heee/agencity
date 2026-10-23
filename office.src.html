@@ -814,6 +814,8 @@ function seatText(tid, role) { const m = memberOf(tid, role), c = m ? customName
 // 로컬 서버(office_server.py)가 페이지를 줄 때 이 자리에 열쇠를 넣어요. 스냅샷(artifact)에서는 그대로 남아서 보내기 기능이 꺼져요.
 const TOKEN = '@@OFFICE_TOKEN@@';
 const API = /^[A-Za-z0-9_-]{20,}$/.test(TOKEN);
+// 이 페이지를 준 서버의 버전과 표시(BOOT)도 같은 때 넣어요. 지금 대답하는 서버가 다르면(다시 켜짐) 머리말에 [새로고침]을 보여요.
+const PAGE_VER = '@@OFFICE_VERSION@@', PAGE_BOOT = (b => (/^[0-9a-f]{6,32}$/.test(b) ? b : ''))('@@OFFICE_BOOT@@');
 async function post(path, body) {
   const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Office-Token': TOKEN }, body: JSON.stringify(body) });
   let j = {};
@@ -1250,6 +1252,7 @@ function render() {
   }
   renderTalk();
   renderRules();
+  updPaint();   // 새 코드(다시 켜기)·새로고침 알림은 /api/state(state.relay)를 따라가요
   document.title = cur ? `에이전시티 · ${floorLabel(cur)} ${cur.name}` : '에이전시티';
   if (keep && !was.isConnected) refocus(keep);
   if (nmFocus && nmEl.isConnected === false) { const i = $('#nmIn'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(nmSel[0], nmSel[1]); } catch (e) {} } }
@@ -4363,9 +4366,13 @@ async function initSetup() {
 // 그동안 ‘업데이트하는 중’ 화면이 /api/state를 계속 물어서, 서버가 꺼졌다 켜진 뒤 새 버전이 보이면 다시 불러와요.
 // 브라우저로 켠 사무실은 다른 포트에서 켜질 수도 있어서 같은 설치 폴더(home)의 사무실을 다른 포트에서도 찾아요.
 // 서버에서 온 글은 모두 esc()(또는 textContent)를 거치고, 버전은 vX.Y.Z 꼴만, 링크는 https만 써요.
+// 새 코드 다시 켜기: 켠 뒤에 디스크의 코드가 바뀌면(한 줄 설치를 다시 실행, git pull, 손으로 고침) /api/state의 code.changed가 알려요.
+// [다시 켜기] → 확인 창 → /api/update/restart → 같은 도우미가 받지 않고 끄고 다시 켜요. 기다리는 화면은 업데이트와 같아요(kind: restart).
+// 대답하는 서버가 이 페이지를 준 서버가 아니면(다시 켜짐) [새로고침]만 보여요. 칩은 하나만: 새로고침 → 진행 중 → 알림 → 건너뜀 → 새 코드/새 버전.
 const UPD = { st: null, gone: false, at: 0, ref: 0, ask: null, ov: null, seq: 0, said: '', note: '', skipNote: '', err: '', setBusy: '' };
 const UPD_KEY = 'agencity.update';   // 이 탭에서 시작한 업데이트 {to, t}: 다시 불러온 뒤 결과를 알려 줘요(sessionStorage라 탭을 닫으면 없어져요)
 const UPD_SHOWN = 'agencity.update.shown';   // ‘vX로 업데이트했어요’를 알린 버전(localStorage): 다시 연 맥 앱·다른 탭에서 되풀이하지 않게
+const UPD_RSHOWN = 'agencity.restart.shown';  // ‘새 코드로 다시 켰어요’를 알린 다시 켜기(시작 시각, localStorage)
 const UPD_PORTS = [8765, 8784];      // start.py가 빈 포트를 찾는 범위
 const VER_RE = /^v?\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 const verOk = v => typeof v === 'string' && VER_RE.test(v);
@@ -4387,8 +4394,10 @@ function updNorm(j) {
     current: tag(s.current), latest: tag(s.latest), skipped: tag(s.skipped), enabled: s.enabled !== false, checkedAt: s.checkedAt || null,
     available: s.available === true && !!tag(s.latest), canUpdate: s.canUpdate === true, why: typeof s.why === 'string' ? s.why : '', checking: s.checking === true,
     notesUrl: /^https:\/\/[^\s"'<>\\]+$/.test(String(s.notesUrl || '')) ? String(s.notesUrl) : '',
-    running: run && tag(run.to) ? { to: tag(run.to), started: run.started } : null,
-    last: last && (last.state === 'done' || last.state === 'failed') ? { state: last.state, to: tag(last.to) || '', finished: last.finished, message: typeof last.message === 'string' ? last.message : '', installed: last.installed === true } : null,
+    // kind: update(업데이트) 또는 restart(다시 켜기, 버전이 vX.Y.Z가 아니어도 돼요). boot: 다시 켜기로 끈 서버의 표시
+    running: run && (tag(run.to) || run.kind === 'restart') ? { to: tag(run.to) || '', started: run.started, kind: run.kind === 'restart' ? 'restart' : 'update', boot: bootOk(run.boot) } : null,
+    last: last && (last.state === 'done' || last.state === 'failed') ? { state: last.state, to: tag(last.to) || '', finished: last.finished, message: typeof last.message === 'string' ? last.message : '', installed: last.installed === true,
+      kind: last.kind === 'restart' ? 'restart' : 'update', boot: bootOk(last.boot), started: last.started || null } : null,
     ports
   };
 }
@@ -4417,36 +4426,71 @@ async function updRefresh(force, loud) {
   return UPD.st;
 }
 const curVer = () => (UPD.st && UPD.st.current) || (state && state.relay && verOk(state.relay.version) ? verTag(state.relay.version) : '');
+const bootOk = v => (typeof v === 'string' && /^[0-9a-f]{6,32}$/.test(v) ? v : '');
+const bootOf = r => (r && r.code && typeof r.code === 'object' ? bootOk(r.code.boot) : '');
+const verGt = (a, b) => {   // a가 b보다 새 버전인지(둘 다 vX.Y.Z일 때만)
+  if (!verOk(a) || !verOk(b)) return false;
+  const x = verTag(a).slice(1).split('.').map(Number), y = verTag(b).slice(1).split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
+  return false;
+};
+// /api/state의 code: {running, disk, changed, boot, canRestart, why}. 이 판을 모르는 서버면 null
+function codeNow() {
+  const r = state && state.relay, c = r && r.code && typeof r.code === 'object' ? r.code : null;
+  if (!c) return null;
+  return { running: typeof c.running === 'string' ? c.running : '', disk: verOk(c.disk) ? verTag(c.disk) : '', changed: c.changed === true,
+    boot: bootOk(c.boot), canRestart: c.canRestart === true, why: typeof c.why === 'string' ? c.why : '' };
+}
+const curBoot = () => bootOf(state && state.relay) || PAGE_BOOT;
+function pageStale() {   // 지금 대답하는 서버가 이 페이지를 준 서버가 아니에요(다시 켜졌어요). {ver: 새 버전이면 그 버전}
+  const r = state && state.relay;
+  if (!API || !r || mode !== 'live') return null;
+  const b = bootOf(r), ver = verOk(PAGE_VER) && verOk(r.version) && !sameVer(PAGE_VER, r.version) ? verTag(r.version) : '';
+  return ver || (PAGE_BOOT && b && b !== PAGE_BOOT) ? { ver } : null;
+}
 const updWhy = w => (w === 'git' ? 'git pull로 받아요'
   : w === 'app-moved' ? '맥 앱을 찾지 못해서 여기서는 못 받아요. 한 줄 설치를 다시 실행해 받아요'
   : w === 'not-writable' ? '설치 폴더에 쓸 수 없어서 여기서는 못 받아요. 한 줄 설치를 다시 실행해 받아요'
   : '여기서는 바로 못 받아요. 한 줄 설치를 다시 실행해 받아요');
 const updNotes = u => (u && u.notesUrl ? `<a href="${esc(u.notesUrl)}" target="_blank" rel="noopener">무엇이 바뀌었나요<span class="su-sr"> (새 창)</span> ↗</a>` : '');
-// 알림 칩 하나: 진행 중(아직 그 버전이 아닐 때) → 알림(‘업데이트했어요’) → 방금 건너뛴 버전(되돌리기) → 새 버전 순서로 하나만 보여요
+// 알림 칩 하나: 새로고침(다른 서버가 대답함) → 진행 중(아직 그 버전이 아닐 때) → 알림(‘업데이트했어요’) → 방금 건너뛴 버전(되돌리기)
+// → 새 코드(다시 켜기)·새 버전 순서로 하나만 보여요. 새 코드와 새 버전이 같이 있으면, 디스크의 코드보다 새 릴리스일 때만 업데이트가 먼저예요.
 function updChip() {
   const u = UPD.st, dot = '<span class="dot" aria-hidden="true">·</span>', err = UPD.err ? `<span class="err" role="alert">${esc(UPD.err)}</span>` : '';
-  if (u && u.running && !sameVer(u.running.to, curVer())) return { kind: 'run', cls: 'upd', html: `<span><b>${esc(u.running.to)}</b>${ro(u.running.to)} 업데이트하는 중이에요</span><button type="button" class="btn" data-upd="show" aria-label="업데이트 진행 보기">보기</button>` };
+  const stale = pageStale();
+  if (stale) return { kind: 'stale', cls: 'upd', label: '새로고침 알림', html: `<span>사무실이 ${stale.ver ? `<b>${esc(stale.ver)}</b>${ro(stale.ver)} ` : ''}다시 켜졌어요</span>${dot}<button type="button" class="btn primary" data-upd="reload">새로고침</button>` };
+  if (u && u.running && u.running.kind === 'restart' && u.running.boot && u.running.boot === curBoot()) return { kind: 'run', cls: 'upd', html: `<span>다시 켜는 중이에요</span><button type="button" class="btn" data-upd="show" aria-label="다시 켜기 진행 보기">보기</button>` };
+  if (u && u.running && u.running.kind !== 'restart' && !sameVer(u.running.to, curVer())) return { kind: 'run', cls: 'upd', html: `<span><b>${esc(u.running.to)}</b>${ro(u.running.to)} 업데이트하는 중이에요</span><button type="button" class="btn" data-upd="show" aria-label="업데이트 진행 보기">보기</button>` };
   if (UPD.note) return { kind: 'note', cls: 'upd ok', html: `<span>${esc(UPD.note)}</span><button type="button" class="upd-x" data-upd="note-x" aria-label="업데이트 알림 닫기" title="닫기">✕</button>` };
-  if (!u) return null;
+  const c = codeNow(), code = c && c.changed ? codeChip(c, dot, err) : null;
+  if (!u) return code;
   const v = u.latest;
   if (UPD.skipNote && sameVer(UPD.skipNote, v) && sameVer(u.skipped, v)) return { kind: 'skip', cls: 'upd', html: `<span><b>${esc(v)}</b>${neun(v)} 건너뛰었어요</span>${dot}<button type="button" class="btn" data-upd="unskip">다시 알리기</button><button type="button" class="upd-x" data-upd="skip-x" aria-label="건너뛰기 알림 닫기" title="닫기">✕</button>${err}` };
-  if (!u.available || !u.enabled || sameVer(u.skipped, v)) return null;
+  if (code && !(c.disk && verGt(v, c.disk))) return code;   // 디스크에 이미 그 버전(이나 더 새 코드)이 있으면 받지 않고 다시 켜기만
+  if (!u.available || !u.enabled || sameVer(u.skipped, v)) return code;
   const notes = u.notesUrl ? dot + updNotes(u) : '';
   if (!u.canUpdate) return { kind: 'new', cls: 'upd', html: `<span>새 버전 <b>${esc(v)}</b> ${dot} ${esc(updWhy(u.why))}</span>${notes}` };
-  const failed = u.last && u.last.state === 'failed' && sameVer(u.last.to, v);
+  const failed = u.last && u.last.kind !== 'restart' && u.last.state === 'failed' && sameVer(u.last.to, v);
   return { kind: 'new', cls: 'upd', html: `<span>새 버전 <b>${esc(v)}</b>${ga(v)} 있어요${failed ? ' (지난번에는 못 했어요)' : ''}</span>${dot}<button type="button" class="btn primary" data-upd="ask">업데이트</button><button type="button" class="btn" data-upd="skip">건너뛰기</button>${notes}${err}` };
+}
+// 새 코드 칩: ‘새 코드가 설치됐어요 (vX.Y.Z) · [다시 켜기]’. 여기서 다시 켤 수 없으면 할 일만 알려요
+function codeChip(c, dot, err) {
+  const v = c.disk && !sameVer(c.disk, c.running) ? c.disk : '';
+  const what = `<span>새 코드가 설치됐어요${v ? ` (<b>${esc(v)}</b>)` : ''}</span>${dot}`;
+  if (!c.canRestart) return { kind: 'code', cls: 'upd', label: '새 코드 알림', html: `${what}<span>${c.why === 'app-moved' ? '앱을 ⌘Q로 끄고 다시 열면 적용돼요' : '사무실을 끄고 다시 켜면 적용돼요'}</span>` };
+  return { kind: 'code', cls: 'upd', label: '새 코드 알림', html: `${what}<button type="button" class="btn primary" data-upd="restart">다시 켜기</button>${err}` };
 }
 function updPaint() {
   const el = $('#upd');
   if (!el) return;
   const c = UPD.gone ? null : updChip(), a = document.activeElement, had = a && el.contains(a) ? a.dataset.upd : '';
   el.hidden = !c;
-  if (c) el.className = c.cls;
+  if (c) { el.className = c.cls; el.setAttribute('aria-label', c.label || '새 버전 알림'); }
   if (put(el, c ? c.html : '') && had) {   // 다시 그려도 키보드 위치는 알림 안(없어졌으면 ‘설정’)에 남겨요
     const b = $(`[data-upd="${had}"]`, el) || $('[data-upd]', el) || (!$('#setupBtn').hidden && $('#setupBtn'));
     if (b) b.focus({ preventScroll: true });
   }
-  const u = UPD.st, say = c && c.kind === 'new' ? `새 버전 ${u.latest}${ga(u.latest)} 있어요` : '';
+  const u = UPD.st, say = c && c.kind === 'new' ? `새 버전 ${u.latest}${ga(u.latest)} 있어요` : c && c.kind === 'code' ? '새 코드가 설치됐어요' : c && c.kind === 'stale' ? '사무실이 다시 켜졌어요. 새로고침해 주세요' : '';
   if (say && say !== UPD.said) { UPD.said = say; updSay(say); }   // 화면 읽기 프로그램에는 새 버전마다 한 번만
   updSetPaint();
 }
@@ -4454,7 +4498,7 @@ function updPaint() {
 /* 설정(5단계 ‘완료’)의 ‘새 버전 알림 받기’ */
 function updSetLine(u) {
   const cur = curVer(), bits = [cur ? `지금 ${cur}` : ''];
-  if (u.running) bits.push(`${u.running.to}${ro(u.running.to)} 업데이트하는 중`);
+  if (u.running) bits.push(u.running.kind === 'restart' ? '다시 켜는 중' : `${u.running.to}${ro(u.running.to)} 업데이트하는 중`);
   else if (u.available) bits.push(`새 버전 ${u.latest}${ga(u.latest)} 있어요${sameVer(u.skipped, u.latest) ? '(건너뜀)' : ''}`);
   else if (u.latest) bits.push('가장 새 버전이에요');
   bits.push(u.checking ? '확인하는 중이에요' : u.checkedAt && agoAt(u.checkedAt) ? `${agoAt(u.checkedAt)} 확인` : '아직 확인하지 않았어요');
@@ -4570,19 +4614,33 @@ function updInert(on) {
 function updAskOpen(from) {
   const u = UPD.st;
   if (!u || !u.canUpdate || !u.available || UPD.ov || UPD.ask) return;
-  const v = u.latest, cur = curVer(), failed = u.last && u.last.state === 'failed' && sameVer(u.last.to, v) ? u.last.message.trim().split('\n')[0] : '';   // 첫 줄이 요약이에요
-  const wait = state && state.relay && state.relay.pending > 0 ? state.relay.pending : 0;   // 총괄이 아직 전하지 못한 말
-  UPD.ask = { v, back: from || document.activeElement, busy: false };
+  const v = u.latest, cur = curVer(), failed = u.last && u.last.kind !== 'restart' && u.last.state === 'failed' && sameVer(u.last.to, v) ? u.last.message.trim().split('\n')[0] : '';   // 첫 줄이 요약이에요
+  UPD.ask = { kind: 'update', v, back: from || document.activeElement, busy: false };
   UPD.err = '';
-  $('#updAsk').innerHTML = `<div class="upd-scrim" data-upd="no"></div>
-    <div class="upd-card" id="updAskCard" role="alertdialog" aria-modal="true" aria-labelledby="updAskT" aria-describedby="updAskD" tabindex="-1">
-      <h2 id="updAskT">${esc(v)}${ro(v)} 업데이트할까요?</h2>
+  updAskShow(`<h2 id="updAskT">${esc(v)}${ro(v)} 업데이트할까요?</h2>
       <p id="updAskD">인터넷에서 ${esc(v)} 설치 스크립트를 받아 실행해요. 팀 정보와 설정은 그대로예요. 끝나면 앱이 다시 켜져요.</p>
       <p class="hint">${cur ? `지금 ${esc(cur)} → ${esc(v)}` : ''}${cur && u.notesUrl ? ' · ' : ''}${updNotes(u)}</p>
-      ${failed ? `<p class="hint">지난번에는 끝나지 못했어요: ${esc(failed)}</p>` : ''}
-      ${wait ? `<p class="err">총괄이 아직 전하지 못한 말이 ${esc(wait)}개 있어요. 업데이트하면 다시 보내야 할 수 있어요.</p>` : ''}
+      ${failed ? `<p class="hint">지난번에는 끝나지 못했어요: ${esc(failed)}</p>` : ''}`, '업데이트하면', '업데이트');
+}
+// [다시 켜기]의 확인 창: 받는 건 없고 디스크에 있는 코드로 다시 켜요
+function rsAskOpen(from) {
+  const c = codeNow();
+  if (!c || !c.changed || !c.canRestart || UPD.ov || UPD.ask) return;
+  const v = c.disk && !sameVer(c.disk, c.running) ? c.disk : '', cur = verOk(c.running) ? verTag(c.running) : '';
+  UPD.ask = { kind: 'restart', v: c.disk, boot: c.boot, back: from || document.activeElement, busy: false };
+  UPD.err = '';
+  updAskShow(`<h2 id="updAskT">새 코드로 다시 켤까요?</h2>
+      <p id="updAskD">설치된 코드로 사무실을 다시 켜요. 받는 건 없고, 팀 정보와 설정은 그대로예요.</p>
+      ${v && cur ? `<p class="hint">지금 ${esc(cur)} → ${esc(v)}</p>` : ''}`, '다시 켜면', '다시 켜기');
+}
+function updAskShow(body, verb, yes) {
+  const wait = state && state.relay && state.relay.pending > 0 ? state.relay.pending : 0;   // 총괄이 아직 전하지 못한 말
+  $('#updAsk').innerHTML = `<div class="upd-scrim" data-upd="no"></div>
+    <div class="upd-card" id="updAskCard" role="alertdialog" aria-modal="true" aria-labelledby="updAskT" aria-describedby="updAskD" tabindex="-1">
+      ${body}
+      ${wait ? `<p class="err">총괄이 아직 전하지 못한 말이 ${esc(wait)}개 있어요. ${verb} 다시 보내야 할 수 있어요.</p>` : ''}
       <p class="err" role="alert" id="updAskErr"></p>
-      <div class="su-actions"><button type="button" class="btn primary" id="updYes" data-upd="yes" disabled>업데이트</button><button type="button" class="btn" id="updNo" data-upd="no">취소</button></div>
+      <div class="su-actions"><button type="button" class="btn primary" id="updYes" data-upd="yes" disabled>${yes}</button><button type="button" class="btn" id="updNo" data-upd="no">취소</button></div>
     </div>`;
   $('#updAsk').hidden = false;
   updInert(true);
@@ -4595,45 +4653,50 @@ function updAskClose(restore) {
   $('#updAsk').hidden = true; $('#updAsk').innerHTML = '';
   if (!UPD.ov) updInert(false);
   if (!restore) return;
-  const b = k && k.back && k.back.isConnected ? k.back : $('#upd [data-upd="ask"]');
+  const b = k && k.back && k.back.isConnected ? k.back : $('#upd [data-upd="ask"], #upd [data-upd="restart"]');
   if (b && b.focus) b.focus();
 }
 async function updStart() {
   const k = UPD.ask;
   if (!k || k.busy) return;
   k.busy = true;
-  const y = $('#updYes'), n = $('#updNo');
+  const y = $('#updYes'), n = $('#updNo'), yes = y.textContent;
   y.disabled = true; n.disabled = true; y.textContent = '시작하는 중…'; $('#updAskErr').textContent = '';
   try {
-    await updPost('api/update/run', { version: k.v });
+    if (k.kind === 'restart') await updPost('api/update/restart', {});
+    else await updPost('api/update/run', { version: k.v });
   } catch (e) {
     k.busy = false;
     if (UPD.ask !== k) return;
-    y.disabled = false; n.disabled = false; y.textContent = '업데이트'; $('#updAskErr').textContent = e.message;
+    y.disabled = false; n.disabled = false; y.textContent = yes; $('#updAskErr').textContent = e.message;
     updRefresh().catch(() => {});
     return;
   }
   updAskClose(false);
-  updOverlay(k.v, { mark: true });
+  updOverlay(k.v, { mark: true, kind: k.kind, boot: k.boot });
 }
 
-/* ‘업데이트하는 중’ 화면: 1.5초마다 /api/state를 물어요 */
+/* ‘업데이트하는 중’·‘다시 켜는 중’ 화면: 1.5초마다 /api/state를 물어요.
+   다시 켜기(kind: restart)는 버전이 같을 수 있어서, 대답하는 서버의 표시(code.boot)가 누를 때와 달라지면 켜진 걸로 봐요. */
 function updMark(m) { try { if (m) sessionStorage.setItem(UPD_KEY, JSON.stringify(m)); else sessionStorage.removeItem(UPD_KEY); } catch (e) {} }
 function updMarked() {
-  try { const m = JSON.parse(sessionStorage.getItem(UPD_KEY) || 'null'); return m && verOk(m.to) && Date.now() - Number(m.t) < 30 * 60000 ? m : null; } catch (e) { return null; }
+  try { const m = JSON.parse(sessionStorage.getItem(UPD_KEY) || 'null'); return m && (verOk(m.to) || m.kind === 'restart') && Date.now() - Number(m.t) < 30 * 60000 ? m : null; } catch (e) { return null; }
 }
+const RS_STEP = '사무실을 다시 켜는 중이에요';
 function updOverlay(to, o) {
   o = o || {};
-  const ov = UPD.ov = { to, seq: ++UPD.seq, t0: Date.now(), state: 'run', step: '설치 스크립트를 받아 실행하는 중이에요', home: (state && state.relay && state.relay.home) || '',
+  const rs = o.kind === 'restart';
+  const ov = UPD.ov = { kind: rs ? 'restart' : 'update', boot: rs ? bootOk(o.boot) || curBoot() : '', to: to || '', seq: ++UPD.seq, t0: Date.now(), state: 'run',
+    step: rs ? RS_STEP : '설치 스크립트를 받아 실행하는 중이에요', home: (state && state.relay && state.relay.home) || '',
     downAt: 0, doneAt: 0, sawRun: false, slow: false, hint: '', text: '', msg: '', err: '', busy: false, alt: [], altAt: 0, others: new Set(), n: 0, ok: false };
-  if (o.mark) updMark({ to, t: Date.now() });
+  if (o.mark) updMark(rs ? { kind: 'restart', to: ov.to, boot: ov.boot, t: Date.now() } : { to, t: Date.now() });
   const el = $('#updRun');
   el.innerHTML = `<div class="upd-runbox">
       <span class="plate" aria-hidden="true">에이전시티</span>
       <div class="upd-runh"><span class="upd-spin" aria-hidden="true"></span><h2 id="updRunT" tabindex="-1"></h2></div>
       <p id="updRunD"></p>
       <p class="upd-runst" id="updRunSt" role="status" aria-live="polite"></p>
-      <pre class="d-pre" id="updRunLog" tabindex="0" aria-label="업데이트 기록" hidden></pre>
+      <pre class="d-pre" id="updRunLog" tabindex="0" aria-label="${rs ? '다시 켜기' : '업데이트'} 기록" hidden></pre>
       <div id="updRunMore"></div>
       <p class="err" id="updRunErr" role="alert"></p>
       <div class="su-actions" id="updRunBtns" hidden></div>
@@ -4650,8 +4713,10 @@ function updRunPaint() {
   if (!ov || !el || !$('#updRunT')) return;
   const fail = ov.state === 'fail', done = ov.state === 'done';
   el.classList.toggle('fail', fail);
-  $('#updRunT').textContent = fail ? '업데이트를 못 했어요' : done ? (ov.ok ? '다 됐어요' : '사무실이 다시 켜졌어요') : '업데이트하는 중…';
+  const rs = ov.kind === 'restart';
+  $('#updRunT').textContent = fail ? (rs ? '다시 켜지 못했어요' : '업데이트를 못 했어요') : done ? (rs ? '다시 켰어요' : ov.ok ? '다 됐어요' : '사무실이 다시 켜졌어요') : rs ? '다시 켜는 중…' : '업데이트하는 중…';
   $('#updRunD').textContent = fail ? (ov.text || (ov.msg ? '쓰던 사무실은 그대로 켜져 있어요. 아래 기록을 보고 다시 시도하거나 닫아요.' : '쓰던 사무실은 그대로 켜져 있어요. 다시 시도하거나 닫아요.'))
+    : rs ? '새 코드로 사무실을 다시 켜고 있어요. 팀 정보와 설정은 그대로예요. 끝나면 이 화면이 저절로 다시 열려요.'
     : `인터넷에서 ${ov.to} 설치 스크립트를 받아 실행하고 있어요. 팀 정보와 설정은 그대로예요. 끝나면 이 화면이 저절로 다시 열려요.`;
   const st = $('#updRunSt'), say = fail ? '' : done ? '다시 여는 중이에요…' : ov.step;   // 실패는 제목(키보드가 가요)이 알려요
   if (st.textContent !== say) st.textContent = say;
@@ -4715,7 +4780,7 @@ async function updTick(seq) {
   if (UPD.ov !== ov || ov.seq !== seq || ov.state !== 'run') return;
   if (here && (!ov.home || !here.home || here.home === ov.home)) {
     if (!ov.home && here.home) ov.home = here.home;
-    if (sameVer(here.version, ov.to)) { updArrive('', true); return; }
+    if (ov.kind === 'restart' ? !!ov.boot && bootOf(here) !== ov.boot : sameVer(here.version, ov.to)) { updArrive('', true); return; }
     let s = null;
     try { s = updNorm(await updPost('api/update/state')); UPD.st = s; UPD.at = now; }
     catch (e) { if (e.status === 403) { updArrive('', false); return; } }   // 열쇠가 바뀜 = 서버가 다시 켜졌어요. 새 열쇠로 다시 불러와 결과를 봐요
@@ -4723,15 +4788,15 @@ async function updTick(seq) {
     ov.downAt = 0;
     if (s) {
       // 지난번 결과(last)는 이번에 시작한 뒤에 끝난 것만 봐요(끝난 시각은 초 단위라 1.5초 앞까지). 진행 중을 한 번 보기 전에는 조금 기다려요(시각을 모르면 12초)
-      const last = s.last && sameVer(s.last.to, ov.to) ? s.last : null, fin = last ? msOf(last.finished) : 0;
+      const rs = ov.kind === 'restart', last = s.last && (rs ? s.last.kind === 'restart' : s.last.kind !== 'restart' && sameVer(s.last.to, ov.to)) ? s.last : null, fin = last ? msOf(last.finished) : 0;
       const fresh = !!last && (fin ? fin >= ov.t0 - 1500 && (ov.sawRun || now - ov.t0 > 4000) : ov.sawRun || now - ov.t0 > 12000);
-      if (s.running) { ov.sawRun = true; ov.doneAt = 0; updStep('설치 스크립트를 받아 실행하는 중이에요'); }
+      if (s.running) { ov.sawRun = true; ov.doneAt = 0; updStep(rs ? RS_STEP : '설치 스크립트를 받아 실행하는 중이에요'); }
       else if (fresh && last.state === 'failed') { updFail(last.message, '', last.installed); return; }
       else if (fresh && last.state === 'done') {
         ov.doneAt = ov.doneAt || now;
-        updStep('설치를 마쳤어요. 사무실을 다시 켜는 중이에요');
+        updStep(rs ? RS_STEP : '설치를 마쳤어요. 사무실을 다시 켜는 중이에요');
         if (now - ov.doneAt > 20000) ov.hint = '저절로 다시 켜지지 않으면 앱을 끝냈다가(⌘Q) 다시 열거나, 터미널에서 start.py를 다시 켜 주세요.';
-      } else if (!ov.sawRun && now - ov.t0 > 30000) { updFail('', '업데이트가 시작되지 않았어요. 다시 시도해 주세요.'); return; }
+      } else if (!ov.sawRun && now - ov.t0 > 30000) { updFail('', rs ? '다시 켜기가 시작되지 않았어요. 다시 시도해 주세요.' : '업데이트가 시작되지 않았어요. 다시 시도해 주세요.'); return; }
     }
   } else {
     ov.downAt = ov.downAt || now;
@@ -4780,11 +4845,17 @@ async function updRetry() {
   if (!ov || ov.state !== 'fail' || ov.busy) return;
   ov.busy = true; ov.err = '';
   updRunPaint();
-  try { await updPost('api/update/run', { version: ov.to }); }
-  catch (e) { ov.busy = false; ov.err = e.message; updRunPaint(); return; }
+  const rs = ov.kind === 'restart';
+  try {
+    if (rs) {   // 다시 켜기: 지금 대답하는 서버를 다시 켜요(그 표시가 바뀌면 켜진 거예요)
+      const here = await updGet('', 2500);
+      if (bootOf(here)) ov.boot = bootOf(here);
+      await updPost('api/update/restart', {});
+    } else await updPost('api/update/run', { version: ov.to });
+  } catch (e) { ov.busy = false; ov.err = e.message; updRunPaint(); return; }
   if (UPD.ov !== ov) return;
-  Object.assign(ov, { state: 'run', seq: ++UPD.seq, t0: Date.now(), step: '설치 스크립트를 받아 실행하는 중이에요', downAt: 0, doneAt: 0, sawRun: false, busy: false, msg: '', text: '', installed: false, err: '', n: 0 });
-  updMark({ to: ov.to, t: Date.now() });
+  Object.assign(ov, { state: 'run', seq: ++UPD.seq, t0: Date.now(), step: rs ? RS_STEP : '설치 스크립트를 받아 실행하는 중이에요', downAt: 0, doneAt: 0, sawRun: false, busy: false, msg: '', text: '', installed: false, err: '', n: 0 });
+  updMark(rs ? { kind: 'restart', to: ov.to, boot: ov.boot, t: Date.now() } : { to: ov.to, t: Date.now() });
   updRunPaint();
   $('#updRunT').focus();
   updTick(ov.seq);
@@ -4804,8 +4875,10 @@ function updClick(b) {
   if (b.disabled) return;
   const a = b.dataset.upd;
   if (a === 'ask') updAskOpen(b);
+  else if (a === 'restart') rsAskOpen(b);
+  else if (a === 'reload') location.reload();
   else if (a === 'skip') updSkip(b);
-  else if (a === 'show') { if (UPD.st && UPD.st.running && !UPD.ov) updOverlay(UPD.st.running.to, { mark: true }); }
+  else if (a === 'show') { const r = UPD.st && UPD.st.running; if (r && !UPD.ov) updOverlay(r.to, { mark: true, kind: r.kind, boot: r.boot }); }
   else if (a === 'note-x' || a === 'skip-x') { if (a === 'note-x') UPD.note = ''; else UPD.skipNote = ''; updPaint(); const sb = $('#setupBtn'); if (sb && !sb.hidden) sb.focus(); }
   else if (a === 'unskip') updUnskipChip(b);
   else if (a === 'no') { if (UPD.ask && !UPD.ask.busy) updAskClose(true); }
@@ -4821,6 +4894,14 @@ function updNoteDone(to, force) {
   UPD.note = `${verTag(to)}${ro(to)} 업데이트했어요`;
   updPaint(); updSay(UPD.note);
 }
+// ‘새 코드로 다시 켰어요’ 알림. 같은 다시 켜기(시작 시각)는 한 번만 알려요(force: 이 탭에서 누른 다시 켜기)
+function rsNoteDone(key, force) {
+  let seen = '';
+  try { seen = localStorage.getItem(UPD_RSHOWN) || ''; if (key) localStorage.setItem(UPD_RSHOWN, String(key)); } catch (e) {}
+  if (!force && (!key || seen === String(key))) return;
+  UPD.note = '새 코드로 다시 켰어요';
+  updPaint(); updSay(UPD.note);
+}
 // 켤 때: 이 탭에서 시작한 업데이트가 있으면 그 결과를 알려 주고, 다른 곳에서 시작한 업데이트가 진행 중이면 그 화면을 보여요.
 // 맥 앱은 업데이트 뒤 새 창으로 다시 열려서 이 탭의 표시(sessionStorage)가 없어요. 그래서 표시가 없어도 서버가 알려 준 결과로
 // 방금(10분 안) 끝난 업데이트로 지금 버전이 됐으면 한 번 알려 줘요(브라우저에서 다른 포트로 옮겨 간 뒤도 같아요).
@@ -4828,14 +4909,27 @@ async function updInit() {
   if (!API) return;
   const mk = updMarked();
   const u = await updRefresh();
-  const cur = curVer(), recent = ms => ms && Date.now() - ms < 10 * 60000;
-  if (u && mk) {
+  const cur = curVer(), recent = ms => ms && Date.now() - ms < 10 * 60000, rk = x => !!x && x.kind === 'restart';
+  if (mk && mk.kind === 'restart') {
+    // 이 탭에서 누른 다시 켜기: 이 페이지를 준 서버가 누를 때의 서버가 아니면 다시 켜진 거예요
+    const r = u && rk(u.running) ? u.running : null, last = u && rk(u.last) ? u.last : null;
+    if (PAGE_BOOT && mk.boot && PAGE_BOOT !== mk.boot) { updMark(null); rsNoteDone((r || last || {}).started, true); }
+    else if (r) updOverlay(r.to, { mark: true, kind: 'restart', boot: r.boot || mk.boot });
+    else if (!last && Date.now() - Number(mk.t) > 10 * 60000) updMark(null);
+    else updOverlay(mk.to, { kind: 'restart', boot: mk.boot, fail: { msg: last && last.state === 'failed' ? last.message : '', installed: false,
+      text: last && last.state === 'failed' ? '' : '사무실이 아직 다시 켜지지 않았어요. 다시 시도하거나 닫아요.' } });
+  } else if (u && mk) {
     const last = u.last && sameVer(u.last.to, mk.to) ? u.last : null;
     if (sameVer(cur, mk.to)) { updMark(null); updNoteDone(mk.to, true); }
     else if (u.running) updOverlay(u.running.to, { mark: true });
     else if (!last && Date.now() - Number(mk.t) > 10 * 60000) updMark(null);   // 오래된 표시이고 결과도 없으면 조용히 지워요
     else updOverlay(mk.to, { fail: { msg: last && last.state === 'failed' ? last.message : '', installed: !!(last && last.installed),
       text: cur ? `사무실은 다시 켜졌지만 아직 ${cur}${ieyo(cur)}. 다시 시도하거나 닫아요.` : '' } });
+  } else if (u && (rk(u.running) || (!u.running && rk(u.last)))) {
+    // 다른 곳(다른 탭)에서 누른 다시 켜기가 이 서버를 끄는 중이면 그 화면을, 다시 연 앱 창처럼 새 서버의 페이지면 한 번 알려 줘요
+    const r = u.running, x = r || u.last, at = msOf(r ? r.started : x.finished);
+    if (r && r.boot && r.boot === PAGE_BOOT) { if (recent(at)) updOverlay(r.to, { mark: true, kind: 'restart', boot: r.boot }); }
+    else if ((r || x.state === 'done') && x.boot && x.boot !== PAGE_BOOT && recent(at)) rsNoteDone(x.started, false);
   } else if (u && u.running && !sameVer(u.running.to, cur)) {
     // 다른 곳(예: 다시 열린 앱 창)에서 시작한 업데이트가 진행 중: 표시를 남겨서 다시 불러온 뒤에도 결과를 알려 줘요
     if (recent(msOf(u.running.started))) updOverlay(u.running.to, { mark: true });
