@@ -50,9 +50,9 @@ def port_open(port):
 
 
 def office_state(port):
-    """그 포트가 에이전시티면 /api/state 답(dict), 아니면 None."""
+    """그 포트가 에이전시티면 /api/state 답(dict), 아니면 None. code=now: 서버가 코드 파일을 바로 다시 봐요(모르는 서버는 그냥 넘겨요)."""
     try:
-        with LOCAL.open(f"http://127.0.0.1:{port}/api/state", timeout=1) as r:
+        with LOCAL.open(f"http://127.0.0.1:{port}/api/state?code=now", timeout=1) as r:
             res = json.load(r)
     except Exception:  # noqa: BLE001 — 다른 프로그램이면 아니라고 봐요
         return None
@@ -138,9 +138,8 @@ def main():
                 print(f"AGENCITY_NOTE=이 폴더의 예전 버전({old}) 사무실이 이미 켜져 있어서 그 화면을 보여 줘요."
                       f" 새 버전({ver})을 쓰려면 예전 사무실을 켠 창에서 끈 뒤(터미널은 Ctrl-C, 앱은 ⌘Q) 앱을 다시 열어 주세요.")
         elif button and code.get("changed") is True:   # 버전은 같고 코드만 바뀜(git pull, 손으로 고침)
+            # 앱 알림은 띄우지 않아요(알림 제목이 ‘예전 버전’이라서요). 앱 화면 위에 바로 ‘다시 켜기’가 떠요.
             print(f"· 이 폴더의 사무실이 예전 코드로 {url} 에 켜져 있어요. 화면 위 ‘다시 켜기’를 누르면 새 코드가 적용돼요.")
-            if app:
-                print("AGENCITY_NOTE=화면 위 ‘다시 켜기’를 누르면 새 코드가 적용돼요.")
         else:
             print(f"· 이미 켜져 있어요: {url}")
         if app:

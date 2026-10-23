@@ -20,6 +20,7 @@ python3 -I bin/self_update.py --restart-only --dir <설치 폴더> --old-boot <c
      그 start.py는 꺼질 때 이 번호 파일이 자기 것이면 지워요).
    새 버전 사무실이 대답하면(같은 설치 폴더, 버전이 태그와 같음) status를 done으로 적어요.
 --restart-only(화면의 ‘다시 켜기’, /api/update/restart): 아무것도 받지 않고 2·3을 건너뛰어, 지금 디스크의 코드로 4만 해요.
+   끄기 전에 그 코드가 켜질 수 있는지 봐요(문법, 임시 폴더에서 페이지 만들기, 서버 코드 읽기). 안 되면 failed로 적고 끄지 않아요.
    status에는 kind: restart와 oldBoot(끈 서버의 표시)를 적어요. 앱은 make_mac_app.sh --if-needed --reopen(앱 소스가 그대로면
    다시 만들지 않고 끈 뒤 다시 열어요). 새 사무실은 표시(code.boot)가 끈 서버와 다를 때 켜진 걸로 봐요(버전이 같아도 돼요).
    git 폴더·개발용 판(VERSION이 vX.Y.Z가 아님)도 돼요.
@@ -56,6 +57,7 @@ INSTALL_TIMEOUT = 15 * 60
 APP_TIMEOUT = 15 * 60        # 앱 컴파일은 처음엔 1분쯤
 STOP_WAIT = 10               # 예전 사무실이 꺼지길 기다리는 시간
 START_WAIT = 60              # 새 버전 사무실이 대답하길 기다리는 시간
+PREFLIGHT_WAIT = 60          # 다시 켜기 전에 새 코드를 살펴보는 데 쓰는 시간(하나마다)
 TAIL = 15                    # 실패 메시지에 붙이는 기록 줄 수
 # 설치 스크립트·앱 만들기·새 start.py에 물려주지 않는 값(설치 위치·버전은 여기서 정해요)
 DROP_ENV = ("AGENCITY_SRC", "AGENCITY_FORCE", "AGENCITY_DIR", "AGENCITY_REF", "AGENCITY_NO_START", "AGENCITY_NO_APP",
@@ -348,8 +350,42 @@ def pick_bundle(a, st):
     return None
 
 
+# 서버 코드를 읽어만 봐요(main()은 부르지 않아서 포트를 열거나 파일을 쓰지 않아요)
+CHECK_SERVER = "import runpy, sys; runpy.run_path(sys.argv[1], run_name='agencity_check')"
+
+
+def preflight(d, st):
+    """다시 켜기 전에(끄기 전에) 디스크의 코드가 켜질 수 있는지 봐요. 안 되면 Fail이고 쓰던 사무실은 그대로 둬요(손으로 고친 코드의 오타 등).
+    세 파일의 문법을 보고, 페이지는 임시 폴더에서 만들어 보고(켜진 서버의 index.html은 건드리지 않아요), office_server.py는 읽어만 봐요."""
+    st.set("running", "새 코드를 살펴보는 중이에요")
+    keep = "켜져 있던 사무실은 그대로예요. 고친 뒤 다시 눌러 주세요."
+    for n in ("start.py", "build.py", "office_server.py"):
+        p = os.path.join(d, n)
+        try:
+            with open(p, "rb") as f:
+                compile(f.read(), p, "exec", dont_inherit=True)
+        except SyntaxError as e:
+            raise Fail(with_tail(f"{n}에 문법 오류가 있어서 다시 켜지 않았어요. {keep}", [f"{n} {e.lineno}번째 줄: {e.msg}"]))
+        except (OSError, ValueError) as e:
+            raise Fail(f"{n} 파일을 읽지 못해서 다시 켜지 않았어요({type(e).__name__}). {keep}")
+    with tempfile.TemporaryDirectory(prefix="agencity-check-") as t:
+        try:
+            for n in ("build.py", "office.src.html"):
+                shutil.copyfile(os.path.join(d, n), os.path.join(t, n))
+        except OSError as e:
+            raise Fail(f"페이지 파일을 읽지 못해서 다시 켜지 않았어요({type(e).__name__}). {keep}")
+        rc, tail = run_logged([sys.executable, "-I", os.path.join(t, "build.py")], clean_env(), t, PREFLIGHT_WAIT)
+        if rc != 0 or not os.path.isfile(os.path.join(t, "index.html")):
+            raise Fail(with_tail(f"페이지(office.src.html)를 만들지 못해서 다시 켜지 않았어요. {keep}", tail))
+    # 문법은 맞아도 읽다가(켤 때 맨 먼저) 멈추는 오류(없는 이름 등)
+    rc, tail = run_logged([sys.executable, "-I", "-c", CHECK_SERVER, os.path.join(d, "office_server.py")], clean_env(), d, PREFLIGHT_WAIT)
+    if rc != 0:
+        raise Fail(with_tail(f"office_server.py에 오류가 있어서 다시 켜지 않았어요. {keep}", tail))
+
+
 def restart_only(d, a):
-    """화면의 ‘다시 켜기’: 아무것도 받지 않고 지금 디스크의 코드로 다시 켜요. 끄고 켜는 순서는 업데이트와 같아요."""
+    """화면의 ‘다시 켜기’: 아무것도 받지 않고 지금 디스크의 코드로 다시 켜요. 끄고 켜는 순서는 업데이트와 같아요.
+    끄기 전에 그 코드가 켜질 수 있는지 먼저 봐요(preflight)."""
     cur = read_version(d)
     old_boot = a.old_boot if a.old_boot and BOOT_RE.match(a.old_boot) else None
     st = Status(d, f"v{cur}" if TAG_RE.match(f"v{cur}") else None, "app" if a.app_bundle else "browser", kind="restart")
@@ -358,6 +394,7 @@ def restart_only(d, a):
     try:
         bundle = pick_bundle(a, st)
         say(f"다시 켜기 시작: {cur or '?'} ({d}, {st.doc['mode']})")
+        preflight(d, st)
         if bundle:
             restart_app(d, None, bundle, st, old_boot)
         else:

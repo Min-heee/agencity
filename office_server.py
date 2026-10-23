@@ -32,6 +32,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   User-Agent만 보내요). 업데이트는 bin/self_update.py를 따로 켜서 그 태그의 install.sh로 코드만 새로 받고 다시 켜요(.update/).
 - 새 코드 다시 켜기: 켠 뒤에 디스크의 코드가 바뀌면(한 줄 설치를 다시 실행, git pull, 손으로 고침) /api/state의 code.changed로 알리고,
   /api/update/restart는 받지 않고 같은 도우미(--restart-only)로 끄고 다시 켜요. 페이지에는 이 서버의 버전·표시(BOOT)를 넣어요.
+  code는 10초에 한 번까지 다시 보고, start.py는 /api/state?code=now로 바로 다시 보게 물어요(대개 파일 크기·시각만 봐서 가벼워요).
 - 도시에 내 건물 세우기(/api/setup/meter/*): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)로 Claude·Codex·Gemini 로그의
   토큰 수·모델 이름·시각만 세어(대화 글은 읽지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
   token-meter.json만 만들거나 고쳐요. 참가 이슈는 대표가 GitHub에서 제출하고, 명단(token-meter의 members.json)을 읽어 확인해요.
@@ -3434,7 +3435,7 @@ def update_mode():
 # 크기·시각이 그대로면 그대로로 보고, 시각만 바뀐 파일은 내용을 다시 읽어 비교해요(같은 판을 다시 깔아도 바뀐 걸로 보지 않게).
 # 내 팀 정보(org.json, setup.json, teams/, hq/, outbox/)와 .update/, 켤 때 만든 index.html은 보지 않아요.
 CODE_NAMES = ("office_server.py", "office.src.html", "build.py", "start.py", "city.html", "VERSION")
-CODE_EVERY = 10
+CODE_EVERY = 10   # start.py가 물을 때(/api/state?code=now)는 기다리지 않고 바로 다시 봐요(git pull 바로 뒤에도 안내가 맞게)
 
 
 def code_files():
@@ -3486,12 +3487,12 @@ def code_changed():
     return False
 
 
-def code_state():
-    """/api/state의 code: {running, disk, changed, boot, canRestart, why}. 파일은 10초에 한 번까지만 다시 봐요.
+def code_state(fresh=False):
+    """/api/state의 code: {running, disk, changed, boot, canRestart, why}. 파일은 10초에 한 번까지만 다시 봐요(fresh면 바로).
     무엇이 잘못돼도 직전 값으로 답해요(state 답을 막지 않게)."""
     with CODE_LOCK:
         t = time.monotonic()
-        if CODE["at"] is None or t - CODE["at"] >= CODE_EVERY:
+        if fresh or CODE["at"] is None or t - CODE["at"] >= CODE_EVERY:
             CODE["at"] = t
             try:
                 CODE["changed"] = code_changed()
@@ -5497,7 +5498,7 @@ class Handler(SimpleHTTPRequestHandler):
                 gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
                 res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None)
                 try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
-                    res["code"] = code_state()
+                    res["code"] = code_state(parse_qs(u.query).get("code") == ["now"])
                 except Exception:  # noqa: BLE001
                     pass
             else:

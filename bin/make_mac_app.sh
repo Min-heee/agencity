@@ -38,10 +38,6 @@ SRC="$HERE/mac/Agencity.swift"
 [ -f "$SRC" ] && [ -f "$HERE/start.py" ] || fail "$HERE 에 mac/Agencity.swift 나 start.py가 없어요."
 case "$HERE" in *'
 '*) fail "설치 폴더 경로에 줄바꿈이 있어요." ;; esac
-# /usr/bin/swiftc는 명령어 도구가 없으면 설치 창부터 띄우므로, 있는지 먼저 확인해요.
-if ! xcode-select -p >/dev/null 2>&1 || ! xcrun --find swiftc >/dev/null 2>&1; then
-  fail "swiftc가 없어요. 터미널에서 xcode-select --install 로 명령어 도구를 설치한 뒤 sh \"$HERE/bin/make_mac_app.sh\" 를 다시 실행해 주세요."
-fi
 
 DEST="${AGENCITY_APP_DEST:-$HOME/Applications}"
 APP="$DEST/Agencity.app"
@@ -116,6 +112,12 @@ if [ "$IF_NEEDED" = yes ] && [ -x "$EXE" ] \
   remove_old_name_app
   if [ "$REOPEN" = yes ]; then open_app restart; elif [ "$OPEN" = yes ]; then open_app keep; fi
   exit 0
+fi
+
+# 여기부터는 새로 만들어요. /usr/bin/swiftc는 명령어 도구가 없으면 설치 창부터 띄우므로, 있는지 먼저 확인해요.
+# (다시 만들 필요가 없으면 위에서 끝나서 명령어 도구가 없어도 돼요. 화면의 ‘다시 켜기’가 그래요.)
+if ! xcode-select -p >/dev/null 2>&1 || ! xcrun --find swiftc >/dev/null 2>&1; then
+  fail "swiftc가 없어요. 터미널에서 xcode-select --install 로 명령어 도구를 설치한 뒤 sh \"$HERE/bin/make_mac_app.sh\" 를 다시 실행해 주세요."
 fi
 
 mkdir -p "$DEST" || fail "$DEST 폴더를 만들지 못했어요."

@@ -4806,6 +4806,11 @@ async function updTick(seq) {
       if (UPD.ov !== ov || ov.seq !== seq || ov.state !== 'run') return;
       if (hit) { updArrive(hit, true); return; }
     }
+    // 다시 켜기는 몇 초면 끝나요. 오래 꺼져 있으면 새 코드가 켜지다 멈췄을 수 있어요(꺼진 서버는 이유를 알려 줄 수 없어서 할 일만 알려요)
+    if (ov.kind === 'restart' && !here && now - ov.downAt > 20000 && !ov.hint) {
+      ov.slow = true;
+      ov.hint = '켜지지 않으면 터미널에서 python3 start.py로 켜 보세요. 이유가 보여요(기록: 설치 폴더의 .update/server.log).';
+    }
     if (now - ov.downAt > 30000 && now - ov.altAt > 15000) {
       ov.altAt = now;
       const alt = await updAlive(ov);
