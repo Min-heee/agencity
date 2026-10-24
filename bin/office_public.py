@@ -15,7 +15,7 @@ GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)�
 {
   "login": "<내 GitHub 아이디>",
   "gist": "<내 사용량 gist id>",
-  "profile": {"intro": "소개 한 줄", "district": "app|web|data|content|tool|game|etc"},
+  "profile": {"intro": "소개 한 줄", "district": "app|web|data|content|tool|game|etc", "country": "KR"},
   "floors": {
     "<org.json의 팀 id>": {"public": "name|tour", "name": "공개용 층 이름(꼭 적기)", "summary": "공개용 소개",
                             "district": "app", "tasks": false, "board": false}
@@ -30,8 +30,14 @@ GitHub에는 이렇게 접속해요: 앱에서 GitHub 로그인(기기 코드)�
   사람 이름은 자동으로 다 찾을 수 없으니, 켜기 전에 미리보기를 꼭 읽어 보세요.
 - 대화·결재·보고서·회의록·로그 파일은 어떤 경우에도 읽지 않아요.
 - 층 이름을 적지 않으면 내부 팀 이름 대신 "<n>층"으로 나가요.
+- 나라("country", 결재 20261024-U-14-1): city/countries.json 목록의 두 글자 코드만 나가요(본인이 고른 것만, 시간대로 짐작하지 않아요).
+  ""는 '고르지 않음'이라 내보내지 않아요. 칸이 아예 없으면 '정한 적 없음'이라, 올릴 때 gist의 agencity.json에 이미 있는 나라
+  (설치 없이 올리는 명령 bin/city_join.py로 정했을 수 있어요)를 그대로 둬요. 다만 공개할 층이 없으면 '도시에서 내리기'라서
+  정한 적 없는 나라도 같이 빼요. 고른 나라가 있으면 층이 없어도 나라는 나가요(층 없이 건물만 세운 사람도 나라 구역에 서요).
+- --expect <지문>: 앱이 보여 준 미리보기와 지금 만든 내용이 같을 때만 올려요(digest_of, 시각과 책상 상태는 빼고 봐요).
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -60,6 +66,8 @@ TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")   # office_server.py�
 TOKEN_RE = re.compile(r"^[A-Za-z0-9_.-]{10,255}$")
 OUT_FILE = "agencity.json"         # gist에 올리는 공개 요약
 OLD_FILE = "claude-office.json"    # 예전 이름 때 올린 요약. 올릴 때 같이 지워요
+COUNTRIES_FILE = os.path.join(HERE, "city", "countries.json")   # 나라 코드(ISO 3166-1 두 글자) 목록. 도시·앱·명령 한 줄이 같이 읽어요
+COUNTRY_RE = re.compile(r"^[A-Z]{2}\Z")
 MAX_REPLY = 8 * 1024 * 1024
 # 지우는 것: 바꿔 넣을 말
 SCRUB = [
@@ -106,6 +114,27 @@ def load(path, default=None):
             return json.load(f)
     except (OSError, ValueError):
         return default
+
+
+def countries():
+    """나라 코드 목록(집합). 못 읽으면 빈 집합이라 나라는 하나도 내보내지 않아요."""
+    c = load(COUNTRIES_FILE, [])
+    return {x for x in c if isinstance(x, str) and COUNTRY_RE.match(x)} if isinstance(c, list) else set()
+
+
+def country_of(v, codes=None):
+    """목록 안의 두 글자 대문자 코드만 돌려줘요. 소문자·세 글자·XX·빈 글·None은 None."""
+    codes = countries() if codes is None else codes
+    return v if isinstance(v, str) and v in codes else None
+
+
+def digest_of(doc, keep):
+    """미리보기와 실제로 올릴 것이 같은지 보는 지문. 시각(updatedAt)과 늘 바뀌는 책상 상태(state)는 빼고,
+    '정한 적 없는 나라는 gist 것을 그대로 둠'(keep)은 넣어요(내용이 같아도 나라가 남는지 빠지는지가 달라져요)."""
+    d = dict(doc, updatedAt=None, keepCountry=bool(keep))
+    d["floors"] = [dict(f, desks=[{k: v for k, v in x.items() if k != "state"} for x in f["desks"]]) if isinstance(f.get("desks"), list) else f
+                   for f in doc.get("floors", [])]
+    return hashlib.sha256(json.dumps(d, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def board_titles(base):
@@ -188,7 +217,18 @@ def build():
            "profile": {"intro": clip(prof.get("intro", ""), 120)}, "floors": floors}
     if prof.get("district") in DISTRICTS:
         doc["profile"]["district"] = prof["district"]
-    return cfg, doc, notes
+    # 나라: 칸이 있으면 그 값(목록 밖이나 ""는 내보내지 않아요). 칸이 없으면 정한 적 없음 → 층을 공개할 때만 gist의 나라를 그대로 둬요(keep).
+    keep = False
+    if "country" in prof:
+        c = country_of(prof.get("country"))
+        if c:
+            doc["profile"]["country"] = c
+        elif prof.get("country") not in ("", None):
+            notes.append("public.json의 나라가 목록에 없는 값이라 나라는 내보내지 않아요")
+    elif floors:
+        keep = True
+        notes.append("나라는 이 맥에서 정한 적이 없어서, gist에 이미 올라가 있는 나라가 있으면 그대로 둬요")
+    return cfg, doc, notes, keep
 
 
 def meter_gist_saved(me):
@@ -259,7 +299,24 @@ class GitHub:
         return ""
 
 
-def publish(cfg, login, text, yes=False):
+def gist_country(info):
+    """gist의 agencity.json에 지금 있는 나라(목록 안의 값만). 파일이 없으면 None.
+    파일이 있는데 읽지 못하면 그만둬요(모르는 채로 올리면 다른 길로 정한 나라를 지워 버려요)."""
+    f = (info.get("files") or {}).get(OUT_FILE) if isinstance(info.get("files"), dict) else None
+    if f is None:
+        return None
+    raw = f.get("content") if isinstance(f, dict) and f.get("truncated") is not True else None
+    try:
+        old = json.loads(raw) if isinstance(raw, str) else None
+    except ValueError:
+        old = None
+    if not isinstance(old, dict):
+        sys.exit(f"gist에 있는 {OUT_FILE}을 읽지 못해서, 그 안의 나라를 지키려고 올리지 않았어요. 잠시 뒤 다시 해 주세요.")
+    p = old.get("profile")
+    return country_of(p.get("country")) if isinstance(p, dict) else None
+
+
+def publish(cfg, login, doc, keep, yes=False):
     hub = GitHub()
     me = hub.call("GET", "user")
     me = str(me.get("login", "")) if isinstance(me, dict) else ""
@@ -280,7 +337,14 @@ def publish(cfg, login, text, yes=False):
         sys.exit(f"gist 주인({owner})·GitHub 로그인({me})·public.json login({login})이 같지 않아요. 올리지 않았어요.")
     if "token-meter.json" not in files:
         sys.exit("이 gist에는 사용량 숫자가 없어요. 내 숫자를 올린 gist만 써요.")
+    if keep:   # 이 맥에서 나라를 정한 적이 없어요: gist에 있는 나라를 그대로 둬요(설치 없이 올리는 명령으로 정했을 수 있어요)
+        c = gist_country(info)
+        if c:
+            doc = dict(doc, profile=dict(doc["profile"], country=c))
+            print(f"· gist에 있던 나라({c})는 그대로 둬요.", file=sys.stderr)
+    text = json.dumps(doc, ensure_ascii=False, indent=1)
     if not yes:
+        print(text)
         if not sys.stdin.isatty():
             sys.exit("확인을 받을 수 없어서 올리지 않았어요. 터미널에서 직접 실행해 주세요.")
         print("\n위 내용이 공개 gist에 올라가요. gist 수정 기록은 지울 수 없어요.", file=sys.stderr)
@@ -300,7 +364,7 @@ def publish(cfg, login, text, yes=False):
     print(f"올렸어요: gist {gist}의 {OUT_FILE}", file=sys.stderr)
     if OLD_FILE in files:
         print(f"· 예전 이름 때 올린 {OLD_FILE}은 gist에서 지웠어요.", file=sys.stderr)
-    return gist, url
+    return gist, url, doc["profile"].get("country")
 
 
 def main():
@@ -309,26 +373,35 @@ def main():
     g.add_argument("--write", metavar="파일", help="로컬 파일로 저장")
     g.add_argument("--publish", action="store_true", help="내 사용량 gist에 올리기(확인 후)")
     ap.add_argument("--yes", action="store_true", help="--publish를 확인 없이(앱이 써요)")
+    ap.add_argument("--expect", metavar="지문", help="--publish: 미리보기의 지문(digest_of)과 같을 때만 올려요(앱이 써요)")
+    g.add_argument("--app-preview", action="store_true", help="미리보기를 JSON 한 줄로(앱이 써요): {ok, doc, digest, keepCountry}")
     a = ap.parse_args()
     if a.write and a.write.startswith("-"):
         sys.exit("저장할 파일 이름이 이상해요.")
     if a.yes and not a.publish:
         sys.exit("--yes는 --publish와 같이 써요.")
-    cfg, doc, notes = build()
+    if a.expect is not None and (not a.publish or not re.match(r"^[0-9a-f]{64}\Z", a.expect)):
+        sys.exit("--expect는 --publish와 같이, 미리보기의 지문(64자리)으로 써요.")
+    cfg, doc, notes, keep = build()
     text = json.dumps(doc, ensure_ascii=False, indent=1)
-    if not a.yes:
+    if a.app_preview:
+        print(json.dumps({"ok": True, "doc": doc, "digest": digest_of(doc, keep), "keepCountry": keep}, ensure_ascii=False))
+    elif not a.publish:
         print(text)
     for n in notes:
         print("· " + n, file=sys.stderr)
-    print("— 공개될 층 " + str(len(doc["floors"])) + "개: " + (", ".join(f"{f['floor']}층 {f['name']}({f['public']})" for f in doc["floors"]) or "없음"), file=sys.stderr)
+    print("— 공개될 층 " + str(len(doc["floors"])) + "개: " + (", ".join(f"{f['floor']}층 {f['name']}({f['public']})" for f in doc["floors"]) or "없음")
+          + " · 나라: " + (doc["profile"].get("country") or ("gist에 있는 값 그대로" if keep else "공개 안 함")), file=sys.stderr)
     if a.write:
         with open(a.write, "w", encoding="utf-8") as f:
             f.write(text)
         print(f"저장했어요: {a.write}", file=sys.stderr)
     if a.publish:
-        gist, url = publish(cfg, doc["login"], text, yes=a.yes)
+        if a.expect is not None and digest_of(doc, keep) != a.expect:
+            sys.exit("보여 드린 내용과 지금 설정이 달라졌어요. 올리지 않았어요. 확인 상자를 다시 열어 주세요.")
+        gist, url, country = publish(cfg, doc["login"], doc, keep, yes=a.yes)
         if a.yes:
-            print(json.dumps({"ok": True, "gist": gist, "url": url, "floors": len(doc["floors"])}, ensure_ascii=False), flush=True)
+            print(json.dumps({"ok": True, "gist": gist, "url": url, "floors": len(doc["floors"]), "country": country}, ensure_ascii=False), flush=True)
 
 
 if __name__ == "__main__":

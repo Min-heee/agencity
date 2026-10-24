@@ -473,6 +473,9 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .su-vis{margin:12px 0 0; padding:8px 12px 12px; border:1px solid var(--line); border-radius:10px; min-width:0}
 .su-vis legend{display:flex; align-items:center; gap:6px; padding:0 4px; font-family:var(--font-display); font-size:18px}
 .su-levels{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
+.su-ctry-row{display:grid; grid-template-columns:minmax(0,200px) minmax(0,320px); gap:8px; margin-top:4px}   /* 나라 찾기 · 나라 고르기 */
+.su-ctry .hint{margin-top:6px; max-width:720px}
+@media (max-width:620px){ .su-ctry-row{grid-template-columns:minmax(0,1fr)} }
 .su-lv{display:flex; align-items:flex-start; gap:7px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface); cursor:pointer; font-size:13px}
 .su-lv input{flex:none; margin:3px 0 0}
 .su-lv > span{display:flex; flex-direction:column; gap:1px; min-width:0}
@@ -2603,6 +2606,8 @@ const SU = {
   gh: { flow: null, seq: 0, timer: 0, fails: 0, note: '' },
   picks: {}, pickSeq: 0, rowSeq: 0, edit: {}, editNote: {}, boss: '', bossTouched: false, made: null, madeAt: {}, madeRun: [], skip: false,
   vis: {}, visDirty: false, intro: '', introDirty: false, confirm: false, preview: null, pubUrl: '', note: '', pubErr: '',
+  // 나라(결재 20261024-U-14-1): 코드·''(고르지 않음)·null(정한 적 없음 — 올릴 때 gist에 있는 나라를 그대로 둬요). ctryQ는 나라 찾기 칸
+  country: null, countryDirty: false, ctryQ: '',
   // 추천 팀(/api/setup/recommend): data는 마지막 답, drop은 대표가 뺀 추천, done은 이번에 만든 추천, errs는 추천마다 못 만든 까닭, old는 30일 넘은 세션도 넣기
   rec: { data: null, busy: false, err: '', none: false, seq: 0, at: 0, drop: new Set(), done: new Set(), errs: {}, old: false, show: 20, mkErr: '' },
   // 5단계의 팀 규칙 한 줄(/api/floor/link-rules): on은 체크 상자, res는 층마다 결과 { busy, done, bad, text }
@@ -2622,6 +2627,8 @@ async function refreshSetup() {
   if (!SU.st.claude || typeof SU.st.claude !== 'object') SU.st.claude = { app: false, sessions: 0 };
   if (!SU.visDirty) SU.vis = Object.assign({}, SU.st.visibility || {});
   if (!SU.introDirty && typeof st.intro === 'string') SU.intro = st.intro;
+  if (!SU.countryDirty) SU.country = typeof st.country === 'string' ? st.country : null;
+  SU.st.countries = Array.isArray(st.countries) ? st.countries.filter(c => /^[A-Z]{2}$/.test(c)) : [];
   if (Array.isArray(st.roleSuggestions)) { const l = st.roleSuggestions.filter(r => roleOk(r) && r !== LEAD).slice(0, 12); if (l.length) ROLE_SUGGEST = l; }
   if (Number.isInteger(st.maxMembers) && st.maxMembers >= 1 && st.maxMembers <= 50) MAX_MEMBERS = st.maxMembers;
   return SU.st;
@@ -2947,17 +2954,23 @@ function useFolderTeam(p, ex) {
 const sessLabel = (s, where) => `${s.title || '(제목 없음)'}${s.archived ? ' (보관됨)' : ''}${where ? ' · ' + where : ''} · ${agoAt(s.lastActivityAt) || '—'}`;
 const worktree = s => { const m = String(s.cwd || '').match(/\/\.claude\/worktrees\/([^/]+)/); return m ? m[1] : ''; };
 const pubCount = () => myFloors().filter(f => SU_OUT.has(levelOf(f.id))).length;   // '공개'는 층 정보가 나가는 층만 세요
-const withdraw = () => pubCount() === 0;   // 공개할 층이 없으면 올리기 = 도시에서 내리기(층 정보를 비워 올려요)
+// 공개할 층도 고른 나라도 없으면 올리기 = 도시에서 내리기(층 정보를 비우고 나라도 빼서 올려요, 결재 20261024-U-14-1).
+// 나라를 골랐으면 층이 없어도 ‘도시에 올리기’예요(층 없이 건물만 세운 사람도 나라 구역에 서요).
+const withdraw = () => pubCount() === 0 && !SU.country;
+// 나라 이름은 브라우저가 알아요(Intl.DisplayNames). 깃발은 코드에서 바로 만들고 이름을 늘 같이 써요(윈도에서는 깃발이 글자 두 개로 보여요)
+const ctryName = c => { try { return new Intl.DisplayNames(['ko'], { type: 'region' }).of(c) || c; } catch (e) { return c; } };
+const ctryFlag = c => /^[A-Z]{2}$/.test(c || '') ? String.fromCodePoint(...[...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) : '';
+const ctryLabel = c => `${ctryFlag(c)} ${ctryName(c)}`.trim();
 function pubBlock() {
   if (!SU.st.github) return '도시에 올리려면 1단계에서 GitHub에 연결해요.';
-  if (withdraw() && !SU.st.published) return '공개한 층이 없어요. 올린 적이 없어서 내릴 것도 없어요.';
+  if (withdraw() && !SU.st.published) return '공개한 층도 고른 나라도 없어요. 올린 적이 없어서 내릴 것도 없어요.';
   return '';
 }
 function pubHint() {
   const p = SU.st.published;
   if (!withdraw()) return `${mtStage() === 'none' ? '올리려면 위에서 내 건물(사용량 gist)을 먼저 세워요. ' : ''}누르면 무엇이 나가는지 한 번 더 보여 줘요.`;
-  if (p && p.current === true && p.floors === 0) return '도시에 올라간 층 정보는 이미 비어 있어요. 소개 한 줄을 고쳤다면 다시 눌러 반영해요.';
-  return '도시에 올라간 층 정보를 비워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
+  if (p && p.current === true && p.floors === 0 && !p.country) return '도시에 올라간 층 정보와 나라는 이미 비어 있어요. 소개 한 줄을 고쳤다면 다시 눌러 반영해요.';
+  return '도시에 올라간 층 정보와 나라를 비워요. 누르면 무엇이 나가는지 한 번 더 보여 줘요.';
 }
 function coordLink() {   // 앱에는 파일을 열 곳이 없어서 GitHub의 문서로 이어요(설치한 판과 같은 태그)
   const v = String((SU.st && SU.st.version) || '');
@@ -3751,16 +3764,16 @@ function madeSeatsHTML(m) {
 const pickCount = () => { const n = picksList().length; return n ? `만들 층 ${n}개` : '아직 고른 층이 없어요'; };
 // 저장한 설정과 도시에 올라간 것의 관계(서버가 마지막으로 올린 설정의 지문과 지금 public.json을 비교해 알려 줘요). here: 4단계 안에서 보여 줄 때
 function pubState(here) {
-  const p = SU.st.published, n = pubCount(), at = here ? '' : '4단계에서 ', act = n ? '‘도시에 올리기’' : '‘도시에서 내리기’';
+  const p = SU.st.published, n = pubCount() || (SU.country ? 1 : 0), at = here ? '' : '4단계에서 ', act = withdraw() ? '‘도시에서 내리기’' : '‘도시에 올리기’';
   if (!p) return n ? (here ? '아직 도시에 올리지 않았어요. 아래 ‘도시에 올리기’를 눌러야 나가요' : '아직 도시에 올리지 않았어요(4단계 ‘도시에 올리기’)') : '';
-  if (SU.visDirty || SU.introDirty) return `바꾼 내용은 아직 도시에 없어요. ${at}${act}를 누르면 반영돼요`;
+  if (SU.visDirty || SU.introDirty || SU.countryDirty) return `바꾼 내용은 아직 도시에 없어요. ${at}${act}를 누르면 반영돼요`;
   if (p.current === null || p.current === undefined) return `도시에 예전에 올린 내용이 있을 수 있어요. ${at}${act}를 누르면 지금 설정으로 맞춰져요`;
   if (!p.current) return `도시에는 예전 내용이 올라가 있어요. ${at}${act}를 눌러 반영해요`;
   return '';
 }
 function saveNote() {   // '저장'을 누른 뒤: 이 맥에만 적었다는 것과 도시에 있는 것과의 관계
-  const p = SU.st.published, act = pubCount() ? '‘도시에 올리기’' : '‘도시에서 내리기’';
-  if (!p) return pubCount() ? '저장했어요. 이 맥의 public.json에만 적었고 아직 도시에 올리지 않았어요.' : '저장했어요. 이 맥의 public.json에만 적었어요.';
+  const p = SU.st.published, act = withdraw() ? '‘도시에서 내리기’' : '‘도시에 올리기’';
+  if (!p) return !withdraw() ? '저장했어요. 이 맥의 public.json에만 적었고 아직 도시에 올리지 않았어요.' : '저장했어요. 이 맥의 public.json에만 적었어요.';
   if (p.current === true) return '저장했어요. 도시에 올라간 내용과 같아요.';
   return `저장했어요. 이 맥의 public.json에만 적었어요. 도시에는 예전 내용이 ${p.current === false ? '그대로 있으니' : '있을 수 있으니'} ${act}를 눌러 반영해요.`;
 }
@@ -3815,9 +3828,9 @@ function mtHTML() {
     const last = s.last && agoAt(s.last) ? `마지막으로 올린 때 · ${agoAt(s.last)}` : '';
     body = `${note}<p><i class="sd here"></i>도시에 건물이 서 있어요</p>
       ${pv || `<div class="su-actions"><a class="btn" href="city.html?who=${esc(encodeURIComponent(s.login))}">도시 보기</a><button type="button" class="btn" id="suMtCount" data-su="mt-count">숫자 다시 올리기</button></div>`}
-      <label class="su-check"><input type="checkbox" id="suMtAuto" data-su-in="mt-auto"${s.auto ? ' checked' : ''} aria-describedby="suMtAutoH"> 하루 한 번 새로 올리기</label>
-      <p class="hint" id="suMtAutoH">숫자가 바뀐 날만 올려요. gist 수정 기록은 계속 공개로 남아요.</p>
-      ${last ? `<p class="hint">${esc(last)}</p>` : ''}${s.auto && s.autoErr ? `<p class="hint">지난번 하루 한 번 올리기는 못 했어요: ${esc(s.autoErr)}</p>` : ''}`;
+      <label class="su-check"><input type="checkbox" id="suMtAuto" data-su-in="mt-auto"${s.auto ? ' checked' : ''} aria-describedby="suMtAutoH"> 자동으로 올리기 (1시간마다, 숫자가 바뀌었을 때만)</label>
+      <p class="hint" id="suMtAutoH">올릴 때마다 gist 공개 수정 기록이 늘고, 언제 일했는지 대강 보일 수 있어요. 켜는 사람만 올라가요. 사무실을 열어 둔 동안만 올려요.${s.auto && s.hourly === false ? ' 예전 판에서 켠 설정이라 지금은 하루 한 번 올려요. 껐다 켜면 1시간마다로 바뀌어요.' : ''}</p>
+      ${last ? `<p class="hint">${esc(last)}</p>` : ''}${s.auto && s.autoErr ? `<p class="hint">지난번 자동 올리기는 못 했어요: ${esc(s.autoErr)}</p>` : ''}`;
   }
   return `<div class="su-box su-meter" id="suMeterBox" role="group" aria-labelledby="suMeterH"><h3 id="suMeterH" tabindex="-1">도시에 내 건물 세우기</h3>${body}
     <p class="err" role="alert" id="suMeterErr" style="margin-top:6px">${linkify(MT.err)}</p></div>`;
@@ -3891,14 +3904,31 @@ async function mtAuto(t) {
   t.disabled = true;
   try {
     await sp('meter/settings', { auto: on });
-    if (MT.st) { MT.st.auto = on; MT.st.autoErr = null; }
-    suSay(on ? '하루 한 번 새로 올리기를 켰어요' : '하루 한 번 새로 올리기를 껐어요');
+    if (MT.st) { MT.st.auto = on; MT.st.hourly = on; MT.st.autoErr = null; }
+    suSay(on ? '자동으로 올리기를 켰어요. 1시간마다, 숫자가 바뀌었을 때만 올려요' : '자동으로 올리기를 껐어요');
   } catch (e) {
     t.checked = !on; MT.err = e.message || '안 됐어요';
   } finally {
     t.disabled = false;
     mtPaint('#suMtAuto');
   }
+}
+// 나라 고르기: 맨 위 ‘고르지 않음’, 그다음 한국어 이름 가나다순. 미리 골라 두지 않고 시간대로 짐작하지도 않아요(회의 20261024-M-1).
+// 정한 적이 없으면(null) ‘정한 적 없음’이 고른 칸으로 보여요(올려도 gist에 있는 나라를 지우지 않아요). 찾기 칸은 목록만 줄여요.
+function ctryOpts() {
+  const q = SU.ctryQ.trim().toLowerCase(), cur = SU.country, coll = new Intl.Collator('ko');
+  const all = (SU.st.countries || []).map(c => ({ c, n: ctryName(c) })).sort((a, b) => coll.compare(a.n, b.n));
+  const hit = all.filter(x => !q || x.c === cur || x.n.toLowerCase().includes(q) || x.c.toLowerCase() === q);
+  return (cur === null ? '<option value="__unset" selected>정한 적 없음 (올려도 gist에 있는 나라는 그대로)</option>' : '')
+    + `<option value=""${cur === '' ? ' selected' : ''}>고르지 않음</option>`
+    + hit.map(x => `<option value="${x.c}"${x.c === cur ? ' selected' : ''}>${esc(ctryFlag(x.c) + ' ' + x.n)}</option>`).join('');
+}
+function ctryHTML() {
+  if (!(SU.st.countries || []).length) return '';
+  return `<fieldset class="su-vis su-ctry"><legend>나라 <small>(선택 · 내 건물이 서는 나라 구역)</small></legend>
+      <div class="su-ctry-row"><input type="search" id="suCtryQ" data-su-in="country-q" value="${esc(SU.ctryQ)}" placeholder="나라 찾기 (예: 대한민국, KR)" aria-label="나라 찾기" aria-controls="suCtry" autocomplete="off" spellcheck="false" enterkeyhint="search">
+      <select id="suCtry" data-su-in="country" aria-label="나라" aria-describedby="suCtryH">${ctryOpts()}</select></div>
+      <p class="hint" id="suCtryH">나라는 직접 골라요. 시간대로 짐작하지 않아요. 고른 나라는 공개 gist에 올라가 누구나 봐요. 시간대는 나라와 따로, 나라를 안 골라도 공개돼요. 나라는 언제든 바꾸거나 뺄 수 있어요(gist 수정 기록에는 예전 값이 남아요). 도시에 반영되기까지 몇 분 걸려요.</p></fieldset>`;
 }
 function visHTML() {
   const fl = myFloors(), why = pubBlock(), out = withdraw(), ps = pubState(true);
@@ -3918,16 +3948,21 @@ function visHTML() {
     .concat(fl.filter(f => levelOf(f.id) === 'building').map(f => `<li>${fno(f)}${esc(f.name)} · 건물만 (이 층 정보는 나가지 않아요)</li>`));
   const pvIntro = pv.profile && pv.profile.intro ? String(pv.profile.intro) : '';
   const intro = pvIntro ? `<li>소개 한 줄: ${esc(pvIntro)} <small class="hint">(층 공개 범위와 상관없이 함께 나가요)</small></li>` : '';
+  // 나라: 미리보기(올라갈 내용 그대로)에 있는 값. 정한 적 없으면 서버가 올릴 때 gist의 나라를 그대로 둬요(keepCountry)
+  const pvCtry = pv.profile && /^[A-Z]{2}$/.test(String(pv.profile.country || '')) ? pv.profile.country : '';
+  const ctryLi = pvCtry ? `<li>나라: ${esc(ctryLabel(pvCtry))} <small class="hint">(공개 gist에 올라가 누구나 봐요. 도시의 구역·카드·숫자 보기에 아이디와 함께 보여요)</small></li>`
+    : SU.preview && SU.preview.keepCountry ? '<li>나라: 이 맥에서 정한 적이 없어서, gist에 이미 있는 나라가 있으면 그대로 둬요</li>' : '<li>나라: 공개 안 함</li>';
+  const wasCtry = SU.st.published && SU.st.published.country;
   const notes = Array.isArray(SU.preview && SU.preview.notes) ? SU.preview.notes : [];
   const who = pv.login ? `GitHub <b>@${esc(pv.login)}</b>의 ` : '내 ';
   const body = out
     ? `<h3 id="suCfT">도시에서 내릴까요?</h3>
-      <p id="suCfD">${who}사용량 gist의 에이전시티 요약에서 <b>층 정보를 모두 비워서</b> 올려요. 건물(높이·등급·창문 불빛)은 사용량 숫자로 그대로 서요. <b>예전 판은 gist 수정 기록에 남을 수 있어요.</b></p>
+      <p id="suCfD">${who}사용량 gist의 에이전시티 요약에서 <b>공개한 층과 고른 나라가 함께 빠져요</b>${wasCtry ? `(나라 ${esc(ctryLabel(wasCtry))}도 같이 빠져요)` : ''}. 건물(높이·등급·창문 불빛)은 사용량 숫자로 계속 서고, ‘나라 안 고름’ 구역으로 옮겨요. <b>gist 수정 기록에는 예전 내용이 남아요.</b></p>
       ${items.length || intro ? `<ul>${items.join('')}${intro}</ul>` : ''}
       ${pvIntro ? '<div class="su-actions"><button type="button" class="btn" data-su="pub-clear-intro">소개 한 줄도 지우기</button></div>' : ''}`
     : `<h3 id="suCfT">정말 공개할까요?</h3>
       <p id="suCfD">${who}사용량 gist에 아래 요약을 올려요. <b>누구나 볼 수 있고, gist 수정 기록은 지울 수 없어요.</b> 대화·결재·보고서·경로·세션 id는 들어가지 않아요.</p>
-      <ul>${items.join('')}${intro}</ul>`;
+      <ul>${items.join('')}${ctryLi}${intro}</ul>`;
   const confirmBox = SU.confirm && !why ? `<div class="su-confirm" id="suConfirm" role="alertdialog" aria-labelledby="suCfT" aria-describedby="suCfD" tabindex="-1">
       ${body}
       ${notes.map(n => `<p class="hint">· ${esc(n)}</p>`).join('')}
@@ -3941,6 +3976,7 @@ function visHTML() {
     ${mtHTML()}
     <p class="hint su-pubstate" id="suPubState"${ps ? '' : ' hidden'}>· ${esc(ps)}</p>
     ${rows}
+    ${ctryHTML()}
     <div class="su-field su-intro-f"><label for="suIntroIn">프로필 소개 한 줄 <small>(선택 · 올리면 층 공개 범위와 상관없이 함께 나가요)</small></label><input type="text" id="suIntroIn" data-su-in="intro" maxlength="120" value="${esc(SU.intro)}" placeholder="예: 앱 세 개를 팀 셋으로 굴려요" autocomplete="off"></div>
     <div class="su-actions"><button type="button" class="btn" id="suSave" data-su="vis-save">저장</button><button type="button" class="btn primary" id="suPub" data-su="pub-ask" aria-describedby="suPubWhy"${why ? ' disabled' : ''}>${out ? '도시에서 내리기' : '도시에 올리기'}</button></div>
     <p class="hint" id="suPubWhy" style="margin-top:6px">${esc(why || pubHint())}</p>
@@ -3955,7 +3991,7 @@ function doneHTML() {
       <dt>GitHub</dt><dd>${st.github ? `@${esc(st.github.login)} 연결됨` : '연결 안 함 (공개할 때만 필요해요)'}</dd>
       <dt>Claude</dt><dd>${c.app ? 'Claude 앱 찾음' : 'Claude 앱 못 찾음'} · ${esc(stepNote(1))}</dd>
       <dt>층</dt><dd>${st.floors.length ? st.floors.map(f => esc(`${f.floor ? f.floor + '층 ' : ''}${f.name}`)).join(', ') : '아직 없어요'}${left ? ` <span class="chip wait">고르고 안 만든 층 ${left}개</span>` : ''}${recLeft ? ` <span class="chip wait">추천만 보고 안 만든 팀 ${recLeft}개</span>` : ''}</dd>
-      <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.visDirty || SU.introDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
+      <dt>공개</dt><dd>${n ? `${n}개 층 공개로 정함` : '공개한 층 없음'}${SU.country ? ` · 나라 ${esc(ctryLabel(SU.country))}` : ''}${SU.visDirty || SU.introDirty || SU.countryDirty ? ' (열 때 저장해요)' : ''}${ps ? ` · ${esc(ps)}` : ''}</dd>
     </dl>
     ${updSetHTML()}
     ${usgSetHTML()}
@@ -4045,7 +4081,7 @@ async function suNext() {
     renderSetup('#suNext');
     return;
   }
-  if (SU.step === 3 && (SU.visDirty || SU.introDirty)) await visSave();   // 저장은 이 맥에만 적어요(공개는 따로)
+  if (SU.step === 3 && (SU.visDirty || SU.introDirty || SU.countryDirty)) await visSave();   // 저장은 이 맥에만 적어요(공개는 따로)
   goStep(SU.step + 1);
 }
 // where === 'pub': 공개 확인 상자 안의 버튼이라 오류도 그 상자 안(버튼 옆)에 보여요.
@@ -4403,8 +4439,9 @@ async function visSave() {
   for (const f of myFloors()) visibility[f.id] = levelOf(f.id);
   const body = { visibility };
   if (SU.introDirty) body.intro = cut(SU.intro.trim(), 120);
+  if (SU.countryDirty && typeof SU.country === 'string') body.country = SU.country;   // 정한 적 없음(null)은 보내지 않아요
   await sp('visibility', body);
-  SU.visDirty = false; SU.introDirty = false;
+  SU.visDirty = false; SU.introDirty = false; SU.countryDirty = false;
   await refreshSetup().catch(() => {});
 }
 // 도시에 올리기: 지금 고른 범위를 저장하고 미리보기를 받아 확인 상자를 띄워요. '네'를 눌러야 올려요.
@@ -4416,16 +4453,16 @@ async function pubAsk() {
   renderSetup('#suConfirm');
 }
 function pubDone(r) {
-  const out = r.floors === 0 || (r.floors == null && withdraw());   // 층 정보를 비워 올렸으면 '내렸어요'
+  const out = (r.floors === 0 && !r.country) || (r.floors == null && withdraw());   // 층 정보도 나라도 없이 올렸으면 '내렸어요'
   SU.confirm = false; SU.preview = null; SU.pubErr = '';
   SU.pubUrl = /^https:\/\//i.test(String(r.url || '')) ? String(r.url) : '';
-  SU.note = out ? '도시에서 내렸어요. 이제 도시에는 내 층 정보가 나오지 않아요(건물은 사용량 숫자로 그대로 서요). 예전 판은 gist 수정 기록에 남을 수 있어요.'
+  SU.note = out ? '도시에서 내렸어요. 이제 도시에는 내 층 정보와 나라가 나오지 않아요(건물은 사용량 숫자로 그대로 서고, ‘나라 안 고름’ 구역으로 가요). 예전 판은 gist 수정 기록에 남을 수 있어요.'
     : '도시에 올렸어요. 도시 명단에 등록돼 있으면 도시를 새로 열 때 보여요.';
   renderSetup('#suPubDone');
   suSay(SU.note);
 }
 async function publishNow() {
-  const r = await sp('publish');
+  const r = await sp('publish', { digest: SU.preview && SU.preview.digest });   // 보여 준 내용과 같을 때만 올려요(서버가 다시 만들어 비교해요)
   await refreshSetup().catch(() => {});   // 올린 것과 지금 설정이 같다는 표시(published)를 새로 받아요
   pubDone(r);
 }
@@ -4546,7 +4583,7 @@ $('#setup').addEventListener('click', e => {
   else if (a === 'usg-now') suRun(b, usgNow, 'usg');
   else if (a === 'pub-clear-intro') suRun(b, async () => { SU.intro = ''; SU.introDirty = true; await pubAsk(); suSay('소개 한 줄을 지웠어요. 확인 상자를 다시 봐 주세요'); }, 'pub');
   else if (a === 'finish') suRun(b, async () => {
-    if (SU.visDirty || SU.introDirty) await visSave();
+    if (SU.visDirty || SU.introDirty || SU.countryDirty) await visSave();
     // 팀 규칙 한 줄: 체크했으면 이번에 만든 층 중 아직 넣지 않은 층에 넣어요. 못 넣은 층이 있으면 열지 않고 까닭을 보여 줘요(체크를 끄면 그냥 열려요)
     const todo = API && SU.rules.on ? SU.madeRun.filter(p => !p.noRules && !(SU.rules.res[p.id] && SU.rules.res[p.id].done)) : [];
     for (const p of todo) await linkRules(p.id);
@@ -4565,7 +4602,7 @@ function suInput(e) {
   if (kind === 'upd') { updSetEnabled(t); return; }   // 새 버전 알림 받기(5단계)
   if (kind === 'usg') { usgSetEnabled(t); return; }   // 사용량 알림(5단계)
   if (kind === 'usg-lim') { USG.draft = Object.assign(USG.draft || {}, { [t.dataset.w]: t.value }); return; }   // 한도 칸(다시 그리지 않아요)
-  if (kind === 'mt-auto') { mtAuto(t); return; }        // 4단계: 하루 한 번 새로 올리기
+  if (kind === 'mt-auto') { mtAuto(t); return; }        // 4단계: 자동으로 올리기(1시간마다)
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
   if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 5단계: 팀 규칙 한 줄을 ‘사무실 열기’ 때 넣을지
   if (kind === 'boss') {
@@ -4586,8 +4623,15 @@ function suInput(e) {
     const ps = $('#suPubState'); if (ps) { const v = pubState(true); ps.textContent = '· ' + v; ps.hidden = !v; }
     return;
   }
-  if (kind === 'vis') {
-    SU.vis[t.dataset.team] = t.value; SU.visDirty = true; SU.note = ''; SU.pubUrl = '';
+  if (kind === 'country-q') {   // 나라 찾기: 고르기 칸의 목록만 다시 채워요(사파리는 option을 숨기지 못해서 다시 만들어요)
+    SU.ctryQ = t.value;
+    const sel = $('#suCtry'); if (sel) sel.innerHTML = ctryOpts();
+    return;
+  }
+  if (kind === 'vis' || kind === 'country') {
+    if (kind === 'vis') { SU.vis[t.dataset.team] = t.value; SU.visDirty = true; }
+    else { SU.country = t.value === '__unset' ? null : t.value; SU.countryDirty = SU.country !== null; }
+    SU.note = ''; SU.pubUrl = '';
     const why = pubBlock(), pb = $('#suPub'), w = $('#suPubWhy'), cf = $('#suConfirm'), dn = $('#suPubDone'), sn = $('#suSteps [data-step="3"] small'), ps = $('#suPubState');
     if (pb) { pb.disabled = !!why; pb.textContent = withdraw() ? '도시에서 내리기' : '도시에 올리기'; }
     if (w) w.textContent = why || pubHint();

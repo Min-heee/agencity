@@ -1,5 +1,5 @@
 # 공개 도시: city.html을 GitHub Pages(https://min-heee.github.io/agencity/)에 올려요.
-# 나가는 건 city.html(→ index.html), 예시 도시(examples/city/demo.json), 공유 그림(docs/city.jpg)뿐이에요.
+# 나가는 건 city.html(→ index.html), 나라 코드 목록(city/countries.json), 예시 도시(examples/city/demo.json), 공유 그림(docs/city.jpg)뿐이에요.
 # 저장소의 다른 파일은 올리지 않아요. Pages 설정의 Source는 "GitHub Actions"여야 해요.
 name: 공개 도시
 
@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'city.html'
+      - 'city/**'
       - 'examples/city/**'
       - 'docs/city.jpg'
       - '.github/workflows/city.yml'
@@ -32,8 +33,9 @@ jobs:
           persist-credentials: false
       - name: 올릴 파일만 _site에 모으기
         run: |
-          mkdir -p _site/examples/city
+          mkdir -p _site/examples/city _site/city
           cp city.html _site/index.html
+          cp city/countries.json _site/city/countries.json
           cp examples/city/demo.json _site/examples/city/demo.json
           cp docs/city.jpg _site/city.jpg
           touch _site/.nojekyll

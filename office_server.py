@@ -3,7 +3,7 @@
 
 python3 -I office_server.py   -> http://127.0.0.1:8765
 
-- 페이지(index.html), 에이전시티 도시(city.html, examples/city/), org.json, 총괄 대화(hq/), 팀 사무실(teams/<id>/ → 각 팀 .office)만 보여 줘요. 나머지 파일은 404예요.
+- 페이지(index.html), 에이전시티 도시(city.html, examples/city/, 나라 코드 목록 city/countries.json), org.json, 총괄 대화(hq/), 팀 사무실(teams/<id>/ → 각 팀 .office)만 보여 줘요. 나머지 파일은 404예요.
   index.html에는 서버를 켤 때마다 새로 만든 열쇠(token)를 넣어요.
 - 사이트에서 대표가 하는 일(말 걸기, 회의 시작·참석·빠지기·끝내기·닫기, 결재)을 받아서 파일에 적어요.
   팀 사무실의 대화 파일·회의 파일·결재 파일과 log.jsonl, 그리고 outbox/에 '전달할 메시지'를 남겨요.
@@ -12,7 +12,9 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   끌 때(종료 신호·Ctrl-C) 아직 전하지 않은 항목은 설정 폴더의 넘김 파일(0600)로 다음 서버에 넘기고, 넘겨받지 못한 항목은 그 대화에 알려요.
 - 127.0.0.1에서만 열고, Host·Origin·열쇠가 맞는 요청만 받아요. 다른 사이트가 이 페이지를 틀(iframe)에 넣지 못하게 해요.
 - 처음 설정(/api/setup/*, 앱의 로그인 화면): GitHub 로그인(기기 코드, 또는 이미 로그인된 gh), 이 맥의 Claude Code 세션 중
-  층으로 만들 것 고르기(bin/new_team.py --spec), 층별 공개 범위(public.json)와 공개하기(bin/office_public.py --publish --yes).
+  층으로 만들 것 고르기(bin/new_team.py --spec), 층별 공개 범위와 나라(public.json)와 공개하기(bin/office_public.py --publish --yes).
+  공개하기는 미리보기의 지문(digest)이 지금 만든 내용과 같을 때만 올려요. 나라(profile.country)는 본인이 고른 두 글자 코드만이고,
+  정한 적이 없으면 gist에 있는 나라를 그대로 두고, 도시에서 내릴 때(공개할 층도 나라도 없음)는 같이 빼요(결재 20261024-U-14-1).
   설정은 setup.json(토큰 없음)에, 기기 로그인 토큰은 <설정 폴더>/github-token.json(0600)에만 두고 어떤 응답에도 넣지 않아요.
   세션은 Claude 앱 사이드바처럼 묶어 보여 줘요: 앱 설정 파일에서 내가 만든 그룹 두 항목(dframe-group-scopes·dframe-code-sections)만 읽고,
   나머지 세션은 프로젝트 폴더별, 폴더 없이 만든 세션(scratch-workspaces)은 '이 컴퓨터' 한 묶음으로요. 설정 파일의 다른 내용은 읽어 쓰지 않아요.
@@ -36,7 +38,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
 - 도시에 내 건물 세우기(/api/setup/meter/*): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)로 Claude·Codex·Gemini 로그의
   토큰 수·모델 이름·시각만 세어(대화 글은 읽지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
   token-meter.json만 만들거나 고쳐요. 참가 이슈는 대표가 GitHub에서 제출하고, 명단(token-meter의 members.json)을 읽어 확인해요.
-  하루 한 번 새로 올리기는 켰을 때만(setup.json의 tokenMeter.auto)이에요.
+  자동으로 올리기(1시간마다, 숫자가 바뀌었을 때만)는 켰을 때만(setup.json의 tokenMeter.auto)이에요.
 - 세션 만들기(/api/seat/*): 빈자리마다 claude://code/new 링크(층 폴더 + 첫 메시지)를 만들고, 새로 생긴 세션 기록을 3초마다 살펴
   자리 표시(AGC-…)가 첫 메시지에 있는 세션(첫 메시지를 아직 못 읽으면 층 폴더에서 연 세션 하나, 그 밖에는 대표가 골라요)을 그 자리에 앉혀요.
   기다리는 자리는 setup.json의 pendingSeats. 빈자리 모두 만들기(/api/seat/fill*)는 채울 자리를 fillQueue에 한 줄로 두고 한 자리씩 열어요
@@ -3020,6 +3022,28 @@ def api_setup_floor_order(body):
 
 # 공개 범위와 공개하기 -------------------------------------------------------
 
+COUNTRIES_FILE = os.path.join(HERE, "city", "countries.json")   # 나라 코드(ISO 3166-1 두 글자). 도시(city.html)·office_public.py·city_join.py와 같은 목록
+
+
+def country_codes():
+    """나라 코드 목록(정렬된 list). 못 읽으면 []라서 나라를 고를 수 없어요."""
+    try:
+        c = load_json(COUNTRIES_FILE)
+    except (OSError, ValueError):
+        return []
+    return sorted({x for x in c if isinstance(x, str) and re.match(r"^[A-Z]{2}\Z", x)}) if isinstance(c, list) else []
+
+
+def saved_country(cur=None):
+    """public.json에 저장한 나라: 코드, ''(고르지 않음), None(정한 적 없음 — 올릴 때 gist에 있는 나라를 그대로 둬요)."""
+    cur = load_public() if cur is None else cur
+    p = cur.get("profile") if isinstance(cur.get("profile"), dict) else {}
+    if "country" not in p:
+        return None
+    v = p.get("country")
+    return v if isinstance(v, str) and v in country_codes() else ""
+
+
 def load_public():
     """public.json(없거나 깨졌으면 {})."""
     try:
@@ -3070,21 +3094,24 @@ def note_legacy(s):
 
 
 def published_state(s):
-    """마지막으로 도시에 올린 것: {t, current(지금 설정과 같은지, 모르면 None), floors(올린 층 수)} 또는 올린 적 없으면 None."""
+    """마지막으로 도시에 올린 것: {t, current(지금 설정과 같은지, 모르면 None), floors(올린 층 수), country(그때 올라간 나라, 없거나 모르면 None)}
+    또는 올린 적 없으면 None."""
     p = s.get("published")
     if not isinstance(p, dict):
         return None
     h = p.get("hash")
     n = p.get("floors")
+    c = p.get("country")
     return {"t": p.get("t") if isinstance(p.get("t"), str) else None,
             "current": (h == public_digest()) if isinstance(h, str) and h else None,
-            "floors": n if isinstance(n, int) and not isinstance(n, bool) else None}
+            "floors": n if isinstance(n, int) and not isinstance(n, bool) else None,
+            "country": c if isinstance(c, str) and c in country_codes() else None}
 
 
-def write_public(vis, teams, gh, intro):
+def write_public(vis, teams, gh, intro, country=None):
     """공개 범위를 public.json(bin/office_public.py가 읽는 파일)에 옮겨요. 손으로 적은 층 이름·소개는 두고
     (비공개로 바꾼 층도 지우지 않고 "public": "private"로만 바꿔요. office_public.py는 name·tour만 내보내요),
-    업무판(board)·지금 하는 일(tasks)은 켜지 않아요."""
+    업무판(board)·지금 하는 일(tasks)은 켜지 않아요. country가 None이면 나라 칸은 그대로, 아니면 그 값(''는 고르지 않음)."""
     cur = {}
     if os.path.exists(PUBLIC):
         try:
@@ -3106,6 +3133,8 @@ def write_public(vis, teams, gh, intro):
     prof = dict(cur["profile"]) if isinstance(cur.get("profile"), dict) else {}
     if intro is not None:
         prof["intro"] = intro
+    if country is not None:
+        prof["country"] = country
     login = gh["login"] if gh else str(cur.get("login") or "")
     gist = str(cur.get("gist") or "")
     write_json(PUBLIC, dict(cur, login=login if LOGIN_RE.match(login) else "", gist=gist if GIST_RE.match(gist) else "",
@@ -3113,7 +3142,7 @@ def write_public(vis, teams, gh, intro):
 
 
 def api_setup_visibility(body):
-    vis = body.get("visibility")
+    vis = body.get("visibility") if "visibility" in body else {}   # 나라·소개만 바꿀 때는 층 범위를 안 보내도 돼요
     if not isinstance(vis, dict) or len(vis) > 100:
         raise ApiError(400, "공개 범위 모양이 이상해요")
     teams = {t["id"]: t for t in real_teams()}
@@ -3123,20 +3152,28 @@ def api_setup_visibility(body):
         if v not in LEVELS:
             raise ApiError(400, "공개 범위는 private·building·names·tour 중 하나예요")
     intro = one_line(text_of(body, "intro", 120, required=False), 120) if body.get("intro") is not None else None
+    # 나라(결재 20261024-U-14-1): 본인이 고른 두 글자 코드나 ''(고르지 않음). 안 보내면 저장한 값을 그대로 둬요.
+    country = body.get("country")
+    if country is not None and (not isinstance(country, str) or (country and country not in country_codes())):
+        raise ApiError(400, "나라는 목록에 있는 두 글자 코드(예: KR)나 빈 글(고르지 않음)이에요")
     with SETUP_LOCK:
         s = load_setup()
         note_legacy(s)                              # 처음 저장하기 전에: 예전에 터미널로 올려 둔 게 있을 수 있는지
         merged = saved_levels(s, list(teams))       # 보내지 않은 층은 지금 실제 범위(public.json)를 그대로 둬요
         merged.update(vis)
-        write_public(merged, teams, github_state(s), intro)
+        write_public(merged, teams, github_state(s), intro, country)
         s["visibility"] = merged
         write_json(SETUP, s)
     return {"ok": True}
 
 
 def api_setup_publish(body):
-    """공개 요약을 내 token-meter gist에 올려요({preview: true}면 올리지 않고 나갈 내용만 보여 줘요)."""
+    """공개 요약을 내 token-meter gist에 올려요({preview: true}면 올리지 않고 나갈 내용과 그 지문(digest)만 보여 줘요).
+    올릴 때는 미리보기의 digest를 같이 보내야 하고, 지금 만든 내용이 보여 준 것과 다르면 올리지 않아요(다른 창에서 나라·층을 바꾼 경우)."""
     preview = body.get("preview") is True
+    expect = body.get("digest")
+    if not preview and not (isinstance(expect, str) and re.match(r"^[0-9a-f]{64}\Z", expect)):
+        raise ApiError(409, "올라갈 내용을 먼저 확인해 주세요(‘도시에 올리기’를 다시 눌러요)")
     gh = github_state()
     if not gh:
         raise ApiError(409, "먼저 GitHub에 로그인해 주세요")
@@ -3152,7 +3189,7 @@ def api_setup_publish(body):
             write_json(PUBLIC, cur)
         digest = public_digest(cur if isinstance(cur, dict) else {})   # 올라가는 설정의 지문(나중에 '예전 내용'인지 볼 때)
     try:
-        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "office_public.py")] + ([] if preview else ["--publish", "--yes"]),
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "bin", "office_public.py")] + (["--app-preview"] if preview else ["--publish", "--yes", "--expect", expect]),
                            cwd=HERE, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired):
         raise ApiError(502, "공개 도우미(bin/office_public.py)가 끝나지 않았어요. 잠시 뒤 다시 해 주세요")
@@ -3160,22 +3197,22 @@ def api_setup_publish(body):
         raise ApiError(409, last_line(r.stderr) or "올리지 못했어요")
     notes = [one_line(x[2:], 200) for x in r.stderr.splitlines() if x.startswith("· ")]
     if preview:
-        try:
-            doc = json.loads(r.stdout)
-        except ValueError:
+        pv = last_json(r.stdout)
+        if not isinstance(pv, dict) or not isinstance(pv.get("doc"), dict) or not re.match(r"^[0-9a-f]{64}\Z", str(pv.get("digest") or "")):
             raise ApiError(500, "미리보기를 만들지 못했어요")
-        return {"ok": True, "preview": doc, "notes": notes}
+        return {"ok": True, "preview": pv["doc"], "digest": pv["digest"], "keepCountry": pv.get("keepCountry") is True, "notes": notes}
     res = last_json(r.stdout)
     if not isinstance(res, dict) or res.get("ok") is not True:
         raise ApiError(500, "올렸는지 확인하지 못했어요. gist를 직접 확인해 주세요")
     url = str(res.get("url") or "")
     n = res.get("floors") if isinstance(res.get("floors"), int) and not isinstance(res.get("floors"), bool) else None
     gist = str(res.get("gist") or "")
+    country = res.get("country") if isinstance(res.get("country"), str) and res.get("country") in country_codes() else None
     with SETUP_LOCK:
         s = load_setup()
-        s["published"] = {"t": now(), "gist": gist if GIST_RE.match(gist) else "", "hash": digest, "floors": n}
+        s["published"] = {"t": now(), "gist": gist if GIST_RE.match(gist) else "", "hash": digest, "floors": n, "country": country}
         write_json(SETUP, s)
-    out = {"ok": True, "notes": notes, "floors": n}
+    out = {"ok": True, "notes": notes, "floors": n, "country": country}
     if re.match(r"^https://gist\.github\.com/[\w./-]+$", url):
         out["url"] = url
     return out
@@ -3225,6 +3262,7 @@ def api_setup_state(body):
             "floors": floors,
             "roleSuggestions": ROLE_SUGGEST, "maxMembers": MAX_MEMBERS,
             "visibility": saved_levels(s, [t["id"] for t in teams]),
+            "country": saved_country(), "countries": country_codes(),   # 나라: 코드·''(고르지 않음)·None(정한 적 없음)과 고를 수 있는 목록
             "published": published_state(s)}
 
 
@@ -3589,7 +3627,7 @@ def update_state():
 
 def api_update_state(body):
     maybe_check(body.get("force") is True)
-    tm_maybe_auto()   # 하루 한 번 새로 올리기(켰을 때만, 아래 token-meter 참가)
+    tm_maybe_auto()   # 자동으로 올리기(켰을 때만 1시간마다, 아래 token-meter 참가)
     return update_state()
 
 
@@ -3691,10 +3729,12 @@ def api_update_restart(body):
 #   3) 참가(/api/setup/meter/join): token-meter 참가 이슈 주소(내 gist id가 채워져 있어요). 제출은 대표가 GitHub에서 직접 눌러요.
 #   4) 명단(/api/setup/meter/status): <TOKEN_METER_BASE>members.json을 몇 분 기억해요(로그인 정보 없이 읽어요).
 #      내 gist가 아직 있는지도 몇 분 기억해요. 지운 gist는 setup.json에서 빼고 다시 ‘내 숫자 세어 보기’부터 보여요.
-# 하루 한 번 새로 올리기(setup.json의 tokenMeter.auto, 기본 꺼짐)는 새 버전 확인과 같은 때(/api/update/state) 뒤에서,
-# 로그인돼 있고 명단에 있을 때만, 20시간에 한 번까지, 숫자가 바뀌었을 때만 명단의 그 gist를 고쳐요(새 gist는 만들지 않아요).
+# 자동으로 올리기(setup.json의 tokenMeter.auto, 기본 꺼짐)는 새 버전 확인과 같은 때(/api/update/state, 페이지가 15분쯤마다 물어요) 뒤에서,
+# 로그인돼 있고 명단에 있을 때만, 1시간에 한 번까지(결재 20261024-U-10-1), 숫자가 바뀌었을 때만 명단의 그 gist를 고쳐요(새 gist는 만들지 않아요).
+# 1시간마다는 이번 판에서 켠 사람(tokenMeter.hourly)만이에요. 예전 판에서 '하루 한 번'으로 켠 사람은 껐다 켤 때까지 20시간에 한 번이에요
+# (올릴 때마다 gist 공개 수정 기록이 늘어서, 그걸 알고 켠 사람만 자주 올려요).
 # GitHub 토큰은 어떤 답·기록에도 넣지 않아요.
-# setup.json의 tokenMeter: {gist, login, t(마지막으로 gist에 쓴 때), hash(그때 숫자의 지문), auto, autoAt(하루 한 번을 해 본 때), joinAt}
+# setup.json의 tokenMeter: {gist, login, t(마지막으로 gist에 쓴 때), hash(그때 숫자의 지문), auto, hourly(1시간마다로 켬), autoAt(자동 올리기를 해 본 때), joinAt}
 
 TM_BASE = _update_url("AGENCITY_TOKEN_METER_BASE", "https://min-heee.github.io/token-meter") + "/"   # 시험용 주소는 https나 127.0.0.1의 http만
 TM_MEMBERS_TTL = 180        # 명단은 이만큼 기억해요(초)
@@ -3702,7 +3742,8 @@ TM_FRESH_GAP = 30           # fresh(새로 읽기)라도 이 초 안에 읽은 �
 TM_FOUND_TTL = 600          # 내 gist 목록에서 찾은 것(없음도)과 내 gist가 아직 있는지는 이만큼 기억해요
 TM_NET_WAIT = 8             # 명단 받기는 모두 합쳐 이 초까지만 기다려요(조금씩 천천히 오는 답도 여기서 끊어요)
 TM_PREVIEW_TTL = 3600       # 센 숫자는 이만큼 지나면 다시 세요
-TM_AUTO_GAP = 20 * 3600     # 하루 한 번 새로 올리기는 이보다 자주 하지 않아요
+TM_AUTO_GAP = 20 * 3600     # 예전 판에서 켠 '하루 한 번 새로 올리기'는 이보다 자주 하지 않아요
+TM_AUTO_HOURLY = int_in(os.environ.get("AGENCITY_METER_AUTO_EVERY"), 55 * 60, 60, 86400)   # 1시간마다(페이지가 15분쯤마다 물어서 55분 뒤 처음 물을 때). 시험 때만 바꿔요
 TM_MAX_BYTES = 256 * 1024   # gist에 올리는 글의 상한(collect.mjs의 MAX_GIST_BYTES)
 TM_READ_MAX = 4 * 1024 * 1024   # gist·명단 답은 이만큼까지만 읽어요
 TM_PAGES = 10               # 내 gist 목록은 100개씩 이만큼까지 봐요
@@ -3710,7 +3751,7 @@ TM_JOIN_RE = re.compile(r"^https://github\.com/[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]
 TM_FOLD = re.compile(r"\[\n\s*(-?[\d.eE+-]+(?:,\n\s*-?[\d.eE+-]+)*)\n\s*\]")   # 날짜별 [총, 출력, 환산] 배열은 한 줄로
 TM_LOCK = threading.Lock()  # TM·명단·찾은 gist 기억
 TM_NET = threading.Lock()   # 명단 받기는 한 번에 하나씩
-TM_PUB = threading.Lock()   # 올리기는 한 번에 하나씩(손으로 누른 것과 하루 한 번이 겹치지 않게)
+TM_PUB = threading.Lock()   # 올리기는 한 번에 하나씩(손으로 누른 것과 자동 올리기가 겹치지 않게)
 TM_MOD = []                 # 읽어 둔 bin/token_meter.py
 TM = {"state": "idle", "seq": 0, "started": 0.0, "finished": 0.0, "login": "", "doc": None, "text": "", "digest": "",
       "summary": None, "error": "", "gist": None, "member": None, "old": False}
@@ -3827,7 +3868,7 @@ def tm_join_url(gid):
 
 
 def tm_conf(s=None):
-    """setup.json의 tokenMeter를 고르게 다듬은 것. 하루 한 번 새로 올리기는 기본 꺼짐이에요."""
+    """setup.json의 tokenMeter를 고르게 다듬은 것. 자동으로 올리기는 기본 꺼짐이에요."""
     c = (load_setup() if s is None else s).get("tokenMeter")
     c = c if isinstance(c, dict) else {}
     gid, login = str(c.get("gist") or ""), str(c.get("login") or "")
@@ -3838,7 +3879,7 @@ def tm_conf(s=None):
         return c[k] if iso_age(c.get(k)) is not None else None
     return {"gist": gid if mine else None, "login": login if mine else None, "t": at("t"),
             "hash": h if isinstance(h, str) and re.match(r"^[0-9a-f]{64}\Z", h) else None,
-            "auto": c.get("auto") is True, "autoAt": at("autoAt"), "autoErr": one_line(c.get("autoErr"), 200) if isinstance(c.get("autoErr"), str) else None,
+            "auto": c.get("auto") is True, "hourly": True if c.get("hourly") is True else None, "autoAt": at("autoAt"), "autoErr": one_line(c.get("autoErr"), 200) if isinstance(c.get("autoErr"), str) else None,
             "joinAt": at("joinAt")}
 
 
@@ -3859,7 +3900,7 @@ def tm_mine(login, c=None):
 
 def tm_forget(gid):
     """없어진(지웠거나 token-meter.json을 뺀) gist가 setup.json에 적어 둔 내 gist면 빼요(올린 때·숫자 지문·참가 신청한 때도).
-    하루 한 번 새로 올리기를 켜 둔 것은 그대로예요. 그러면 상자는 다시 ‘내 숫자 세어 보기’부터 보여요."""
+    자동으로 올리기를 켜 둔 것은 그대로예요. 그러면 상자는 다시 ‘내 숫자 세어 보기’부터 보여요."""
     with SETUP_LOCK:
         s = load_setup()
         c = tm_conf(s)
@@ -4093,7 +4134,7 @@ def tm_publish(text, login, only=None):
     """token-meter.json(text)을 내 공개 gist에 만들거나 고쳐요. 반환 {ok, gist, url, created, unchanged, member, joinUrl}.
     올리기 전에 이 로그인(토큰)의 진짜 아이디가 문서의 login과 같은지 봐요(다르면 올리지 않아요).
     gist는 이 맥에서 올린 것 → 명단에 있는 것 → public.json의 gist → 내 gist 목록 순으로 찾고(token-meter.json이 든 내 공개 gist만), 없으면 새로 만들어요.
-    only(하루 한 번 새로 올리기)를 주면 그 gist만 고쳐요. 없어졌으면 새로 만들지 않고 그만둬요(새 공개 gist는 ‘gist에 올리기’를 눌러야 만들어요).
+    only(자동으로 올리기)를 주면 그 gist만 고쳐요. 없어졌으면 새로 만들지 않고 그만둬요(새 공개 gist는 ‘gist에 올리기’를 눌러야 만들어요).
     고칠 때는 token-meter.json만 보내서 같은 gist의 다른 파일(agencity.json 등)은 그대로예요. 숫자가 그대로면 고치지 않아요."""
     mod, doc = tm_mod(), json.loads(text)
     if not doc.get("entries"):
@@ -4230,10 +4271,11 @@ def api_setup_meter_join(body):
 
 
 def api_setup_meter_status(body):
-    """{login, gist, url, member(True·False·None), old, joinUrl, auto, last, autoAt, autoErr, joinAt, count}. fresh: true면 명단을 새로 읽어요(30초에 한 번까지)."""
+    """{login, gist, url, member(True·False·None), old, joinUrl, auto, hourly, last, autoAt, autoErr, joinAt, count}. fresh: true면 명단을 새로 읽어요(30초에 한 번까지).
+    hourly: 자동으로 올리기가 1시간마다인지(false면 예전 판에서 켠 하루 한 번)."""
     g, c = github_state(), tm_conf()
     out = {"ok": True, "login": g["login"] if g else None, "gist": None, "url": None, "member": None, "old": False, "joinUrl": None,
-           "auto": c["auto"], "last": c["t"], "autoAt": c["autoAt"], "autoErr": c["autoErr"], "joinAt": c["joinAt"]}
+           "auto": c["auto"], "hourly": c["hourly"] is True, "last": c["t"], "autoAt": c["autoAt"], "autoErr": c["autoErr"], "joinAt": c["joinAt"]}
     if not g:
         return out
     gid, member, old = tm_where(g["login"], fresh=body.get("fresh") is True)
@@ -4246,14 +4288,14 @@ def api_setup_meter_status(body):
 def api_setup_meter_settings(body):
     if not isinstance(body.get("auto"), bool):
         raise ApiError(400, "auto는 true나 false예요")
-    tm_save(auto=body["auto"], autoErr=None)
-    return {"ok": True, "auto": body["auto"]}
+    tm_save(auto=body["auto"], hourly=True if body["auto"] else None, autoErr=None)   # 이번 판에서 켜면 1시간마다(끄면 표시도 지워요)
+    return {"ok": True, "auto": body["auto"], "hourly": body["auto"]}
 
 
 def tm_auto_run(login):
     err = None
     try:
-        tm_save(autoAt=now())                # 해 본 때부터 적어요(못 해도 20시간 뒤에 다시)
+        tm_save(autoAt=now())                # 해 본 때부터 적어요(못 해도 다음 간격 뒤에 다시)
         gid, member, _ = tm_where(login)
         if member is not True:               # 명단에 있을 때만
             return
@@ -4275,14 +4317,16 @@ def tm_auto_run(login):
 
 
 def tm_maybe_auto():
-    """하루 한 번 새로 올리기: 켰을 때만, 로그인돼 있을 때만, 마지막으로 올리거나 해 본 지 20시간이 지났을 때만 뒤에서 해요(요청은 기다리지 않아요)."""
+    """자동으로 올리기: 켰을 때만, 로그인돼 있을 때만, 마지막으로 올리거나 해 본 지 간격(1시간마다면 55분, 예전 판의 하루 한 번이면 20시간)이
+    지났을 때만 뒤에서 해요(요청은 기다리지 않아요). 숫자가 그대로면 올리지 않아요(tm_auto_run)."""
     c = tm_conf()
     g = github_state() if c["auto"] else None
     if not g:
         return
+    gap = TM_AUTO_HOURLY if c["hourly"] else TM_AUTO_GAP
     for k in ("t", "autoAt"):
         age = iso_age(c[k])
-        if age is not None and -300 <= age < TM_AUTO_GAP:
+        if age is not None and -300 <= age < gap:
             return
     with TM_LOCK:
         if TM_AUTO["running"]:
@@ -6262,7 +6306,7 @@ class Handler(SimpleHTTPRequestHandler):
         # 로그인 토큰이 있는 설정 폴더는 어떤 링크로 와도 안 돼요
         if real in SECRET_FILES or any(under(real, d) and not under(HERE, d) for d in SECRET_DIRS):
             return False
-        if real in (os.path.join(HERE, "org.json"), os.path.join(HERE, "city.html")):
+        if real in (os.path.join(HERE, "org.json"), os.path.join(HERE, "city.html"), COUNTRIES_FILE):
             return True
         for root in [HQ, os.path.join(HERE, "examples", "city")] + office_roots():
             if under(real, root):

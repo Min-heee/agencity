@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>에이전시티 · 도시</title>
-<meta name="description" content="참가한 사람마다 토큰 작업량만큼 높은 건물이 서요. 건물을 누르면 주인이 공개한 층만 둘러봐요.">
+<meta name="description" content="참가한 사람마다 토큰 작업량만큼 높은 건물이 나라별 구역에 서요. 순위표로도 봐요. · Everyone who joins gets a building as tall as their token usage, in their country's zone.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://min-heee.github.io/agencity/">
-<meta property="og:title" content="에이전시티 도시">
-<meta property="og:description" content="참가한 사람마다 토큰 작업량만큼 높은 건물이 서요. 건물을 누르면 주인이 공개한 층만 둘러봐요.">
+<meta property="og:title" content="에이전시티 도시 · Agencity City">
+<meta property="og:description" content="AI 토큰 쓴 만큼 건물이 올라가는 도시 · A city where buildings grow with AI token usage.">
 <meta property="og:image" content="https://min-heee.github.io/agencity/city.jpg">
 <meta property="og:image:width" content="800">
 <meta property="og:image:height" content="500">
@@ -23,64 +23,145 @@ if (!(location.protocol.startsWith('http') && /^(127\.0\.0\.1|localhost)$/.test(
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
 <style>
 /* 에이전시티 도시: 등록한 사람마다 건물 하나. 높이는 토큰 작업량(로그 눈금), 금빛 띠는 공개한 층(팀).
-   숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약은 같은 gist의 agencity.json에서 읽어요
-   (그 파일이 없으면 예전 이름 때 올린 claude-office.json).
+   건물은 본인이 고른 나라의 구역에 서요(agencity.json의 profile.country, 안 골랐으면 맨 끝 '나라 안 고름' 구역).
+   [빌딩]/[숫자] 보기: 숫자 보기는 총 토큰 순위표(오늘은 각자 시간대의 오늘). [한국어 | English]로 화면 글을 바꿔요.
+   숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약과 나라는 같은 gist의 agencity.json에서 읽어요
+   (그 파일이 없으면 예전 이름 때 올린 claude-office.json). 나라 코드 목록은 city/countries.json(앱·설치 없이 올리는 명령과 같은 파일).
    이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요).
-   공개 도시 https://min-heee.github.io/agencity/ 도 이 파일이에요(.github/workflows/city.yml이 올려요). */
+   공개 도시 https://min-heee.github.io/agencity/ 도 이 파일이에요(.github/workflows/city.yml이 올려요).
+   주소: ?view=buildings|numbers  ?country=all|KR|none  ?lang=ko|en  ?who=<아이디>  ?demo=1 */
 :root{
   --sky-1:#0B1222; --sky-2:#1B2742; --ground:#121A2B; --street:#1A2438;
   --panel:#FFFFFF; --panel-2:#F2F4F8; --ink:#172030; --ink-2:#4F5D72; --ink-3:#8591A3; --line:#D6DDE7;
-  --gold:#F4C35A; --lit:#FFD27A; --focus:#2563EB; --err:#C42730;
+  --gold:#F4C35A; --lit:#FFD27A; --focus:#2563EB; --err:#C42730; --bar:#3C6FC4; --me:#FFF4D6;
+  --top:64px;   /* 위 막대 높이(줄이 넘어가면 스크립트가 고쳐요) */
   --font-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo",sans-serif;
   --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; }
+  :root:not([data-theme="light"]){ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; --bar:#6F9BE0; --me:#3A3220; }
 }
-:root[data-theme="dark"]{ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; }
+:root[data-theme="dark"]{ --panel:#171E28; --panel-2:#1F2834; --ink:#E7ECF3; --ink-2:#A3AEBF; --ink-3:#6F7B8E; --line:#2A3443; --focus:#7AA7FF; --err:#FF8A8E; --bar:#6F9BE0; --me:#3A3220; }
 *{box-sizing:border-box}
 html,body{margin:0; height:100%}
 body{background:var(--sky-1); color:var(--ink); font:14px/1.5 var(--font-body); -webkit-font-smoothing:antialiased; overflow:hidden}
-button{font:inherit}
+button,select,input{font:inherit}
 :focus-visible{outline:2px solid var(--focus); outline-offset:2px}
-.top{position:fixed; z-index:5; left:0; right:0; top:0; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); pointer-events:none}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+/* 위 막대: 왼쪽은 이름과 개수, 오른쪽은 [보기] [나라] [언어] */
+.top{position:fixed; z-index:5; left:0; right:0; top:0; display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; padding:12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); pointer-events:none}
 .top > *{pointer-events:auto}
-.plate{margin:0; font:400 26px/1 var(--font-display); color:#F3F5F8; background:#0A0E14; padding:9px 16px 7px; border-radius:6px; box-shadow:inset 0 0 0 2px #3A4659}
-.chip{display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:6px; background:rgba(10,14,20,.72); color:#E4E8EE; border:1px solid #3A4659; font-size:12.5px; text-decoration:none}
+.plate{margin:0; font:400 26px/1 var(--font-display); color:#F3F5F8; background:#0A0E14; padding:9px 16px 7px; border-radius:6px; box-shadow:inset 0 0 0 2px #3A4659; white-space:nowrap}
+.chip{display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 11px; border-radius:6px; background:rgba(10,14,20,.72); color:#E4E8EE; border:1px solid #3A4659; font-size:12.5px; text-decoration:none; white-space:nowrap}
 .chip[hidden]{display:none}   /* 위의 display가 hidden을 덮지 않게(공개 도시에서는 ‘← 내 사무실’이 없어요) */
 .chip b{font-family:var(--font-mono); font-weight:500}
 .chip.warn{border-color:#FFB224; color:#FFD27A}
 .sp{flex:1}
+.ctl{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+/* 두 칸짜리 고르기(보기·언어): 고른 칸만 밝게 */
+.seg{display:inline-flex; height:34px; padding:3px; border-radius:7px; background:rgba(10,14,20,.72); border:1px solid #3A4659}
+.seg button{display:inline-flex; align-items:center; gap:6px; padding:0 12px; border:0; border-radius:5px; background:none; color:#C8D0DC; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap}
+.seg button:hover{color:#FFFFFF}
+.seg button[aria-pressed="true"]{background:#E4E8EE; color:#0B1222}
+.seg svg{width:15px; height:15px; flex:none}
+.pick{position:relative; display:inline-flex}
+.pick select{appearance:none; -webkit-appearance:none; height:34px; padding:0 30px 0 11px; border-radius:6px; background:rgba(10,14,20,.72); color:#E4E8EE; border:1px solid #3A4659; font-size:13px; font-weight:600; cursor:pointer; max-width:220px}
+.pick::after{content:""; position:absolute; right:12px; top:50%; width:7px; height:7px; margin-top:-6px; border-right:1.6px solid #C8D0DC; border-bottom:1.6px solid #C8D0DC; transform:rotate(45deg); pointer-events:none}
+.pick select option{color:#172030; background:#FFFFFF}
+/* 빌딩 보기 */
 #stage{position:fixed; inset:0; background:linear-gradient(var(--sky-1), var(--sky-2) 60%, var(--ground)); touch-action:none; cursor:grab}
 #stage.drag{cursor:grabbing}
 #city{width:100%; height:100%; display:block}
 .bld{cursor:pointer}
 .bld:focus{outline:none}
-.bld:focus-visible .b-top{stroke:var(--gold); stroke-width:2.4}
-.dim{opacity:.28}
-.bld.sel .b-top{stroke:var(--gold); stroke-width:2.2}
-.name{font:600 11px var(--font-body); fill:#E4E8EE; paint-order:stroke; stroke:#0B1222; stroke-width:3px; cursor:pointer}
+.bld:focus-visible .b-top,.bld.sel .b-top{stroke:var(--gold); stroke-width:2.4}
+.dim{opacity:.24}
+/* 나라 이름판과 건물 이름은 확대와 상관없이 같은 크기(화면 좌표에 따로 그려요) */
+.name{font:600 12px var(--font-body); fill:#EEF2F7; paint-order:stroke; stroke:#0B1222; stroke-width:3.4px; cursor:pointer}
 .name.sel{fill:var(--gold)}
-.hint{position:fixed; z-index:4; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%); color:#A9B4C3; font-size:12px; background:rgba(10,14,20,.6); padding:5px 10px; border-radius:6px; white-space:nowrap}
-.hint a, .msg a{color:#E4E8EE}
+.zone-plate{stroke-width:1.4}
+.zone-sign{font:400 17px var(--font-display); fill:#F3F5F8}
+.zone-sign.compact{font-size:14px}
+.zone-n{font:600 12px var(--font-body); fill:#C8D0DC}
+.zone-tag{cursor:pointer}
+.zone-tag:hover rect,.zone-tag:focus-visible rect{stroke:var(--gold)}
+.zone-tag:focus{outline:none}
+.hint{position:fixed; z-index:4; left:50%; bottom:max(14px, env(safe-area-inset-bottom)); transform:translateX(-50%); margin:0; color:#C8D0DC; font-size:12.5px; background:rgba(10,14,20,.72); padding:5px 12px; border-radius:6px; white-space:nowrap}
+.hint[hidden]{display:none}
+.hint.big{padding:9px 16px; border:1px solid var(--gold); color:#F3F5F8; font-size:14.5px}
+.hint a{color:#E4E8EE}
+.hint button,.msg button{padding:0; border:0; background:none; color:#FFFFFF; font-weight:700; text-decoration:underline; text-underline-offset:3px; cursor:pointer}
+.hint a.go,.msg a.go{color:#FFFFFF; font-weight:700; text-underline-offset:3px}
 /* 공개 도시에서만 보이는 것(설치·참가 안내). 내 컴퓨터의 앱에서는 숨겨요. */
 :root:not(.visit) .visit-only{display:none}
 .zoom{position:fixed; z-index:7; right:max(16px, env(safe-area-inset-right)); bottom:max(48px, calc(env(safe-area-inset-bottom) + 40px)); display:flex; flex-direction:column; gap:6px}
+.zoom[hidden]{display:none}
 .zoom button{width:38px; height:38px; border-radius:8px; border:1px solid #3A4659; background:rgba(10,14,20,.85); color:#E4E8EE; font-size:18px; cursor:pointer}
 .msg{position:fixed; z-index:4; left:50%; top:46%; transform:translate(-50%,-50%); color:#C8D0DC; text-align:center; max-width:min(520px, calc(100% - 32px))}
+.msg[hidden]{display:none}
 .msg h2{font:400 24px var(--font-display); margin:0 0 6px; color:#F3F5F8}
+.msg p{margin:0}
+/* 숫자 보기: 같은 하늘 위에 순위표 한 장. 도시 지도의 글자 대안이기도 해요 */
+.numbers{position:fixed; z-index:4; inset:0; overflow:auto; padding:calc(var(--top) + 8px) max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); background:rgba(11,18,34,.78); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px)}
+.numbers[hidden]{display:none}
+@media (min-width:761px){ body.carded .numbers{padding-right:412px} }   /* 카드가 열리면 순위표가 왼쪽으로 비켜요 */
+.num-box{max-width:880px; margin:0 auto; background:var(--panel); color:var(--ink); border-radius:14px; padding:18px 20px 16px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6)}
+.num-head h2{margin:0; font:400 26px/1.1 var(--font-display)}
+.num-head h2:focus{outline:none}
+.num-head p{margin:4px 0 0; color:var(--ink-2); font-size:13px}
+.few{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 14px; margin-top:14px; padding:14px 16px; border-radius:10px; background:color-mix(in srgb, var(--gold) 18%, var(--panel)); border:1px solid color-mix(in srgb, var(--gold) 55%, var(--line))}
+.few b{font:400 22px var(--font-display)}
+.few[hidden]{display:none}
+.tiles{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-top:14px}
+.tiles[hidden]{display:none}
+.tile{background:var(--panel-2); border-radius:8px; padding:8px 12px}
+.tile span{display:block; font-size:12px; color:var(--ink-2)}
+.tile b{font:600 18px var(--font-body); font-variant-numeric:tabular-nums}
+.tile small{color:var(--ink-2); font-size:12px; margin-left:4px}
+.rank{width:100%; margin-top:14px; border-collapse:collapse; font-size:13.5px}
+.rank th{padding:6px 8px; border-bottom:1px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-2); text-align:left; white-space:nowrap}
+.rank th button{display:inline-flex; align-items:center; gap:4px; padding:2px 4px; margin:-2px -4px; border:0; border-radius:4px; background:none; color:inherit; font:inherit; cursor:pointer}
+.rank th button:hover{color:var(--ink); background:var(--panel-2)}
+.rank th[aria-sort="descending"] button{color:var(--ink)}
+.rank th[aria-sort="descending"] button::after{content:"↓"}
+.rank td{padding:8px; border-bottom:1px solid var(--line); vertical-align:middle}
+.rank .r{text-align:right; font-variant-numeric:tabular-nums}
+.rank th.r button{margin-left:auto}
+.rank tr.me td{background:var(--me)}
+.rank tr.sel td{box-shadow:inset 0 2px 0 var(--gold), inset 0 -2px 0 var(--gold)}
+.rank tr.old td:not(.c-rk){opacity:.55}   /* 30일 넘게 안 올린 사람 */
+.rank tr.gap td{padding:2px 8px; border-bottom:0; color:var(--ink-3); text-align:center}
+.rk{display:inline-grid; place-items:center; min-width:28px; height:24px; padding:0 6px; border-radius:5px; background:var(--panel-2); font:600 13px var(--font-mono)}
+.rk.medal{background:var(--gold); color:#1C2330}
+.rk-all{display:block; margin-top:2px; font-size:11px; color:var(--ink-2); white-space:nowrap}
+.who{display:inline-flex; align-items:center; gap:6px; padding:0; border:0; background:none; color:var(--ink); font:600 14px var(--font-body); text-align:left; cursor:pointer; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; overflow-wrap:anywhere}
+.who:hover{text-decoration-color:var(--ink-2)}
+.av-s{display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--panel-2); font:400 12px var(--font-display); text-decoration:none; flex:none; overflow:hidden}
+.av-s img{width:22px; height:22px; display:block}
+.you{padding:0 6px; border-radius:3px; background:var(--gold); color:#1C2330; font-size:11px; font-weight:700; text-decoration:none}
+.ctry{white-space:nowrap; color:var(--ink-2)}
+.flag{font-size:16px; line-height:1; vertical-align:-1px; margin-right:6px}
+.tot{display:flex; flex-direction:column; align-items:flex-end; gap:4px; min-width:120px}
+.tot b{font:600 14px var(--font-body)}
+.tbar{display:block; width:100%; height:5px; border-radius:3px; background:var(--panel-2); overflow:hidden}
+.tbar i{display:block; height:100%; background:var(--bar)}
+.none{color:var(--ink-3)}
+.empty{margin:14px 0 0; padding:22px 14px; border:1px dashed var(--line); border-radius:10px; text-align:center; color:var(--ink-2)}
+.empty b{display:block; margin-bottom:4px; color:var(--ink); font:400 20px var(--font-display)}
+.morebox{margin-top:10px; text-align:center}
 /* 카드 */
-.card{position:fixed; z-index:6; top:64px; right:max(16px, env(safe-area-inset-right)); width:min(380px, calc(100% - 32px)); max-height:calc(100% - 84px); overflow:auto; background:var(--panel); color:var(--ink); border-radius:12px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6); padding:16px 18px 18px}
+.card{position:fixed; z-index:6; top:calc(var(--top) + 6px); right:max(16px, env(safe-area-inset-right)); width:min(380px, calc(100% - 32px)); max-height:calc(100% - var(--top) - 22px); overflow:auto; background:var(--panel); color:var(--ink); border-radius:12px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6); padding:16px 18px 18px}
 .card[hidden]{display:none}
 .card-head{display:flex; align-items:center; gap:12px}
-.card-head img{width:44px; height:44px; border-radius:50%; background:var(--panel-2)}
+.card-head img,.card-head .av{width:44px; height:44px; border-radius:50%; background:var(--panel-2); flex:none}
+.card-head .av{display:grid; place-items:center; font:400 20px var(--font-display)}
 .card-head h2{margin:0; font:400 24px/1.1 var(--font-display); overflow-wrap:anywhere}
-.card-head small{display:block; color:var(--ink-3); font-size:12px}
+.card-head small{display:block; color:var(--ink-2); font-size:12.5px}
 .x{margin-left:auto; border:1px solid var(--line); background:var(--panel); color:var(--ink); border-radius:6px; padding:5px 10px; cursor:pointer}
 .stats{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin:14px 0 0}
 .stat{background:var(--panel-2); border-radius:8px; padding:8px 10px}
-.stat span{display:block; font-size:11.5px; color:var(--ink-3)}
+.stat span{display:block; font-size:11.5px; color:var(--ink-2)}
 .stat b{font:600 15px var(--font-body)}
 .bar{display:flex; height:8px; border-radius:4px; overflow:hidden; margin-top:10px; background:var(--panel-2)}
 .bar i{display:block}
@@ -93,14 +174,18 @@ button{font:inherit}
 .floors b{font-family:var(--font-mono); font-size:12px; margin-right:6px}
 .floors p{margin:2px 0 0; color:var(--ink-2); font-size:12.5px}
 .u{unicode-bidi:isolate}
-.note{margin:12px 0 0; font-size:12px; color:var(--ink-3)}
-.btn{display:inline-flex; align-items:center; gap:6px; margin-top:12px; padding:8px 13px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:var(--panel); font-size:13px; font-weight:600; cursor:pointer; text-decoration:none}
+.note{margin:12px 0 0; font-size:12px; color:var(--ink-2)}
+.btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.btn{display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:var(--panel); font-size:13px; font-weight:600; cursor:pointer; text-decoration:none}
 .btn.ghost{background:var(--panel); color:var(--ink); border-color:var(--line)}
 /* 둘러보기 */
-.tour{position:fixed; z-index:8; inset:0; background:rgba(5,8,14,.72); display:flex; align-items:center; justify-content:center; padding:16px}
-.tour[hidden]{display:none}
-.tour-box{width:min(760px, 100%); max-height:100%; overflow:auto; background:var(--panel); color:var(--ink); border-radius:14px; padding:18px 20px}
-.tour-box h2{margin:0; font:400 26px var(--font-display); overflow-wrap:anywhere}
+.tour,.join{position:fixed; z-index:8; inset:0; background:rgba(5,8,14,.72); display:flex; align-items:center; justify-content:center; padding:16px}
+.tour[hidden],.join[hidden]{display:none}
+.tour-box,.join-box{width:min(760px, 100%); max-height:100%; overflow:auto; background:var(--panel); color:var(--ink); border-radius:14px; padding:18px 20px}
+.join-box{width:min(580px, 100%)}
+.tour-box h2,.join-box h2{margin:0; font:400 26px var(--font-display); overflow-wrap:anywhere}
+.join-box h2{font-size:24px; line-height:1.15}
+.join-box h2:focus{outline:none}
 .tf{margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 12px}
 .tf h3{margin:0 0 6px; font:400 19px var(--font-display)}
 .tf h3 small{font:500 12px var(--font-body); color:var(--ink-3); margin-left:6px}
@@ -112,36 +197,104 @@ button{font:inherit}
 .st.meet{background:#A68BEA; color:#1C2330}
 .st.block{background:#FF6369; color:#1C2330}
 .boardl{margin:8px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink-2)}
-@media (max-width:620px){
+/* 내 건물 세우기 패널(설치 없이): 나라 고르기 → 명령 한 줄 → 복사 */
+.fld{display:flex; flex-direction:column; gap:4px; margin-top:14px}
+.fld label,.fld .lb{font-size:13px; font-weight:600}
+.fld label small{font-weight:400; color:var(--ink-2)}
+.fld select,.fld input{height:38px; padding:0 10px; border-radius:7px; border:1px solid var(--ink-3); background:var(--panel); color:var(--ink); font-size:14px}
+.fld .note{margin-top:2px}
+.cmd{display:flex; align-items:stretch; gap:8px; margin-top:6px}
+.cmd code{flex:1; min-width:0; padding:10px 12px; border-radius:8px; background:#0A0E14; color:#E4E8EE; font:500 12.5px/1.5 var(--font-mono); overflow-wrap:anywhere; -webkit-user-select:all; user-select:all}
+.cmd .btn{flex:none; align-self:flex-start}
+.join-box .note a{color:inherit; white-space:nowrap}
+.join-box details{margin-top:12px; font-size:13px}
+.join-box details summary{cursor:pointer; color:var(--ink-2)}
+.join-box ol{margin:8px 0 0; padding-left:20px}
+.join-box ol li{margin-top:4px}
+@media (max-width:760px){
+  .top{padding-top:10px}
+  .ctl{width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto}
+  .ctl > .seg:first-child button{flex:1; justify-content:center}
+  .pick{grid-column:1 / -1; grid-row:2}
+  .pick select{width:100%; max-width:none}
+  .seg .long{display:none}
   .card{top:auto; bottom:0; right:0; width:100%; max-height:58%; border-radius:14px 14px 0 0; padding-bottom:calc(18px + env(safe-area-inset-bottom))}
   body.carded .zoom{bottom:calc(58% + 12px)}
+  .hint{white-space:normal; width:calc(100% - 32px); text-align:center}
+  .hint .wide{display:none}
+  .zoom{bottom:max(92px, calc(env(safe-area-inset-bottom) + 84px))}
+}
+@media (min-width:761px){ .seg .short{display:none} }
+/* 좁은 화면의 순위표: 표 대신 한 줄에 순위 · 아이디와 나라 · 총 토큰과 오늘. 마지막으로 올린 때는 빼요(U-10: 막대 → 올린 때 → 나라 순서로 빼기) */
+@media (max-width:620px){
   .plate{font-size:22px}
-  .hint{display:none}
+  .tiles{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .tiles .tile:last-child{grid-column:1 / -1}
+  .rank thead tr{display:flex; justify-content:flex-end; gap:14px; border-bottom:1px solid var(--line)}
+  .rank thead th{border:0}
+  .rank thead th:not(.sortable){display:none}
+  .rank, .rank tbody, .rank thead{display:block}
+  .rank tbody tr{display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"rk who tot" "rk ctry today"; gap:2px 10px; padding:9px 4px; border-bottom:1px solid var(--line)}
+  .rank tbody tr.gap{display:block; padding:2px 4px; border-bottom:0}
+  .rank td{padding:0; border:0}
+  .rank td.c-rk{grid-area:rk; align-self:center}
+  .rank td.c-who{grid-area:who}
+  .rank td.c-ctry{grid-area:ctry; font-size:12px}
+  .rank td.c-tot{grid-area:tot}
+  .rank td.c-today{grid-area:today; font-size:12px; color:var(--ink-2)}
+  .rank td.c-today::before{content:attr(data-label) " "}
+  .rank td.c-upd{display:none}
+  .rank tr.me{background:var(--me)}
+  .rank tr.me td{background:none}
+  .tot{min-width:0}
+  .tbar{display:none}
+  .cmd{flex-direction:column}
 }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
 </style>
 </head>
 <body>
-<header class="top">
-  <h1 class="plate">에이전시티 도시</h1>
-  <span class="chip" id="count" role="status">불러오는 중</span>
+<header class="top" id="top">
+  <h1 class="plate" data-t="title">에이전시티 도시</h1>
+  <span class="chip" id="count" role="status"></span>
   <span class="sp"></span>
-  <a class="chip" id="home" href="./" hidden>← 내 사무실</a>
-  <a class="chip" id="build" href="./?setup=4" hidden>내 건물 세우기 →</a>
-  <a class="chip" href="https://github.com/Min-heee/agencity/blob/main/docs/VISION.md" target="_blank" rel="noopener">도시 규칙</a>
-  <a class="chip visit-only" href="https://github.com/Min-heee/agencity#설치" target="_blank" rel="noopener">에이전시티 설치 ↗</a>
+  <a class="chip" id="home" href="./" hidden data-t="home">← 내 사무실</a>
+  <a class="chip" id="build" href="./?setup=4" hidden data-t="build">내 건물 세우기 →</a>
+  <a class="chip visit-only" href="https://github.com/Min-heee/agencity#설치" target="_blank" rel="noopener" data-t="install">에이전시티 설치 ↗</a>
+  <div class="ctl">
+    <div class="seg" role="group" id="viewGroup">
+      <button type="button" data-view="buildings" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V7l3-2v9M7 14V2l4 2v10M13 14V8h1v6M1 14.5h14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-t="viewCity">빌딩</span></button>
+      <button type="button" data-view="numbers" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h2M6 3h8M2 8h2M6 8h6M2 13h2M6 13h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span data-t="viewNum">숫자</span></button>
+    </div>
+    <label class="pick"><span class="sr" data-t="country">나라</span><select id="ctry"></select></label>
+    <div class="seg" role="group" id="langGroup">
+      <button type="button" data-lang="ko" lang="ko" aria-pressed="true"><span class="long">한국어</span><span class="short">한</span></button>
+      <button type="button" data-lang="en" lang="en" aria-pressed="false"><span class="long">English</span><span class="short">EN</span></button>
+    </div>
+  </div>
 </header>
-<div id="stage" aria-label="에이전시티 도시 지도"><svg id="city" role="group" aria-label="건물들"></svg></div>
+<div id="stage"><svg id="city" role="group"></svg></div>
 <div class="msg" id="msg" hidden></div>
-<div class="zoom"><button type="button" id="zin" aria-label="가까이">+</button><button type="button" id="zout" aria-label="멀리">−</button><button type="button" id="zfit" aria-label="전체 보기">⌂</button></div>
-<p class="hint">끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요<span class="visit-only"><br><span id="join">내 건물은 <a href="https://github.com/Min-heee/agencity/blob/main/docs/GUIDE.md#에이전시티-도시" target="_blank" rel="noopener">에이전시티</a>를 설치하고 설정에서 세워요. <a href="https://github.com/Min-heee/token-meter#참가하기" target="_blank" rel="noopener">직접 참가</a>해도 돼요</span></span></p>
+<div class="zoom" id="zoom"><button type="button" id="zin">+</button><button type="button" id="zout">−</button><button type="button" id="zfit">⌂</button></div>
+<p class="hint" id="hint"></p>
+<section class="numbers" id="numbers" hidden aria-labelledby="numH">
+  <div class="num-box">
+    <header class="num-head"><h2 id="numH" tabindex="-1" data-t="numTitle">순위</h2><p id="numSub"></p><p id="numRule"></p></header>
+    <div class="few" id="few" hidden></div>
+    <div class="tiles" id="tiles"></div>
+    <div id="table"></div>
+  </div>
+</section>
 <aside class="card" id="card" hidden aria-live="polite"></aside>
 <div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-labelledby="tourTitle"><div class="tour-box" id="tourBox"></div></div>
+<div class="join" id="join" hidden role="dialog" aria-modal="true" aria-labelledby="joinH"><div class="join-box" id="joinBox"></div></div>
+<p class="sr" id="live" role="status" aria-live="polite"></p>
 
 <script>
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const NS = 'http://www.w3.org/2000/svg';
@@ -158,10 +311,134 @@ const LOGIN_RE = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/;
 const GIST_RE = /^[0-9a-f]{5,64}$/i;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TZ_RE = /^[A-Za-z0-9_+\-/]{1,64}$/;
+const COUNTRY_RE = /^[A-Z]{2}$/;
 const MAX_BYTES = 256 * 1024, MEMBERS_BYTES = 4 * 1024 * 1024, MAX_MEMBERS = 2000, TIMEOUT = 12000, DEADLINE = 25000, CONC = 8;
 const TOOLS = { claude: '#E0895A', codex: '#6FB6A0', gemini: '#7A9BE0' };
-const DISTRICTS = { app: '앱', web: '웹', data: '데이터', content: '콘텐츠', tool: '개발 도구', game: '게임', etc: '기타' };
-const STATES = ['일하는 중', '대기', '회의 중', '막힘'];
+const DISTRICTS = ['app', 'web', 'data', 'content', 'tool', 'game', 'etc'];
+const STATES = ['일하는 중', '대기', '회의 중', '막힘'];   // 올라온 데이터 값(한국어). 보여 줄 때만 언어에 맞춰 바꿔요
+const FEW = 3;          // 이 수 이하면 '아직 n명이에요 · 내 건물 세우기 →'를 크게
+const PAGE = 100;       // 순위표는 이만큼씩 보여 줘요(내 줄이 그 밖이면 맨 아래에 한 번 더)
+const OLD_DAYS = 30;    // 이보다 오래 안 올린 줄은 흐리게
+const PUBLIC_URL = 'https://min-heee.github.io/agencity/';
+const VISION_URL = 'https://github.com/Min-heee/agencity/blob/main/docs/VISION.md';
+// 설치 없이 숫자만 올리는 명령. 받은 스크립트가 중간에 바뀌지 않게 릴리스 태그에 고정해요.
+// 릴리스할 때 VERSION, bin/city_join.py의 REF, docs/GUIDE.md의 명령과 같이 바꿔요. 넷이 같은지 tests/test_city.py가 봐요
+// (VERSION이 아직 이 태그보다 낮으면 릴리스 커밋 전이라 VERSION 비교만 건너뛰어요).
+const JOIN_REF = 'v0.9.0';
+const JOIN_SCRIPT = `https://raw.githubusercontent.com/Min-heee/agencity/${JOIN_REF}/bin/city_join.py`;
+const JOIN_SOURCE = `https://github.com/Min-heee/agencity/blob/${JOIN_REF}/bin/city_join.py`;   // 붙여 넣기 전에 읽어 볼 곳
+
+/* ---------- 말(한국어 / English): 마케팅 U-13 문구 ---------- */
+const T = {
+  ko: {
+    docTitle: '에이전시티 · 도시', title: '에이전시티 도시', home: '← 내 사무실', build: '내 건물 세우기 →', install: '에이전시티 설치 ↗', rules: '도시 규칙',
+    loading: '불러오는 중', count: n => `건물 <b>${n}</b>채`, countC: c => ` · 나라 <b>${c}</b>곳`, loadingTail: ' · 불러오는 중',
+    failedN: n => `${n}명 못 불러옴`, cutN: n => `${n}명은 시간이 걸려 뺐어요`, demo: '예시', loadFail: '불러오지 못함',
+    viewGroup: '보기 바꾸기', viewCity: '빌딩', viewNum: '숫자', country: '나라', all: '모든 나라', noCountry: '나라 안 고름', langGroup: '언어 바꾸기',
+    map: '에이전시티 도시 지도', zin: '가까이', zout: '멀리', zfit: '전체 보기',
+    hint: '끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요', hintZone: '나라 이름판을 누르면 그 나라로 가요', join: '내 건물 세우기 →',
+    noInstall: '에이전시티를 깔지 않아도 돼요. 명령 한 줄로 토큰 숫자만 올리면 내 건물이 서요.',
+    few: n => `아직 ${n}명이에요`, people: n => `${n}명`, goZone: cn => `${cn} 구역으로 가기`, bld: (p, cn, f) => `${p}, ${cn}, ${f}층`,
+    numTitle: '순위', numSub: (scope, n) => `${scope} · ${n}명`,
+    numRule: '순위는 총 토큰 기준이에요. ‘오늘’은 각자 시간대의 오늘이에요. 숫자는 자기 신고 값이에요.',
+    emptyC: '아직 이 나라에는 건물이 없어요', firstB: '첫 건물 세우기 →',
+    tPeople: '참가', tCountries: '나라', tSum: '총 토큰 합', tToday: '오늘 합계', tTodayN: n => `${n}명 올림`,
+    colRank: '순위', colName: '아이디', colCountry: '나라', colTotal: '총 토큰', colToday: '오늘', colUpd: '마지막으로 올린 때',
+    todayTip: '그 사람 시간으로 오늘이에요. 누르면 오늘 순으로 봐요.', totalTip: '누르면 총 토큰 순으로 봐요.',
+    noToday: '오늘 아직 안 올렸어요', you: '나', rankAll: n => `전체 ${n}위`, rankIn: (n, cn) => `${cn} ${n}위`,
+    byToday: '오늘 순으로 봐요', byTotal: '총 토큰 순으로 봐요', more: n => `${n}명 더 보기`, gap: '⋯',
+    close: '닫기', demoTag: '예시', floors: n => `${n}층`, district: d => `${d} 동네`,
+    cTotal: '총 토큰', cToday: '오늘', cRank: '순위', cUpd: '마지막으로 올린 때', cWork: '작업량(캐시 읽기 ×0.1)', tokens: v => `${v} 토큰`,
+    cDays: '활동한 날 · 최근 7일', daysVal: (a, b) => `${a}일 · ${b}일`, models: '모델', other: '기타',
+    pubFloors: '공개한 층(팀)', asOf: d => `${d} 기준`, floorN: n => `${n}층`, unnamed: '이름 없는 층', tourBtn: '사무실 둘러보기',
+    noFloors: '아직 공개한 층이 없어요. 건물 크기만 보여요.', myOffice: '내 사무실 열기', toCity: '빌딩에서 보기', toNum: '순위에서 보기',
+    share: '공유 글 복사', copied: '복사했어요',
+    shareText: (floors, rk, url) => `에이전시티 도시에 내 건물이 섰어요. AI 토큰 쓴 만큼 ${floors}층, ${rk}예요. 나도 세워 보기 → ${url}`,
+    heightNote: '건물 높이는 작업량 기준이에요(캐시 읽기는 10분의 1로 세요).',
+    cardNote: '숫자는 각자 세어 올린 자기 신고 값이에요. 대화·경로·세션 정보는 올리지 않아요.',
+    unknown: '모름', justNow: '방금',
+    tourTitle: p => `${p}의 사무실`, tourNote: d => `주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${d} 기준이라 지금과 다를 수 있어요.`,
+    states: { '일하는 중': '일하는 중', '대기': '대기', '회의 중': '회의 중', '막힘': '막힘' },
+    noLoad: '건물을 불러오지 못했어요', noLoadB: n => `명단의 ${n}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`,
+    none: '아직 건물이 없어요', noneB: '내 숫자를 올리고 참가하면 첫 건물이 서요.', noneLocal: '설정 4단계에서 내 건물을 세우면 첫 건물이 서요.',
+    listFail: '명단을 불러오지 못했어요', listFailB: '인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.',
+    toldCity: '빌딩 보기로 바꿨어요', toldNum: n => `숫자 보기로 바꿨어요 · ${n}명`, toldZone: (cn, all) => all ? '모든 나라를 보여 줘요' : `${cn} 구역을 보여 줘요`,
+    joinH: '설치 없이 내 건물 세우기', joinCountry: '나라', joinOpt: '(안 골라도 돼요)', joinNone: '고르지 않음', joinRemove: '나라 빼기 (이미 고른 나라를 지워요)',
+    joinSearch: '나라 찾기', joinSearchPh: '예: 대한민국, KR',
+    joinCountryNote: '나라는 직접 골라요. 시간대로 짐작하지 않아요. 고른 나라는 공개 gist에 올라가 누구나 봐요. 시간대는 나라와 따로, 나라를 안 골라도 공개돼요. 나라는 언제든 바꾸거나 뺄 수 있어요(gist 수정 기록에는 예전 값이 남아요).',
+    joinCmd: '이 한 줄을 터미널에 붙여 넣어요', copy: '복사',
+    joinFoot: '올리기 전에 올라갈 내용을 보여 주고 한 번 더 물어봐요. 준비물은 맥이나 리눅스의 터미널(윈도는 WSL), python3, GitHub 계정이에요.',
+    joinSrc: '스크립트 먼저 읽어 보기 ↗',
+    joinMore: '자세히',
+    joinSteps: [
+      '나라를 골라요(안 골라도 돼요). 고른 나라가 들어간 명령 한 줄이 만들어져요.',
+      '그 줄을 복사해 터미널에 붙여 넣어요. 내 컴퓨터에서 토큰 수만 세고, 올라갈 내용을 그대로 보여 준 뒤 ‘올릴까요? [y/N]’을 물어요. 엔터만 누르면 아무것도 안 올라가요. 맥에서 python3를 처음 쓰면 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 붙여 넣어요.',
+      'y를 치고 엔터를 누르면 내 GitHub gist에 올리고 도시 참가 신청 화면을 열어 줘요. 제출을 누르면 몇 분 뒤 도시에 내 건물이 서요. 신청 화면과 gist 파일 이름에는 도시 명단을 맡은 저장소 이름이 보여요.'
+    ],
+    joinWhat: '올라가는 것은 토큰 수, 날짜별 합계, 모델 이름, 시간대, 고른 나라(골랐을 때만)뿐이에요. 대화·경로·프로젝트 이름은 올라가지 않아요. gist는 지난 수정 기록까지 공개로 남아요. 숫자를 새로 올리려면 같은 줄을 다시 실행해요. 저절로 올라가지는 않아요.',
+    districts: { app: '앱', web: '웹', data: '데이터', content: '콘텐츠', tool: '개발 도구', game: '게임', etc: '기타' }
+  },
+  en: {
+    docTitle: 'Agencity · City', title: 'Agencity City', home: '← My office', build: 'Add my building →', install: 'Install Agencity ↗', rules: 'How it works',
+    loading: 'Loading…', count: n => `<b>${n}</b> ${n === 1 ? 'building' : 'buildings'}`, countC: c => ` · <b>${c}</b> ${c === 1 ? 'country' : 'countries'}`, loadingTail: ' · loading',
+    failedN: n => `couldn't load ${n}`, cutN: n => `skipped ${n} (too slow)`, demo: 'demo', loadFail: "Couldn't load",
+    viewGroup: 'Switch view', viewCity: 'City', viewNum: 'Leaderboard', country: 'Country', all: 'All countries', noCountry: 'No country', langGroup: 'Change language',
+    map: 'Map of Agencity City', zin: 'Zoom in', zout: 'Zoom out', zfit: 'Show all',
+    hint: 'Drag to look around. Click a building or name to see what its owner made public', hintZone: 'Click a country sign to go there', join: 'Add my building →',
+    noInstall: 'No Agencity install needed. One command publishes your token count, and your building goes up.',
+    few: n => n === 1 ? 'Only 1 person so far' : `Only ${n} people so far`, people: n => `${n} ${n === 1 ? 'person' : 'people'}`, goZone: cn => `Go to ${cn}`, bld: (p, cn, f) => `${p}, ${cn}, ${f} floors`,
+    numTitle: 'Leaderboard', numSub: (scope, n) => `${scope} · ${n} ${n === 1 ? 'person' : 'people'}`,
+    numRule: 'Rank is based on total tokens. “Today” is in each person’s time zone. Numbers are self-reported.',
+    emptyC: 'No buildings in this country yet', firstB: 'Raise the first one →',
+    tPeople: 'People', tCountries: 'Countries', tSum: 'Total tokens, combined', tToday: 'Today, total', tTodayN: n => `${n} posted`,
+    colRank: 'Rank', colName: 'User', colCountry: 'Country', colTotal: 'Total tokens', colToday: 'Today', colUpd: 'Last update',
+    todayTip: 'Today in their time zone. Click to sort by today.', totalTip: 'Click to sort by total tokens.',
+    noToday: 'Not posted today yet', you: 'You', rankAll: n => `#${n} overall`, rankIn: (n, cn) => `#${n} in ${cn}`,
+    byToday: 'Sorted by today', byTotal: 'Sorted by total tokens', more: n => `Show ${n} more`, gap: '⋯',
+    close: 'Close', demoTag: 'demo', floors: n => `${n} ${n === 1 ? 'floor' : 'floors'}`, district: d => `${d} district`,
+    cTotal: 'Total tokens', cToday: 'Today', cRank: 'Rank', cUpd: 'Last update', cWork: 'Work (cache reads ×0.1)', tokens: v => `${v} tokens`,
+    cDays: 'Active days · last 7', daysVal: (a, b) => `${a} days · ${b} of 7`, models: 'models', other: 'Other',
+    pubFloors: 'Public floors (teams)', asOf: d => `as of ${d}`, floorN: n => `Floor ${n}`, unnamed: 'Unnamed floor', tourBtn: 'Tour the office',
+    noFloors: 'No public floors yet. Only the building size is shown.', myOffice: 'Open my office', toCity: 'Show in city', toNum: 'Show on leaderboard',
+    share: 'Copy share text', copied: 'Copied',
+    shareText: (floors, rk, url) => `My building is up in Agencity City: ${floors} floors from my AI token usage, ${rk}. Raise yours → ${url}`,
+    heightNote: 'Building height is based on work (cache reads count as one tenth).',
+    cardNote: 'Numbers are self-reported: each person counts and posts their own. No chats, file paths or session details are uploaded.',
+    unknown: 'unknown', justNow: 'just now',
+    tourTitle: p => `${p}'s office`, tourNote: d => `Read-only. You see only the floors the owner opened for touring, and only what they chose to share. As of ${d}, so things may have changed.`,
+    states: { '일하는 중': 'Working', '대기': 'Idle', '회의 중': 'In a meeting', '막힘': 'Blocked' },
+    noLoad: "Couldn't load any buildings", noLoadB: n => `None of the ${n} people on the list could be loaded. Check your connection or try again in a bit.`,
+    none: 'No buildings yet', noneB: 'Post your numbers and join to raise the first building.', noneLocal: 'Add your building in Setup step 4 to raise the first one.',
+    listFail: "Couldn't load the member list", listFailB: 'Check your connection or try again in a bit.',
+    toldCity: 'Switched to city', toldNum: n => `Switched to leaderboard · ${n} ${n === 1 ? 'person' : 'people'}`, toldZone: (cn, all) => all ? 'Showing all countries' : `Showing ${cn}`,
+    joinH: 'Add your building without installing anything', joinCountry: 'Country', joinOpt: '(optional)', joinNone: 'None', joinRemove: 'Remove my country (clears the one I picked)',
+    joinSearch: 'Search countries', joinSearchPh: 'e.g. Japan, JP',
+    joinCountryNote: 'Pick your country yourself. We never guess it from your time zone. The country you pick goes into your public gist, where anyone can see it. Your time zone is published separately, even if you don’t pick a country. You can change or remove your country anytime (old values stay in the gist’s history).',
+    joinCmd: 'Paste this line into your terminal', copy: 'Copy',
+    joinFoot: 'Before anything goes up, it shows you exactly what will be posted and asks once more. You need a macOS or Linux terminal (WSL on Windows), python3 and a GitHub account.',
+    joinSrc: 'Read the script first ↗',
+    joinMore: 'More details',
+    joinSteps: [
+      'Pick a country (optional). You get a one-line command with that country filled in.',
+      'Copy it into your terminal. It counts your tokens on your own machine, shows exactly what will be posted, and asks “Upload? [y/N]”. Pressing Enter uploads nothing. On a Mac, the first python3 run may ask to install the command line tools. Once they’re installed, paste the same line again.',
+      'Type y and press Enter, and it publishes to a GitHub gist you own, then opens a Join the city request. Submit it and your building goes up in a few minutes. The request page and the gist file name show the name of the repo that runs the city’s member list.'
+    ],
+    joinWhat: 'Only token counts, daily totals, model names, your time zone and your country (only if you pick one) are uploaded. No chats, paths or project names. Gist history is public, old revisions included. To post new numbers, run the same line again. Nothing uploads on its own.',
+    districts: { app: 'App', web: 'Web', data: 'Data', content: 'Content', tool: 'Dev tools', game: 'Games', etc: 'Other' }
+  }
+};
+// 처음 언어: 주소 ?lang= → 이 브라우저에 기억한 값 → 브라우저 언어(ko면 한국어, 그 밖에는 English). 언어와 나라는 따로예요.
+const LANG_KEY = 'agencity.lang';
+let lang = (() => {
+  const q = params.get('lang');
+  if (q === 'ko' || q === 'en') return q;
+  try { const v = localStorage.getItem(LANG_KEY); if (v === 'ko' || v === 'en') return v; } catch (e) {}
+  return /^ko\b/i.test(navigator.language || '') ? 'ko' : 'en';
+})();
+const t = () => T[lang];
+// 나라 이름은 번역표 대신 브라우저가 알아요(Intl.DisplayNames). 깃발은 코드에서 바로 만들고 이름을 늘 같이 써요(윈도에서는 깃발이 글자 두 개로 보여요).
+const cname = c => { if (!c) return t().noCountry; try { return new Intl.DisplayNames([lang], { type: 'region' }).of(c) || c; } catch (e) { return c; } };
+const flag = c => c ? String.fromCodePoint(...[...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) : '🌐';
 
 /* ---------- 받기 (남이 만든 데이터라 크기·모양을 엄격히 확인) ---------- */
 async function getCapped(url, cap = MAX_BYTES, fresh = false) {
@@ -172,7 +449,7 @@ async function getCapped(url, cap = MAX_BYTES, fresh = false) {
     if (!r.ok) { const e = new Error(String(r.status)); e.status = r.status; throw e; }
     const len = Number(r.headers.get('content-length'));
     if (len && len > cap) { ctl.abort(); throw new Error('too_large'); }
-    if (!r.body || !r.body.getReader) { const t = await r.text(); if (t.length > cap) throw new Error('too_large'); return t; }
+    if (!r.body || !r.body.getReader) { const tx = await r.text(); if (tx.length > cap) throw new Error('too_large'); return tx; }
     const reader = r.body.getReader(), parts = [];
     let n = 0;
     for (;;) {
@@ -197,8 +474,8 @@ function cleanMeter(doc, login) {
   let tz = '';
   for (const e of doc.entries.slice(0, 3)) {
     if (!e || typeof e !== 'object' || typeof e.tool !== 'string' || !own(TOOLS, e.tool) || !e.totals || typeof e.totals !== 'object') continue;
-    const t = e.totals;
-    tools[e.tool] = { input: num(t.input), output: num(t.output), cacheWrite: num(t.cacheWrite), cacheRead: num(t.cacheRead), total: num(t.total) };
+    const tt = e.totals;
+    tools[e.tool] = { input: num(tt.input), output: num(tt.output), cacheWrite: num(tt.cacheWrite), cacheRead: num(tt.cacheRead), total: num(tt.total) };
     if (!tz && typeof e.tz === 'string' && TZ_RE.test(e.tz)) { try { new Intl.DateTimeFormat('en-CA', { timeZone: e.tz }); tz = e.tz; } catch (x) {} }
     if (e.byDay && typeof e.byDay === 'object') {
       for (const [d, v] of Object.entries(e.byDay).slice(-400)) if (DAY_RE.test(d) && Array.isArray(v) && num(v[0]) > 0) days[d] = (days[d] || 0) + num(v[0]);
@@ -210,7 +487,7 @@ function cleanMeter(doc, login) {
   if (!Object.keys(tools).length) return null;
   return { tools, days, models, tz, updatedAt: str(doc.updatedAt, 40) };
 }
-// 모델 이름은 계열로만 묶어요(사내 배포 이름 같은 게 보이지 않게).
+// 모델 이름은 계열로만 묶어요(사내 배포 이름 같은 게 보이지 않게). '' = 기타
 function family(m) {
   m = String(m).toLowerCase();
   if (m.includes('opus')) return 'Opus';
@@ -219,9 +496,12 @@ function family(m) {
   if (m.includes('fable')) return 'Fable';
   if (m.includes('gemini')) return 'Gemini';
   if (m.includes('gpt') || m.includes('codex') || /^o\d/.test(m)) return 'GPT';
-  return '기타';
+  return '';
 }
-const district = v => (typeof v === 'string' && own(DISTRICTS, v)) ? v : '';
+const district = v => (typeof v === 'string' && DISTRICTS.includes(v)) ? v : '';
+// 나라 코드 목록(city/countries.json). 못 읽으면 비어서 모두 '나라 안 고름' 구역에 서요(시간대로 짐작하지 않아요).
+let COUNTRIES = new Set();
+const country = v => (typeof v === 'string' && COUNTRY_RE.test(v) && COUNTRIES.has(v)) ? v : '';
 function cleanOffice(doc, login, app = 'agencity') {
   if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== app || String(doc.login).toLowerCase() !== login.toLowerCase()) return null;
   const p = doc.profile && typeof doc.profile === 'object' ? doc.profile : {};
@@ -230,13 +510,19 @@ function cleanOffice(doc, login, app = 'agencity') {
     const level = f.public === 'tour' ? 'tour' : f.public === 'name' ? 'name' : null;
     if (!level) return null;
     return {
-      floor: Math.max(1, Math.min(99, Math.round(num(f.floor)) || 1)), name: str(f.name, 40) || '이름 없는 층', level,
+      floor: Math.max(1, Math.min(99, Math.round(num(f.floor)) || 1)), name: str(f.name, 40), level,
       summary: str(f.summary, 200), district: district(f.district),
       desks: level === 'tour' && Array.isArray(f.desks) ? f.desks.slice(0, 8).map(d => d && typeof d === 'object' && ({ role: str(d.role, 10), state: STATES.includes(d.state) ? d.state : '', task: str(d.task, 80) })).filter(d => d && d.role) : [],
       board: level === 'tour' && Array.isArray(f.board) ? f.board.slice(0, 10).map(b => str(b, 80)).filter(Boolean) : [],
     };
   }).filter(Boolean).sort((a, b) => a.floor - b.floor);
-  return { intro: str(p.intro, 120), district: district(p.district), floors, updatedAt: str(doc.updatedAt, 40) };
+  return { intro: str(p.intro, 120), district: district(p.district), country: country(p.country), floors, updatedAt: str(doc.updatedAt, 40) };
+}
+async function loadCountries() {
+  try {
+    const c = JSON.parse(await getCapped('city/countries.json', 16 * 1024));
+    if (Array.isArray(c)) COUNTRIES = new Set(c.filter(x => typeof x === 'string' && COUNTRY_RE.test(x)));
+  } catch (e) {}
 }
 
 // onPerson: 한 사람씩 도착할 때마다 불러요(먼저 온 건물부터 그려요).
@@ -273,9 +559,9 @@ async function loadMembers(onPerson) {
   return { listed: list.length, failed, cut: Math.max(0, list.length - i), logins: list.map(m => m.login.toLowerCase()) };
 }
 
-/* ---------- 건물 크기 ---------- */
-// 작업량 = (총 토큰 − 캐시 읽기) + 캐시 읽기 × 0.1. 캐시 읽기는 양이 너무 많아서 가볍게만 셉니다.
-const workOf = t => Math.max(0, t.total - t.cacheRead) + t.cacheRead * 0.1;
+/* ---------- 숫자 ---------- */
+// 작업량 = (총 토큰 − 캐시 읽기) + 캐시 읽기 × 0.1. 캐시 읽기는 양이 너무 많아서 가볍게만 셉니다. 건물 높이는 작업량, 순위는 총 토큰이에요.
+const workOf = x => Math.max(0, x.total - x.cacheRead) + x.cacheRead * 0.1;
 function work(meter) { let w = 0; for (const k of Object.keys(meter.tools)) w += workOf(meter.tools[k]); return w; }
 function totalOf(meter) { let w = 0; for (const k of Object.keys(meter.tools)) w += meter.tools[k].total; return w; }
 // 층수 = (log10(작업량) − 5) × 5, 1~40층. 도시 전체와 상관없는 절대 눈금이라 남이 들어와도 내 건물이 줄지 않아요.
@@ -292,61 +578,105 @@ function recentDays(meter) {
   for (let k = 0; k < 7; k++) if (meter.days[dayKey(new Date(t0 - k * 864e5), meter.tz)] > 0) n++;
   return n;
 }
+// 오늘: 그 사람 시간대의 오늘 날짜 byDay 값. 마지막으로 올린 날이 그 사람 달력으로 오늘이 아니면 null(— '오늘 아직 안 올림', 0으로 쓰지 않아요).
+function todayOf(meter) {
+  const at = Date.parse(meter.updatedAt);
+  if (!Number.isFinite(at) || at > now().getTime() + 36e5) return null;
+  const d = dayKey(now(), meter.tz);
+  return dayKey(new Date(at), meter.tz) === d ? (meter.days[d] || 0) : null;
+}
 const activeDays = meter => Object.keys(meter.days).length;
 // 달력 날짜로 며칠 전인지(미래 시각이면 모름 = -1)
 function daysAgo(iso) {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t) || t > now().getTime() + 36e5) return -1;
-  const a = Date.parse(dayKey(new Date(t)) + 'T00:00:00'), b = Date.parse(dayKey(now()) + 'T00:00:00');
+  const at = Date.parse(iso);
+  if (!Number.isFinite(at) || at > now().getTime() + 36e5) return -1;
+  const a = Date.parse(dayKey(new Date(at)) + 'T00:00:00'), b = Date.parse(dayKey(now()) + 'T00:00:00');
   return Math.max(0, Math.round((b - a) / 864e5));
 }
-const agoLabel = d => d < 0 ? '모름' : d === 0 ? '오늘' : d === 1 ? '어제' : `${d}일 전`;
-function korNum(n) {
+// 줄인 숫자: 한국어는 만·억·조(3.4억, 5,600만), English는 1.2K·3.4M·5.6B
+function fmt(n) {
   n = Math.round(n);
-  if (n >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + '조';
-  if (n >= 1e8) return Math.round(n / 1e8).toLocaleString('ko-KR') + '억';
+  if (lang === 'en') return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+  const one = (v, u) => (v >= 100 ? Math.round(v).toLocaleString('ko-KR') : v.toFixed(1).replace(/\.0$/, '')) + u;
+  if (n >= 1e12) return one(n / 1e12, '조');
+  if (n >= 1e8) return one(n / 1e8, '억');
   if (n >= 1e4) return Math.round(n / 1e4).toLocaleString('ko-KR') + '만';
   return n.toLocaleString('ko-KR');
 }
+const rtf = () => new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+// 마지막으로 올린 때: 1시간 안이면 '방금', 하루 안이면 n시간 전, 그다음은 달력으로 어제·n일 전
+function rel(iso) {
+  const at = Date.parse(iso), n = now().getTime();
+  if (!Number.isFinite(at) || at > n + 36e5) return t().unknown;
+  const h = (n - at) / 36e5;
+  if (h < 1) return t().justNow;
+  if (h < 24) return rtf().format(-Math.round(h), 'hour');
+  return rtf().format(-Math.max(1, daysAgo(iso)), 'day');
+}
+// 날짜만(오늘·어제·n일 전): 공개한 층의 '기준'
+const dayRel = iso => { const d = daysAgo(iso); return d < 0 ? t().unknown : rtf().format(-d, 'day'); };
 function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+// 같은 값이면 같은 순위(1, 1, 3). 같은 값끼리는 아이디 순
+function ranked(list, key) {
+  const s = [...list].sort((a, b) => key(b) - key(a) || a.login.localeCompare(b.login));
+  let r = 0;
+  return s.map((p, i) => { if (!i || key(s[i - 1]) !== key(p)) r = i + 1; return { p, r }; });
+}
+const isMe = p => !!CONFIG.me && CONFIG.me.toLowerCase() === p.login.toLowerCase();
 
-/* ---------- 그리기 (아이소메트릭 SVG) ---------- */
-const A = 30, B = 15, FLOOR_H = 13, CELL = 6;   // 타일 반너비·반높이, 한 층 높이, 자리 간격(가장 넓은 4칸 + 길 2칸)
+/* ---------- 나라 구역 ---------- */
+let people = [], ZONES = [], zone = 'ALL', view = params.get('view') === 'numbers' ? 'numbers' : 'buildings', sortBy = 'total', shown = PAGE;
+const inZone = p => zone === 'ALL' || p.c === zone;
+// 순위(전체·나라 안)와 구역: 총 토큰 합이 큰 나라부터(뒤쪽). '나라 안 고름'은 늘 맨 끝(가장자리)이고, 사람이 있는 나라만 구역이 생겨요.
+function rerank() {
+  ranked(people, p => p.total).forEach(x => { x.p.rankAll = x.r; });
+  const by = new Map();
+  for (const p of people) { if (!by.has(p.c)) by.set(p.c, []); by.get(p.c).push(p); }
+  for (const [c, list] of by) ranked(list, p => p.total).forEach(x => { x.p.rankIn = c ? x.r : null; });
+  ZONES = [...by.entries()].map(([c, list]) => ({ c, list, sum: list.reduce((a, p) => a + p.total, 0) }))
+    .sort((a, b) => (a.c === '') - (b.c === '') || b.sum - a.sum || a.c.localeCompare(b.c));
+}
+
+/* ---------- 그리기 (아이소메트릭 SVG, 나라마다 바닥 구역 하나) ---------- */
+const A = 30, B = 15, FLOOR_H = 13, CELL = 6, ROAD = 8;   // 타일 반너비·반높이, 한 층 높이, 자리 간격(가장 넓은 4칸 + 길 2칸), 구역 사이 길(이름판 자리)
+const ZONE_TINT = ['#26324A', '#2A3A35', '#3A3048', '#3A3528', '#2C3A4A', '#33303A'];
 const svg = $('#city');
-let people = [], view = { x: 0, y: 0, k: 1 }, fitK = 1, moved = false, bounds = null, selected = null, lastFocus = null;
+let pan = { x: 0, y: 0, k: 1 }, fitK = 1, moved = false, bounds = null, selected = null, lastFocus = null, tags = [];
 const el = (tag, attrs, parent) => { const n = document.createElementNS(NS, tag); for (const k of Object.keys(attrs || {})) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+const iso = (x, y) => [(x - y) * A, (x + y) * B];
 const pts = a => a.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
 const quad = q => 'M' + q.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + 'Z';
 const shade = (hsl, dl) => `hsl(${hsl[0]} ${hsl[1]}% ${Math.max(6, Math.min(92, hsl[2] + dl))}%)`;
 
-// 가운데부터 바깥으로 도는 자리 목록
-function spiral(n) {
-  const out = [[0, 0]];
-  let x = 0, y = 0, step = 1;
-  while (out.length < n) {
-    for (const [dx, dy, times] of [[1, 0, step], [0, 1, step], [-1, 0, step + 1], [0, -1, step + 1]]) {
-      for (let t = 0; t < times && out.length < n; t++) { x += dx; y += dy; out.push([x, y]); }
-    }
-    step += 2;
-  }
-  return out;
-}
-// 키 큰 건물을 뒤쪽 자리부터 채워요. 그러면 앞 건물이 뒤 건물보다 높지 않아서 지붕이 가려지지 않아요.
+// 구역은 한 줄에 √(나라 수)개씩. 구역 안의 건물은 k×k 칸에 키 큰 건물부터 뒤쪽 자리에 둬요(앞 건물이 뒤 건물 지붕을 가리지 않게).
 function layout() {
-  const spots = spiral(people.length).sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || Math.abs(p[0] - p[1]) - Math.abs(q[0] - q[1]));
-  [...people].sort((a, b) => b.w - a.w || a.login.localeCompare(b.login)).forEach((p, i) => { p.gx = spots[i][0] * CELL; p.gy = spots[i][1] * CELL; });
+  const cols = Math.max(1, Math.ceil(Math.sqrt(ZONES.length)));
+  const kMax = Math.max(1, ...ZONES.map(z => Math.ceil(Math.sqrt(z.list.length))));
+  const span = kMax * CELL + ROAD;
+  ZONES.forEach((z, i) => {
+    const k = Math.max(1, Math.ceil(Math.sqrt(z.list.length)));
+    z.k = k; z.x = (i % cols) * span; z.y = Math.floor(i / cols) * span;
+    const spots = [];
+    for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) spots.push([a, b]);
+    spots.sort((p, q) => (p[0] + p[1]) - (q[0] + q[1]) || Math.abs(p[0] - p[1]) - Math.abs(q[0] - q[1]));
+    [...z.list].sort((a, b) => b.w - a.w || a.login.localeCompare(b.login)).forEach((p, j) => { p.gx = z.x + spots[j][0] * CELL; p.gy = z.y + spots[j][1] * CELL; });
+  });
 }
 function geom(p) {
-  const s = p.size, h = p.floors * FLOOR_H, ox = (p.gx - p.gy) * A, oy = (p.gx + p.gy) * B;
+  const s = p.size, h = p.floors * FLOOR_H, [ox, oy] = iso(p.gx, p.gy);
   return { s, h, ox, oy, T: [ox, oy], R: [ox + A * s, oy + B * s], Bm: [ox, oy + 2 * B * s], L: [ox - A * s, oy + B * s] };
 }
+function zoneCorners(z) {
+  const e = z.k * CELL;
+  return [iso(z.x - 1.5, z.y - 1.5), iso(z.x + e - 1.5, z.y - 1.5), iso(z.x + e - 1.5, z.y + e - 1.5), iso(z.x - 1.5, z.y + e - 1.5)];
+}
 function drawBuilding(g, p) {
-  const { s, h, T, R, Bm, L } = geom(p);
+  const { s, h, T: T0, R, Bm, L } = geom(p);
   const up = q => [q[0], q[1] - h];
-  el('polygon', { points: pts([T, R, Bm, L]), fill: 'rgba(0,0,0,.28)', transform: 'translate(6,4)' }, g);
+  el('polygon', { points: pts([T0, R, Bm, L]), fill: 'rgba(0,0,0,.28)', transform: 'translate(6,4)' }, g);
   el('polygon', { points: pts([L, Bm, up(Bm), up(L)]), fill: shade(p.hsl, -16) }, g);
   el('polygon', { points: pts([Bm, R, up(R), up(Bm)]), fill: shade(p.hsl, -4) }, g);
-  el('polygon', { class: 'b-top', points: pts([up(T), up(R), up(Bm), up(L)]), fill: shade(p.hsl, 10), stroke: 'rgba(0,0,0,.25)', 'stroke-width': .8 }, g);
+  el('polygon', { class: 'b-top', points: pts([up(T0), up(R), up(Bm), up(L)]), fill: shade(p.hsl, 10), stroke: 'rgba(0,0,0,.25)', 'stroke-width': .8 }, g);
   // 창문: 꺼진 창·켜진 창·공개한 층의 켜진 창을 각각 경로 하나로(건물 하나에 노드 몇 개만).
   const cols = Math.max(2, s + 1), rnd = hash(p.login);
   const lit = p.stale < 0 || p.stale > 14 ? 0.03 : Math.max(0.06, p.recent / 7);
@@ -372,144 +702,404 @@ function drawBuilding(g, p) {
   let bands = '';
   for (const fl of teamFloors) if (fl <= p.floors) { const y = -(fl * FLOOR_H); bands += `M${L[0]} ${L[1] + y}L${Bm[0]} ${Bm[1] + y}L${R[0]} ${R[1] + y}`; }
   if (bands) el('path', { d: bands, fill: 'none', stroke: 'var(--gold)', 'stroke-width': 1.4, opacity: .85 }, g);
-  return { minX: L[0], maxX: R[0], minY: T[1] - h - 24, maxY: Bm[1] + 6, cx: T[0], top: T[1] - h };
+  return { minX: L[0], maxX: R[0], minY: T0[1] - h - 24, maxY: Bm[1] + 6, cx: T0[0], top: T0[1] - h };
 }
 let drawQueued = false;
-function scheduleDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; layout(); draw(); if (!moved) fit(); }); }
+function scheduleDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; rerank(); layout(); draw(); if (!moved) fit(); refreshChrome(); }); }
 function draw() {
   svg.textContent = '';
+  svg.setAttribute('aria-label', t().map);
   const root = el('g', { id: 'world' }, svg);
-  const ground = el('g', {}, root), blds = el('g', {}, root), labels = el('g', {}, root);
+  const ground = el('g', {}, root), blds = el('g', {}, root), over = el('g', { id: 'tags' }, svg);
+  tags = [];
   let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  const grow = (a, b, c, d) => { bx0 = Math.min(bx0, a); bx1 = Math.max(bx1, b); by0 = Math.min(by0, c); by1 = Math.max(by1, d); };
+  // 바닥 구역: 나라마다 살짝 다른 색, 앞 꼭짓점 아래에 나라 이름판(깃발 · 이름 · 사람 수). 이름판은 그 나라로 가는 버튼이에요.
+  ZONES.forEach((z, i) => {
+    const [a, b, c, d] = zoneCorners(z);
+    const zg = el('g', { class: 'zone' }, ground);
+    el('polygon', { class: 'zone-plate', points: pts([a, b, c, d]), fill: ZONE_TINT[i % ZONE_TINT.length], stroke: 'rgba(228,232,238,.18)' }, zg);
+    const sg = el('g', { class: 'zone-tag', role: 'button', tabindex: 0, 'aria-label': t().goZone(cname(z.c)) }, over);
+    sg.dataset.zone = z.c;
+    const rect = el('rect', { rx: 6, fill: 'rgba(10,14,20,.86)', stroke: '#3A4659' }, sg);
+    const tx = el('text', { class: 'zone-sign', 'text-anchor': 'middle' }, sg);
+    tx.appendChild(document.createTextNode(`${flag(z.c)} ${cname(z.c)}`));
+    const tn = el('tspan', { class: 'zone-n', dx: 8 }, tx);
+    tn.textContent = t().people(z.list.length);
+    z.plate = zg; z.sign = sg;
+    tags.push({ kind: 'zone', z, g: sg, rect, text: tx, n: tn, wx: c[0], wy: c[1] });
+    grow(Math.min(a[0], d[0]), Math.max(b[0], c[0]), a[1], c[1] + 30);
+  });
   for (const p of people) {
     const { s, ox, oy } = geom(p);
     el('polygon', { points: pts([[ox, oy - B], [ox + A * (s + 1), oy + B * s], [ox, oy + B * (2 * s + 1)], [ox - A * (s + 1), oy + B * s]]), fill: 'var(--street)', opacity: .9 }, ground);
   }
   const order = [...people].sort((a, b) => (a.gx + a.gy) - (b.gx + b.gy) || (a.gx - b.gx));
-  const tags = [];
   for (const p of order) {
-    const g = el('g', { class: 'bld', tabindex: 0, role: 'button', 'aria-label': `${p.login}, ${p.floors}층` }, blds);
+    const g = el('g', { class: 'bld', tabindex: 0, role: 'button', 'aria-label': t().bld(p.login, cname(p.c), p.floors) }, blds);
     g.dataset.login = p.login;
     const b = drawBuilding(g, p);
-    bx0 = Math.min(bx0, b.minX); bx1 = Math.max(bx1, b.maxX); by0 = Math.min(by0, b.minY); by1 = Math.max(by1, b.maxY);
+    grow(b.minX, b.maxX, b.minY, b.maxY);
     p.g = g; p.box = b;
-    tags.push({ p, x: b.cx, y: b.top - 8, w: p.login.length * 6.8 + 6 });
-  }
-  // 이름은 건물 위에 따로 그리고, 서로 겹치면 위로 조금씩 밀어요. 이름도 눌러서 열 수 있어요.
-  tags.sort((a, b) => a.y - b.y);
-  const placed = [];
-  for (const t of tags.reverse()) {
-    let y = t.y;
-    for (let tries = 0; tries < 6 && placed.some(q => Math.abs(q.x - t.x) < (q.w + t.w) / 2 && Math.abs(q.y - y) < 13); tries++) y -= 13;
-    placed.push({ x: t.x, y, w: t.w });
-    const tx = el('text', { class: 'name', x: t.x, y, 'text-anchor': 'middle' }, labels);
-    tx.dataset.login = t.p.login; tx.textContent = t.p.login; t.p.label = tx;
-    by0 = Math.min(by0, y - 14); bx0 = Math.min(bx0, t.x - t.w / 2); bx1 = Math.max(bx1, t.x + t.w / 2);
+    // 이름은 #tags에 따로 그려서 확대와 상관없이 같은 크기로 읽혀요. 이름도 눌러서 열 수 있어요.
+    const tx = el('text', { class: 'name', 'text-anchor': 'middle', 'aria-hidden': 'true' }, over);
+    tx.dataset.login = p.login; tx.textContent = p.login; p.label = tx;
+    tags.push({ kind: 'name', p, text: tx, wx: b.cx, wy: b.top });
   }
   bounds = people.length ? { x: bx0 - 40, y: by0 - 30, w: bx1 - bx0 + 80, h: by1 - by0 + 60 } : { x: -200, y: -150, w: 400, h: 300 };
   applyView(); applySel();
 }
+// 이름표 자리: 확대·이동에 맞춰 화면 좌표로 옮기고, 겹치면 비켜요. 화면 밖 건물 이름은 그리지 않아요(사람이 많아도 가볍게).
+let tagsQueued = false;
+function scheduleTags() { if (tagsQueued) return; tagsQueued = true; requestAnimationFrame(() => { tagsQueued = false; placeTags(); }); }
+function placeTags() {
+  const k = pan.k, W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
+  const far = k < 0.55 && zone === 'ALL';   // 멀리서 보면 건물 이름은 숨기고(고른 사람만) 나라 이름판만 보여요
+  const compact = far && narrow();          // 휴대폰에서 멀리 볼 때는 이름판도 깃발과 나라 이름만, 작게
+  const placed = [];
+  for (const g of tags) {
+    if (g.kind !== 'zone') continue;
+    g.text.classList.toggle('compact', compact);
+    g.n.style.display = compact ? 'none' : '';
+    g.text.setAttribute('x', 0); g.text.setAttribute('y', 0);
+    const w = g.text.getBBox().width + 20;
+    // 화면 밖으로 나가지 않게 좌우를 잡고, 다른 이름판과 겹치면 아래로 비켜요
+    const x = Math.max(8 + w / 2, Math.min(W - 8 - w / 2, g.wx * k + pan.x));
+    let y = g.wy * k + pan.y + (compact ? 20 : 28);
+    for (let tries = 0; tries < 4 && placed.some(q => Math.abs(q.x - x) < (q.w + w) / 2 + 4 && Math.abs(q.y - y) < 28); tries++) y += 28;
+    g.text.setAttribute('x', x.toFixed(1)); g.text.setAttribute('y', y.toFixed(1));
+    const bb = g.text.getBBox();
+    g.rect.setAttribute('x', (bb.x - 10).toFixed(1)); g.rect.setAttribute('y', (bb.y - 6).toFixed(1));
+    g.rect.setAttribute('width', (bb.width + 20).toFixed(1)); g.rect.setAttribute('height', (bb.height + 12).toFixed(1));
+    placed.push({ x, y, w });
+  }
+  const names = tags.filter(q => q.kind === 'name').sort((a, b) => b.wy - a.wy);
+  for (const g of names) {
+    const sel = g.p === selected, x = g.wx * k + pan.x;
+    let y = g.wy * k + pan.y - 7;
+    const show = sel || (!far && x > -80 && x < W + 80 && y > -30 && y < H + 30);
+    g.text.style.display = show ? '' : 'none';
+    if (!show) continue;
+    const w = g.p.login.length * 7.2 + 8;
+    for (let tries = 0; tries < 6 && placed.some(q => Math.abs(q.x - x) < (q.w + w) / 2 && Math.abs(q.y - y) < 15); tries++) y -= 15;
+    placed.push({ x, y, w });
+    g.text.setAttribute('x', x.toFixed(1)); g.text.setAttribute('y', y.toFixed(1));
+  }
+}
 const narrow = () => (svg.clientWidth || innerWidth) <= 620;
+const topH = () => { const h = $('#top'); return h ? h.offsetHeight : 64; };
+// 맞춰 보기: 나라를 골랐으면 그 구역에 맞춰 가까이(최대 1.4배), 아니면 도시 전체. 휴대폰에서 전체가 너무 작으면 가장 큰 건물부터 보여요.
 function fit(target) {
-  const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
-  let k = Math.min(W / bounds.w, (H - 80) / bounds.h, 2.2);
+  if (!bounds) return;
+  const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight, top = topH() + 8, bottom = narrow() ? 70 : 56;
+  let bx = bounds, maxK = people.length <= FEW ? 1.4 : 2.2;
+  const z = zone !== 'ALL' && ZONES.find(q => q.c === zone && q.list.length);
+  if (z) {
+    const xs = z.list.filter(p => p.box).map(p => p.box), [a, b, c, d] = zoneCorners(z);
+    const minX = Math.min(d[0], ...xs.map(q => q.minX)), maxX = Math.max(b[0], ...xs.map(q => q.maxX)), minY = Math.min(a[1], ...xs.map(q => q.minY)), maxY = c[1] + 50;
+    bx = { x: minX - 40, y: minY - 30, w: maxX - minX + 80, h: maxY - minY + 60 };
+    maxK = 1.4;
+  }
+  let k = Math.min(W / bx.w, (H - top - bottom) / bx.h, maxK);
   fitK = k;
-  const focus = target || (narrow() && k < 0.8 ? [...people].sort((a, b) => b.w - a.w)[0] : null);
-  if (focus && narrow() && k < 0.8) {
+  const focus = target || (!z && narrow() && k < 0.8 ? [...people].sort((a, b) => b.w - a.w)[0] : null);
+  if (focus && focus.box && narrow() && k < 0.8) {
     k = 0.8;
     const b = focus.box;
-    view = { k, x: W / 2 - b.cx * k, y: H * 0.42 - ((b.top + b.maxY) / 2) * k };
+    pan = { k, x: W / 2 - b.cx * k, y: H * 0.42 - ((b.top + b.maxY) / 2) * k };
   } else {
-    view = { k, x: W / 2 - (bounds.x + bounds.w / 2) * k, y: (H + 40) / 2 - (bounds.y + bounds.h / 2) * k };
+    pan = { k, x: W / 2 - (bx.x + bx.w / 2) * k, y: top + (H - top - bottom) / 2 - (bx.y + bx.h / 2) * k };
   }
   moved = false;
   applyView();
 }
-function applyView() { const w = $('#world'); if (w) w.setAttribute('transform', `translate(${view.x.toFixed(1)},${view.y.toFixed(1)}) scale(${view.k.toFixed(4)})`); }
+function applyView() { const w = $('#world'); if (w) w.setAttribute('transform', `translate(${pan.x.toFixed(1)},${pan.y.toFixed(1)}) scale(${pan.k.toFixed(4)})`); scheduleTags(); }
 function zoomAt(f, cx, cy) {
-  const k = Math.max(Math.min(0.25, fitK * 0.8), Math.min(4, view.k * f));
-  view.x = cx - (cx - view.x) * (k / view.k); view.y = cy - (cy - view.y) * (k / view.k); view.k = k;
+  const k = Math.max(Math.min(0.25, fitK * 0.8), Math.min(4, pan.k * f));
+  pan.x = cx - (cx - pan.x) * (k / pan.k); pan.y = cy - (cy - pan.y) * (k / pan.k); pan.k = k;
   moved = true; applyView();
 }
+// 고른 사람만 밝게(카드가 열리면), 고른 나라 밖은 흐리게
 function applySel() {
   for (const p of people) {
-    if (p.g) { p.g.classList.toggle('sel', p === selected); p.g.classList.toggle('dim', !!selected && p !== selected); }
-    if (p.label) { p.label.classList.toggle('sel', p === selected); p.label.classList.toggle('dim', !!selected && p !== selected); }
+    const off = (!!selected && p !== selected) || !inZone(p);
+    if (p.g) { p.g.classList.toggle('sel', p === selected); p.g.classList.toggle('dim', off); }
+    if (p.label) { p.label.classList.toggle('sel', p === selected); p.label.classList.toggle('dim', off); }
   }
+  for (const z of ZONES) {
+    const off = zone !== 'ALL' && zone !== z.c;
+    if (z.plate) z.plate.classList.toggle('dim', off);
+    if (z.sign) z.sign.classList.toggle('dim', off);
+  }
+  scheduleTags();
 }
 // 카드가 화면 아래를 덮는 휴대폰에서는 고른 건물을 위쪽 빈 곳으로 옮겨요.
 function bringIntoView(p) {
-  if (!narrow() || !p.box) return;
+  if (!narrow() || !p.box || view !== 'buildings') return;
   const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
-  const midY = ((p.box.top + p.box.maxY) / 2) * view.k + view.y, midX = p.box.cx * view.k + view.x;
-  view.x += W / 2 - midX; view.y += H * 0.22 - midY; moved = true; applyView();
+  const midY = ((p.box.top + p.box.maxY) / 2) * pan.k + pan.y, midX = p.box.cx * pan.k + pan.x;
+  pan.x += W / 2 - midX; pan.y += H * 0.22 - midY; moved = true; applyView();
+}
+
+/* ---------- 숫자 보기 ---------- */
+// 내 건물 세우기: 공개 도시는 설치 없이 올리는 패널, 내 컴퓨터의 앱은 설정 4단계로(내 건물이 이미 서 있으면 보여 주지 않아요)
+let meMissing = false;
+const canJoin = () => !LOCAL || meMissing;
+const joinBtn = (cls, label) => !canJoin() ? '' : LOCAL ? `<a class="${cls}" href="./?setup=4">${esc(label)}</a>` : `<button type="button" class="${cls}" data-act="join">${esc(label)}</button>`;
+const scopeName = () => zone === 'ALL' ? t().all : `${flag(zone)} ${cname(zone)}`;
+const avatar = p => p.demo ? esc(p.login.replace(/^demo-/, '').slice(0, 1).toUpperCase())
+  : `<img alt="" loading="lazy" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=44" referrerpolicy="no-referrer">`;
+function rowHTML({ p, r }, max) {
+  const me = isMe(p), sub = zone !== 'ALL' && sortBy === 'total' ? t().rankAll(p.rankAll) : '';
+  return `<tr class="${me ? 'me' : ''}${p === selected ? ' sel' : ''}${p.stale > OLD_DAYS ? ' old' : ''}">
+    <td class="c-rk"><span class="rk${r <= 3 ? ' medal' : ''}">${r}</span>${sub ? `<span class="rk-all">${esc(sub)}</span>` : ''}</td>
+    <td class="c-who"><button type="button" class="who" data-login="${esc(p.login)}"><span class="av-s" aria-hidden="true">${avatar(p)}</span>${esc(p.login)}${me ? ` <span class="you">${esc(t().you)}</span>` : ''}</button></td>
+    <td class="c-ctry"><span class="ctry">${p.c ? `<span class="flag" aria-hidden="true">${flag(p.c)}</span>${esc(cname(p.c))}` : ''}</span></td>
+    <td class="c-tot r"><span class="tot"><b>${esc(fmt(p.total))}</b><span class="tbar" aria-hidden="true"><i style="width:${(p.total / max * 100).toFixed(1)}%"></i></span></span></td>
+    <td class="c-today r" data-label="${esc(t().colToday)}">${p.today == null ? `<span class="none" title="${esc(t().noToday)}">—<span class="sr">${esc(t().noToday)}</span></span>` : esc(fmt(p.today))}</td>
+    <td class="c-upd r">${esc(rel(p.meter.updatedAt))}</td></tr>`;
+}
+function drawNumbers() {
+  const list = people.filter(inZone), reported = list.filter(p => p.today != null);
+  $('#numSub').textContent = t().numSub(scopeName(), list.length);
+  $('#numRule').textContent = t().numRule;
+  // 사람이 적을 때는 표 위에 크게 '아직 n명이에요 · 내 건물 세우기 →'
+  const few = $('#few');
+  few.hidden = !(loaded && people.length <= FEW);
+  few.innerHTML = `<b>${esc(t().few(people.length))}</b>${joinBtn('btn', t().join)}`;
+  $('#tiles').hidden = !list.length;
+  $('#tiles').innerHTML = `<div class="tile"><span>${esc(t().tPeople)}</span><b>${list.length}</b></div>
+    ${zone === 'ALL' ? `<div class="tile"><span>${esc(t().tCountries)}</span><b>${new Set(list.map(p => p.c).filter(Boolean)).size}</b></div>`
+      : `<div class="tile"><span>${esc(t().tSum)}</span><b>${esc(fmt(list.reduce((a, p) => a + p.total, 0)))}</b></div>`}
+    <div class="tile"><span>${esc(t().tToday)}</span><b>${esc(fmt(reported.reduce((a, p) => a + p.today, 0)))}</b><small>${esc(t().tTodayN(reported.length))}</small></div>`;
+  if (!list.length) { $('#table').innerHTML = loaded ? `<div class="empty"><b>${esc(t().emptyC)}</b>${joinBtn('btn ghost', t().firstB)}</div>` : ''; return; }
+  // 순위: 기본은 총 토큰. '오늘' 칸 머리를 누르면 오늘 순(— 는 0으로 봐요), 번호도 그 기준으로 다시 매겨요. 나라를 고르면 그 나라 안에서 1위부터.
+  const rows = ranked(list, sortBy === 'today' ? p => p.today || 0 : p => p.total);
+  const max = Math.max(1, ...list.map(p => p.total));
+  const page = rows.slice(0, shown), mine = rows.find(x => isMe(x.p)), extra = mine && !page.includes(mine) ? mine : null;
+  const th = (key, label, tip) => `<th scope="col" class="r sortable" aria-sort="${sortBy === key ? 'descending' : 'none'}"><button type="button" data-sort="${key}" title="${esc(tip)}">${esc(label)}</button></th>`;
+  $('#table').innerHTML = `<table class="rank"><caption class="sr">${esc(scopeName())} · ${esc(sortBy === 'today' ? t().byToday : t().byTotal)}</caption>
+    <thead><tr><th scope="col">${esc(t().colRank)}</th><th scope="col">${esc(t().colName)}</th><th scope="col">${esc(t().colCountry)}</th>${th('total', t().colTotal, t().totalTip)}${th('today', t().colToday, t().todayTip)}<th scope="col" class="r">${esc(t().colUpd)}</th></tr></thead>
+    <tbody>${page.map(x => rowHTML(x, max)).join('')}${extra ? `<tr class="gap"><td colspan="6">${esc(t().gap)}</td></tr>${rowHTML(extra, max)}` : ''}</tbody></table>
+    ${rows.length > shown ? `<div class="morebox"><button type="button" class="btn ghost" data-act="more">${esc(t().more(Math.min(PAGE, rows.length - shown)))}</button></div>` : ''}`;
 }
 
 /* ---------- 카드·둘러보기 ---------- */
 function card(p) {
   selected = p; applySel();
-  lastFocus = p.g;
+  if (!$('#card').contains(document.activeElement)) lastFocus = document.activeElement;
   const m = p.meter, o = p.office;
   const tools = Object.keys(m.tools).map(k => [k, workOf(m.tools[k])]).filter(([, v]) => v > 0);
   const tsum = tools.reduce((a, [, v]) => a + v, 0) || 1;
-  const fams = Object.keys(m.models).filter(f => m.models[f] > 0).sort((a, b) => m.models[b] - m.models[a]).slice(0, 4);
-  const isMe = CONFIG.me && CONFIG.me.toLowerCase() === p.login.toLowerCase();
-  const officeAgo = o ? daysAgo(o.updatedAt) : -1;
+  const fams = Object.keys(m.models).filter(f => m.models[f] > 0).sort((a, b) => m.models[b] - m.models[a]).slice(0, 4).map(f => f || t().other);
+  const me = isMe(p), d = o && o.district ? t().districts[o.district] : '';
+  const rk = p.c ? t().rankIn(p.rankIn, cname(p.c)) : t().rankAll(p.rankAll);
+  const shareUrl = `${PUBLIC_URL}?who=${encodeURIComponent(p.login)}${lang === 'en' ? '&lang=en' : ''}`;
   $('#card').innerHTML = `
-    <div class="card-head">${p.demo ? '' : `<img alt="" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=88" referrerpolicy="no-referrer">`}
-      <div><h2>${esc(p.login)}</h2><small>${o && o.district ? esc(DISTRICTS[o.district]) + ' 동네 · ' : ''}${p.floors}층 · Lv.${p.level}${p.demo ? ' · 예시' : ''}</small></div>
-      <button type="button" class="x" id="cardX">닫기</button></div>
+    <div class="card-head">${p.demo ? `<span class="av" aria-hidden="true">${esc(p.login.replace(/^demo-/, '').slice(0, 1).toUpperCase())}</span>` : `<img alt="" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=88" referrerpolicy="no-referrer">`}
+      <div><h2>${esc(p.login)}</h2><small>${flag(p.c)} ${esc(cname(p.c))}${d ? ' · ' + esc(t().district(d)) : ''} · ${esc(t().floors(p.floors))} · Lv.${p.level}${p.demo ? ' · ' + esc(t().demoTag) : ''}</small></div>
+      <button type="button" class="x" id="cardX">${esc(t().close)}</button></div>
     ${o && o.intro ? `<p class="u" style="margin:10px 0 0">${esc(o.intro)}</p>` : ''}
     <div class="stats">
-      <div class="stat"><span>작업량(캐시 읽기 ×0.1)</span><b>${korNum(p.w)} 토큰</b></div>
-      <div class="stat"><span>총 토큰</span><b>${korNum(totalOf(m))}</b></div>
-      <div class="stat"><span>활동한 날 · 최근 7일</span><b>${activeDays(m)}일 · ${p.recent}일</b></div>
-      <div class="stat"><span>숫자 마지막 갱신</span><b>${agoLabel(p.stale)}</b></div>
+      <div class="stat"><span>${esc(t().cTotal)}</span><b>${esc(fmt(p.total))}</b></div>
+      <div class="stat"><span>${esc(t().cToday)}</span><b>${p.today == null ? '—' : esc(fmt(p.today))}</b>${p.today == null ? `<span>${esc(t().noToday)}</span>` : ''}</div>
+      <div class="stat"><span>${esc(t().cRank)}</span><b>${esc(t().rankAll(p.rankAll))}</b>${p.c ? `<span>${esc(t().rankIn(p.rankIn, cname(p.c)))}</span>` : ''}</div>
+      <div class="stat"><span>${esc(t().cUpd)}</span><b>${esc(rel(m.updatedAt))}</b></div>
+      <div class="stat"><span>${esc(t().cWork)}</span><b>${esc(t().tokens(fmt(p.w)))}</b></div>
+      <div class="stat"><span>${esc(t().cDays)}</span><b>${esc(t().daysVal(activeDays(m), p.recent))}</b></div>
     </div>
     <div class="bar" aria-hidden="true">${tools.map(([k, v]) => `<i style="width:${(v / tsum * 100).toFixed(1)}%; background:${TOOLS[k]}"></i>`).join('')}</div>
-    <div class="legend">${tools.map(([k, v]) => `<span><em style="background:${TOOLS[k]}"></em>${esc(k)} ${Math.round(v / tsum * 100)}%</span>`).join('')}${fams.length ? `<span>· 모델 ${fams.map(esc).join(', ')}</span>` : ''}</div>
-    <h3 class="sec">공개한 층(팀)${o && o.floors.length ? ` <small style="font-weight:400; color:var(--ink-3)">· ${esc(agoLabel(officeAgo))} 기준</small>` : ''}</h3>
-    ${o && o.floors.length ? `<ul class="floors">${o.floors.map(f => `<li><b>${f.floor}층</b><span class="u">${esc(f.name)}</span>${f.district ? ` <small>· ${esc(DISTRICTS[f.district])}</small>` : ''}${f.summary ? `<p class="u">${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul>
-      ${o.floors.some(f => f.level === 'tour') ? '<button type="button" class="btn" id="tourBtn">사무실 둘러보기</button>' : ''}`
-      : '<p class="note" style="margin-top:0">아직 공개한 층이 없어요. 건물 크기만 보여요.</p>'}
-    ${isMe && !p.demo && LOCAL ? '<a class="btn ghost" href="./">내 사무실 열기</a>' : ''}
-    <p class="note">숫자는 각자 세어 올린 자기 신고 값이에요. 작업량은 캐시 읽기를 10분의 1로 센 값이라 총 토큰보다 작아요. 대화·경로·세션 정보는 올리지 않아요.</p>`;
+    <div class="legend">${tools.map(([k, v]) => `<span><em style="background:${TOOLS[k]}"></em>${esc(k)} ${Math.round(v / tsum * 100)}%</span>`).join('')}${fams.length ? `<span>· ${esc(t().models)} ${fams.map(esc).join(', ')}</span>` : ''}</div>
+    <div class="btns"><button type="button" class="btn" id="cardSwap">${esc(view === 'buildings' ? t().toNum : t().toCity)}</button>${me ? `<button type="button" class="btn ghost" id="cardShare">${esc(t().share)}</button>` : ''}${me && !p.demo && LOCAL ? `<a class="btn ghost" href="./">${esc(t().myOffice)}</a>` : ''}</div>
+    <h3 class="sec">${esc(t().pubFloors)}${o && o.floors.length ? ` <small style="font-weight:400; color:var(--ink-3)">· ${esc(t().asOf(dayRel(o.updatedAt)))}</small>` : ''}</h3>
+    ${o && o.floors.length ? `<ul class="floors">${o.floors.map(f => `<li><b>${esc(t().floorN(f.floor))}</b><span class="u">${esc(f.name || t().unnamed)}</span>${f.district ? ` <small>· ${esc(t().districts[f.district])}</small>` : ''}${f.summary ? `<p class="u">${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul>
+      ${o.floors.some(f => f.level === 'tour') ? `<button type="button" class="btn" id="tourBtn" style="margin-top:12px">${esc(t().tourBtn)}</button>` : ''}`
+      : `<p class="note" style="margin-top:0">${esc(t().noFloors)}</p>`}
+    <p class="note">${esc(t().heightNote)}</p>
+    <p class="note" style="margin-top:4px">${esc(t().cardNote)}</p>`;
   $('#card').hidden = false;
   document.body.classList.add('carded');
   $('#cardX').addEventListener('click', closeCard);
+  $('#cardSwap').addEventListener('click', () => setView(view === 'buildings' ? 'numbers' : 'buildings'));
+  const sh = $('#cardShare');
+  if (sh) sh.addEventListener('click', () => copy(t().shareText(p.floors, rk, shareUrl), sh, t().share));
   const tb = $('#tourBtn'); if (tb) tb.addEventListener('click', () => tour(p));
+  if (view === 'numbers') drawNumbers();
   $('#cardX').focus({ preventScroll: true });
   bringIntoView(p);
 }
 function closeCard() {
   $('#card').hidden = true; document.body.classList.remove('carded');
   selected = null; applySel();
+  if (view === 'numbers') drawNumbers();
   if (lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
 }
+async function copy(text, btn, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = t().copied; $('#live').textContent = t().copied;
+    setTimeout(() => { if (btn.isConnected) btn.textContent = label; }, 1600);
+  } catch (e) {}
+}
+let tourOf = null;
 function tour(p) {
   const o = p.office;
-  $('#tourBox').innerHTML = `<div style="display:flex; align-items:center; gap:10px"><h2 id="tourTitle">${esc(p.login)}의 사무실</h2><button type="button" class="x" id="tourX">닫기</button></div>
-    <p class="note" style="margin-top:4px">주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${esc(agoLabel(daysAgo(o.updatedAt)))} 기준이라 지금과 다를 수 있어요.</p>
-    ${o.floors.filter(f => f.level === 'tour').map(f => `<section class="tf"><h3>${f.floor}층 · <span class="u">${esc(f.name)}</span>${f.district ? `<small>· ${esc(DISTRICTS[f.district])}</small>` : ''}</h3>
+  tourOf = p;
+  const stCls = s => s === '일하는 중' ? 'work' : s === '회의 중' ? 'meet' : s === '막힘' ? 'block' : '';
+  $('#tourBox').innerHTML = `<div style="display:flex; align-items:center; gap:10px"><h2 id="tourTitle">${esc(t().tourTitle(p.login))}</h2><button type="button" class="x" id="tourX">${esc(t().close)}</button></div>
+    <p class="note" style="margin-top:4px">${esc(t().tourNote(dayRel(o.updatedAt)))}</p>
+    ${o.floors.filter(f => f.level === 'tour').map(f => `<section class="tf"><h3>${esc(t().floorN(f.floor))} · <span class="u">${esc(f.name || t().unnamed)}</span>${f.district ? `<small>· ${esc(t().districts[f.district])}</small>` : ''}</h3>
       ${f.summary ? `<p class="u" style="margin:0; font-size:13px">${esc(f.summary)}</p>` : ''}
-      ${f.desks.length ? `<div class="desks">${f.desks.map(d => `<div class="desk"><b class="u">${esc(d.role)}</b>${d.state ? `<span class="st ${d.state === '일하는 중' ? 'work' : d.state === '회의 중' ? 'meet' : d.state === '막힘' ? 'block' : ''}">${esc(d.state)}</span>` : ''}${d.task ? `<div class="u" style="margin-top:4px">${esc(d.task)}</div>` : ''}</div>`).join('')}</div>` : ''}
+      ${f.desks.length ? `<div class="desks">${f.desks.map(d => `<div class="desk"><b class="u">${esc(d.role)}</b>${d.state ? `<span class="st ${stCls(d.state)}">${esc(t().states[d.state] || d.state)}</span>` : ''}${d.task ? `<div class="u" style="margin-top:4px">${esc(d.task)}</div>` : ''}</div>`).join('')}</div>` : ''}
       ${f.board.length ? `<ul class="boardl">${f.board.map(b => `<li class="u">${esc(b)}</li>`).join('')}</ul>` : ''}</section>`).join('')}`;
   $('#tour').hidden = false;
   $('#tourX').addEventListener('click', closeTour);
   $('#tourX').focus();
 }
-function closeTour() { $('#tour').hidden = true; const tb = $('#tourBtn'); if (tb) tb.focus(); }
+function closeTour() { $('#tour').hidden = true; tourOf = null; const tb = $('#tourBtn'); if (tb) tb.focus(); }
+
+/* ---------- 내 건물 세우기 패널(설치 없이) ---------- */
+// 나라를 고르면 명령에 --country가 바로 붙어요. ‘고르지 않음’은 붙이지 않고(이미 고른 나라가 있으면 그대로), ‘나라 빼기’는 --country none.
+let joinCountry = '', joinQ = '', joinFrom = null;
+const joinCmd = () => `curl -fsSL ${JOIN_SCRIPT} | python3 -I -${joinCountry ? ` --country ${joinCountry === '-' ? 'none' : joinCountry}` : ''}`;
+function joinOpts() {
+  const coll = new Intl.Collator(lang), q = joinQ.trim().toLowerCase();
+  const list = [...COUNTRIES].map(c => ({ c, n: cname(c) })).sort((a, b) => coll.compare(a.n, b.n))
+    .filter(x => !q || x.c === joinCountry || x.n.toLowerCase().includes(q) || x.c.toLowerCase() === q);
+  return `<option value=""${joinCountry === '' ? ' selected' : ''}>${esc(t().joinNone)}</option>`
+    + list.map(x => `<option value="${x.c}"${x.c === joinCountry ? ' selected' : ''}>${flag(x.c)} ${esc(x.n)}</option>`).join('')
+    + `<option value="-"${joinCountry === '-' ? ' selected' : ''}>${esc(t().joinRemove)}</option>`;
+}
+function openJoin() {
+  if (!$('#join').contains(document.activeElement)) joinFrom = document.activeElement;
+  $('#joinBox').innerHTML = `<div style="display:flex; align-items:center; gap:10px"><h2 id="joinH" tabindex="-1">${esc(t().joinH)}</h2><button type="button" class="x" data-act="join-x">${esc(t().close)}</button></div>
+    <div class="fld"><label for="joinQ">${esc(t().joinSearch)}</label><input type="search" id="joinQ" value="${esc(joinQ)}" placeholder="${esc(t().joinSearchPh)}" autocomplete="off" spellcheck="false" aria-controls="joinC"></div>
+    <div class="fld"><label for="joinC">${esc(t().joinCountry)} <small>${esc(t().joinOpt)}</small></label>
+      <select id="joinC">${joinOpts()}</select>
+      <p class="note">${esc(t().joinCountryNote)}</p></div>
+    <div class="fld"><span class="lb">${esc(t().joinCmd)}</span>
+      <div class="cmd"><code id="joinCode">${esc(joinCmd())}</code><button type="button" class="btn" id="joinCopy">${esc(t().copy)}</button></div></div>
+    <p class="note" style="margin-top:14px">${esc(t().joinFoot)} <a href="${esc(JOIN_SOURCE)}" target="_blank" rel="noopener">${esc(t().joinSrc)}</a></p>
+    <details><summary>${esc(t().joinMore)}</summary><ol>${t().joinSteps.map(s => `<li>${esc(s)}</li>`).join('')}</ol><p class="note">${esc(t().joinWhat)}</p></details>`;
+  $('#join').hidden = false;
+  $('#joinC').addEventListener('change', e => { joinCountry = e.target.value; $('#joinCode').textContent = joinCmd(); });
+  $('#joinQ').addEventListener('input', e => { joinQ = e.target.value; $('#joinC').innerHTML = joinOpts(); });   // 사파리는 option을 숨기지 못해서 목록을 다시 만들어요
+  $('#joinCopy').addEventListener('click', e => copy(joinCmd(), e.currentTarget, t().copy));
+  $('#joinH').focus();
+}
+function closeJoin() { $('#join').hidden = true; if (joinFrom && joinFrom.isConnected) joinFrom.focus(); }
+
+/* ---------- 바꾸기: 보기·나라·언어 ---------- */
+let loaded = false, loadState = { failed: 0, cut: 0, error: false };
+function syncURL() {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (view === 'numbers') q.set('view', 'numbers'); else q.delete('view');
+    if (zone === 'ALL') q.delete('country'); else q.set('country', zone || 'none');
+    const s = q.toString();
+    history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash);
+  } catch (e) {}
+}
+function setView(v, announce = true) {
+  view = v;
+  $$('#viewGroup button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  $('#numbers').hidden = v !== 'numbers';
+  $('#stage').setAttribute('aria-hidden', String(v === 'numbers'));
+  refreshChrome();
+  if (v === 'numbers') drawNumbers();
+  if (selected) card(selected);
+  syncURL();
+  if (announce) $('#live').textContent = v === 'numbers' ? t().toldNum(people.filter(inZone).length) : t().toldCity;
+  if (v === 'numbers' && announce && !selected) $('#numH').focus({ preventScroll: true });
+}
+function setZone(c, announce = true) {
+  zone = c;
+  shown = PAGE;
+  ctryOptions();
+  applySel();
+  if (view === 'buildings') fit(); else drawNumbers();
+  refreshChrome();
+  syncURL();
+  if (announce) $('#live').textContent = t().toldZone(zone === 'ALL' ? t().all : cname(zone), zone === 'ALL');
+}
+function ctryOptions() {
+  const known = zone === 'ALL' || ZONES.some(z => z.c === zone);
+  const sel = $('#ctry');
+  sel.innerHTML = `<option value="ALL">${esc(t().all)} (${people.length})</option>` + ZONES.map(z => `<option value="${esc(z.c)}">${flag(z.c)} ${esc(cname(z.c))} (${z.list.length})</option>`).join('')
+    + (known ? '' : `<option value="${esc(zone)}">${flag(zone)} ${esc(cname(zone))} (0)</option>`);
+  sel.value = zone;
+}
+// 위 막대의 개수, 아래 안내, 가운데 알림, 확대 버튼: 보기와 사람 수에 맞춰요
+function refreshChrome() {
+  const nc = ZONES.filter(z => z.c).length;
+  const extra = [loadState.failed ? t().failedN(loadState.failed) : '', loadState.cut ? t().cutN(loadState.cut) : '', DEMO ? t().demo : ''].filter(Boolean).join(' · ');
+  const cnt = $('#count');
+  if (loadState.error) cnt.textContent = t().loadFail;
+  else if (!people.length && !loaded) cnt.textContent = t().loading;
+  else cnt.innerHTML = t().count(people.length) + (nc ? t().countC(nc) : '') + (loaded ? '' : esc(t().loadingTail)) + (extra ? ' · ' + esc(extra) : '');
+  cnt.classList.toggle('warn', loadState.error || !!loadState.failed || !!loadState.cut);
+  if ($('#ctry').options.length !== ZONES.length + 1 || !loaded) ctryOptions();
+  const h = $('#hint'), few = loaded && people.length <= FEW && !loadState.error;
+  h.hidden = view !== 'buildings';
+  h.classList.toggle('big', few);
+  const rules = `<a href="${VISION_URL}" target="_blank" rel="noopener">${esc(t().rules)}</a>`;
+  h.innerHTML = few ? `${esc(t().few(people.length))}${canJoin() ? ' · ' + joinBtn('go', t().join) : ''}`
+    : `<span class="wide">${esc(t().hint)} · ${nc ? esc(t().hintZone) + ' · ' : ''}</span>${!LOCAL ? `<span class="wide">${esc(t().noInstall)} </span>${joinBtn('go', t().join)} · ` : ''}${rules}`;
+  $('#zoom').hidden = view !== 'buildings';
+  // 가운데 알림: 고른 나라에 아무도 없을 때(주소로 들어온 경우)
+  const m = $('#msg');
+  if (m.dataset.kind !== 'load') {
+    const none = loaded && people.length && zone !== 'ALL' && !ZONES.some(z => z.c === zone);
+    m.hidden = !none || view !== 'buildings';
+    if (none) { m.dataset.kind = 'zone'; m.innerHTML = `<h2>${esc(t().emptyC)}</h2><p>${joinBtn('go', t().firstB)}</p>`; }
+  }
+  document.documentElement.style.setProperty('--top', topH() + 'px');
+}
+function staticText() {
+  document.documentElement.lang = lang;
+  document.title = t().docTitle;
+  $$('[data-t]').forEach(n => { const v = t()[n.dataset.t]; if (typeof v === 'string') n.textContent = v; });
+  $('#viewGroup').setAttribute('aria-label', t().viewGroup);
+  $('#langGroup').setAttribute('aria-label', t().langGroup);
+  $('#stage').setAttribute('aria-label', t().map);
+  $('#zin').setAttribute('aria-label', t().zin); $('#zout').setAttribute('aria-label', t().zout); $('#zfit').setAttribute('aria-label', t().zfit);
+  $$('#langGroup button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+}
+let msgArgs = null;   // 불러오기 알림(언어를 바꾸면 다시 써요)
+function message(kind) {
+  msgArgs = kind;
+  const m = $('#msg');
+  m.dataset.kind = 'load';
+  const [title, body, html] = kind.k === 'noLoad' ? [t().noLoad, t().noLoadB(kind.n)] : kind.k === 'listFail' ? [t().listFail, t().listFailB]
+    : [t().none, '', LOCAL ? (kind.missing ? `<a class="go" href="./?setup=4">${esc(t().noneLocal)}</a>` : '') : `${esc(t().noInstall)} ${joinBtn('go', t().join)}`];
+  m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body || t().noneB)}</p>`;
+  m.hidden = false;
+}
+function setLang(l) {
+  lang = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+  staticText();
+  if (people.length) draw();
+  ctryOptions();
+  refreshChrome();
+  if (view === 'numbers') drawNumbers();
+  if (msgArgs) message(msgArgs);
+  if (selected) card(selected);
+  if (tourOf) tour(tourOf);
+  if (!$('#join').hidden) openJoin();
+}
 
 /* ---------- 조작: 끌기·핀치·누르기 ---------- */
 const stage = $('#stage');
 const ptrs = new Map();
 let drag = null, pinch = null, wasMove = false;
 const findPerson = target => { const n = target && target.closest && target.closest('[data-login]'); return n ? people.find(x => x.login === n.dataset.login) : null; };
+const findZone = target => { const n = target && target.closest && target.closest('[data-zone]'); return n ? n.dataset.zone : null; };
 stage.addEventListener('pointerdown', e => {
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   try { stage.setPointerCapture(e.pointerId); } catch (x) {}
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (ptrs.size === 1) { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, slop: e.pointerType === 'mouse' ? 4 : 10 }; wasMove = false; }
+  if (ptrs.size === 1) { drag = { id: e.pointerId, x: e.clientX, y: e.clientY, vx: pan.x, vy: pan.y, slop: e.pointerType === 'mouse' ? 4 : 10 }; wasMove = false; }
   else if (ptrs.size === 2) {
     const [a, b] = [...ptrs.values()];
     pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
@@ -523,7 +1113,7 @@ stage.addEventListener('pointermove', e => {
   if (pinch && ptrs.size >= 2) {
     const [a, b] = [...ptrs.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    view.x += mx - pinch.mx; view.y += my - pinch.my;
+    pan.x += mx - pinch.mx; pan.y += my - pinch.my;
     zoomAt(d / pinch.d, mx, my);
     pinch = { d, mx, my };
     return;
@@ -533,7 +1123,7 @@ stage.addEventListener('pointermove', e => {
   if (!wasMove && Math.hypot(dx, dy) < drag.slop) return;
   if (!wasMove) stage.classList.add('drag');
   wasMove = true; moved = true;
-  view.x = drag.vx + dx; view.y = drag.vy + dy; applyView();
+  pan.x = drag.vx + dx; pan.y = drag.vy + dy; applyView();
 });
 function endPtr(e) {
   ptrs.delete(e.pointerId);
@@ -545,8 +1135,10 @@ stage.addEventListener('pointerup', e => {
   const tap = drag && e.pointerId === drag.id && !wasMove && ptrs.size === 1;
   endPtr(e);
   if (!tap) return;
-  const p = findPerson(document.elementFromPoint(e.clientX, e.clientY));
-  if (p) card(p); else if (!$('#card').hidden) closeCard();
+  const hit = document.elementFromPoint(e.clientX, e.clientY), zc = findZone(hit), p = findPerson(hit);
+  if (zc !== null) setZone(zc);
+  else if (p) card(p);
+  else if (!$('#card').hidden) closeCard();
 });
 stage.addEventListener('pointercancel', endPtr);
 stage.addEventListener('lostpointercapture', e => { if (ptrs.has(e.pointerId)) endPtr(e); });
@@ -556,6 +1148,8 @@ $('#zout').addEventListener('click', () => zoomAt(0.8, innerWidth / 2, innerHeig
 $('#zfit').addEventListener('click', () => fit());
 svg.addEventListener('keydown', e => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
+  const zc = findZone(e.target);
+  if (zc !== null) { e.preventDefault(); setZone(zc); return; }
   const p = findPerson(e.target);
   if (p) { e.preventDefault(); card(p); }
 });
@@ -564,15 +1158,37 @@ svg.addEventListener('focusin', e => {
   const p = findPerson(e.target);
   if (!p || !p.box) return;
   const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
-  const sx = p.box.cx * view.k + view.x, sy = ((p.box.top + p.box.maxY) / 2) * view.k + view.y;
-  if (sx < 40 || sx > W - 40 || sy < 80 || sy > H - 60) { view.x += W / 2 - sx; view.y += H / 2 - sy; moved = true; applyView(); }
+  const sx = p.box.cx * pan.k + pan.x, sy = ((p.box.top + p.box.maxY) / 2) * pan.k + pan.y;
+  if (sx < 40 || sx > W - 40 || sy < 80 || sy > H - 60) { pan.x += W / 2 - sx; pan.y += H / 2 - sy; moved = true; applyView(); }
 });
+$('#viewGroup').addEventListener('click', e => { const b = e.target.closest('button[data-view]'); if (b && b.dataset.view !== view) setView(b.dataset.view); });
+$('#langGroup').addEventListener('click', e => { const b = e.target.closest('button[data-lang]'); if (b && b.dataset.lang !== lang) setLang(b.dataset.lang); });
+$('#ctry').addEventListener('change', e => setZone(e.target.value));
+$('#numbers').addEventListener('click', e => {
+  const s = e.target.closest('[data-sort]');
+  if (s) { sortBy = s.dataset.sort; shown = PAGE; drawNumbers(); const b = $(`[data-sort="${sortBy}"]`); if (b) b.focus(); $('#live').textContent = sortBy === 'today' ? t().byToday : t().byTotal; return; }
+  const b = e.target.closest('.who'); if (b) { const p = people.find(x => x.login === b.dataset.login); if (p) card(p); }
+});
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  if (a.dataset.act === 'join') openJoin();
+  else if (a.dataset.act === 'join-x') closeJoin();
+  else if (a.dataset.act === 'more') { shown += PAGE; drawNumbers(); }
+});
+$('#join').addEventListener('click', e => { if (e.target.id === 'join') closeJoin(); });
+// 창 안에서만 Tab이 돌아요(둘러보기·내 건물 세우기)
+function trap(box, e) {
+  const f = [...box.querySelectorAll('button, a[href], select, input, summary')].filter(x => !x.disabled && x.offsetParent !== null);
+  if (!f.length) return;
+  const i = f.indexOf(document.activeElement);
+  if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+}
 document.addEventListener('keydown', e => {
-  if (e.key === 'Tab' && !$('#tour').hidden) {          // 둘러보기 창 안에서만 돌아요
-    const f = [...$('#tourBox').querySelectorAll('button, a[href]')];
-    if (f.length) { const i = f.indexOf(document.activeElement); if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); } }
-  }
+  if (e.key === 'Tab' && !$('#join').hidden) { trap($('#joinBox'), e); return; }
+  if (e.key === 'Tab' && !$('#tour').hidden) { trap($('#tourBox'), e); return; }
   if (e.key !== 'Escape') return;
+  if (!$('#join').hidden) { closeJoin(); return; }
   if (!$('#tour').hidden) { closeTour(); return; }
   if (!$('#card').hidden) closeCard();
 });
@@ -580,22 +1196,29 @@ $('#tour').addEventListener('click', e => { if (e.target.id === 'tour') closeTou
 // 창 크기가 바뀌면: 직접 움직이지 않았으면 다시 맞추고, 움직였으면 가운데 있던 곳을 그대로 가운데에
 let lastW = innerWidth, lastH = innerHeight;
 addEventListener('resize', () => {
+  document.documentElement.style.setProperty('--top', topH() + 'px');
   if (!bounds) return;
   if (!moved) fit();
-  else { view.x += (innerWidth - lastW) / 2; view.y += (innerHeight - lastH) / 2; applyView(); }
+  else { pan.x += (innerWidth - lastW) / 2; pan.y += (innerHeight - lastH) / 2; applyView(); }
   lastW = innerWidth; lastH = innerHeight;
 });
 
 /* ---------- 시작 ---------- */
-// html: 페이지에 미리 적어 둔 글(#join이나 고정 링크)만 넘겨요. 남이 만든 글은 body로(esc).
-function message(title, body, html) { const m = $('#msg'); m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body)}</p>`; m.hidden = false; }
 function addPerson(m) {
   const w = work(m.meter), h = hash(m.login);
-  people.push(Object.assign(m, { w, floors: floorsOf(w), level: levelOf(w), recent: recentDays(m.meter), stale: daysAgo(m.meter.updatedAt),
+  people.push(Object.assign(m, { w, total: totalOf(m.meter), today: todayOf(m.meter), c: m.office ? m.office.country : '',
+    floors: floorsOf(w), level: levelOf(w), recent: recentDays(m.meter), stale: daysAgo(m.meter.updatedAt),
     size: Math.max(2, Math.min(4, 2 + Math.floor(activeDays(m.meter) / 120))), hsl: [h % 360, 22 + (h >>> 9) % 18, 42 + (h >>> 17) % 12] }));
-  $('#count').innerHTML = `건물 <b>${people.length}</b>채 · 불러오는 중`;
   scheduleDraw();
+  if (view === 'numbers') drawNumbers();
 }
+// 주소의 나라: ?country=all|none|KR (목록에 없는 코드여도 '아직 이 나라에는 건물이 없어요'를 보여 줘요)
+const qc = (params.get('country') || '').toUpperCase();
+const askedZone = !!qc;
+if (qc) zone = qc === 'ALL' ? 'ALL' : qc === 'NONE' ? '' : COUNTRY_RE.test(qc) ? qc : 'ALL';
+staticText();
+setView(view, false);
+refreshChrome();
 (async () => {
   // 로컬 사무실 서버라면 org.json의 city 설정(registry, me)을 써요. 공개 도시·정적 호스팅이면 읽지 않고 그냥 기본값.
   if (LOCAL) try {
@@ -612,27 +1235,37 @@ function addPerson(m) {
     const st = JSON.parse(await getCapped('api/state', MAX_BYTES, true));
     if (st && typeof st.github === 'string' && LOGIN_RE.test(st.github)) { me = st.github; if (!CONFIG.me) CONFIG.me = me; }
   } catch (e) {}
+  await loadCountries();
   try {
     const res = await loadMembers(addPerson);
-    const extra = [res.failed ? `${res.failed}명 못 불러옴` : '', res.cut ? `${res.cut}명은 시간이 걸려 뺐어요` : '', DEMO ? '예시' : ''].filter(Boolean).join(' · ');
-    $('#count').innerHTML = `건물 <b>${people.length}</b>채${extra ? ' · ' + esc(extra) : ''}`;
-    if (res.failed || res.cut) $('#count').classList.add('warn');
+    loaded = true;
+    loadState = { failed: res.failed, cut: res.cut || 0, error: false };
     const missing = !!me && !res.logins.includes(me.toLowerCase());
     if (missing) $('#build').hidden = false;
+    meMissing = missing || (LOCAL && !me);   // 앱에서 아직 GitHub에 로그인하지 않았으면 설정 4단계로 이어 줘요
+    await new Promise(r => requestAnimationFrame(r));   // 한 사람씩 그리던 것(scheduleDraw)이 먼저 끝나게: 아래 맞춤(?who, 내 나라)을 덮어쓰지 않게
+    rerank();
     if (!people.length) {
-      if (res.listed) message('건물을 불러오지 못했어요', `명단의 ${res.listed}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`);
-      else message('아직 건물이 없어요', '내 숫자를 올리고 참가하면 첫 건물이 서요.', LOCAL ? (missing ? '<a href="./?setup=4">설정 4단계</a>에서 내 건물을 세우면 첫 건물이 서요.' : '') : $('#join').innerHTML);
+      refreshChrome();
+      message(res.listed ? { k: 'noLoad', n: res.listed } : { k: 'none', missing });
       return;
     }
+    // 휴대폰은 도시 전체가 너무 작아서 내 나라 구역부터 열어요(나라를 고르지 않은 방문자는 전체). 위의 나라 고르기로 '모든 나라'를 볼 수 있어요.
+    const mine = people.find(isMe);
+    if (!askedZone && narrow() && people.length > FEW && mine && mine.c) zone = mine.c;
     layout(); draw();
+    ctryOptions();
+    refreshChrome();
+    if (view === 'numbers') drawNumbers();
     const want = params.get('who');
     const p = want && people.find(x => x.login.toLowerCase() === want.toLowerCase());
     if (!moved) fit(p || undefined);
     if (p) card(p);
   } catch (e) {
-    $('#count').textContent = '불러오지 못함';
-    $('#count').classList.add('warn');
-    message('명단을 불러오지 못했어요', '인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.');
+    loaded = true;
+    loadState = { failed: 0, cut: 0, error: true };
+    refreshChrome();
+    message({ k: 'listFail' });
   }
 })();
 })();

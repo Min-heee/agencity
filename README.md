@@ -58,7 +58,9 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 
 - 사무실 위쪽 **도시 보기 →**로 열어요.
 - 설치하지 않은 사람도 [min-heee.github.io/agencity](https://min-heee.github.io/agencity/)에서 봐요.
-- 기본은 비공개예요. GitHub에 연결한 뒤 **설정 → 공개 범위**의 **도시에 내 건물 세우기**에서 내 숫자를 올리고 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요. 층도 같은 화면에서 골라요.
+- 기본은 비공개예요. GitHub에 연결한 뒤 **설정 → 공개 범위**의 **도시에 내 건물 세우기**에서 내 숫자를 올리고 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요. 층과 나라도 같은 화면에서 골라요.
+- 건물은 본인이 고른 나라 구역에 서요. **[빌딩 | 숫자]**로 총 토큰 순위표(오늘 숫자 함께)를 보고, **[한국어 | English]**로 화면 글을 바꿔요.
+- 에이전시티를 깔지 않아도 공개 도시의 **내 건물 세우기 →**에서 만든 명령 한 줄로 숫자(와 고른 나라)만 올려 건물을 세울 수 있어요. 올리기 전에 한 번 더 물어봐요.
 
 [도시 안내](docs/GUIDE.md#에이전시티-도시) · [앞으로의 계획](docs/VISION.md)
 
@@ -67,7 +69,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 - 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude·Codex에서는 세션 목록(제목·폴더·그룹·마지막 활동)만 읽어요. 허락하면 추천 팀을 위해 세션마다 첫 메시지 앞부분에서 역할 낱말만 찾아요. 세션 만들기·총괄 만들기로 기다리는 동안(30분까지)은 그사이 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 이 맥 안에서만 보고, 저장하거나 AI에 보내지 않아요.
 - 화면에서 보낸 말은 승인으로 쓰이지 않아요. 커밋·배포·결제는 그 세션 창에서 내가 직접 확인해요.
 - 도시에는 내가 확인한 것만 올라가요. 대화·결재·보고서 원문은 올리지 않아요.
-- 내 건물을 세울 때는 Claude·Codex·Gemini 로그에서 토큰 수·모델 이름·시각만 세요(대화 글은 꺼내지 않아요). 올라가는 건 이 숫자뿐이고, **gist에 올리기**를 누를 때(켜 둔 하루 한 번 새로 올리기)만 나가요. 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고 gist를 지워요.
+- 내 건물을 세울 때는 Claude·Codex·Gemini 로그에서 토큰 수·모델 이름·시각만 세요(대화 글은 꺼내지 않아요). 올라가는 건 이 숫자뿐이고, **gist에 올리기**를 누를 때(켜 둔 자동으로 올리기는 1시간마다, 숫자가 바뀌었을 때만)만 나가요. 고른 나라는 공개 gist에 올라가고, 시간대는 나라와 따로 늘 올라가요. 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고 gist를 지워요.
 - 사용량 알림(기본 꺼짐)을 켜면 같은 로그에서 토큰 수·시각·작업 폴더만 이 맥 안에서 세요. 아무것도 보내지 않고, 끄면 읽지 않아요.
 
 [보안 자세히 보기 →](docs/GUIDE.md#보안)
@@ -91,9 +93,9 @@ On first run it skims your session list (Claude Code and Codex) and recommends a
 From one page you can message any session, run meetings, and approve what team leads file.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
-The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed).
-You can join it from the setup screen without Node or gh: it counts token numbers only (never conversation text) and uploads them to your public usage gist only when you press the button.
-Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The UI is in Korean. Formerly Claude Office (until v0.3.1).
+The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed). Buildings stand in the country each member picks, with a total-token leaderboard, and the city page is in Korean and English.
+You can join from the setup screen without Node or gh, or without installing anything through a one-line command from the city page (macOS or Linux terminal): it counts token numbers only (never conversation text) and uploads them to your public usage gist only after you confirm. In the app you can also turn on hourly auto upload, which posts only when the numbers changed.
+Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The app UI is in Korean. Formerly Claude Office (until v0.3.1).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/main/install.sh | sh
