@@ -648,7 +648,7 @@ python3 bin/new_team.py
 에이전시티를 깔지 않아도 돼요. 공개 도시의 **내 건물 세우기 →**에서 나라를 고르면(안 골라도 돼요) 명령 한 줄이 만들어져요.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.9.0/bin/city_join.py | python3 -I - --country KR
+curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.9.1/bin/city_join.py | python3 -I - --country KR
 ```
 
 1. 같은 판의 숫자 세기 도우미(`bin/token_meter.py`)와 나라 목록만 임시 폴더에 받아 쓰고 끝나면 지워요. 설치 폴더를 만들지 않아요.
@@ -658,7 +658,7 @@ curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.9.0/bin/city_j
 5. `y`를 치고 엔터를 누르면 내 공개 gist에 사용량 파일을 올리고, `--country`를 줬으면 같은 gist의 `agencity.json`에서 나라만 고쳐요(소개·층은 그대로). 아직 도시 명단에 없으면 **도시 참가 신청** 화면을 열어 줘요. 제출은 본인이 눌러요.
 
 - 준비물은 맥이나 리눅스의 터미널(윈도는 WSL), python3, GitHub 계정이에요(node·gh는 없어도 돼요). 맥은 python3를 처음 쓸 때 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 실행해요.
-- 붙여 넣기 전에 스크립트를 읽어 볼 수 있어요: [bin/city_join.py (v0.9.0)](https://github.com/Min-heee/agencity/blob/v0.9.0/bin/city_join.py)
+- 붙여 넣기 전에 스크립트를 읽어 볼 수 있어요: [bin/city_join.py (v0.9.1)](https://github.com/Min-heee/agencity/blob/v0.9.1/bin/city_join.py)
 - 나라를 바꾸려면 `--country JP`, 빼려면 `--country none`으로 다시 실행해요. `--country`를 안 주면 나라는 그대로예요.
 - 숫자를 새로 올리려면 같은 줄을 다시 실행해요. 숫자도 나라도 그대로면 아무것도 올리지 않아요. 저절로 올라가지는 않아요(자동으로 올리기는 에이전시티 앱에서 켜요).
 - 저장소를 받았다면 `python3 bin/city_join.py --dry-run`으로 숫자만 세어 볼 수 있어요(로그인도, 올리기도 안 해요).
