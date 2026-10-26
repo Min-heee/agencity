@@ -839,7 +839,17 @@ def api_state():
         age = max(0, round(time.time() - os.path.getmtime(WATCHING if os.path.exists(RETIRED) else HEARTBEAT)))
     except OSError:
         pass
-    return {"ok": True, "pending": pending, "oldestAge": oldest, "relayAge": age}
+    return {"ok": True, "pending": pending, "oldestAge": oldest, "relayAge": age, "rearm": rearm_text()}
+
+
+def rearm_text():
+    """[다시 연결]이 클립보드에 넣는 말. 컴퓨터가 잠들었다 깨면 총괄 창의 감시(Monitor, 30분)가 멈춰서,
+    총괄 창에 붙여 넣고 Enter를 누르면 docs/COORDINATOR.md 1번과 같은 명령으로 다시 켜요. 진짜 총괄이 없으면 빈 글이에요."""
+    b = boss_sid()
+    if not b:
+        return ""
+    return ("사이트 전달 감시가 끊겼어(컴퓨터가 잠들었다 깨면 그래). Monitor 도구로 이 명령을 다시 켜 줘(최대 30분, 끝나면 다시 켜):\n"
+            "python3 -I -u '" + os.path.join(HERE, "bin", "relay_watch.py") + "' --boss " + b)
 
 
 def api_outbox_check(q):
