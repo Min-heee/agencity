@@ -551,8 +551,8 @@ office_server.py ──► 팀 사무실 파일에 기록 (chat/*.jsonl, meeting
    └─► outbox/<id>.json  (전달할 메시지, 서버가 만든 것만 등록)
             │
             ▼
-총괄(코디네이터) Claude Code 세션 ── Monitor로 bin/relay_watch.py 실행
-            │   RELAY <파일> 알림을 받으면
+총괄(코디네이터) Claude Code 세션 ── Bash 백그라운드로 bin/relay_watch.py --until-item 실행
+            │   RELAY <파일>을 찍고 끝나면 깨어나 같은 명령을 다시 켜고
             ▼
       SendMessage(to=세션 id, 내용 그대로)  ──►  팀 세션
                                                    │ 답은 Write로 .out/<역할>.txt에 쓰고

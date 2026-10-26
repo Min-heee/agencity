@@ -843,13 +843,16 @@ def api_state():
 
 
 def rearm_text():
-    """[다시 연결]이 클립보드에 넣는 말. 컴퓨터가 잠들었다 깨면 총괄 창의 감시(Monitor, 30분)가 멈춰서,
-    총괄 창에 붙여 넣고 Enter를 누르면 docs/COORDINATOR.md 1번과 같은 명령으로 다시 켜요. 진짜 총괄이 없으면 빈 글이에요."""
+    """[다시 연결]이 클립보드에 넣는 말. Claude 앱을 다시 켰거나 총괄 창이 쉬게 되면(예전 지시의 Monitor는 30분마다 끝나고요) 감시가 멈춰서,
+    총괄 창에 붙여 넣고 Enter를 누르면 docs/COORDINATOR.md 1번과 같은 명령으로 다시 켜요. 예전 지시로 만든 총괄도 이 말대로 바꿔 켜요.
+    진짜 총괄이 없으면 빈 글이에요."""
     b = boss_sid()
     if not b:
         return ""
-    return ("사이트 전달 감시가 끊겼어(컴퓨터가 잠들었다 깨면 그래). Monitor 도구로 이 명령을 다시 켜 줘(최대 30분, 끝나면 다시 켜):\n"
-            "python3 -I -u '" + os.path.join(HERE, "bin", "relay_watch.py") + "' --boss " + b)
+    return ("사이트 전달 감시가 끊겼어. Bash 도구에 run_in_background: true를 주고 이 명령을 다시 켜 줘(Monitor 말고. 시간 제한 없이 돌다가 전할 게 생기면 찍고 끝나):\n"
+            "python3 -I -u " + shlex.quote(os.path.join(HERE, "bin", "relay_watch.py")) + " --boss " + b + " --until-item\n"
+            "끝났다는 알림이 오면 알림에 적힌 출력 파일(output-file)을 Read로 읽고, RELAY-ERROR 줄이 없으면 먼저 같은 명령을 다시 켠 뒤 "
+            "줄마다 처음 지시의 RELAY 처리대로 해. RELAY-ERROR 줄이 있으면 다시 켜지 말고 나에게 알려 줘.")
 
 
 def api_outbox_check(q):

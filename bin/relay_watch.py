@@ -1,4 +1,4 @@
-"""총괄 세션이 Monitor로 돌리는 감시기.
+"""총괄 세션이 Bash의 run_in_background(--until-item)나 Monitor로 돌리는 감시기.
 
 outbox/에 새 '전달할 메시지'가 생기면, 서버가 만든 항목인지(/api/outbox/check, 내용 해시 비교) 확인한 뒤
 `RELAY <파일>`을 찍어요. 서버가 만든 게 아니면 outbox/rejected/로 옮기고 `RELAY-REJECT <파일>`을 찍어요.
@@ -17,6 +17,13 @@ outbox/에 새 '전달할 메시지'가 생기면, 서버가 만든 항목인지
 Claude 앱이 명령에 넘겨주는 CLAUDE_CODE_HOST_SESSION_ID(이 창의 local_… id, 문서로 정해진 값이 아니라 없을 수도 있어요)가 있으면
 예전 총괄(outbox/.retired) 창에서 다시 켠 감시는 --boss에 무엇을 적었든 바로 끝내고, --boss가 이 창이 아니어도 끝내요.
 총괄이 이 창으로 바뀌었을 때는 멈추지 않아요.
+--until-item으로 켜면 RELAY·RELAY-STALE·RELAY-REJECT를 찍은 뒤 2초 더 모아 찍고 끝나요. 끝나면 Claude가 총괄을 깨워요.
+Monitor처럼 30분마다 다시 켜는 턴이 없고, 컴퓨터가 잠들어도 시간이 다 되어 끝나지 않아요. 지금의 Claude 앱은 백그라운드 작업이 도는
+세션을 메모리가 모자랄 때도 내리지 않아요(문서로 정해진 동작은 아니에요. Monitor는 다시 켜기 전 빈틈에 내려진 적이 있어요).
+이 모드에서는 서버에 닿지 않아도, 잠깐의 파일 오류가 나도 끝내지 않고 기다려요(끝내면 총괄이 깨어 턴을 써요).
+RELAY-ERROR는 다시 켜도 같을 때만 찍고 끝나요. 알린 항목은 outbox/.announced에 남겨서, 바로 다시 켠 감시기가
+같은 항목을 또 알리지 않아요(90초가 지나면 RELAY-STALE). 끝날 때 .heartbeat·.watching을 30초 앞으로 고쳐서,
+총괄이 다시 켜는 사이 사이트가 '끊김'으로 깜빡이지 않게 해요.
 """
 import argparse
 import fcntl
@@ -42,6 +49,9 @@ HOST_SID = HOST_SID if SESSION_ID.match(HOST_SID) else None
 RETIRED = os.path.join(OUT, ".retired")   # 바뀌기 전 총괄 id(한 줄에 하나). 서버가 총괄을 바꿀 때 적어요
 CHANGED = "RELAY-ERROR 총괄이 바뀌었어요. 감시를 멈춰요."
 WATCHING = os.path.join(OUT, ".watching")   # 0.7.0부터의 감시기만 고치는 heartbeat(내용은 내 총괄 id)
+ANNOUNCED = os.path.join(OUT, ".announced")   # --until-item: 알린 항목 이름 -> 알린 시각(JSON). .json으로 끝나면 항목으로 쳐져요
+GATHER = 2     # --until-item: 처음 알린 뒤 이만큼(초) 더 모아서 끝나요(한꺼번에 온 항목을 한 번에 깨우게)
+HANDOFF = 30   # --until-item: 끝날 때 heartbeat를 이만큼(초) 앞으로 고쳐요(총괄이 다시 켜는 사이)
 os.makedirs(OUT, exist_ok=True)
 announced = {}   # 파일 이름 -> 마지막으로 알린 시각
 
@@ -106,6 +116,39 @@ def retire(sid):
         pass
 
 
+def load_announced():
+    """--until-item: 앞 감시기가 알린 항목(이름 -> 시각). 없거나 못 읽으면 빈 dict."""
+    try:
+        with open(ANNOUNCED, encoding="utf-8") as f:
+            d = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(d, dict):
+        return {}
+    return {k: v for k, v in d.items() if isinstance(k, str) and isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+
+def save_announced():
+    tmp = f"{ANNOUNCED}.tmp{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(announced, f)
+        os.replace(tmp, ANNOUNCED)
+    except OSError:
+        pass
+
+
+def handoff(t):
+    """--until-item으로 끝나기 전: heartbeat를 HANDOFF초 앞으로 고쳐요(지금 서버에 닿을 때만). 총괄이 다시 켜면 1초마다 다시 고쳐요."""
+    if t - last_ok > 5:
+        return
+    for p in (os.path.join(OUT, ".heartbeat"), WATCHING):
+        try:
+            os.utime(p, (t + HANDOFF, t + HANDOFF))
+        except OSError:
+            pass
+
+
 def take_lock():
     """outbox/.watch.lock을 잡아요(감시기는 하나만). 다시 켤 때 앞 감시기가 막 끝나는 중일 수 있어 6초까지 기다려요.
     못 잡으면 False. 잠글 수 없는 곳이면 예전처럼 그냥 돌아요."""
@@ -159,11 +202,17 @@ def genuine(path, port, mine):
     return bool(res.get("ok")) and res.get("sha") == h and f"{item.get('id')}.json" == os.path.basename(path)
 
 
-ap = argparse.ArgumentParser(description="총괄 세션이 Monitor로 돌리는 전달 감시기")
+ap = argparse.ArgumentParser(description="총괄 세션이 Bash run_in_background(--until-item)나 Monitor로 돌리는 전달 감시기")
 ap.add_argument("--boss", help="내 총괄 세션 id(local_…). 그 세션이 총괄이 될 때까지 알리지 않아요. 없으면 켤 때 org.json의 boss.sessionId")
+ap.add_argument("--until-item", action="store_true", help="전할 게 생기면 찍고 끝나요(Bash run_in_background로 켤 때, 시간 제한 없음)")
 args = ap.parse_args()
 if args.boss is not None and not SESSION_ID.match(args.boss):
     ap.error("--boss는 local_… 모양의 세션 id예요")
+UNTIL = args.until_item
+unverified = set()   # --until-item: 앞 감시기가 .announced에 남긴 이름. 다시 알리기(STALE) 전에 서버에 한 번 확인해요
+if UNTIL:
+    announced = load_announced()
+    unverified = set(announced)
 cur = org_boss()
 if HOST_SID and HOST_SID in retired():   # 이 창이 바뀌기 전 총괄이에요(--boss에 새 총괄 id를 적었어도)
     print(CHANGED, flush=True)
@@ -186,6 +235,7 @@ ppid = os.getppid()
 last_ok = last_probe = 0.0
 down_said = False
 mismatch_said = None
+leave_at = None   # --until-item: 이 시각이 지나면 끝나요(처음 알린 뒤 GATHER초)
 while True:
     try:
         t = time.time()
@@ -194,9 +244,11 @@ while True:
         if ENV_PORT and fp and fp != ENV_PORT and mismatch_said != fp:
             mismatch_said = fp
             print(f"RELAY-ERROR 서버는 {fp} 포트에 켜져 있는데 OFFICE_PORT={ENV_PORT}로 감시 중이에요. OFFICE_PORT 없이 다시 켜요.", flush=True)
+            if UNTIL:   # 다시 켜도 같아요
+                sys.exit(0)
         if t - last_probe >= 3:
             last_probe = t
-            if ppid != 1 and os.getppid() == 1:   # 켠 쪽(Monitor)이 끝나 혼자 남았어요. 잠금을 쥔 채 남지 않게 끝내요
+            if ppid != 1 and os.getppid() == 1:   # 켠 쪽(Monitor·Bash)이 끝나 혼자 남았어요. 잠금을 쥔 채 남지 않게 끝내요
                 sys.exit(0)
             cur = org_boss()
             if not active:   # --boss: 그 세션이 총괄이 되면 시작하고, 총괄 바꾸기를 기다리는 중도 아니면 끝내요
@@ -219,7 +271,8 @@ while True:
                 last_ok, down_said = t, False
             elif active and t - last_ok > 5 and not down_said:
                 down_said = True
-                print(f"RELAY-ERROR 서버에 연결 못 함 (포트 {port}). 사무실 서버가 켜져 있는지 확인해요.", flush=True)
+                if not UNTIL:   # --until-item은 서버가 다시 켜질 때까지 조용히 기다려요(사이트도 꺼져 있어요)
+                    print(f"RELAY-ERROR 서버에 연결 못 함 (포트 {port}). 사무실 서버가 켜져 있는지 확인해요.", flush=True)
         if not active:
             time.sleep(1)
             continue
@@ -232,25 +285,39 @@ while True:
         for n in names:
             p = os.path.join(OUT, n)
             last = announced.get(n)
-            if last is None:
+            if last is None or (t - last > 90 and n in unverified):
+                # 처음 보는 항목, 또는 앞 감시기가 .announced에 남긴 이름(그 파일은 누구나 쓸 수 있어서 STALE로 알리기 전에 서버에 확인해요)
                 g = genuine(p, port, mine)
                 if g is None:
                     continue
+                unverified.discard(n)
                 if not g:
+                    announced.pop(n, None)
                     if not os.path.exists(p):   # 그사이 서버가 켜지며 옮겼어요(앞 서버가 넘기지 않은 항목)
                         continue
                     os.makedirs(os.path.join(OUT, "rejected"), exist_ok=True)
                     shutil.move(p, os.path.join(OUT, "rejected", n))
                     print(f"RELAY-REJECT {os.path.join(OUT, 'rejected', n)}", flush=True)
+                    leave_at = leave_at or t + GATHER
                     continue
                 announced[n] = t
-                print(f"RELAY {p}", flush=True)
+                print(f"RELAY{'' if last is None else '-STALE'} {p}", flush=True)
+                leave_at = leave_at or t + GATHER
             elif t - last > 90:
                 announced[n] = t
                 print(f"RELAY-STALE {p}", flush=True)
-        for n in list(announced):
-            if n not in names:
-                del announced[n]
+                leave_at = leave_at or t + GATHER
+        gone = [n for n in announced if n not in names]
+        for n in gone:
+            del announced[n]
+            unverified.discard(n)
+        if UNTIL and (gone or leave_at):
+            save_announced()
     except OSError as e:
-        print(f"RELAY-ERROR {e}", flush=True)
+        if not UNTIL:   # --until-item은 끝내지 않고 다음에 다시 해요
+            print(f"RELAY-ERROR {e}", flush=True)
+    if UNTIL and leave_at and time.time() >= leave_at:   # 알린 뒤에는 같은 바퀴에서 파일 오류가 나도 GATHER가 지나면 꼭 끝나요(총괄을 깨워요)
+        save_announced()
+        handoff(time.time())
+        sys.exit(0)
     time.sleep(1)
