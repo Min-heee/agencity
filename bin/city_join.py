@@ -42,7 +42,7 @@ from urllib.parse import urlencode, urlsplit
 
 # 받은 스크립트가 같은 판의 파일만 쓰게 태그에 고정해요. 릴리스할 때 VERSION, city.html의 JOIN_REF, docs/GUIDE.md의 명령과
 # 같이 바꿔요(tests/test_city.py가 봐요).
-REF = "v0.9.1"
+REF = "v0.9.2"
 REPO = "Min-heee/agencity"
 CITY_URL = "https://min-heee.github.io/agencity/"
 
