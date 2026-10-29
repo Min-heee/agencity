@@ -905,9 +905,22 @@ async function loadTeam(t) {
   const reports = (await listDir(base + 'reports/').catch(() => [])).filter(f => f.endsWith('.md')).sort();
   const meeting = meetings.length ? { file: meetings[meetings.length - 1], text: await getText(base + 'meetings/' + enc(meetings[meetings.length - 1])).catch(() => '') } : null;
   // 사이트 회의(대표가 연 회의): meetings/<id>.json 정보 + <id>.chat.jsonl 대화
-  const metas = (await Promise.all(meetDir.filter(f => /^\d{8}-M-\d+\.json$/.test(f)).sort().slice(-12)
+  const meetKey = f => { const m = /^(\d{8})-M-(\d+)/.exec(f); return m ? m[1] + String(m[2]).padStart(6, '0') : f; };   // 하루 10번째 회의(M-10)도 M-9 뒤로
+  const metas = (await Promise.all(meetDir.filter(f => /^\d{8}-M-\d+\.json$/.test(f)).sort((a, b) => (meetKey(a) < meetKey(b) ? -1 : meetKey(a) > meetKey(b) ? 1 : 0)).slice(-12)
     .map(f => getJSON(base + 'meetings/' + enc(f)).catch(() => null)))).filter(Boolean);
   const active = metas.find(m => m.status === '진행 중') || metas.find(m => m.status === '정리 중') || null;
+  // 대표가 끝낸(정리 중·끝) 사이트 회의 때문에 아직 '회의 중'으로 남은 상태는 회의 전 상태(prev_state·prev_task)로 보여요.
+  // 팀장이 [회의 결과]를 보내 되돌리기 전이어도 회의실을 비워요. 끝난 회의 가운데 가장 늦게 끝난 시각보다 뒤에 고친 '회의 중'(팀이 따로 연 회의 등)과
+  // 지금 진행 중인 회의의 참석자는 그대로예요.
+  const meetEnd = Math.max(-Infinity, ...metas.filter(m => m.status !== '진행 중').map(m => Date.parse(m.end_requested || m.closed || m.ended || '')).filter(x => !Number.isNaN(x)));
+  const liveMeet = metas.find(m => m.status === '진행 중');
+  const inLive = r => !!(liveMeet && Array.isArray(liveMeet.participants) && liveMeet.participants.includes(r));
+  if (meetEnd > -Infinity) for (const r of Object.keys(status)) {
+    const s = status[r];
+    if (!s || typeof s !== 'object' || s.state !== '회의 중' || inLive(r) || Date.parse(s.updated) > meetEnd) continue;
+    const prev = typeof s.prev_state === 'string' && ST[s.prev_state] && s.prev_state !== '회의 중' ? s.prev_state : '대기';
+    status[r] = { state: prev, task: typeof s.prev_task === 'string' ? s.prev_task : '', say: '', updated: s.updated };
+  }
   const activeChat = active ? jsonl(await getText(base + 'meetings/' + enc(active.id + '.chat.jsonl')).catch(() => '')) : [];
   // 결재: approvals/<id>.json — 번호는 늘 파일 이름이에요(파일 안 id 칸은 무시)
   const approvals = (await Promise.all((await listDir(base + 'approvals/').catch(() => [])).filter(f => /\.json$/.test(f) && !f.startsWith('.'))

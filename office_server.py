@@ -763,6 +763,103 @@ def api_meeting_end(body):
     return {"ok": True}
 
 
+# 위임 회의가 오래 조용하면(대표가 빠진 뒤 팀이 마무리하지 않고 멈춤) 팀장에게 한 번 알려요. 대표가 연 회의만, 회의마다 한 번이에요.
+MEET_IDLE = 1800      # 회의 대화가 이만큼(초) 조용하면
+MEET_WATCH_EVERY = 300
+MEET_AWAKE = [0.0]     # 맥이 잠들었다 깬 시각(meeting_watch가 적어요). 그 전은 조용함으로 치지 않아요
+
+
+def meeting_nudge(t0=None):
+    """진행 중인 위임 회의 중 대화 파일이 MEET_IDLE초 넘게 그대로인 회의마다 팀장에게 [사이트 알림]을 한 번 보내요(meta의 nudged에 적어요).
+    보낸 회의 id 목록을 돌려줘요. 팀장이 없거나 예시 팀이면 건너뛰어요."""
+    t0 = time.time() if t0 is None else t0
+    sent = []
+    try:
+        teams = [t for t in org().get("teams", []) if isinstance(t, dict) and t.get("office") and not is_example(t)]
+    except (OSError, ValueError, AttributeError):
+        return sent
+    for t in teams:
+        try:   # 층 하나의 모양이 이상해도(team.json이 깨짐 등) 다른 층은 계속 살펴요
+            sent += meeting_nudge_floor(t, t0)
+        except Exception:  # noqa: BLE001
+            continue
+    return sent
+
+
+def meeting_quiet(base, mid, chat, meta_path, members):
+    """회의가 조용했던 시간(초 전 기준의 가장 늦은 고친 시각): 회의 대화, 위임 의견 폴더(meetings/<번호>/), 참석자 status 파일 중 가장 늦은 것."""
+    times = []
+    for p in (chat, meta_path):
+        try:
+            times.append(os.path.getmtime(p))
+            break   # 대화 파일이 있으면 그것, 없으면 회의 정보(nudged를 적어도 다시 알리지 않아서 괜찮아요)
+        except OSError:
+            continue
+    d = os.path.join(base, "meetings", mid)
+    try:
+        times += [os.path.getmtime(os.path.join(d, n)) for n in os.listdir(d)]
+    except OSError:
+        pass
+    for role in members:
+        try:
+            times.append(os.path.getmtime(os.path.join(base, "status", role + ".json")))
+        except OSError:
+            pass
+    return max(times) if times else None
+
+
+def meeting_nudge_floor(t, t0):
+    sent = []
+    t, base, members = team_info(t.get("id"))
+    if "팀장" not in members:
+        return sent
+    d = os.path.join(base, "meetings")
+    try:
+        names = sorted(n for n in os.listdir(d) if re.fullmatch(r"\d{8}-M-\d+\.json", n))
+    except OSError:
+        return sent
+    for n in names:
+        meta_path = os.path.join(d, n)
+        chat = os.path.join(d, n[:-5] + ".chat.jsonl")
+        with LOCK:
+            try:
+                meta = load_json(meta_path)
+            except (OSError, ValueError):
+                continue
+            if not isinstance(meta, dict) or meta.get("status") != "진행 중" or meta.get("mode") != "위임" or meta.get("nudged"):
+                continue
+            last = meeting_quiet(base, n[:-5], chat, meta_path, {r: m for r, m in members.items() if r in (meta.get("participants") or members)})
+            if last is None or t0 - max(last, MEET_AWAKE[0]) < MEET_IDLE:   # 잠들어 있던 시간은 조용함으로 치지 않아요
+                continue
+            meta["nudged"] = now()
+            write_json(meta_path, meta)
+        mid = meta.get("id") or n[:-5]
+        append_line(chat, {"t": now(), "from": "사이트", "kind": "알림", "text": "위임 회의가 30분 넘게 조용해서 팀장에게 마무리를 알렸어요."})
+        enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+                f"[사이트 알림] 위임 회의 {mid}가 30분 넘게 조용해요. 사이트가 저절로 보내는 알림이에요(대표가 쓴 말은 아니에요).\n"
+                f"남은 안건이 있으면 마무리하고, 팀 규칙의 회의 끝 순서대로 닫아요: 회의록 {os.path.join(base, 'meetings', mid + '.md')} → "
+                f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.\n"
+                f"회의 파일: {chat}{reply_hint(chat, '팀장')}", chat)
+        sent.append(mid)
+    return sent
+
+
+def meeting_watch():
+    last = time.time()
+    while True:
+        time.sleep(MEET_WATCH_EVERY)
+        t = time.time()
+        woke = t - last > MEET_WATCH_EVERY * 3   # 맥이 잠들었다 깼어요: 그사이 시간은 조용함으로 치지 않게 이번엔 건너뛰어요
+        last = t
+        if woke:
+            MEET_AWAKE[0] = t
+            continue
+        try:
+            meeting_nudge()
+        except Exception:  # noqa: BLE001 — 알림이 안 돼도 서버는 계속 돌아요
+            pass
+
+
 def api_meeting_close(body):
     """'정리 중'에서 멈춘 회의를 대표가 직접 닫아요(새 회의를 열 수 있게)."""
     t, base, members = team_info(body.get("team"))
@@ -6479,6 +6576,7 @@ def main():
             seat_kick()
     except Exception:  # noqa: BLE001
         pass
+    threading.Thread(target=meeting_watch, name="meeting-watch", daemon=True).start()   # 오래 조용한 위임 회의는 팀장에게 한 번 알려요
     print(f"에이전시티: http://127.0.0.1:{PORT}  (끄려면 Ctrl-C)", flush=True)
     try:
         srv.serve_forever()
