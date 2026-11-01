@@ -4039,14 +4039,14 @@ def gist_call(method, path, body=None):
     gh는 진짜 GitHub에만 붙어요(시험용 API 주소면 쓰지 않아요, office_public.py와 같아요). 오류 글(gh의 표준 오류 포함)은 답에 넣지 않아요."""
     g = github_state()
     if not g:
-        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 1단계)")
+        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 → 도시)")
     if g["via"] == "device":
         t = load_token()
         if not t:
-            raise ApiError(409, "GitHub 로그인이 풀렸어요. 설정 1단계에서 다시 로그인해 주세요")
+            raise ApiError(409, "GitHub 로그인이 풀렸어요. 설정 → 도시에서 다시 로그인해 주세요")
         return github_call(f"{GITHUB_API}/{path}", token=t["token"], method=method, body=body, limit=TM_READ_MAX, lists=True)
     if GITHUB_API != "https://api.github.com" or not shutil.which("gh"):
-        raise ApiError(409, "gh를 찾지 못했어요. 설정 1단계에서 GitHub로 다시 로그인해 주세요")
+        raise ApiError(409, "gh를 찾지 못했어요. 설정 → 도시에서 GitHub로 다시 로그인해 주세요")
     args = ["gh", "api", "--hostname", "github.com", "-X", method, path] + (["--input", "-"] if body is not None else [])
     env = {k: v for k, v in os.environ.items() if k not in ("GH_DEBUG", "DEBUG", "GH_HOST")}   # 디버그 출력에는 인증 머리글이 찍혀요
     env.update(GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1", NO_COLOR="1")
@@ -4071,7 +4071,7 @@ def gist_call(method, path, body=None):
 
 def tm_gh_fail(code):
     if code == 401:
-        return ApiError(409, "GitHub 로그인이 풀렸어요. 설정 1단계에서 다시 로그인해 주세요")
+        return ApiError(409, "GitHub 로그인이 풀렸어요. 설정 → 도시에서 다시 로그인해 주세요")
     if code in (403, 404):
         return ApiError(409, "gist에 쓰지 못했어요. GitHub 로그인에 gist 권한이 있는지 확인해 주세요(로그아웃 뒤 다시 로그인)")
     return ApiError(502, f"GitHub이 받지 않았어요({code}). 잠시 뒤 다시 해 주세요")
@@ -4263,7 +4263,7 @@ def tm_publish(text, login, only=None):
                 if cur:
                     break
         if not cur and only:
-            raise ApiError(409, "명단에 있는 내 gist가 없어져서 올리지 않았어요. 설정 4단계에서 다시 올려 주세요")
+            raise ApiError(409, "명단에 있는 내 gist가 없어져서 올리지 않았어요. 설정 → 도시에서 다시 올려 주세요")
         if not cur:
             gid = tm_find(me)
             cur = tm_read(gid, me) if gid else None
@@ -4328,7 +4328,7 @@ def tm_view(login):
 def tm_login():
     g = github_state()
     if not g:
-        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 1단계)")
+        raise ApiError(409, "먼저 GitHub에 로그인해 주세요(설정 → 도시)")
     return g["login"]
 
 
@@ -6472,7 +6472,7 @@ class Handler(SimpleHTTPRequestHandler):
             o = self.headers.get("Origin")
             hdrs = [("Vary", "Origin")]
             if o is None or o in ORIGINS:
-                gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 4단계로 이어 주려고 써요(아이디만)
+                gh = github_state()   # 도시 페이지가 내 건물이 없을 때 설정 → 도시로 이어 주려고 써요(아이디만)
                 su = load_setup()
                 res = dict(api_state(), version=VERSION, home=HOME_ID, github=gh["login"] if gh else None,
                            filling=fill_running(su))   # 빈자리 채우기 줄이 도는지(먼저 열어 둔 다른 탭도 그 줄을 보게)

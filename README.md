@@ -4,8 +4,9 @@
 
 **내 AI 에이전시를 꾸리고, 도시 위로 한 층씩 올려요.**
 
-Claude Code 세션들을 팀으로 묶어, 팀마다 사무실 한 층으로 보여 줘요.<br>
-누가 무슨 일을 하는지 한눈에 보고, 한 화면에서 말 걸고 회의하고 결재해요.
+Claude Code 세션들이 팀이 되어 사무실 한 층에서 움직여요.<br>
+일할 땐 책상에 앉고, 회의가 열리면 회의실로 걸어가고, 일을 기다릴 땐 커피를 마셔요.<br>
+한 화면에서 말 걸고 회의하고 결재해요.
 
 [설치](#설치) · [처음 켜면](#처음-켜면) · [사용 안내서](docs/GUIDE.md) · [English](#english)
 
@@ -16,9 +17,9 @@ Claude Code 세션들을 팀으로 묶어, 팀마다 사무실 한 층으로 보
 ## 이런 걸 해요
 
 - **연결하면 추천 팀을 만들어 줘요**: Claude·Codex 세션 목록을 훑어 층마다 팀을 추천해요. 보고 고친 뒤 한 번에 만들어요.
-- **한눈에 보기**: 층마다 책상·회의실·업무판·보고서가 있어요. 책상에는 세션 상태와 하는 일이 떠요.
+- **한눈에 보기**: 층마다 사무실 장면과 팀원 명단이 있어요. 사람들이 실제 상태대로 움직이고, 명단에는 세션 상태와 하는 일이 떠요. 회의실·업무판·보고서도 한 화면에 있어요.
 - **팀은 내 마음대로**: 세션을 팀장·팀원 자리에 앉히고, 역할 이름은 직접 지어요. 빈자리는 **세션 만들기**로 바로 채워요.
-- **바로 대화**: 책상을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요.
+- **바로 대화**: 사람이나 명단의 이름을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요.
 - **회의**: 내가 같이 하거나(참석), 팀에 맡기고 회의록으로 받아요(위임).
 - **결재**: 팀장이 올린 결재를 결재함에서 고르면 그 팀장에게 바로 전해져요.
 - **팀끼리**: 팀장끼리 다른 층과 이야기해요. 주고받은 말은 화면의 **팀 간 대화**에 남아요.
@@ -42,13 +43,11 @@ zip·git으로 받기와 설치 옵션은 [사용 안내서](docs/GUIDE.md#설�
 
 ## 처음 켜면
 
-1. **설정 화면이 떠요.** 먼저 둘러보려면 **나중에 하기**를 눌러요. 예시 팀으로 열려요.
-2. **추천 팀을 봐요.** 이 맥의 Claude·Codex 세션으로 층마다 팀을 추천해 줘요. 고칠 건 고치고 **추천대로 모두 만들기**를 눌러요. 직접 고르기도 그 아래에 있어요.
-3. **팀 규칙을 이어요.** 완료 화면의 **CLAUDE.local.md 한 줄 넣기**를 켜 둔 채로 끝내요(기본으로 켜져 있어요). 팀 세션들이 팀 규칙을 읽게 돼요.
-4. **총괄을 켜요.** **총괄 만들기**를 누르고 Claude 앱 작성창에서 Enter만 눌러요. 화면에서 보낸 말을 이 세션이 팀에 전해 줘요. 손으로 하려면 [이 지시](docs/COORDINATOR.md)를 붙여 넣어요.
+1. **사무실 만들기 화면이 떠요.** 이 맥의 Claude·Codex 세션으로 층마다 팀을 추천해 줘요. 줄을 펼쳐 보고 고칠 건 고쳐요. 직접 고르기도 그 아래에 있어요. 먼저 둘러보려면 **예시 팀 먼저 보기**를 눌러요.
+2. **사무실을 열어요.** **사무실 열기 · 층 n개**를 누르면 층이 생겨요. **팀 규칙 줄 넣기**(기본 켬)를 둔 채면 층 폴더의 `CLAUDE.local.md`에 한 줄을 넣어 팀 세션들이 팀 규칙을 읽어요.
+3. **총괄을 켜요.** **총괄 세션도 열기**(기본 켬)를 둔 채 열면 Claude 앱에 총괄 창이 떠요. 작성창의 글을 읽고 Enter만 눌러요. 화면에서 보낸 말을 이 세션이 팀에 전해 줘요. 손으로 하려면 [이 지시](docs/COORDINATOR.md)를 붙여 넣어요.
 
-Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는 원할 때만 해요.
-설정은 사무실 위쪽 **설정**에서 언제든 다시 열어요. [단계별 설명 →](docs/GUIDE.md#처음-설정)
+Claude는 따로 로그인하지 않아요. GitHub 로그인·도시 공개·알림은 원할 때 사무실 위쪽 **설정**(층·총괄·도시·알림)에서 해요. [자세한 설명 →](docs/GUIDE.md#처음-설정)
 
 ## 에이전시티 도시
 
@@ -56,9 +55,9 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인과 도시 공개는
 
 등록한 사람마다 **토큰 작업량만큼 높은 건물**이 서요. 건물을 누르면 주인이 공개한 층만 읽기 전용으로 둘러봐요.
 
-- 사무실 위쪽 **도시 보기 →**로 열어요.
+- 사무실 위쪽 **도시**로 열어요.
 - 설치하지 않은 사람도 [min-heee.github.io/agencity](https://min-heee.github.io/agencity/)에서 봐요.
-- 기본은 비공개예요. GitHub에 연결한 뒤 **설정 → 공개 범위**의 **도시에 내 건물 세우기**에서 내 숫자를 올리고 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요. 층과 나라도 같은 화면에서 골라요.
+- 기본은 비공개예요. GitHub에 연결한 뒤 **설정 → 도시**의 **도시에 내 건물 세우기**에서 내 숫자를 올리고 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요. 층과 나라도 같은 화면에서 골라요.
 - 건물은 본인이 고른 나라 구역에 서요. **[빌딩 | 숫자]**로 총 토큰 순위표(오늘 숫자 함께)를 보고, **[한국어 | English]**로 화면 글을 바꿔요.
 - 에이전시티를 깔지 않아도 공개 도시의 **내 건물 세우기 →**에서 만든 명령 한 줄로 숫자(와 고른 나라)만 올려 건물을 세울 수 있어요. 올리기 전에 한 번 더 물어봐요.
 
@@ -88,7 +87,8 @@ v0.3.1까지는 클로드 오피스(Claude Office)라는 이름이었어요. 라
 ## English
 
 **Agencity**: run your AI agency, and raise it into the skyline.
-A local dashboard that seats your Claude Code desktop sessions as teams, one office floor per team.
+Your Claude Code sessions become a team on one office floor.
+They sit at their desks while working, walk to the meeting room for meetings, and grab a coffee while they wait.
 On first run it skims your session list (Claude Code and Codex) and recommends a team per floor, which you review and create in one click; with your consent it also checks the first lines of each session for role words, on this Mac only.
 From one page you can message any session, run meetings, and approve what team leads file.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.

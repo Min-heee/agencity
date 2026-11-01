@@ -41,7 +41,7 @@ python3 bin/new_team.py --spec -             # 명세를 표준 입력으로 받
 - roles: 예전 모양({"팀장": "local_…", "개발자": null, "디자이너": null, "기획": null}). members가 없을 때만 봐요.
   네 자리를 늘 만들고, 이미 있던 팀 사무실이면 다른 자리는 두고 새로 적은 세션 id만 고쳐요.
 - boss: 총괄 세션 id. 적으면 org.json의 총괄을 바꾸고, 비우면 그대로 둬요.
-- dropDemo: 한 층이라도 만들면 예시 팀을 층 안내에서 빼요(기본 true).
+- dropDemo: 한 층이라도 만들면 예시 팀을 층 고르기에서 빼요(기본 true).
 - floor: 몇 층에 둘지(없어도 돼요). 지금 사무실이 있는 층 수가 n이면 1~n+1이고(예시 팀을 빼고 만들면 예시 팀은 세지 않아요),
   k면 지금 k층 앞에 넣고 그 뒤의 층을 한 층씩 올려요(사무실이 있는 층을 1층부터 다시 매겨요). 같은 자리를 고른 층은 보낸 순서대로,
   n+1이나 안 보내면 맨 뒤(다음 층)예요. created의 floor는 이번에 다 넣은 뒤의 층 번호예요.
@@ -642,7 +642,7 @@ def main():
         used.add(v)
         members.append({"role": role, "sessionId": v})
     demo = demo_teams(org)
-    drop_demo = bool(demo) and ask("예시 팀을 층 안내에서 뺄까요? (y/n)", default="y", check=lambda v: v in ("y", "n")) == "y"
+    drop_demo = bool(demo) and ask("예시 팀을 층 고르기에서 뺄까요? (y/n)", default="y", check=lambda v: v in ("y", "n")) == "y"
     boss = org.get("boss") if isinstance(org.get("boss"), dict) else {}
     boss_sid = str(boss.get("sessionId") or "")
     if not boss_sid or boss_sid.startswith(PLACEHOLDER):

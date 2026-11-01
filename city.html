@@ -259,7 +259,7 @@ button,select,input{font:inherit}
   <span class="chip" id="count" role="status"></span>
   <span class="sp"></span>
   <a class="chip" id="home" href="./" hidden data-t="home">← 내 사무실</a>
-  <a class="chip" id="build" href="./?setup=4" hidden data-t="build">내 건물 세우기 →</a>
+  <a class="chip" id="build" href="./?setup=city" hidden data-t="build">내 건물 세우기 →</a>
   <a class="chip visit-only" href="https://github.com/Min-heee/agencity#설치" target="_blank" rel="noopener" data-t="install">에이전시티 설치 ↗</a>
   <div class="ctl">
     <div class="seg" role="group" id="viewGroup">
@@ -360,7 +360,7 @@ const T = {
     tourTitle: p => `${p}의 사무실`, tourNote: d => `주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${d} 기준이라 지금과 다를 수 있어요.`,
     states: { '일하는 중': '일하는 중', '대기': '대기', '회의 중': '회의 중', '막힘': '막힘' },
     noLoad: '건물을 불러오지 못했어요', noLoadB: n => `명단의 ${n}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`,
-    none: '아직 건물이 없어요', noneB: '내 숫자를 올리고 참가하면 첫 건물이 서요.', noneLocal: '설정 4단계에서 내 건물을 세우면 첫 건물이 서요.',
+    none: '아직 건물이 없어요', noneB: '내 숫자를 올리고 참가하면 첫 건물이 서요.', noneLocal: '설정 → 도시에서 내 건물을 세우면 첫 건물이 서요.',
     listFail: '명단을 불러오지 못했어요', listFailB: '인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.',
     toldCity: '빌딩 보기로 바꿨어요', toldNum: n => `숫자 보기로 바꿨어요 · ${n}명`, toldZone: (cn, all) => all ? '모든 나라를 보여 줘요' : `${cn} 구역을 보여 줘요`,
     joinH: '설치 없이 내 건물 세우기', joinCountry: '나라', joinOpt: '(안 골라도 돼요)', joinNone: '고르지 않음', joinRemove: '나라 빼기 (이미 고른 나라를 지워요)',
@@ -408,7 +408,7 @@ const T = {
     tourTitle: p => `${p}'s office`, tourNote: d => `Read-only. You see only the floors the owner opened for touring, and only what they chose to share. As of ${d}, so things may have changed.`,
     states: { '일하는 중': 'Working', '대기': 'Idle', '회의 중': 'In a meeting', '막힘': 'Blocked' },
     noLoad: "Couldn't load any buildings", noLoadB: n => `None of the ${n} people on the list could be loaded. Check your connection or try again in a bit.`,
-    none: 'No buildings yet', noneB: 'Post your numbers and join to raise the first building.', noneLocal: 'Add your building in Setup step 4 to raise the first one.',
+    none: 'No buildings yet', noneB: 'Post your numbers and join to raise the first building.', noneLocal: 'Add your building in Settings → City to raise the first one.',
     listFail: "Couldn't load the member list", listFailB: 'Check your connection or try again in a bit.',
     toldCity: 'Switched to city', toldNum: n => `Switched to leaderboard · ${n} ${n === 1 ? 'person' : 'people'}`, toldZone: (cn, all) => all ? 'Showing all countries' : `Showing ${cn}`,
     joinH: 'Add your building without installing anything', joinCountry: 'Country', joinOpt: '(optional)', joinNone: 'None', joinRemove: 'Remove my country (clears the one I picked)',
@@ -842,10 +842,10 @@ function bringIntoView(p) {
 }
 
 /* ---------- 숫자 보기 ---------- */
-// 내 건물 세우기: 공개 도시는 설치 없이 올리는 패널, 내 컴퓨터의 앱은 설정 4단계로(내 건물이 이미 서 있으면 보여 주지 않아요)
+// 내 건물 세우기: 공개 도시는 설치 없이 올리는 패널, 내 컴퓨터의 앱은 설정의 도시 묶음으로(내 건물이 이미 서 있으면 보여 주지 않아요)
 let meMissing = false;
 const canJoin = () => !LOCAL || meMissing;
-const joinBtn = (cls, label) => !canJoin() ? '' : LOCAL ? `<a class="${cls}" href="./?setup=4">${esc(label)}</a>` : `<button type="button" class="${cls}" data-act="join">${esc(label)}</button>`;
+const joinBtn = (cls, label) => !canJoin() ? '' : LOCAL ? `<a class="${cls}" href="./?setup=city">${esc(label)}</a>` : `<button type="button" class="${cls}" data-act="join">${esc(label)}</button>`;
 const scopeName = () => zone === 'ALL' ? t().all : `${flag(zone)} ${cname(zone)}`;
 const avatar = p => p.demo ? esc(p.login.replace(/^demo-/, '').slice(0, 1).toUpperCase())
   : `<img alt="" loading="lazy" src="https://avatars.githubusercontent.com/${encodeURIComponent(p.login)}?s=44" referrerpolicy="no-referrer">`;
@@ -1071,7 +1071,7 @@ function message(kind) {
   const m = $('#msg');
   m.dataset.kind = 'load';
   const [title, body, html] = kind.k === 'noLoad' ? [t().noLoad, t().noLoadB(kind.n)] : kind.k === 'listFail' ? [t().listFail, t().listFailB]
-    : [t().none, '', LOCAL ? (kind.missing ? `<a class="go" href="./?setup=4">${esc(t().noneLocal)}</a>` : '') : `${esc(t().noInstall)} ${joinBtn('go', t().join)}`];
+    : [t().none, '', LOCAL ? (kind.missing ? `<a class="go" href="./?setup=city">${esc(t().noneLocal)}</a>` : '') : `${esc(t().noInstall)} ${joinBtn('go', t().join)}`];
   m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body || t().noneB)}</p>`;
   m.hidden = false;
 }
@@ -1229,7 +1229,7 @@ refreshChrome();
     }
     $('#home').hidden = false;
   } catch (e) {}
-  // 이 맥의 사무실에 GitHub로 로그인했으면 그 아이디(서버가 알려 줘요). 명단에 없으면 설정 4단계(내 건물 세우기)로 이어 줘요.
+  // 이 맥의 사무실에 GitHub로 로그인했으면 그 아이디(서버가 알려 줘요). 명단에 없으면 설정 → 도시(내 건물 세우기)로 이어 줘요.
   let me = '';
   if (LOCAL && !DEMO) try {
     const st = JSON.parse(await getCapped('api/state', MAX_BYTES, true));
@@ -1242,7 +1242,7 @@ refreshChrome();
     loadState = { failed: res.failed, cut: res.cut || 0, error: false };
     const missing = !!me && !res.logins.includes(me.toLowerCase());
     if (missing) $('#build').hidden = false;
-    meMissing = missing || (LOCAL && !me);   // 앱에서 아직 GitHub에 로그인하지 않았으면 설정 4단계로 이어 줘요
+    meMissing = missing || (LOCAL && !me);   // 앱에서 아직 GitHub에 로그인하지 않았으면 설정 → 도시로 이어 줘요
     await new Promise(r => requestAnimationFrame(r));   // 한 사람씩 그리던 것(scheduleDraw)이 먼저 끝나게: 아래 맞춤(?who, 내 나라)을 덮어쓰지 않게
     rerank();
     if (!people.length) {

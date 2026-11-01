@@ -326,7 +326,7 @@ def publish(cfg, login, doc, keep, yes=False):
     if not GIST_RE.match(gist):
         gist = meter_gist_saved(me) or hub.meter_gist(me)
         if not gist:
-            sys.exit("아직 사용량 gist가 없어요. 앱의 설정 4단계 ‘도시에 내 건물 세우기’에서 내 숫자를 먼저 올려 주세요.")
+            sys.exit("아직 사용량 gist가 없어요. 앱의 설정 → 도시 ‘도시에 내 건물 세우기’에서 내 숫자를 먼저 올려 주세요.")
         print(f"· public.json에 gist가 없어서 내 사용량 gist({gist})에 올려요.", file=sys.stderr)
     info = hub.call("GET", f"gists/{gist}")
     if not isinstance(info, dict):
