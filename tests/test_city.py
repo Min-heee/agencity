@@ -226,6 +226,21 @@ class CountryList(unittest.TestCase):
                     x = re.sub(r"https?://[^\s)\]>`]+", "", line).replace("token-meter.json", "")
                     self.assertNotIn("token-meter", x, f"{os.path.relpath(p, ROOT)}:{i}")
 
+    def test_public_copy_says_all_that_goes_up(self):
+        """토큰 수만 올라가는 것처럼 좁게 쓰지 않아요. 횟수와 환산액도 올라가요. 로그는 읽으니 '읽지 않아요'라고 하지 않아요."""
+        narrow = ("토큰 수만", "토큰 숫자만 ", "토큰 수·모델 이름·시각만", "나가는 것: 토큰 수", "토큰 숫자와 고른 나라만", "토큰 숫자(와 고른 나라)만", "토큰 수, 날짜별", "대화 글은 읽지 않아요", "세션 정보는 올리지",
+                  "Only token counts", "token numbers only", "Token numbers", "token count", "chat text is not read", "session details", "**숫자만**", "(숫자만)", "숫자만 올려")
+        for name in ("README.md", "city.html", "office.src.html", "office_server.py", os.path.join("bin", "city_join.py"), os.path.join("docs", "GUIDE.md"), os.path.join("docs", "VISION.md")):
+            with open(os.path.join(ROOT, name), encoding="utf-8") as f:
+                text = f.read()
+            self.assertEqual([x for x in narrow if x in text], [], name)
+        with open(os.path.join(ROOT, "office.src.html"), encoding="utf-8") as f:
+            self.assertIn("나가는 것: 숫자(토큰·횟수·환산액)", f.read())
+        with open(os.path.join(ROOT, "city.html"), encoding="utf-8") as f:
+            page = f.read()
+        self.assertIn("숫자(토큰·횟수·환산액)", page)
+        self.assertIn("numbers (tokens, counts, cost estimate)", page)
+
     def test_pages_ships_countries(self):
         with open(os.path.join(ROOT, ".github", "workflows", "city.yml"), encoding="utf-8") as f:
             self.assertIn("city/countries.json", f.read())

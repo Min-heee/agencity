@@ -36,7 +36,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   /api/update/restart는 받지 않고 같은 도우미(--restart-only)로 끄고 다시 켜요. 페이지에는 이 서버의 버전·표시(BOOT)를 넣어요.
   code는 10초에 한 번까지 다시 보고, start.py는 /api/state?code=now로 바로 다시 보게 물어요(대개 파일 크기·시각만 봐서 가벼워요).
 - 도시에 내 건물 세우기(/api/setup/meter/*): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)로 Claude·Codex·Gemini 로그의
-  토큰 수·모델 이름·시각만 세어(대화 글은 읽지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
+  숫자·모델 이름·날짜만 세어(대화 글은 꺼내지 않아요) 올라갈 글 그대로 보여 주고, 대표가 확인하면 내 GitHub 로그인으로 공개 gist의
   token-meter.json만 만들거나 고쳐요. 참가 이슈는 대표가 GitHub에서 제출하고, 명단(token-meter의 members.json)을 읽어 확인해요.
   자동으로 올리기(1시간마다, 숫자가 바뀌었을 때만)는 켰을 때만(setup.json의 tokenMeter.auto)이에요.
 - 세션 만들기(/api/seat/*): 빈자리마다 claude://code/new 링크(층 폴더 + 첫 메시지)를 만들고, 새로 생긴 세션 기록을 3초마다 살펴
@@ -3832,8 +3832,8 @@ def api_update_restart(body):
 
 # ---------- 도시에 내 건물 세우기(token-meter 참가) ----------
 # 건물은 token-meter 명단(members.json)에 있는 사람의 공개 gist(token-meter.json) 숫자로 서요. node·gh 없이 여기서 다 해요:
-#   1) 세기(/api/setup/meter/preview): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)가 뒤에서 로그의 토큰 수·모델 이름·시각만 세요.
-#      대화 글은 읽지 않아요. 올라갈 글(token-meter.json) 그대로와 요약을 돌려주고, 세기만 해서는 아무것도 나가지 않아요.
+#   1) 세기(/api/setup/meter/preview): bin/token_meter.py(token-meter collect.mjs를 옮긴 것)가 뒤에서 로그의 숫자·모델 이름·날짜만 세요.
+#      대화 글은 꺼내지 않아요. 올라갈 글(token-meter.json) 그대로와 요약을 돌려주고, 세기만 해서는 아무것도 나가지 않아요.
 #   2) 올리기(/api/setup/meter/publish, confirm과 미리보기의 digest가 있어야 해요): 내 GitHub 로그인으로 공개 gist에 token-meter.json만
 #      만들거나 고쳐요(같은 gist의 agencity.json 같은 다른 파일은 그대로). 숫자가 그대로면 고치지 않아요(gist 수정 기록은 계속 공개라서).
 #   3) 참가(/api/setup/meter/join): token-meter 참가 이슈 주소(내 gist id가 채워져 있어요). 제출은 대표가 GitHub에서 직접 눌러요.

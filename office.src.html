@@ -5084,7 +5084,7 @@ function saveNote() {   // '저장'을 누른 뒤: 이 맥에만 적었다는 �
   if (p.current === true) return '저장했어요. 도시에 올라간 내용과 같아요.';
   return `저장했어요. 이 맥의 public.json에만 적었어요. 도시에는 예전 내용이 ${p.current === false ? '그대로 있으니' : '있을 수 있으니'} ${act}를 눌러 반영해요.`;
 }
-/* 도시 묶음의 ‘도시에 내 건물 세우기’: 서버(/api/setup/meter/*)가 내 토큰 숫자를 세고(bin/token_meter.py, 대화 글은 읽지 않아요),
+/* 도시 묶음의 ‘도시에 내 건물 세우기’: 서버(/api/setup/meter/*)가 내 사용량을 세고(bin/token_meter.py, 대화 글은 꺼내지 않아요),
    ‘gist에 올리기’를 눌러야 내 공개 gist에 token-meter.json을 올려요. 참가 신청(token-meter 저장소의 이슈)은 GitHub에서 대표가 직접 제출해요.
    신청을 기다리는 동안은 45초마다(창으로 돌아오면 바로) 명단을 다시 물어요. 서버에서 온 글은 모두 esc()를 거쳐요. */
 const MT = { st: null, at: 0, loading: false, none: false, pv: null, pvAt: 0, pvBusy: false, err: '', note: '', jsonOpen: false };
@@ -5117,7 +5117,7 @@ function mtPvHTML() {
       <div class="su-actions"><button type="button" class="btn primary" id="suMtPub" data-su="mt-pub" aria-describedby="suMtCf">gist에 올리기</button><button type="button" class="btn" data-su="mt-cancel">취소</button></div></div>`;
 }
 // 내 건물 상자 옆에 늘 보일 한 줄(운영 U-18 2장, 마케팅 U-15 5-3)
-const MT_SAY = '누구나 보는 공개 gist에 올라가고, 수정 기록은 지울 수 없어요. 나가는 것: 토큰 수·모델 이름·날짜·시간대.';
+const MT_SAY = '누구나 보는 공개 gist에 올라가고, 수정 기록은 지울 수 없어요. 나가는 것: 숫자(토큰·횟수·환산액)·모델 이름·날짜·시간대.';
 function mtHTML() {
   if (!API || MT.none) return '';
   const st = mtStage(), s = MT.st || {}, pv = mtPvHTML();

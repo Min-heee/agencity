@@ -337,7 +337,7 @@ const T = {
     viewGroup: '보기 바꾸기', viewCity: '빌딩', viewNum: '숫자', country: '나라', all: '모든 나라', noCountry: '나라 안 고름', langGroup: '언어 바꾸기',
     map: '에이전시티 도시 지도', zin: '가까이', zout: '멀리', zfit: '전체 보기',
     hint: '끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요', hintZone: '나라 이름판을 누르면 그 나라로 가요', join: '내 건물 세우기 →',
-    noInstall: '에이전시티를 깔지 않아도 돼요. 명령 한 줄로 토큰 숫자만 올리면 내 건물이 서요.',
+    noInstall: '에이전시티를 깔지 않아도 돼요. 명령 한 줄로 사용량만 올리면 내 건물이 서요.',
     few: n => `아직 ${n}명이에요`, people: n => `${n}명`, goZone: cn => `${cn} 구역으로 가기`, bld: (p, cn, f) => `${p}, ${cn}, ${f}층`,
     numTitle: '순위', numSub: (scope, n) => `${scope} · ${n}명`,
     numRule: '순위는 총 토큰 기준이에요. ‘오늘’은 각자 시간대의 오늘이에요. 숫자는 자기 신고 값이에요.',
@@ -355,7 +355,7 @@ const T = {
     share: '공유 글 복사', copied: '복사했어요',
     shareText: (floors, rk, url) => `에이전시티 도시에 내 건물이 섰어요. AI 토큰 쓴 만큼 ${floors}층, ${rk}예요. 나도 세워 보기 → ${url}`,
     heightNote: '건물 높이는 작업량 기준이에요(캐시 읽기는 10분의 1로 세요).',
-    cardNote: '숫자는 각자 세어 올린 자기 신고 값이에요. 대화·경로·세션 정보는 올리지 않아요.',
+    cardNote: '숫자는 각자 세어 올린 자기 신고 값이에요. 대화·경로·세션 id는 올리지 않아요.',
     unknown: '모름', justNow: '방금',
     tourTitle: p => `${p}의 사무실`, tourNote: d => `주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${d} 기준이라 지금과 다를 수 있어요.`,
     states: { '일하는 중': '일하는 중', '대기': '대기', '회의 중': '회의 중', '막힘': '막힘' },
@@ -372,10 +372,10 @@ const T = {
     joinMore: '자세히',
     joinSteps: [
       '나라를 골라요(안 골라도 돼요). 고른 나라가 들어간 명령 한 줄이 만들어져요.',
-      '그 줄을 복사해 터미널에 붙여 넣어요. 내 컴퓨터에서 토큰 수만 세고, 올라갈 내용을 그대로 보여 준 뒤 ‘올릴까요? [y/N]’을 물어요. 엔터만 누르면 아무것도 안 올라가요. 맥에서 python3를 처음 쓰면 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 붙여 넣어요.',
+      '그 줄을 복사해 터미널에 붙여 넣어요. 내 컴퓨터에서 사용량만 세고, 올라갈 내용을 그대로 보여 준 뒤 ‘올릴까요? [y/N]’을 물어요. 엔터만 누르면 아무것도 안 올라가요. 맥에서 python3를 처음 쓰면 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 붙여 넣어요.',
       'y를 치고 엔터를 누르면 내 GitHub gist에 올리고 도시 참가 신청 화면을 열어 줘요. 제출을 누르면 몇 분 뒤 도시에 내 건물이 서요. 신청 화면과 gist 파일 이름에는 도시 명단을 맡은 저장소 이름이 보여요.'
     ],
-    joinWhat: '올라가는 것은 토큰 수, 날짜별 합계, 모델 이름, 시간대, 고른 나라(골랐을 때만)뿐이에요. 대화·경로·프로젝트 이름은 올라가지 않아요. gist는 지난 수정 기록까지 공개로 남아요. 숫자를 새로 올리려면 같은 줄을 다시 실행해요. 저절로 올라가지는 않아요.',
+    joinWhat: '올라가는 것은 숫자(토큰·횟수·환산액), 날짜별 합계, 모델 이름, 시간대, 고른 나라(골랐을 때만)뿐이에요. 대화·경로·프로젝트 이름은 올라가지 않아요. gist는 지난 수정 기록까지 공개로 남아요. 숫자를 새로 올리려면 같은 줄을 다시 실행해요. 저절로 올라가지는 않아요.',
     districts: { app: '앱', web: '웹', data: '데이터', content: '콘텐츠', tool: '개발 도구', game: '게임', etc: '기타' }
   },
   en: {
@@ -385,7 +385,7 @@ const T = {
     viewGroup: 'Switch view', viewCity: 'City', viewNum: 'Leaderboard', country: 'Country', all: 'All countries', noCountry: 'No country', langGroup: 'Change language',
     map: 'Map of Agencity City', zin: 'Zoom in', zout: 'Zoom out', zfit: 'Show all',
     hint: 'Drag to look around. Click a building or name to see what its owner made public', hintZone: 'Click a country sign to go there', join: 'Add my building →',
-    noInstall: 'No Agencity install needed. One command publishes your token count, and your building goes up.',
+    noInstall: 'No Agencity install needed. One command publishes your usage, and your building goes up.',
     few: n => n === 1 ? 'Only 1 person so far' : `Only ${n} people so far`, people: n => `${n} ${n === 1 ? 'person' : 'people'}`, goZone: cn => `Go to ${cn}`, bld: (p, cn, f) => `${p}, ${cn}, ${f} floors`,
     numTitle: 'Leaderboard', numSub: (scope, n) => `${scope} · ${n} ${n === 1 ? 'person' : 'people'}`,
     numRule: 'Rank is based on total tokens. “Today” is in each person’s time zone. Numbers are self-reported.',
@@ -403,7 +403,7 @@ const T = {
     share: 'Copy share text', copied: 'Copied',
     shareText: (floors, rk, url) => `My building is up in Agencity City: ${floors} floors from my AI token usage, ${rk}. Raise yours → ${url}`,
     heightNote: 'Building height is based on work (cache reads count as one tenth).',
-    cardNote: 'Numbers are self-reported: each person counts and posts their own. No chats, file paths or session details are uploaded.',
+    cardNote: 'Numbers are self-reported: each person counts and posts their own. No chats, file paths or session ids are uploaded.',
     unknown: 'unknown', justNow: 'just now',
     tourTitle: p => `${p}'s office`, tourNote: d => `Read-only. You see only the floors the owner opened for touring, and only what they chose to share. As of ${d}, so things may have changed.`,
     states: { '일하는 중': 'Working', '대기': 'Idle', '회의 중': 'In a meeting', '막힘': 'Blocked' },
@@ -420,10 +420,10 @@ const T = {
     joinMore: 'More details',
     joinSteps: [
       'Pick a country (optional). You get a one-line command with that country filled in.',
-      'Copy it into your terminal. It counts your tokens on your own machine, shows exactly what will be posted, and asks “Upload? [y/N]”. Pressing Enter uploads nothing. On a Mac, the first python3 run may ask to install the command line tools. Once they’re installed, paste the same line again.',
+      'Copy it into your terminal. It counts your usage on your own machine, shows exactly what will be posted, and asks “Upload? [y/N]”. Pressing Enter uploads nothing. On a Mac, the first python3 run may ask to install the command line tools. Once they’re installed, paste the same line again.',
       'Type y and press Enter, and it publishes to a GitHub gist you own, then opens a Join the city request. Submit it and your building goes up in a few minutes. The request page and the gist file name show the name of the repo that runs the city’s member list.'
     ],
-    joinWhat: 'Only token counts, daily totals, model names, your time zone and your country (only if you pick one) are uploaded. No chats, paths or project names. Gist history is public, old revisions included. To post new numbers, run the same line again. Nothing uploads on its own.',
+    joinWhat: 'Only numbers (tokens, counts, cost estimate), daily totals, model names, your time zone and your country (only if you pick one) are uploaded. No chats, paths or project names. Gist history is public, old revisions included. To post new numbers, run the same line again. Nothing uploads on its own.',
     districts: { app: 'App', web: 'Web', data: 'Data', content: 'Content', tool: 'Dev tools', game: 'Games', etc: 'Other' }
   }
 };

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""에이전시티 도시에 설치 없이 내 건물 세우기 — 토큰 숫자(와 고른 나라)만 내 공개 gist에 올려요.
+"""에이전시티 도시에 설치 없이 내 건물 세우기 — 사용량과 고른 나라를 내 공개 gist에 올려요.
 
   curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/<태그>/bin/city_join.py | python3 -I - --country KR
   python3 bin/city_join.py [--country KR|none] [--lang ko|en] [--no-open] [--dry-run]   # 저장소를 받은 폴더에서
 
-- 이 컴퓨터의 Claude Code·Codex·Gemini CLI 로그에서 토큰 수·모델 이름·시각만 세요(대화 글은 읽지 않아요). 세는 건
+- 이 컴퓨터의 Claude Code·Codex·Gemini CLI 로그에서 숫자(토큰·횟수·환산액)·모델 이름·날짜만 세요(대화 글은 꺼내지 않아요). 세는 건
   bin/token_meter.py예요. 저장소 밖에서 돌리면 같은 판(REF 태그)의 그 파일과 나라 목록(city/countries.json)만
   임시 폴더에 받아 쓰고 끝나면 지워요. 설치 폴더를 만들지 않아요.
 - 올라갈 내용을 보여 주고 '올릴까요? [y/N]'을 물어요. 엔터만 누르면 아무것도 안 올라가요. curl … | python3 안에서도
@@ -86,7 +86,7 @@ MSG = {
         "login_no_app": "기기 코드 로그인을 쓸 수 없어요. gh를 설치해 gh auth login 뒤 다시 실행해 주세요.",
         "login_ok": "GitHub: @{0} 계정으로 로그인했어요.",
         "user_fail": "GitHub 아이디를 확인하지 못했어요. 잠시 뒤 다시 해 주세요.",
-        "count": "이 컴퓨터의 로그에서 토큰 숫자를 세는 중이에요(대화 글은 읽지 않아요)…",
+        "count": "이 컴퓨터의 로그에서 사용량을 세는 중이에요(대화 글은 꺼내지 않아요)…",
         "no_logs": "Claude Code·Codex·Gemini CLI 로그를 찾지 못했어요. 그 도구를 쓴 컴퓨터에서 실행해 주세요.",
         "too_big": "올릴 숫자가 gist 상한 256KB를 넘어요.",
         "gists_fail": "내 gist를 읽지 못했어요({0}). 잠시 뒤 다시 해 주세요.",
@@ -139,7 +139,7 @@ MSG = {
         "login_no_app": "Device-code sign-in isn't available. Install gh, run gh auth login, then try again.",
         "login_ok": "GitHub: signed in as @{0}.",
         "user_fail": "Couldn't confirm your GitHub username. Try again in a bit.",
-        "count": "Counting tokens from this computer's logs (chat text is not read)…",
+        "count": "Counting usage from this computer's logs (chat text isn't extracted)…",
         "no_logs": "No Claude Code, Codex or Gemini CLI logs found. Run this on the computer where you use them.",
         "too_big": "Your numbers are over the 256KB gist limit.",
         "gists_fail": "Couldn't read your gists ({0}). Try again in a bit.",
@@ -158,7 +158,7 @@ MSG = {
         "c_none": "none",
         "c_odd": "a value not on the list",
         "same_meter": "Your numbers are the same as last time.",
-        "what": "Only token counts, daily totals, model names, dates, your time zone and the country you pick are posted. No chats, paths or project names.",
+        "what": "Only numbers (tokens, counts, cost estimate), model names, dates, your time zone and the country you pick are posted. No chats, paths or project names.",
         "public": "Gists are public, and their revision history stays public too.",
         "ask": "Upload? [y/N] (v = show everything that will be posted) ",
         "no_tty": "There's no terminal to ask you on, so nothing was posted. Run it in a terminal.",
@@ -457,7 +457,7 @@ def ask_tty(texts):
 
 def main():
     global L
-    ap = argparse.ArgumentParser(description="에이전시티 도시에 설치 없이 내 건물 세우기(토큰 숫자와 고른 나라만 올려요, 올리기 전에 물어봐요)")
+    ap = argparse.ArgumentParser(description="에이전시티 도시에 설치 없이 내 건물 세우기(사용량과 고른 나라를 올려요, 올리기 전에 물어봐요)")
     ap.add_argument("--country", help="두 글자 나라 코드(예: KR). none이면 나라를 빼요. 안 주면 나라는 그대로예요")
     ap.add_argument("--lang", choices=("ko", "en"), help="화면 글 언어(기본은 LANG 환경 변수)")
     ap.add_argument("--no-open", action="store_true", help="브라우저를 열지 않아요(주소만 보여 줘요)")

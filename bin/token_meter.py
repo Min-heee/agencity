@@ -9,7 +9,7 @@ collect.mjs가 바뀌면 여기를 똑같이 고치고, 맨 위 커밋을 바꾸
 build_doc()은 collect.mjs --publish가 올릴 문서(dict), serialize()는 올릴 글(바이트까지 같아요)이에요.
 
 읽는 것: ~/.claude/projects, ~/.codex/sessions·archived_sessions, ~/.gemini/tmp/…/chats 로그의
-토큰 수·모델 이름·시각·세션 id뿐이에요. 대화 내용은 쓰지 않고 남겨 두지도 않아요. 로그는 한 줄씩 흘려 읽어요
+토큰 수·모델 이름·시각과 세는 데 쓰는 id뿐이에요. 대화 내용은 쓰지 않고 남겨 두지도 않아요. 로그는 한 줄씩 흘려 읽어요
 (구형 Gemini .json만 collect.mjs처럼 통째로, 256MB까지 — 읽는 동안 그 파일 크기의 두세 배를 써요).
 build_doc()은 따로 띄운 파이썬에서 세서, 그 메모리는 부른 쪽(서버)에 남지 않아요.
 나가는 칸은 collect.mjs의 화이트리스트(sanitizeEntry) 그대로라 이름·경로·프로젝트·세션 id는 안 나가요.
