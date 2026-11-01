@@ -61,7 +61,7 @@ def in_browser(body, script, width=1280):
         f = os.path.join(d, "t.html")
         with open(f, "w", encoding="utf-8") as w:
             w.write(page)
-        r = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={d}/c", f"--window-size={width},900", "--virtual-time-budget=800", "--dump-dom", "file://" + f], capture_output=True, text=True, timeout=60)
+        r = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--use-mock-keychain", "--password-store=basic", f"--user-data-dir={d}/c", f"--window-size={width},900", "--virtual-time-budget=800", "--dump-dom", "file://" + f], capture_output=True, text=True, timeout=60)
     return json.loads(html.unescape(re.search(r'<pre id="out">(.*?)</pre>', r.stdout, re.S).group(1)))
 
 
