@@ -5,6 +5,8 @@ python3 -m unittest tests/test_scene.py -v      (저장소 맨 위에서)
 화면 코드(office.src.html)의 함수를 그대로 꺼내 node에서 가짜 주변(DOM·서버)과 함께 돌려요. node가 없으면 건너뛰어요.
 파이썬 표준 라이브러리만 써요. 진짜 세션·파일은 건드리지 않아요.
 """
+import datetime
+import hashlib
 import html
 import json
 import os
@@ -50,6 +52,18 @@ def scene_open():
     return scene_code().replace("const api = {", "const api = { _debug: () => S, _view: () => view, _nav: nav,")
 
 
+def Date_ms(iso):
+    return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000
+
+
+REAL_FLOORS = {"3301157d380d77bbe7db26f6d8636f8e06a293d6", "f53228fa0dc29ff25b7e255f3b61df801d366233", "3dd0d0ca34ff0136b9ef31f01fe82f87e589a2c9", "d8565389a58cb5407a03807d0fca768185563106", "a232c11e3f1857e0521b1e38c37f9cc8630b7be5"}
+
+
+def floor_names_in(text, digests=REAL_FLOORS):
+    """낱말과 그 앞부분을 해시로 봐요. 이름 뒤에 토씨가 붙어도(이름을, 이름에서) 찾아요."""
+    return [w[:n] for w in re.findall(r"[\w가-힣]+", text.lower()) for n in range(1, min(len(w), 40) + 1) if hashlib.sha1(w[:n].encode()).hexdigest() in digests]
+
+
 CHROME = next((c for c in ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", shutil.which("google-chrome"), shutil.which("chromium")) if c and os.path.exists(c)), None)
 
 
@@ -57,11 +71,14 @@ def in_browser(body, script, width=1280):
     """페이지 CSS로 작은 조각을 진짜 브라우저에서 재요. CSS는 node로 잴 수 없어요. 포트를 열지 않아요."""
     css = re.search(r"<style[^>]*>(.*?)</style>", SRC, re.S).group(1)
     page = f'<!doctype html><meta charset="utf-8"><style>{css}</style><body>{body}<pre id="out"></pre><script>{script}</script>'
+    if width < 500:   # 창은 500보다 좁아지지 않아요. 폰 폭은 iframe 안에서 재요
+        frame = html.escape(page, quote=True)
+        page = f'<!doctype html><pre id="out"></pre><iframe id="f" style="border:0;width:{width}px;height:800px" srcdoc="{frame}"></iframe><script>f.onload = () => {{ out.textContent = f.contentDocument.getElementById("out").textContent; }};</script>'
     with tempfile.TemporaryDirectory() as d:
         f = os.path.join(d, "t.html")
         with open(f, "w", encoding="utf-8") as w:
             w.write(page)
-        r = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--use-mock-keychain", "--password-store=basic", f"--user-data-dir={d}/c", f"--window-size={width},900", "--virtual-time-budget=800", "--dump-dom", "file://" + f], capture_output=True, text=True, timeout=60)
+        r = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--use-mock-keychain", "--password-store=basic", f"--user-data-dir={d}/c", f"--window-size={max(width, 500)},900", "--virtual-time-budget=1500", "--dump-dom", "file://" + f], capture_output=True, text=True, timeout=60)
     return json.loads(html.unescape(re.search(r'<pre id="out">(.*?)</pre>', r.stdout, re.S).group(1)))
 
 
@@ -77,6 +94,8 @@ class SceneFrame(unittest.TestCase):
 
     SEAT = """
 const seats = {}, seatGet = k => seats[k], seatKey = (t, r) => t + '/' + r, isCx = m => !!m.codexId && !m.sessionId, exampleTeam = t => t === 'demo';
+const liveFake = {}, seatLive = (t, r) => liveFake[r] || null;
+""" + page_js("LIVE_TAIL", "liveOn") + """
 const cxInfo = (t, m) => ({ state: m.cxState || '대기', title: 'Codex 일', missing: !!m.cxMissing, at: 5 });
 const NOW = Date.parse('2026-10-31T12:00:00Z'), ago = min => new Date(NOW - min * 60000).toISOString();
 """
@@ -122,6 +141,103 @@ console.log(JSON.stringify({
         self.assertEqual(r["idleLong"][3:6], ["", False, ""])                         # 대기는 오래돼도 돌아다녀요(팀장 결정). 한마디는 6시간까지
         self.assertEqual(r["typo"][1:3], ["대기", "쉬는 중"])                          # 글은 원문 그대로
         self.assertTrue(r["invited"][6])
+
+    def test_read_notes_name_the_log_folder(self):
+        """긴 작업 때 대화 기록의 고친 시각을 본다는 말이 첫 화면 자세히, README, GUIDE 표에 있어요. 첫 화면 꼭 보일 줄은 그대로예요."""
+        i = SRC.index('<details class="su-more"><summary>자세히</summary><p class="hint">읽는 것:')
+        self.assertIn("<code>~/.claude/projects</code>", SRC[i:i + 900])
+        self.assertIn("이 맥의 세션 목록(제목·폴더·마지막 활동)과 실행 상태만 읽어요.", SRC)
+        with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
+            line = next(x for x in f if "실행 상태만 읽어요" in x)
+        self.assertIn("`~/.claude/projects`", line)
+        with open(os.path.join(ROOT, "docs", "GUIDE.md"), encoding="utf-8") as f:
+            line = next(x for x in f if x.startswith("| Claude Code | 제목"))
+        self.assertIn("`~/.claude/projects/`(고친 시각만)", line)
+
+    def test_public_docs_have_no_real_floor_names(self):
+        """저장소 글에 대표의 실제 층 이름이 없어요. 시험에 이름을 적지 않으려고 해시로 봐요."""
+        names = ["README.md"] + [os.path.join("docs", n) for n in sorted(os.listdir(os.path.join(ROOT, "docs"))) if n.endswith(".md")]
+        found = []
+        for name in names:
+            with open(os.path.join(ROOT, name), encoding="utf-8") as f:
+                found += [(name, t) for t in floor_names_in(f.read())]
+        self.assertEqual(found, [])
+        made_up = {hashlib.sha1("쉬는층".encode()).hexdigest(), hashlib.sha1("mybuilding".encode()).hexdigest()}
+        for text in ("쉬는층", "쉬는층을 봐요", "쉬는층의 일", "쉬는층에서 봐요", "MyBuilding에서"):
+            self.assertTrue(floor_names_in(text, made_up), text)
+        self.assertEqual(floor_names_in("쉬는 층을 봐요", made_up), [])
+
+    def test_seat_view_follows_the_session(self):
+        """세션이 일하면 상태 파일이 대기여도 일하는 중이에요. 회의 중과 막힘이 먼저예요. 신호는 파일의 일하는 중을 내리지 않아요."""
+        code = self.SEAT + page_js("QUIET_SHORT", "seatView") + """
+const m = { role: '개발자', sessionId: 'local_x' }, room = { status: '진행 중', participants: ['개발자'] };
+const sig = (s, sec) => ({ s, since: NOW - sec * 1000 });
+const v = (s, x, am) => { delete liveFake['개발자']; if (x) liveFake['개발자'] = x; const r = seatView('t', m, s, am || null, NOW); return { state: r.state, label: r.label, quiet: r.quiet, stale: r.stale, hold: !!r.hold, task: r.task, say: r.say, when: r.updated, invited: r.invited, hours: r.hours === undefined ? null : r.hours }; };
+const idle = { state: '대기', task: '옛 일', say: '옛말', updated: ago(5) }, work = { state: '일하는 중', task: 'TO-1 고치기', say: '곧', updated: ago(5) };
+console.log(JSON.stringify({
+  idleBusy: v(idle, sig('busy', 3)), idleWait: v(idle, sig('waiting', 3)), noFile: v(null, sig('busy', 3)), typo: v({ state: '쉬는 중', updated: ago(5) }, sig('busy', 3)),
+  old: v({ state: '일하는 중', task: '옛 일', say: '옛말', updated: ago(420) }, sig('busy', 3)), oldMeet: v({ state: '회의 중', updated: ago(90) }, sig('busy', 3)),
+  meetLive: v({ state: '회의 중', updated: ago(90) }, sig('busy', 3), room), meetNew: v({ state: '회의 중', updated: ago(5) }, sig('busy', 3)), stuck: v({ state: '막힘', updated: ago(5) }, sig('busy', 3)),
+  workBusy: v(work, sig('busy', 3)), workIdle: v(work, sig('idle', 20)), workQuiet: v({ state: '일하는 중', task: 'x', updated: ago(40) }, sig('quiet', 2000)), idleQuiet: v(idle, sig('quiet', 2000)),
+  tailIn: v(idle, sig('idle', 7.9)), tailOut: v(idle, sig('idle', 8.1)), waitIn: v(idle, sig('waiting', 7.9)), waitOut: v(idle, sig('waiting', 8.1)), invited: v(idle, sig('busy', 3), room),
+  none: v(idle), vacant: (() => { liveFake['q'] = sig('busy', 3); const r = seatView('t', { role: 'q' }, null, null, NOW); return r.state; })(),
+}));
+"""
+        r = self.node(code)
+        self.assertEqual((r["idleBusy"]["state"], r["idleBusy"]["label"], r["idleBusy"]["task"], r["idleBusy"]["say"], r["idleBusy"]["hold"]), ("일하는 중", "일하는 중", "", "", False))
+        self.assertLess(abs(Date_ms(r["idleBusy"]["when"]) - 1793448000000), 2000)      # 명단 시각은 방금이에요
+        self.assertEqual(r["idleWait"]["state"], "일하는 중")
+        self.assertEqual((r["noFile"]["state"], r["noFile"]["quiet"]), ("일하는 중", ""))
+        self.assertEqual(r["typo"]["state"], "일하는 중")
+        self.assertEqual((r["old"]["state"], r["old"]["quiet"], r["old"]["stale"], r["old"]["hours"], r["old"]["task"], r["old"]["say"]), ("일하는 중", "", False, None, "", ""))   # 7시간 된 파일
+        self.assertEqual(r["oldMeet"]["state"], "일하는 중")
+        self.assertEqual(r["meetLive"]["state"], "회의 중")
+        self.assertEqual(r["meetNew"]["state"], "회의 중")
+        self.assertEqual(r["stuck"]["state"], "막힘")
+        self.assertEqual((r["workBusy"]["task"], r["workBusy"]["say"]), ("TO-1 고치기", "곧"))
+        self.assertEqual(r["workIdle"]["state"], "일하는 중")                           # 쉬는 신호가 파일의 일하는 중을 내리지 않아요
+        self.assertEqual((r["workQuiet"]["state"], r["workQuiet"]["quiet"], r["workQuiet"]["hold"]), ("일하는 중", "short", False))   # 지금 규칙 그대로
+        self.assertEqual((r["idleQuiet"]["state"], r["idleQuiet"]["quiet"], r["idleQuiet"]["stale"], r["idleQuiet"]["hold"]), ("일하는 중", "short", True, True))
+        self.assertEqual(r["tailIn"]["state"], "일하는 중")
+        self.assertEqual(r["tailOut"]["state"], "대기")
+        self.assertEqual((r["waitIn"]["hold"], r["waitIn"]["label"]), (False, "일하는 중"))
+        self.assertEqual((r["waitOut"]["hold"], r["waitOut"]["label"]), (True, "확인 대기"))
+        self.assertTrue(r["invited"]["invited"])
+        self.assertEqual(r["none"]["state"], "대기")
+        self.assertEqual(r["vacant"], "빈자리")
+
+    def test_page_takes_the_signal_from_every_read(self):
+        """load와 pollRelay가 받은 live를 페이지에 넘겨요. 이 길이 끊기면 판정 시험이 다 통과해도 사람이 앉지 않아요."""
+        code = page_js("LIVE", "LIVE_FRESH", "liveTake", "seatLive", "load", "pollRelay") + """
+let state = null, mode = '', orderGen = 0, pending = false, NE = null, answer = '{}';
+const API = true, ORD = { want: null }, TALK_FILE = 't', TALK_SCAN = 9, orderTeams = () => null, jsonl = () => [], seatWaiting = () => false, seatPoll = () => {};
+const getJSON = async () => ({ teams: [] }), loadTeam = async () => ({}), getText = async f => (f === 'api/state' ? answer : '');
+const drawer = { hidden: true }, $ = q => (q === '#drawer' ? drawer : null), $$ = () => [], document = { visibilityState: 'visible', activeElement: null, hasFocus: () => false };
+const stageSync = () => {}, countsPaint = () => {}, drawerPaint = () => {}, render = () => {}, relayNote = () => '';
+const seat = () => { const x = seatLive('t', '개발자', Date.now()); return x && x.s; };
+const says = s => JSON.stringify({ live: { t: { 개발자: { s, since: 5 } } } });
+(async () => {
+  const out = { before: seat() };
+  answer = says('busy'); await load(); out.load = seat();
+  answer = says('idle'); await pollRelay(); out.poll = seat();
+  const got = LIVE.got - 5000; LIVE.got = got;
+  answer = JSON.stringify({ ok: true }); await load(); await pollRelay(); out.kept = [seat(), LIVE.got === got];   // live 칸이 없으면 앞 값을 쓰고, 시계는 가지 않아요
+  answer = JSON.stringify({ live: {} }); await load(); out.empty = [seat(), LIVE.got > got];                       // 폴더가 없으면 빈 값이에요
+  console.log(JSON.stringify(out));
+})();
+"""
+        self.assertEqual(self.node(code), {"before": None, "load": "busy", "poll": "idle", "kept": ["idle", True], "empty": [None, True]})
+
+    def test_live_signal_goes_stale(self):
+        """신호는 받은 뒤 20초까지만 믿어요. 스냅샷에서는 켜지지 않아요. 모르는 값은 버려요."""
+        code = page_js("LIVE", "LIVE_FRESH", "seatLive") + """
+const NOW = 1793448000000; LIVE.seats = { t: { 개발자: { s: 'busy', since: NOW }, 기획: { s: '이상함', since: NOW }, 운영: 'busy' } };
+LIVE.got = NOW - 19000; const fresh = seatLive('t', '개발자', NOW), odd = [seatLive('t', '기획', NOW), seatLive('t', '운영', NOW), seatLive('x', '개발자', NOW)];
+LIVE.got = NOW - 21000; const old = seatLive('t', '개발자', NOW);
+LIVE.got = 0; const snap = seatLive('t', '개발자', NOW);
+console.log(JSON.stringify({ fresh: fresh && fresh.s, odd, old, snap }));
+"""
+        self.assertEqual(self.node(code), {"fresh": "busy", "odd": [None, None, None], "old": None, "snap": None})
 
     def test_seat_view_without_a_clock(self):
         """시각이 없거나 못 읽으면 시간을 세지 않아요. 'Infinity시간째'가 나오면 안 돼요. 예시 층은 오래됨을 재지 않아요."""
@@ -196,10 +312,13 @@ const d = { base: 'teams/shop/', team: { team: '쇼핑몰', members: [{ role: '�
   metas: [{ id: 'M-1', status: '진행 중', topic: '주제', mode: '참석', participants: ['팀장'] }] };
 const wrap = stageState(t, Object.assign({}, d, { metas: [], active: { status: '정리 중', topic: '주제', mode: '위임' } }), NOW).meeting;
 const none = stageState(t, Object.assign({}, d, { metas: [] }), NOW).meeting;
-console.log(JSON.stringify(Object.assign(stageState(t, d, NOW), { wrap, none })));
+liveFake['개발자'] = { s: 'waiting', since: NOW - 9000 }; const held = stageState(t, Object.assign({}, d, { metas: [] }), NOW).members.find(m => m.id === '개발자'); delete liveFake['개발자'];
+console.log(JSON.stringify(Object.assign(stageState(t, d, NOW), { wrap, none, held })));
 """
         r = self.node(code)
         self.assertEqual((r["tone"], r["name"], r["theme"], r["live"]), ("a", "쇼핑몰", "dark", True))
+        self.assertEqual((r["held"]["hold"], r["held"]["wait"], r["held"]["label"]), (True, True, "확인 대기"))
+        self.assertLess(abs(Date_ms(r["held"]["when"]) - Date_ms("2026-10-31T12:00:00Z")), 2000)
         self.assertEqual(r["floor"], 2)
         for unused in ("colors", "fonts", "floors"):
             self.assertNotIn(unused, r)   # 장면이 읽지 않는 값은 넘기지 않아요
@@ -483,6 +602,109 @@ console.log(JSON.stringify([l('보안', '보안', false, '대기', false, '3분 
         i = SRC.index("const t = $('#floorTools');")
         self.assertIn("{ t.open = false; TOOLS_OPEN = false; }", SRC[i:i + 200])
 
+    def test_stage_passes_hold_and_time(self):
+        """장면과 호버 카드가 명단과 같은 값을 받아요. 카드는 열려 있으면 다음 갱신에서 글이 바뀌어요."""
+        code = self.FAKE.replace("const stageState = (t, d, now) => ({ live: state.live !== false, members: [{ id: 'x', state: state.s || '대기', quiet: '' }]", "const stageState = (t, d, now) => ({ live: state.live !== false, members: [{ id: 'x', name: 'x', role: 'x', state: state.s || '대기', label: state.l || '대기', quiet: '', task: state.t || '', when: '2026-11-01T00:00:00Z' }]") + page_js(*GLUE) + page_js("seatLine", "seatChip", "stageTipHTML") + """
+const API = true, ago = () => '방금';
+slot = mk('slot'); stageMount(state.org.teams[0], state.teams.a);
+STAGE.tip = { hidden: false, dataset: { id: 'x' }, innerHTML: '옛 글' }; state.s = '일하는 중'; state.l = '확인 대기'; stageSync();
+const open = STAGE.tip.innerHTML; STAGE.tip = { hidden: true, dataset: { id: '' }, innerHTML: '옛 글' }; stageSync();
+console.log(JSON.stringify({ open: open.includes('확인 대기 · 방금'), shut: STAGE.tip.innerHTML }));
+"""
+        self.assertEqual(self.node(code), {"open": True, "shut": "옛 글"})
+        i = SRC.index("function stageState(")
+        self.assertIn("hold: v.hold", SRC[i:i + 1400])
+        self.assertIn("when: v.updated", SRC[i:i + 1400])
+
+    def test_seat_line_never_tells_a_worker_to_wait(self):
+        """일하는 사람에게 '다음 일을 기다리는 중'이 나오면 안 돼요. 명단과 호버 카드가 같은 말을 써요."""
+        code = page_js("seatLine") + """
+console.log(JSON.stringify([seatLine({ state: '일하는 중' }), seatLine({ state: '일하는 중', task: 'TO-1' }), seatLine({ state: '일하는 중', task: 'TO-1', wait: true }), seatLine({ state: '대기' })]));
+"""
+        self.assertEqual(self.node(code), ["", "TO-1", "Claude 창에서 확인해요", "다음 일을 기다리는 중"])
+        row = page_js("seatRowHTML")
+        self.assertIn("seatLine(v)", row)
+        self.assertIn("""${esc(task || '—')}</span>""", row)     # 줄 높이는 그대로예요
+        self.assertIn("nw: newReply, when, task })", row)                               # —는 스크린리더가 읽지 않아요
+        self.assertIn("[line, v.say && `“${v.say}”`].filter(Boolean).join(' · ')", row)  # 한마디가 있으면 한마디만 보여요
+        self.assertIn("seatLine(m)", page_js("stageTipHTML"))
+        for name, part in (("seatRowHTML", "seatChip(v)"), ("stageTipHTML", "seatChip(m)"), ("drawerFacts", "seatChip(v)")):
+            self.assertIn(part, page_js(name))
+
+    def test_counts_follow_while_the_drawer_is_open(self):
+        """서랍을 연 동안 명단은 닫을 때 따라오지만, 머리말 숫자는 장면과 같아요."""
+        code = page_js("countsHTML") + """
+console.log(JSON.stringify(countsHTML([{ state: '일하는 중' }, { state: '일하는 중' }, { state: '대기' }])));
+"""
+        html = self.node(code)
+        self.assertIn("일하는 중 <b>2</b>", html)
+        self.assertIn("대기 <b>1</b>", html)
+        self.assertNotIn("막힘", html)
+        self.assertIn("countsHTML(views)", page_js("roomHTML"))
+        self.assertIn("put(box, countsHTML(", page_js("countsPaint"))
+
+    def test_counts_and_line_follow_while_the_drawer_is_open(self):
+        """서랍을 연 동안 지금 보고 있는 층의 머리말과 장면 아래 글이 같이 바뀌어요. 다들 기다린다는 글이 일하는 사람 옆에 남으면 안 돼요."""
+        code = self.SEAT + page_js("QUIET_SHORT", "seatView", "meetNow", "leadFirst", "countsHTML", "countsPaint", "stageLine") + """
+const el = () => ({ innerHTML: '', hidden: false }), counts = el(), line = el(), room = { dataset: { team: 'b' } };
+const $ = q => ({ '#rooms .counts': counts, '#rooms .sc-line': line, '#rooms .room': room })[q];
+const LEAD = '팀장', esc = String, usgFloorHTML = () => '', stageStill = { matches: false }, viewNow = () => NOW, put = (e, h) => { e.innerHTML = h; };
+const who = [{ role: '팀장', sessionId: 'local_a' }, { role: '개발자', sessionId: 'local_b' }], calm = { state: '대기', updated: ago(5) };
+let state = { org: { teams: [{ id: 'a' }, { id: 'b', office: 'teams/b' }] }, teams: { a: { team: { members: [who[0]] }, status: { 팀장: { state: '막힘', updated: ago(5) } } }, b: { team: { members: who }, status: { 팀장: calm, 개발자: calm } } } };
+const look = () => ({ counts: counts.innerHTML, line: line.innerHTML, hidden: line.hidden });
+countsPaint(); const a = look();
+liveFake['개발자'] = { s: 'busy', since: NOW - 1000 }; countsPaint(); const b = look();
+delete liveFake['개발자']; countsPaint(); const c = look();
+console.log(JSON.stringify({ a, b, c }));
+"""
+        r = self.node(code)
+        self.assertIn("대기 <b>2</b>", r["a"]["counts"])
+        self.assertEqual((r["a"]["line"], r["a"]["hidden"]), ("다들 다음 일을 기다려요.", False))
+        self.assertIn("일하는 중 <b>1</b>", r["b"]["counts"])
+        self.assertIn("대기 <b>1</b>", r["b"]["counts"])
+        self.assertNotIn("막힘", r["b"]["counts"])                                  # 보고 있는 층의 숫자예요
+        self.assertEqual((r["b"]["line"], r["b"]["hidden"]), ("", True))
+        self.assertEqual(r["c"], r["a"])
+        self.assertIn("""<p class="sc-line"${line ? '' : ' hidden'}>${esc(line)}</p>""", page_js("roomHTML"))     # 글이 없어도 자리는 늘 있어요
+        self.assertIn("if (!redrawn) countsPaint();", page_js("render"))             # 방 글이 같아서 건너뛰어도 칠해 둔 값이 남지 않아요
+
+    def test_open_drawer_repaints_its_own_cells(self):
+        """팀원 서랍을 연 동안 세 칸만 따라와요. 닫은 뒤에는 건드리지 않아요."""
+        code = self.SEAT.replace("ago = min =>", "old = min =>") + page_js("QUIET_SHORT", "seatView", "meetNow", "seatChip", "drawerFacts", "drawerPaint", "memberDrawer") + """
+let DF = null;
+const ago = () => '방금', esc = String, viewNow = () => NOW, API = true, EX_NO_TALK = '', hm = String;
+const cxDrawer = () => {}, customName = () => '', teamNames = () => [], seatHTML = (t, r) => r, chatLink = String, exampleSeat = () => true, composerHTML = () => '', openDrawer = () => {}, openThread = () => {};
+const drawer = { hidden: false }, cells = { '#dfState': {}, '#dfTask': {}, '#dfSay': {} }, $ = q => (q === '#drawer' ? drawer : cells[q]), put = (e, h) => { e.text = h; };
+let state = { teams: { t: { base: 't/', reports: [], log: [], team: { members: [{ role: '개발자', sessionId: 'local_x', title: 'x' }] }, status: { 개발자: { state: '일하는 중', task: 'TO-1', say: '곧', updated: old(5) } } } } };
+const look = () => ['#dfState', '#dfTask', '#dfSay'].map(k => cells[k].text);
+memberDrawer('t', '개발자'); drawerPaint(); const a = look();
+liveFake['개발자'] = { s: 'waiting', since: NOW - 9000 }; drawerPaint(); const b = look();
+drawer.hidden = true; delete liveFake['개발자']; drawerPaint(); const c = look();
+console.log(JSON.stringify({ a, b, c }));
+"""
+        r = self.node(code)
+        self.assertEqual(r["a"], ["일하는 중 · 방금", "TO-1", "곧"])
+        self.assertEqual(r["b"], ["확인 대기 · 방금", "TO-1", "곧"])
+        self.assertEqual(r["c"], r["b"])
+
+    def test_drawer_facts_follow_the_session(self):
+        """서랍의 상태, 맡은 일, 한마디는 명단과 같은 값이에요. 맡은 일이 없으면 —예요."""
+        code = self.SEAT + page_js("QUIET_SHORT", "seatView", "seatChip", "drawerFacts") + """
+const esc = String, viewNow = () => NOW, meetNow = () => null, isCxx = 0;
+let state = { teams: { t: { team: { members: [{ role: '개발자', sessionId: 'local_x' }] }, status: { 개발자: { state: '대기', task: '', say: '', updated: ago(5) } } } } };
+const rel = iso => '방금'; const a = drawerFacts('t', '개발자', rel); liveFake['개발자'] = { s: 'busy', since: NOW }; const b = drawerFacts('t', '개발자', rel);
+liveFake['개발자'] = { s: 'quiet', since: NOW - 2e6 }; const c = drawerFacts('t', '개발자', rel); delete liveFake['개발자'];
+state.teams.t.status.개발자 = { state: '일하는 중', updated: ago(420) }; const d = drawerFacts('t', '개발자', rel);
+console.log(JSON.stringify({ a, b, c, d }));
+"""
+        r = self.node(code)
+        self.assertEqual(r["a"], {"state": "대기 · 방금", "task": "—", "say": "—"})
+        self.assertEqual(r["b"], {"state": "일하는 중 · 방금", "task": "—", "say": "—"})
+        self.assertEqual(r["c"]["state"], "일하는 중 · 응답 없음? · 방금")          # 명단과 같은 칩이에요
+        self.assertEqual(r["d"]["state"], "소식 없음 · 방금")
+        for bit in ('id="dfState"', 'id="dfTask"', 'id="dfSay"', "drawerPaint()"):
+            self.assertIn(bit, SRC)
+
     def test_tab_return_reads_before_it_settles(self):
         """숨겼던 탭에 돌아오면 새 상태를 읽은 뒤에 지금 자리로 옮겨요. 걸음을 재생하지 않아요. 끊겼으면 옮기지 않아요. load를 안 부르는 때는 바로 해요."""
         i, mark = SRC.index("if (!stageRest()) stageSettle()"), "document.addEventListener('visibilitychange', "
@@ -595,7 +817,7 @@ console.log(JSON.stringify({ firstBake, before, after, picked: [...new Set(picke
         self.assertTrue(r["removed"])
 
     def test_voxel_scene_says_what_the_page_says(self):
-        """장면의 표지: 빈자리, 팀장 빈자리, Enter 기다림, 기록 없음, n시간째 소식 없음, 대표 자리, 회의록 정리 중, 아직 안 왔어요."""
+        """장면의 표지: 빈자리, 팀장 빈자리, Enter 기다림, 기록 없음, n시간째 소식 없음, 대표 자리, 아직 안 왔어요. 회의록 정리 중은 장면 칸의 배지 하나만 말해요."""
         code = self.SCENE + scene_code() + self.STAFF + """
 sc.update(st([m('팀장', '빈자리', { lead: true }), m('A', '빈자리'), m('B', '빈자리', { waitingSeat: true }), m('C', '빈자리', { missing: true, codex: true }), m('D', '일하는 중', { quiet: 'long', hours: 7 }), m('E', '회의 중'), m('F', '대기', { invited: true })],
   { active: true, topic: '주제', phase: 'live', mode: 'boss' }));
@@ -608,7 +830,7 @@ console.log(JSON.stringify({ live, wrap, team: said }));
         r = self.node(code)
         for text in ("팀장 빈자리", "빈자리", "Enter를 기다려요", "Codex · 기록을 찾지 못했어요", "7시간째 소식 없음", "대표 자리", "F · 아직 안 왔어요"):
             self.assertIn(text, r["live"])
-        self.assertIn("회의록 정리 중", r["wrap"])
+        self.assertNotIn("회의록 정리 중", r["wrap"])
         self.assertNotIn("대표 자리", r["wrap"])
         self.assertNotIn("대표 자리", r["team"])            # 위임 회의에는 대표 자리가 없어요
 
@@ -955,6 +1177,59 @@ console.log(JSON.stringify({ still, moving, speaker: !!S.speaker }));
         self.assertLessEqual(r["moving"], 2)          # 움직일 때는 말하는 사람만이에요
         self.assertTrue(r["speaker"])
 
+    def test_idle_stay_is_long_enough(self):
+        """대기 머무는 시간은 12~30초예요(팀장 결정). 처음 자리와 짧은 쉼은 세지 않아요."""
+        code = self.SCENE + scene_open() + self.STAFF + self.WATCH + """
+sc.update(st(floor(6, '대기'))); const was = new Map(), stays = [];
+run(300, t => { for (const p of S.list) { const w = was.get(p.id) || 0; if (t > 15 && p.wait > w + .1 && p.wait > 3) stays.push(p.wait); was.set(p.id, p.wait); } });
+console.log(JSON.stringify({ n: stays.length, low: Math.min(...stays), high: Math.max(...stays) }));
+"""
+        r = self.node(code)
+        self.assertGreater(r["n"], 5)
+        self.assertGreaterEqual(r["low"], 12)
+        self.assertLessEqual(r["high"], 30)
+
+    def test_phone_gathers_desk_signs(self):
+        """폰에서는 책상 표지를 왼쪽 아래 한 줄로 모아요. 책상을 덮지 않고, 누르면 그 줄의 첫 사람에게 가요. 넓은 화면은 그대로예요."""
+        floor = """
+const picked = []; sc.on('select', id => picked.push(id));
+sc.update(st([m('팀장', '일하는 중', { lead: true }), m('A', '빈자리'), m('B', '빈자리'), m('C', '빈자리'), m('D', '일하는 중', { quiet: 'long', hours: 7 }), m('E', '빈자리', { missing: true, codex: true })])); run(.1); said.length = 0; sc.draw();
+const signs = said.filter(x => /빈자리|기록|소식 없음/.test(x)).sort();
+"""
+        code = self.SCENE.replace("width: 960, height: 538", "width: 326, height: 245") + scene_open() + self.STAFF + self.WATCH + floor + """
+const v = sc._view(), band = S.hits.filter(h => h.h === 25), box = band.find(h => h.id === 'A');
+const covered = S.plan.desks.filter(d => { const q = v.deskSign(d); return band.some(h => q[0] > h.x && q[0] < h.x + h.w && q[1] > h.y && q[1] < h.y + h.h); }).length;
+listeners.click({ clientX: box.x + 3, clientY: box.y + 3 });
+console.log(JSON.stringify({ signs, picked, low: box.y > S.h - 40, left: box.x < 12, wide: Math.min(...band.map(h => h.w)) >= 44, covered }));
+"""
+        self.assertEqual(self.node(code), {"signs": ["기록 없음", "빈자리 3", "소식 없음"], "picked": ["A"], "low": True, "left": True, "wide": True, "covered": 0})
+        code = self.SCENE + scene_open() + self.STAFF + self.WATCH + floor + "console.log(JSON.stringify(signs));"
+        self.assertEqual(self.node(code), ["7시간째 소식 없음", "Codex · 기록을 찾지 못했어요", "빈자리", "빈자리", "빈자리"])
+
+    def test_held_hands_stay_at_the_desk(self):
+        """확인을 기다리는 세션은 책상에 앉은 채 손을 멈춰요. 등은 켜져 있어요."""
+        code = self.SCENE + scene_open() + self.STAFF + self.WATCH + """
+sc.update(st([m('A', '일하는 중', { lead: true }), m('B', '일하는 중', { hold: true })])); run(3);
+console.log(JSON.stringify({ a: S.people.get('A').act, b: S.people.get('B').act, sit: S.people.get('B').sit }));
+"""
+        self.assertEqual(self.node(code), {"a": "type", "b": "still", "sit": 1})
+
+    def test_short_gaps_do_not_stand_people_up(self):
+        """busy 20초, idle 5초, busy 20초에 일어나지 않아요. 턴이 끝나면 12초 안에 일어나요."""
+        code = self.SEAT.replace("const NOW = Date.parse('2026-10-31T12:00:00Z'), ago", "let NOW = Date.parse('2026-10-31T12:00:00Z'); const ago") + page_js("QUIET_SHORT", "seatView") + self.SCENE.replace("const m = ", "const mm = ") + scene_open() + self.STAFF.replace("const m = ", "const mm = ") + self.WATCH + """
+const seat = { role: 'A', sessionId: 'local_x' }, file = { state: '대기', updated: new Date(NOW).toISOString() };
+const view = () => { const v = seatView('t', seat, file, null, NOW); return st([mm('L', '일하는 중', { lead: true }), mm('A', v.state, { hold: !!v.hold })]); };
+const play = (secs, every = 4) => { for (let i = 0; i < secs * 30; i++) { sc.step(1 / 30); NOW += 1000 / 30; if (i % (every * 30) === 0) sc.update(view()); } };
+sc.update(view()); play(10);
+const start = NOW; liveFake.A = { s: 'busy', since: start }; play(14); const p = S.people.get('A'), seated = p.sit;
+let ups = 0, was = p.sit;
+const watch = secs => { for (let i = 0; i < secs * 30; i++) { sc.step(1 / 30); NOW += 1000 / 30; if (i % 120 === 0) sc.update(view()); if (was >= 1 && p.sit < 1) ups++; was = p.sit; } };
+watch(6); liveFake.A = { s: 'idle', since: NOW }; watch(5); liveFake.A = { s: 'busy', since: NOW }; watch(20);
+const during = ups; liveFake.A = { s: 'idle', since: NOW }; let up = 0; for (let i = 0; i < 14 * 30 && !up; i++) { watch(1 / 30); if (p.sit < 1) up = i / 30; }
+console.log(JSON.stringify({ seated, during, up: up > 0 && up <= 13 }));
+"""
+        self.assertEqual(self.node(code), {"seated": 1, "during": 0, "up": True})
+
     def test_people_use_the_door(self):
         """새 사람은 문 밖에서 들어와 자기 책상에 한 번 앉아요. 대기여도요. 나가는 사람은 문까지 걸어가요. 움직임 줄이기에서는 걷지 않아요."""
         code = self.SCENE + scene_open() + self.STAFF + self.WATCH + """
@@ -1086,12 +1361,71 @@ console.log(JSON.stringify({ same, more }));
         self.assertEqual(self.node(code), {"same": 0, "more": 1})
 
 
+@unittest.skipUnless(CHROME, "크롬이 없어요(CSS 시험은 진짜 브라우저로 재요)")
+class PageFits(unittest.TestCase):
+    """CSS는 node로 잴 수 없어요. 페이지 CSS로 진짜 브라우저에서 재요."""
+    HDR = re.search(r'<header class="hdr">.*?</header>', SRC, re.S).group(0)
+    SHOW = "const $ = q => document.querySelector(q), show = (q, t) => { const e = $(q); e.hidden = false; if (t) e.innerHTML = t; return e; }, say = o => { $('#out').textContent = JSON.stringify(o); };"
+
+    def test_more_line_can_be_pressed(self):
+        """폰에서 빈자리 줄의 [자세히]도 24 이상이에요(운영 ★D3)."""
+        box = '<ul class="ro-list"><li class="r"><div class="seat"><details class="su-more"><summary>자세히</summary><p class="hint">글</p></details></div></li></ul>'
+        for w in (360, 320):
+            r = in_browser(box, self.SHOW + "const b = $('.su-more > summary').getBoundingClientRect(); say({ w: b.width, h: b.height });", w)
+            self.assertGreaterEqual((r["w"], r["h"]), (24, 24), w)
+            self.assertGreaterEqual(r["h"], 24, w)
+
+    def test_vacant_note_only_on_first_row(self):
+        """빈자리 안내 줄은 층의 첫 빈자리에만 있어요. 단추와 [자세히]가 한 줄이라 빈자리가 많아도 명단이 짧아요."""
+        row = '<li class="r"><div class="r-main">자리</div><div class="seat"><div class="seat-acts"><button class="btn primary">세션 만들기</button></div><p class="hint" data-must>Claude 창에 첫 메시지를 채워 둬요. 읽어 보고 Enter를 눌러야 보내져요.</p><details class="su-more"><summary>자세히</summary><p class="hint">글</p></details></div></li>'
+        box = '<ul class="ro-list"><li class="r"><div class="r-main">팀장</div></li>' + row * 3 + '</ul>'
+        size = self.SHOW + """const seats = [...document.querySelectorAll('.r .seat')], tall = e => e.getBoundingClientRect().height, s = seats[1].querySelector('summary').getBoundingClientRect(), b = seats[1].querySelector('.btn').getBoundingClientRect();
+say({ first: tall(seats[0].querySelector('[data-must]')), second: tall(seats[1].querySelector('[data-must]')), third: tall(seats[2].querySelector('[data-must]')), row: tall(seats[1].parentNode), same: Math.abs((s.top + s.bottom) / 2 - (b.top + b.bottom) / 2) < 8, press: s.height, over: document.documentElement.scrollWidth - innerWidth });"""
+        wide, phone = in_browser(box, size), in_browser(box, size, 360)
+        for r in (wide, phone):
+            self.assertGreater(r["first"], 0)
+            self.assertEqual((r["second"], r["third"], r["over"]), (0, 0, 0))
+            self.assertTrue(r["same"])
+        self.assertLess(wide["row"], 100)                   # 디자이너 값 92px, 전에는 190px
+        self.assertGreaterEqual(phone["press"], 44)
+        self.assertNotIn("""where === 'r' ? '<p class="seat-st">아직 세션이 없어요.</p>'""", SRC)
+        self.assertIn("""${so ? '' : '<span class="r-task">아직 세션이 없어요.</span>'}""", SRC)
+
+    def test_floor_tools_menu_stays_on_screen(self):
+        """폰에서 [층 도구] 메뉴 전체가 화면 안이에요."""
+        room = '<div class="wrap"><section class="scene-card"><header class="sc-head"><span class="fl">1층</span><h2>쉬는층</h2><div class="counts"><span>대기 <b>6</b></span></div><span class="sp"></span><button class="btn">움직임 멈추기</button><details class="tools" id="floorTools" open><summary class="btn">층 도구</summary><div class="tools-menu"><button class="notion">팀원 고치기</button><code>~/projects/my-app</code></div></details></header></section></div>'
+        for w in (360, 320):
+            r = in_browser(room, self.SHOW + "const b = $('.tools-menu').getBoundingClientRect(); say({ left: b.left, right: b.right, width: b.width, height: b.height, page: innerWidth, over: document.documentElement.scrollWidth - innerWidth });", w)
+            self.assertGreater(r["width"], 200, w)        # 칸 폭으로 줄어들면 글자가 세로로 서요
+            self.assertLess(r["height"], 200, w)
+            self.assertGreaterEqual(r["left"], 0, w)
+            self.assertLessEqual(r["right"], r["page"], w)
+            self.assertEqual(r["over"], 0, w)
+
+    def test_phone_header_keeps_its_buttons_whole(self):
+        """폰 머리말에 결재함과 표시가 같이 있어도 [⋯]의 점이 테두리에 닿지 않아요."""
+        for w in (360, 320):
+            r = in_browser(self.HDR, self.SHOW + "show('#apprBtn'); show('#hdrNote', '총괄 끊김 +1'); const m = $('#hdrMore').getBoundingClientRect(), i = $('#hdrMore svg').getBoundingClientRect(); say({ gap: m.right - i.right, right: m.right, page: innerWidth, over: document.documentElement.scrollWidth - innerWidth });", w)
+            self.assertGreaterEqual(r["gap"], 6, w)
+            self.assertLessEqual(r["right"], r["page"], w)
+            self.assertEqual(r["over"], 0, w)
+
+    def test_wide_header_wraps_long_notes(self):
+        """1000폭에서 총괄 멈춤 글과 새 버전 칩이 같이 떠도 가로로 넘치지 않고 [설정]이 화면 안이에요."""
+        step = re.search(r"const STUCK_STEP = '([^']*)'", SRC).group(1)
+        stuck = f'총괄 창이 멈췄을 수 있어요(전달 대기 <b>3</b>). {step} <a href="#">총괄 창 열기 ↗</a>'.replace('"', '\\"')
+        r = in_browser(self.HDR, self.SHOW + f"""show('#apprBtn'); show('#relay', "{stuck}").className = 'live alert'; show('#upd', '새 버전 <b>0.10.1</b> 있어요 <button class="btn">업데이트</button> <a href="#">바뀐 점</a>'); show('#setupBtn');
+const b = $('#setupBtn').getBoundingClientRect(); say({{ over: document.documentElement.scrollWidth - innerWidth, right: b.right, page: innerWidth }});""", 1000)
+        self.assertEqual(r["over"], 0)
+        self.assertLessEqual(r["right"], r["page"])
+
+
 class ScenePage(unittest.TestCase):
     def test_wiring(self):
         self.assertIn("data-stage-slot", page_js("roomHTML"))
         # 방을 다시 그린 바로 뒤에 장면을 돌려놓아요(보던 위치를 읽기 전에), 글을 미룰 때도 장면은 갱신해요, 서랍이 열려 있어도 읽어요
         self.assertLess(SRC.index("stageMount(cur, cur && teams[cur.id])"), SRC.index("if (redrawn && sameRoom) $$(ROOM_SCROLLS)"))
-        self.assertIn("pending = true; stageSync(); return;", page_js("load"))
+        self.assertIn("pending = true; stageSync(); countsPaint(); drawerPaint(); return;", page_js("load"))
         self.assertIn("($('#drawer').hidden || STAGE.scene)", SRC)
         # 책상 카드에 기댔던 길은 명단 줄로 옮겼어요(누르기, 앉은 뒤 키보드). 버튼이라 Enter·Space는 저절로 돼요
         for sel in ("const seat = e.target.closest('.r-main[data-role]');\n  if (seat) { memberDrawer(seat.dataset.team, seat.dataset.role); return; }",

@@ -714,7 +714,7 @@ svg.i{width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke
 .dot{display:inline-block; width:9px; height:9px; border-radius:2px; flex:none; background:var(--rest)}
 .d-work{background:var(--work)!important} .d-idle{background:var(--ok)!important} .d-meet{background:var(--meet)!important} .d-block{background:var(--err)!important}
 /* 머리말 */
-.hdr{position:relative; display:flex; align-items:center; gap:8px; min-height:44px}
+.hdr{position:relative; display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:8px; min-height:44px}   /* 칩이 많으면 다음 줄로 가요 */
 .logo{display:flex; align-items:center; gap:8px; margin:0; font:700 24px/1 var(--font-display); white-space:nowrap}
 .logo svg{width:32px; height:32px; flex:none}
 .hdr .sp{flex:1}
@@ -722,6 +722,7 @@ svg.i{width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke
 .hdr .live{min-height:34px; padding:4px 12px; border-radius:2px; font-size:13px; font-weight:600; color:var(--ink); white-space:nowrap}
 .hdr .live:hover{border-color:var(--line-2)}
 .hdr .live.alert,#apprBtn.alert{background:var(--hot-w); border-color:var(--hot)}
+.hdr #relay.alert{flex-wrap:wrap; max-width:100%; white-space:normal}   /* 멈춤 안내는 길어요 */
 #apprBtn b{display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 5px; border-radius:2px; background:var(--hot); color:var(--on-s); font:700 12px var(--font-body)}
 #apprBtn:not(.alert) b{background:var(--surface-2); color:var(--ink)}
 #live:not(.snap):not(.lost){display:none}
@@ -822,7 +823,12 @@ button.r-main{cursor:pointer}
 .r-acts{display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:0 8px 8px 58px; font-size:12px; color:var(--ink-2)}
 .r-acts.over{position:absolute; right:8px; bottom:7px; flex-wrap:nowrap; gap:2px; padding:0}
 .r-main.has-ib .r-task{padding-right:58px}
-.r .seat{padding:0 8px 8px 58px; border-top:0}
+.r .seat{padding:0 8px 8px 58px; border-top:0; flex-direction:row; flex-wrap:wrap; align-items:center; gap:4px 10px}
+.r .seat > .seat-st, .r .seat > .hint, .r .seat > .seat-pick{flex-basis:100%}
+.r .seat > .su-more{order:2; margin-top:0}
+.r .seat > .su-more[open]{flex-basis:100%}
+.r .seat > .hint{order:3; padding-right:36px}
+li.r:has(.seat) ~ li.r .seat > .hint[data-must]{display:none}   /* 안내 줄은 층의 첫 빈자리에만 둬요 */
 .r .seat-ok{margin:0 8px 8px 58px; border-radius:2px}
 .ib{display:inline-grid; place-items:center; width:26px; height:24px; padding:0; border:0; border-radius:3px; background:none; color:var(--ink-2); text-decoration:none; cursor:pointer}
 .ib:hover{background:var(--line); color:var(--ink)}
@@ -870,12 +876,17 @@ button.r-main{cursor:pointer}
   .r-main.has-ib{padding-bottom:18px; align-items:flex-start}
   .r-main.has-ib .r-task{padding-right:76px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
   .r-acts.over{bottom:6px; gap:4px}
+  .r .seat > .hint{padding-right:44px}
+  .r .su-more > summary{min-height:44px; min-width:44px; padding:0; line-height:44px}
   .stage-box{aspect-ratio:4 / 3}
   .logo{font-size:22px}
   .logo svg{width:28px; height:28px}
   .ft{min-width:132px; padding-right:10px}
   .floors-w .order{display:none}
-  .sc-head{padding-left:12px}
+  .sc-head{position:relative; padding-left:12px}
+  .tools{position:static}
+  .tools-menu{left:12px; right:12px; width:auto}   /* 단추가 왼쪽으로 줄바꿈되면 252px 메뉴가 화면 밖으로 나가요 */
+  .su-more > summary{padding:3px 0}   /* 누를 곳 24px 이상(운영 ★D3) */
   .sc-head h2{font-size:21px}
   .drawer-panel{border-radius:4px 4px 0 0}
 }
@@ -1469,7 +1480,6 @@ function VoxelView(S) {
     desk(d) { const q = P3(d.x + 1, d.y + .5, .95); return [q[0] / S.dpr, q[1] / S.dpr]; },
     deskSign(d) { const q = P3(d.x + 1, d.y + 1, .1); return [q[0] / S.dpr, q[1] / S.dpr]; },
     seat(s) { const q = P3(s.x, s.y, 1.1); return [q[0] / S.dpr, q[1] / S.dpr]; },
-    table() { const P = S.plan, q = P3(P.tx + P.tw / 2, 3, 1); return [q[0] / S.dpr, q[1] / S.dpr]; },
     deskW: () => hw * 1.1 / S.dpr, bodyW: () => hw * .7 / S.dpr,
     portrait(m) { /* 장면 얼굴을 명단에도 써요: 10×10 낮은 해상도 */
       const was = night; night = false; const sk = makeSkin({ m, h: hashStr(m.id) }); night = was;
@@ -1542,7 +1552,7 @@ function createOfficeScene(el, opts) {
       const q = P.seats[p.seatI] || P.walls[(p.seatI - P.seats.length) % P.walls.length];
       return { x: q.x, y: q.y, yaw: q.yaw, sit: !q.wall, act: q.wall ? 'stand' : 'listen', in: q.in, wall: q.wall };
     }
-    if (p.desk && (s === WORK || s === STUCK || p.m.quiet || p.m.codex)) return { x: p.desk.x + .5, y: p.desk.y - .5, yaw: TAU / 4, sit: true, in: [p.desk.x + 1.5, p.desk.y - .5], act: s === STUCK ? 'stuck' : p.m.quiet === 'long' ? 'doze' : p.m.quiet ? 'still' : s === WORK ? 'type' : 'rest' };
+    if (p.desk && (s === WORK || s === STUCK || p.m.quiet || p.m.codex)) return { x: p.desk.x + .5, y: p.desk.y - .5, yaw: TAU / 4, sit: true, in: [p.desk.x + 1.5, p.desk.y - .5], act: s === STUCK ? 'stuck' : p.m.quiet === 'long' ? 'doze' : p.m.quiet || p.m.hold ? 'still' : s === WORK ? 'type' : 'rest' };
     return null;
   }
   function applyGoal(p, snap) {
@@ -1608,6 +1618,7 @@ function createOfficeScene(el, opts) {
   /* 혼잣말: 층 전체에서 한 번에 하나, 3초, 다음까지 20~40초. 짝이 있으면 짝 대화가 먼저예요. 앞사람 3초, 1초 쉬고 뒷사람 3초 */
   const pickLine = (list, last) => { let t = list[Math.floor(S.rng() * list.length)]; if (t === last) t = list[(list.indexOf(t) + 1) % list.length]; return t; };
   function mutter(dt) {
+    const said = S.aside; if (said && said.p.act === 'phone' && !said.p.talk) { S.aside = null; S.asideQ = []; S.asideT = 20 + S.rng() * 20; return; }   /* 말하는 도중에 전화 자리로 가면 그쳐요 */
     S.asideT -= dt; if (S.asideT > 0 || S.reduced) return;
     if (S.aside) { S.aside = null; S.asideT = S.asideQ.length ? 1 : 20 + S.rng() * 20; return; }
     if (!S.asideQ.length) {
@@ -1675,7 +1686,7 @@ function createOfficeScene(el, opts) {
       if (p.wait <= 0) {
         const g = p.stroll > 0 ? strollGoal(p) : null;
         if (g) { p.stroll--; p.wait = .4 + S.rng() * .8; setWant(p, g); }
-        else if (S.rng() > .45 || !tryPair(p)) { p.wait = 6 + S.rng() * 11; setWant(p, pickSpot(p)); }
+        else if (S.rng() > .45 || !tryPair(p)) { p.wait = 12 + S.rng() * 18; setWant(p, pickSpot(p)); }
       }
     }
     /* 작은 움직임: 사진처럼 멈추지 않게 */
@@ -1775,13 +1786,20 @@ function createOfficeScene(el, opts) {
       const at = i => [clamp(Math.round(cx - w / 2 + OFF[i][0] * w), 2, S.w - w - 2), clamp(Math.round(cy - h / 2 + OFF[i][1]), 2, S.h - h - 2)];
       const q = sticky(o, OFF.length, at, c => free(c[0], c[1], w, h, true)); placed.push({ x: q[0], y: q[1], w, h }); if (id) hits.push({ x: q[0], y: q[1], w, h, id }); box(q[0] + q[2], q[1] + q[3], w, h, text, opt);
     };
+    const mute = { bg: 'rgba(40,43,48,.9)', fg: '#D5D3CD', line: 'rgba(255,255,255,.3)' }, band = [];
+    const sign = m => m.missing ? (small ? '기록 없음' : (m.codex ? 'Codex · ' : '') + '기록을 찾지 못했어요') : m.state === VAC ? (m.waitingSeat ? 'Enter를 기다려요' : m.lead ? '팀장 빈자리' : '빈자리') : m.quiet === 'long' ? (small ? '소식 없음' : m.hours + '시간째 소식 없음') : '';
     for (const d of S.plan.desks) {
-      const m = d.owner; if (!m) continue; const q = view.deskSign(d), mute = { bg: 'rgba(40,43,48,.9)', fg: '#D5D3CD', line: 'rgba(255,255,255,.3)' };
-      if (m.missing) tag(q[0], q[1], (m.codex ? 'Codex · ' : '') + (small ? '기록 없음' : '기록을 찾지 못했어요'), mute, m.id);
-      else if (m.state === VAC) tag(q[0], q[1], m.waitingSeat ? 'Enter를 기다려요' : m.lead ? '팀장 빈자리' : '빈자리', mute, m.id);
-      else if (m.quiet === 'long') tag(q[0], q[1], m.hours + '시간째 소식 없음', mute, m.id);
+      const m = d.owner, t = m && sign(m); if (!t) continue;
+      if (small) { const o = band.find(b => b.t === t); if (o) o.n++; else band.push({ t, n: 1, id: m.id }); continue; }
+      const q = view.deskSign(d); tag(q[0], q[1], t, mute, m.id);
     }
-    if (S.meeting.active && S.meeting.phase === 'wrap') { const q = view.table(); tag(q[0], q[1], '회의록 정리 중', { bg: '#E9E6DF', fg: '#20232A' }); }
+    /* 폰: 책상을 덮지 않게 표지를 왼쪽 아래 한 줄로 모아요. 누르면 그 줄의 첫 사람에게 가요 */
+    let bx = 6, by = S.h - 23; ctx.font = '600 11px ' + FONT;
+    for (const b of band) {
+      const t = b.t + (b.n > 1 || b.t === '빈자리' ? ' ' + b.n : ''), w = Math.ceil(ctx.measureText(t).width) + 12;
+      if (bx > 6 && bx + w > S.w - 6) { bx = 6; by -= 21; }
+      placed.push({ x: bx, y: by, w, h: 17 }); hits.push({ x: bx, y: by - 4, w: Math.max(w, 44), h: 25, id: b.id }); box(bx, by, w, 17, t, mute); bx += w + 4;
+    }
     if (S.boss) { const q = view.seat(S.boss); floating('boss', q[0], q[1], '대표 자리', { bg: '#D8AC48', fg: '#1E2024' }); }
     for (const g of (S.ghosts || [])) { const q = view.seat(g.seat); floating(g.m.id, q[0], q[1], fit(g.m.name || g.m.role, 120) + ' · 아직 안 왔어요', { bg: 'rgba(40,43,48,.92)', fg: '#D5D3CD', line: 'rgba(255,255,255,.3)' }, g.m.id); }
     ctx.font = '600 11px ' + FONT;
@@ -1921,6 +1939,10 @@ const ST = {
 /* ---------- 불러오기 ---------- */
 let state = null, mode = 'loading';
 const viewNow = () => (mode === 'snap' && state && Date.parse(state.at)) || Date.now();   // 오래됨을 재는 시계. 스냅샷은 찍은 때 기준이에요
+const LIVE = { seats: {}, got: 0 };   // /api/state의 live(세션 실행 상태). 받은 적이 없으면(스냅샷) 신호가 없어요
+const LIVE_FRESH = 20e3;   // 받은 뒤 이만큼 믿어요. 요청이 한두 번 실패해도 사람이 일어나지 않아요
+const LIVE_TAIL = 8e3;   // idle 뒤 이만큼 더 앉아 있고, waiting이 이만큼 넘으면 손을 멈춰요
+function liveTake(r) { if (r && r.live && typeof r.live === 'object') { LIVE.seats = r.live; LIVE.got = Date.now(); } }
 const bust = u => u + (u.includes('?') ? '&' : '?') + 't=' + Date.now();
 async function getText(u) { const r = await fetch(bust(u), { cache: 'no-store' }); if (!r.ok) throw new Error(r.status + ' ' + u); return r.text(); }
 async function getJSON(u) { return JSON.parse(await getText(u)); }
@@ -1986,7 +2008,7 @@ async function load() {
     let talk = null;
     if (API) talk = await getText(TALK_FILE).then(t => jsonl(t).slice(-TALK_SCAN), e => (/404/.test(String(e && e.message)) || !state || !state.talk ? [] : state.talk));
     let relay = null;
-    if (API) { try { relay = JSON.parse(await getText('api/state')); } catch (e) { relay = null; } }
+    if (API) { try { relay = JSON.parse(await getText('api/state')); liveTake(relay); } catch (e) { relay = null; } }
     if (gen !== orderGen) return;   // 옮긴 순서는 이미 그려져 있고, 저장이 끝나면 flushOrder가 다시 불러와요
     state = { org, teams, relay, hqLast, talk, at: new Date().toISOString() };
     mode = 'live';
@@ -1999,7 +2021,7 @@ async function load() {
   }
   // 서랍이 열려 있거나, 책상에서 이름을 저장하는 중이거나, 이름 입력칸에 키보드가 있는 동안에는 다시 그리지 않고 닫을 때 그려요.
   // 입력칸을 떠난 채 펼쳐만 둔 때(다른 곳을 누르거나 창을 옮긴 때)는 계속 갱신하고, 쓰던 글은 render가 남겨요.
-  if (!$('#drawer').hidden || (NE && (NE.busy || (document.activeElement === $('#nmIn') && document.hasFocus())))) { pending = true; stageSync(); return; }
+  if (!$('#drawer').hidden || (NE && (NE.busy || (document.activeElement === $('#nmIn') && document.hasFocus())))) { pending = true; stageSync(); countsPaint(); drawerPaint(); return; }
   render();
 }
 
@@ -2067,8 +2089,22 @@ function cxInfo(tid, m) {
 // 자리 하나의 지금 모습(기획 U-23-2 2-0의 판정 순서). 명단과 장면이 이 값을 같이 써서 서로 어긋나지 않아요. 장면은 스스로 판단하지 않아요.
 // state: 장면에 넘기는 다섯 값 · label: 글로 보일 상태(원문 그대로) · quiet: 오래됨('short' 30분~6시간, 'long' 6시간 넘음) · stale: ‘응답 없음?’
 const QUIET_SHORT = 30 * 60e3, QUIET_LONG = 6 * 3600e3;
+// 세션 실행 신호. 받은 지 20초가 넘었거나 모르는 값이면 없어요
+function seatLive(tid, role, now) {
+  if (!LIVE.got || now - LIVE.got > LIVE_FRESH) return null;
+  const x = (LIVE.seats[tid] || {})[role];
+  return x && typeof x === 'object' && ['busy', 'waiting', 'idle', 'quiet'].includes(x.s) && Number.isFinite(x.since) ? x : null;
+}
+// 신호를 화면 말로: work 일하는 중, hold 손 멈춤, wait 확인을 기다려요. 없으면 상태 파일을 따라요
+function liveOn(x, now) {
+  if (!x) return null;
+  if (x.s === 'quiet') return { work: false, hold: true, wait: false };
+  const late = now - x.since >= LIVE_TAIL;
+  if (x.s === 'idle') return late ? null : { work: true, hold: false, wait: false };
+  return { work: true, hold: x.s === 'waiting' && late, wait: x.s === 'waiting' && late };
+}
 function seatView(tid, m, s, am, now) {
-  const base = { kind: 'member', state: '대기', label: '대기', task: '', say: '', updated: '', quiet: '', stale: false, invited: false, arriving: false, waitingSeat: false, missing: false, at: 0 };
+  const base = { kind: 'member', state: '대기', label: '대기', task: '', say: '', updated: '', quiet: '', stale: false, invited: false, arriving: false, waitingSeat: false, missing: false, hold: false, wait: false, at: 0 };
   const seat = seatGet(seatKey(tid, m.role));
   if (isCx(m)) {
     const x = cxInfo(tid, m);
@@ -2076,11 +2112,19 @@ function seatView(tid, m, s, am, now) {
   }
   if (!m.sessionId) return Object.assign(base, { kind: 'vacant', state: '빈자리', label: '빈자리', waitingSeat: !!seat && (seat.state === 'waiting' || seat.state === 'pick') });
   const v = Object.assign(base, { arriving: !!seat && seat.state === 'seated' && seat.sessionId === m.sessionId });
+  const sig = liveOn(seatLive(tid, m.role, now), now), at = s ? Date.parse(s.updated) : 0, age = at && !exampleTeam(tid) ? now - at : 0, live = !!am && am.status === '진행 중';   // 시각을 모르면 시간을 세지 않아요. 예시 층도 재지 않아요
+  const invited = !!s && live && s.state !== '회의 중' && Array.isArray(am.participants) && am.participants.includes(m.role), filed = !!s && s.state === '일하는 중';
+  // 세션이 일하면 상태 파일이 대기여도 일하는 중이에요. 회의 중과 막힘이 먼저이고, 신호는 파일의 일하는 중을 내리지 않아요
+  if (sig && !(s && (s.state === '막힘' || (s.state === '회의 중' && (live || age <= QUIET_SHORT)))) && (sig.work || !filed)) {
+    const fresh = filed && age <= QUIET_SHORT;
+    Object.assign(v, { state: '일하는 중', label: sig.wait ? '확인 대기' : '일하는 중', hold: sig.hold, wait: sig.wait, invited, task: fresh ? s.task || '' : '', say: fresh ? s.say || '' : '', updated: sig.work ? new Date(now).toISOString() : (s && s.updated) || '' });
+    if (!sig.work) { v.quiet = 'short'; v.stale = true; }   // 세션이 30분 넘게 조용해요
+    return v;
+  }
   if (!s) return Object.assign(v, { quiet: 'short', label: '아직 소식 없음' });   // 상태 파일을 못 읽었어요: 모르는 것을 대기라고 하지 않아요
-  const at = Date.parse(s.updated), age = at && !exampleTeam(tid) ? now - at : 0, live = !!am && am.status === '진행 중';   // 시각을 모르면 시간을 세지 않아요. 예시 층도 재지 않아요
   v.label = s.state || '대기'; v.task = s.task || ''; v.updated = s.updated || '';
   v.say = s.say && age < QUIET_LONG && s.state !== '회의 중' ? s.say : '';
-  if (live && s.state !== '회의 중' && Array.isArray(am.participants) && am.participants.includes(m.role)) v.invited = true;
+  v.invited = invited;
   if (s.state === '회의 중') {
     if (live || age <= QUIET_SHORT) v.state = '회의 중';   // 진행 중 회의에서는 상태 파일을 안 고쳐요. 오래돼도 앉아 있어요
     else { v.quiet = 'short'; v.stale = true; }             // 사이트 회의가 없는데 30분 넘게 그대로: 회의실에서 나와요
@@ -2098,6 +2142,10 @@ const SEAT_CHIP = { '일하는 중': 's-work', '대기': 's-idle', '회의 중':
 const avHTML = (L, st, vac) => (vac ? '<span class="ro-av vac"></span>' : `<span class="ro-av" style="--skin:${esc(L.skin)};--hair:${esc(L.hair)}"><i></i><span class="ring ${seatDot(st)}"></span></span>`);
 const icon = n => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 // 팀원 명단의 한 줄(시안 U-23). 지금 책상에서 되던 일이 다 있어요: 대화(줄 누르기), Claude 창 열기, 이름 바꾸기, 세션 만들기, 새 답, 상태·할 일, Codex 읽기 전용
+// 줄의 둘째 줄. 명단과 호버 카드가 같은 말을 써요. 일하는데 적어 둔 일이 없으면 비어요(명단은 —로 그리고, 스크린리더는 읽지 않아요)
+const seatLine = v => (v.wait ? 'Claude 창에서 확인해요' : v.task || (v.state === '일하는 중' ? '' : '다음 일을 기다리는 중'));
+// 칩 글. 명단, 호버 카드, 서랍 상태 줄이 같은 말을 써요
+const seatChip = v => (v.missing ? '기록 없음' : v.quiet === 'long' ? '소식 없음' : (v.label || v.state) + (v.stale ? ' · 응답 없음?' : ''));
 // 명단 줄을 읽는 글. 이름을 따로 정했을 때만 역할을 더 읽고, 보이는 시간도 읽어요
 const rowAria = r => [r.who, r.who !== r.role && r.role, r.cx && 'Codex', r.chip, r.when, r.nw && '새 답', r.task].filter(Boolean).join(', ') + `. ${r.cx ? '자세히 보기' : '대화 열기'}`;
 function seatRowHTML(m, st, tid, newReply, cx, am) {
@@ -2109,16 +2157,16 @@ function seatRowHTML(m, st, tid, newReply, cx, am) {
   if (v.kind === 'vacant') {
     // 빈자리: [세션 만들기]로 이 층 폴더에서 새 세션을 열어 앉혀요(로컬 페이지, 예시 팀이 아니고 서버가 고칠 수 있는 줄일 때만)
     const so = seatGet(seatKey(tid, m.role)), can = !!(cx.seat && cx.edit && cx.edit.has(m));
-    return `<li class="r" data-member="${role}" tabindex="-1"><div class="r-main has-ib">${avHTML(L, v.state, true)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}<span class="r-st"><i></i>빈자리</span></span>${can || so ? '' : '<span class="r-task">아직 세션이 없어요.</span>'}</span></div>
+    return `<li class="r" data-member="${role}" tabindex="-1"><div class="r-main has-ib">${avHTML(L, v.state, true)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}<span class="r-st"><i></i>빈자리</span></span>${so ? '' : '<span class="r-task">아직 세션이 없어요.</span>'}</span></div>
       ${pen ? `<div class="r-acts over">${pen}</div>` : ''}${can || so ? seatBoxHTML(tid, m.role, 'r') : ''}</li>`;
   }
   const sj = seatGet(seatKey(tid, m.role)), seatOk = sj && sj.state === 'seated' && sj.sessionId === m.sessionId ? '<p class="seat-ok">자리에 앉혔어요 ✓</p>' : '';
   const when = v.updated ? ago(v.updated) : v.at ? ago(new Date(v.at).toISOString()) : '';
-  const chip = v.missing ? '기록 없음' : v.quiet === 'long' ? '소식 없음' : v.label + (v.stale ? ' · 응답 없음?' : '');
+  const chip = seatChip(v);
   const line = v.missing ? '기록을 찾지 못했어요' : v.quiet === 'long' ? `${v.hours}시간째 소식 없음` : v.invited ? '회의에 아직 안 왔어요'
-    : cxm ? `읽기 전용 · ${v.task || 'Codex 세션'}` : v.state === '회의 중' ? '회의실에 있어요' : v.task || '다음 일을 기다리는 중';
-  const task = line + (v.say ? ` · “${v.say}”` : '');
-  return `<li class="r" data-member="${role}"><button type="button" class="r-main has-ib" data-role="${role}" data-team="${esc(tid)}" aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, chip, nw: newReply, when, task }))}">${avHTML(L, v.state)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}${when ? `<small><i>${esc(when)}</i></small>` : ''}${newReply ? '<span class="nw">새 답</span>' : ''}<span class="r-st ${v.stale || v.quiet || v.missing ? 'st-q' : SEAT_CHIP[v.state] || ''}"><i></i>${esc(chip)}</span></span><span class="r-task">${cxm ? '<span class="cxc">Codex</span> ' : ''}${esc(task)}</span></span></button>
+    : cxm ? `읽기 전용 · ${v.task || 'Codex 세션'}` : v.state === '회의 중' ? '회의실에 있어요' : seatLine(v);
+  const task = [line, v.say && `“${v.say}”`].filter(Boolean).join(' · ');
+  return `<li class="r" data-member="${role}"><button type="button" class="r-main has-ib" data-role="${role}" data-team="${esc(tid)}" aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, chip, nw: newReply, when, task }))}">${avHTML(L, v.state)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}${when ? `<small><i>${esc(when)}</i></small>` : ''}${newReply ? '<span class="nw">새 답</span>' : ''}<span class="r-st ${v.stale || v.quiet || v.missing ? 'st-q' : SEAT_CHIP[v.state] || ''}"><i></i>${esc(chip)}</span></span><span class="r-task">${cxm ? '<span class="cxc">Codex</span> ' : ''}${esc(task || '—')}</span></span></button>
     <div class="r-acts over">${cxm ? '' : `<a class="ib" href="${chatLink(m.sessionId)}" aria-label="${esc(who)} Claude 창 열기" title="Claude 창 열기">${icon('out')}</a>`}${pen}</div>${seatOk}</li>`;
 }
 const MEET_QUIET = 30 * 60e3;
@@ -2307,6 +2355,7 @@ function render() {
   // 방을 다시 그려도 같은 층이면 명단·업무판·활동 기록·파일 목록을 보던 위치는 그대로
   const room = $('#rooms .room'), sameRoom = !!cur && !!room && room.dataset.team === cur.id, scrolls = $$(ROOM_SCROLLS).map(el => el.scrollTop);
   const redrawn = put($('#rooms'), !cur ? '' : teams[cur.id] ? roomHTML(cur, teams[cur.id]) : vacantHTML(cur));
+  if (!redrawn) countsPaint();   // 방 글이 같아서 건너뛰어도 서랍을 연 동안 칠한 값이 남지 않아요
   stageMount(cur, cur && teams[cur.id]);   // 장면은 다시 그린 방의 자리표에 같은 덩이로 돌아가요(높이가 비기 전에)
   if (redrawn && sameRoom) $$(ROOM_SCROLLS).forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
   renderTalk();
@@ -2339,14 +2388,22 @@ function leadGapHTML(t, d, where) {
 // 이 층의 지금 회의(사이트 회의): 진행 중이 먼저, 없으면 정리 중인 회의
 const meetNow = d => (d.metas || []).find(m => m.status === '진행 중') || d.active || null;
 let DOC_TAB = 'rep', TOOLS_OPEN = false;   // 서류함에서 고른 칸, 층 도구가 열렸는지(방을 다시 그려도 그대로)
+const countsHTML = views => [['일하는 중', 'd-work'], ['대기', 'd-idle'], ['회의 중', 'd-meet'], ['막힘', 'd-block']].map(([k, c]) => [k, c, views.filter(v => v.state === k).length]).filter(x => x[2]).map(([k, c, n]) => `<span><i class="dot ${c}"></i>${k} <b>${n}</b></span>`).join('');
+// 서랍을 연 동안에도 머리말 숫자와 장면 아래 글은 장면과 같아요(나머지 방은 닫을 때 다시 그려요)
+function countsPaint() {
+  const box = $('#rooms .counts'), room = $('#rooms .room'), t = room && state.org.teams.find(x => x.id === room.dataset.team), d = t && state.teams[t.id];
+  if (!box || !d) return;
+  const am = meetNow(d), ms = leadFirst(d.team.members), views = ms.map(m => seatView(t.id, m, d.status[m.role], am, viewNow())), line = $('#rooms .sc-line'), text = stageLine(t, ms, views);
+  put(box, countsHTML(views) + usgFloorHTML(t.id));
+  if (line) { put(line, esc(text)); line.hidden = !text; }
+}
 function roomHTML(t, d) {
   const ms = leadFirst(d.team.members);
   // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
   const mine = API && !String(t.office || '').startsWith('examples/');   // 로컬 페이지의 내 층(예시 팀은 고치지도, 세션을 만들지도 않아요)
   const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: mine ? new Set(shownRows(d.team.members).map(x => x.m)) : null, seat: mine };
   const am = meetNow(d), views = ms.map(m => seatView(t.id, m, d.status[m.role], am, viewNow()));
-  const count = st => views.filter(v => v.state === st).length, meeting = count('회의 중');
-  const counts = [['일하는 중', 'd-work'], ['대기', 'd-idle'], ['회의 중', 'd-meet'], ['막힘', 'd-block']].filter(([k]) => count(k)).map(([k, c]) => `<span><i class="dot ${c}"></i>${k} <b>${count(k)}</b></span>`).join('');
+  const meeting = views.filter(v => v.state === '회의 중').length, counts = countsHTML(views);
   const items = parseBoard(d.board);
   const open = items.filter(i => !i.done);
   const done = items.filter(i => i.done);
@@ -2384,7 +2441,7 @@ function roomHTML(t, d) {
         <header class="sc-head">${t.floor ? `<span class="fl">${esc(floorLabel(t))}</span>` : ''}<h2>${esc(t.name)}</h2><div class="counts">${counts}${usgFloorHTML(t.id)}</div><span class="sp"></span>
           <button type="button" class="btn" data-act="stage-still">${icon(STAGE.held ? 'play' : 'pause')}${STAGE.held ? '움직임 켜기' : '움직임 멈추기'}</button>${tools}</header>
         <div data-stage-slot></div>
-        ${line ? `<p class="sc-line">${esc(line)}</p>` : ''}
+        <p class="sc-line"${line ? '' : ' hidden'}>${esc(line)}</p>
       </div>
       <aside class="roster" aria-labelledby="rosterH"><div class="ro-in">
         <div class="ro-h"><h3 id="rosterH">팀원</h3><small>${ms.length}명 · 이름을 누르면 대화가 열려요.</small></div>
@@ -2423,7 +2480,7 @@ function stageState(t, d, now) {
       const v = seatView(t.id, m, d.status[m.role], am, now), cx = v.kind === 'cx', seated = v.kind === 'member';
       return { id: m.role, role: m.role, name: customName(m, names) || m.role, lead: m.role === LEAD, codex: cx, look: lookOf(cx ? m.codexId : m.sessionId || m.role, m.role),
         state: v.state, task: v.task, say: v.say, newReply: seated && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]),
-        quiet: v.quiet, label: v.label, stale: v.stale, hours: v.hours || 0, invited: v.invited, arriving: v.arriving, waitingSeat: v.waitingSeat, missing: v.missing };
+        quiet: v.quiet, label: v.label, stale: v.stale, hours: v.hours || 0, invited: v.invited, arriving: v.arriving, waitingSeat: v.waitingSeat, missing: v.missing, hold: v.hold, wait: v.wait, when: v.updated };
     }),
     meeting: { active: !!am, topic: am ? String(am.topic || '') : '', phase: am && am.status === '정리 중' ? 'wrap' : 'live', mode: am && am.mode === '참석' ? 'boss' : 'team' }
   };
@@ -2500,6 +2557,8 @@ function stageSync() {
   try {
     const v = STAGE.view = stageState(t, d, viewNow());
     sc.update(v);
+    const tip = STAGE.tip, open = tip && !tip.hidden && tip.dataset && tip.dataset.id && v.members.find(z => z.id === tip.dataset.id);
+    if (open) tip.innerHTML = stageTipHTML(open);   // 카드가 열린 동안에도 명단과 같은 값이에요
     if (STAGE.box) STAGE.box.setAttribute('aria-label', stageAria(v));
     if (STAGE.badge) { const b = stageBadge(v.meeting); put(STAGE.badge, esc(b)); STAGE.badge.hidden = !b; }
   } catch (e) { stageFail(e); }
@@ -2578,15 +2637,18 @@ function stageSelect(tid, id) {
   ($('[data-seat]:not([disabled])', row) || row).focus({ preventScroll: true });
 }
 // 떠 있는 카드: 이름·상태·할 일(혼잣말은 넣지 않아요). 터치에는 hover가 없어서 명단이 맡아요
+function stageTipHTML(m) {
+  const vac = m.state === '빈자리' && !m.missing, when = m.when && !vac ? ` · ${ago(m.when)}` : '';
+  const shown = seatChip(m), line = m.missing ? '기록을 찾지 못했어요' : vac ? '아직 세션이 없어요.' : m.quiet === 'long' ? `${m.hours}시간째 소식 없음` : seatLine(m);
+  return `<b>${esc(m.name)}${m.name !== m.role ? ` · ${esc(m.role)}` : ''}</b><small>${esc(shown)}${esc(when)}${m.codex ? ' · Codex · 읽기 전용' : ''}</small>${esc(line)}${m.say ? `<small>“${esc(m.say)}”</small>` : ''}<small>${vac ? (API ? '눌러서 세션을 만들어요' : '눌러서 명단으로 가요') : m.codex ? '눌러서 자세히 봐요 (말 걸기는 아직 안 돼요)' : '눌러서 대화해요'}</small>`;
+}
 function stageHover(tid, id, x, y) {
   const tip = STAGE.tip, v = STAGE.view, m = id && v ? v.members.find(z => z.id === id) : null;
   if (!tip) return;
   if (!m) { tip.hidden = true; tip.dataset.id = ''; return; }
-  const d = state && state.teams[tid], st = d && d.status[id], vac = m.state === '빈자리' && !m.missing, when = st && st.updated && !vac ? ` · ${ago(st.updated)}` : '';
-  const shown = m.missing ? '기록 없음' : m.quiet === 'long' ? '소식 없음' : (m.label || m.state) + (m.stale ? ' · 응답 없음?' : ''), line = m.missing ? '기록을 찾지 못했어요' : vac ? '아직 세션이 없어요.' : m.quiet === 'long' ? `${m.hours}시간째 소식 없음` : m.task || '다음 일을 기다리는 중';
   if (tip.dataset.id !== id) {
     tip.dataset.id = id;
-    tip.innerHTML = `<b>${esc(m.name)}${m.name !== m.role ? ` · ${esc(m.role)}` : ''}</b><small>${esc(shown)}${esc(when)}${m.codex ? ' · Codex · 읽기 전용' : ''}</small>${esc(line)}${m.say ? `<small>“${esc(m.say)}”</small>` : ''}<small>${vac ? (API ? '눌러서 세션을 만들어요' : '눌러서 명단으로 가요') : m.codex ? '눌러서 자세히 봐요 (말 걸기는 아직 안 돼요)' : '눌러서 대화해요'}</small>`;
+    tip.innerHTML = stageTipHTML(m);
     tip.hidden = false;
   }
   const bw = STAGE.host.clientWidth, w = tip.offsetWidth, h = tip.offsetHeight;   // x·y는 머리 위치예요. 카드는 머리 위에 떠요
@@ -2820,7 +2882,7 @@ function seatInner(tid, role, where) {
   // 아직 링크가 없어요(또는 만드는 중이거나 못 만들었어요)
   if (boss && SU.st && SU.st.boss) return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '총괄 바꾸기', busy ? '' : '새 세션을 총괄로 바꾸기')}</div>${err}<p class="hint" data-must>${esc(SEAT_SAY)} 예전 총괄의 전달은 저절로 멈춰요.</p>`;
   if (boss) return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '총괄 만들기', busy ? '' : '총괄 세션 새로 만들기', ' primary')}</div>${err}<p class="hint" data-must>${esc(SEAT_SAY)}</p>${SEAT_MORE_BOSS}`;
-  return `${where === 'r' ? '<p class="seat-st">아직 세션이 없어요.</p>' : ''}<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '세션 만들기', busy ? '' : `${who} 자리에 새 세션 만들기`, ' primary')}</div>${err}<p class="hint" data-must>${esc(SEAT_SAY)}</p>${SEAT_MORE}`;
+  return `<div class="seat-acts">${b('link', busy ? '링크를 만드는 중…' : '세션 만들기', busy ? '' : `${who} 자리에 새 세션 만들기`, ' primary')}</div>${err}<p class="hint" data-must>${esc(SEAT_SAY)}</p>${SEAT_MORE}`;
 }
 // 상태가 바뀐 자리를 다시 그려요: 사무실은 render()(같은 글이면 그대로), 설정 화면은 그 상자만(쓰던 칸이 그대로 남게).
 // 키보드가 그 상자 안에 있었으면(누른 단추가 꺼지거나 없어져도) 같은 상자의 알맞은 단추로 돌려줘요. 상자 id의 첫 글자가 그 상자가 있는 곳이에요.
@@ -3640,10 +3702,22 @@ function cxDrawer(tid, m) {
     <p style="margin:14px 0 0; font-size:13.5px"><b>${CX_NO_TALK}.</b></p>
     <p class="hint" style="margin-top:6px">에이전시티는 이 Codex 세션의 기록 파일이 언제 바뀌었는지만 보고 상태를 보여 줘요(2분 안에 바뀌었으면 ‘일하는 중’, 아니면 ‘대기’). 상태를 볼 때 대화 내용은 읽지 않고, Codex 폴더에는 아무것도 쓰지 않아요. 일을 시키려면 Codex 창에서 직접 해요.</p></div>`, tid);
 }
+// 서랍의 상태·맡은 일·한마디. 명단과 같은 값이에요
+function drawerFacts(tid, role, rel = ago) {
+  const d = state.teams[tid], m = d.team.members.find(x => x.role === role), v = seatView(tid, m, d.status[role], meetNow(d), viewNow());
+  return { state: `${seatChip(v)}${v.updated ? ` · ${rel(v.updated)}` : ''}`, task: v.task || '—', say: v.say || '—' };
+}
+let DF = null;   // 열려 있는 팀원 서랍 { tid, role }
+function drawerPaint() {   // 열린 동안에는 이 세 칸만 고쳐요. 쓰던 글과 위치는 그대로예요
+  const d = DF && !$('#drawer').hidden && $('#dfState') && state.teams[DF.tid];
+  if (!d || !d.team.members.some(x => x.role === DF.role)) return;
+  const f = drawerFacts(DF.tid, DF.role);
+  put($('#dfState'), esc(f.state)); put($('#dfTask'), esc(f.task)); put($('#dfSay'), esc(f.say));
+}
 function memberDrawer(tid, role) {
-  const d = state.teams[tid], m = d.team.members.find(x => x.role === role), s = d.status[role] || {};
+  const d = state.teams[tid], m = d.team.members.find(x => x.role === role);
   if (isCx(m)) { cxDrawer(tid, m); return; }
-  const mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
+  const facts = drawerFacts(tid, role), mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
   const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
   const cn = customName(m, teamNames(tid));
   // 대화가 서랍의 주인공이라 작성창은 맨 아래에 붙고, 주고받은 메시지·보고서는 접어 둔 칸에 넣어요(누르면 펼쳐져요).
@@ -3651,9 +3725,9 @@ function memberDrawer(tid, role) {
     <h2 class="d-title" id="dTitle">${seatHTML(tid, role)}</h2></div>
     <div class="d-main"><dl class="facts">
       ${cn ? `<dt>역할</dt><dd>${esc(role)}</dd>` : ''}<dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
-      <dt>상태</dt><dd>${esc(s.state || '—')}${s.updated ? ` · ${esc(ago(s.updated))}` : ''}</dd>
-      <dt>맡은 일</dt><dd>${esc(s.task || '없음')}</dd>
-      <dt>한마디</dt><dd>${esc(s.say || '—')}</dd>
+      <dt>상태</dt><dd id="dfState">${esc(facts.state)}</dd>
+      <dt>맡은 일</dt><dd id="dfTask">${esc(facts.task)}</dd>
+      <dt>한마디</dt><dd id="dfSay">${esc(facts.say)}</dd>
     </dl>
     <div class="d-links"><a class="btn-primary" href="${esc(chatLink(m.sessionId))}">세션 창 열기</a>
       <p class="hint" style="margin-top:6px">커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.</p></div>
@@ -3665,6 +3739,7 @@ function memberDrawer(tid, role) {
     <h3 class="d-sec">바로 대화</h3>
     <ul class="thread" id="thread" aria-live="polite"></ul></div>
     ${API && exampleSeat(tid, m.sessionId) ? `<p class="hint" style="margin-top:10px">${EX_NO_TALK}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`, tid, true);
+  DF = { tid, role };
   openThread(d.base + 'chat/' + role + '.jsonl', { tid });
 }
 
@@ -4714,8 +4789,9 @@ function foldHTML(k, hid, title, body, open) {
 }
 // 읽는 정보 한 줄(처음 화면에 늘 보여요, 운영 U-18 1장). 자세한 건 [자세히]에
 function readInfoHTML() {
-  return `<div class="su-read"><p class="hint" data-must data-say>이 맥의 세션 목록(제목·폴더·마지막 활동)만 읽어요.</p>
-    <details class="su-more"><summary>자세히</summary><p class="hint">읽는 것: 세션 제목·폴더·마지막 활동, Claude 앱 사이드바의 그룹 이름·순서예요. 보관한 세션은 빼요. Codex 기록(<code>~/.codex</code>)은 id·폴더·제목·고친 시각만 읽고 아무것도 쓰지 않아요.
+  return `<div class="su-read"><p class="hint" data-must data-say>이 맥의 세션 목록(제목·폴더·마지막 활동)과 실행 상태만 읽어요.</p>
+    <details class="su-more"><summary>자세히</summary><p class="hint">읽는 것: 세션 제목·폴더·마지막 활동·실행 상태, Claude 앱 사이드바의 그룹 이름·순서예요. 보관한 세션은 빼요. Codex 기록(<code>~/.codex</code>)은 id·폴더·제목·고친 시각만 읽고 아무것도 쓰지 않아요.
+      세션이 30분 넘게 일하는 상태면 대화 기록(<code>~/.claude/projects</code>)의 고친 시각도 봐요. 이때 글은 꺼내지 않아요.
       [첫 메시지도 읽기]를 켜면 세션마다 첫 메시지 앞 600자에서 역할 낱말만 찾아요. 화면에는 찾은 낱말과 어디서 찾았는지만 나와요.
       [세션 만들기]·[총괄 만들기]로 기다리는 30분 동안은 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 추천은 낱말표로만 정해서 틀릴 수 있어요. 팀을 펼쳐 [고치기]로 바꿔요.
       밖으로 나가는 건 하루 한 번 새 버전 확인뿐이에요(버전 번호만 물어요).</p></details></div>`;
@@ -7297,8 +7373,9 @@ $('#drawerClose').addEventListener('click', closeDrawer);
 // 서랍이 열려 있어도 총괄 연결 상태는 계속 확인해서 작성창 아래에 알려요.
 async function pollRelay() {
   if (!API || !state || document.visibilityState === 'hidden') return;
-  try { state.relay = JSON.parse(await getText('api/state')); } catch (e) { return; }
+  try { state.relay = JSON.parse(await getText('api/state')); liveTake(state.relay); } catch (e) { return; }
   $$('#drawerBody .relay-note').forEach(n => { n.innerHTML = relayNote(); });
+  drawerPaint();
 }
 
 // 로컬 페이지면 처음 설정을 끝냈는지 먼저 물어요. 그동안 사무실을 잠깐 가려서 설정 화면 전에 번쩍이지 않게 해요(늦어도 2초 뒤엔 보여요).

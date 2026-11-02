@@ -167,6 +167,8 @@ CLAUDE_CONFIG = (os.environ.get("AGENCITY_CLAUDE_CONFIG")
 # Codex CLI 기록(<폴더>/sessions/YYYY/MM/DD/rollout-<시각>-<id>.jsonl, <폴더>/session_index.jsonl). 읽기만 하고 아무것도 쓰지 않아요.
 # 첫 줄(session_meta)의 id·cwd, 목록 파일의 thread_name(제목), 파일의 고친 시각만 써요. 첫 메시지는 대표가 허락했을 때만 역할 낱말을 찾는 데 써요
 CODEX_DIR = os.environ.get("AGENCITY_CODEX_DIR") or os.path.join(HOME_RAW, ".codex")
+# Claude Code가 세션마다 쓰는 실행 상태 파일(<숫자>.json). 사람이 지금 일하는지 볼 때만 읽고, 어디에도 쓰지 않아요
+RUN_DIR = os.environ.get("AGENCITY_CLAUDE_RUN_DIR") or os.path.join(HOME_RAW, ".claude", "sessions")
 CODEX_ID = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\Z")   # Codex 세션 id(uuid 모양)
 TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")
 # 서버를 끌 때 아직 outbox에 있는 항목의 id·해시를 다음 서버에 넘기는 파일(0600, 설치 폴더마다 하나). 다음 서버가 한 번 읽고 지워요
@@ -1131,6 +1133,135 @@ def real_teams():
 
 def is_example(t):
     return str(t.get("office") or "").startswith("examples/")
+
+
+# 세션 실행 상태 -------------------------------------------------------------
+# 상태 파일이 대기여도 세션이 일하는 동안은 사람이 책상에 앉아요(U-27). 페이지가 /api/state의 live로 판정해요.
+# 숫자 이름의 .json만 열어요. 같은 폴더의 .key는 열지 않아요. 쓰는 칸은 hostSessionId, pid, status, statusUpdatedAt, startedAt, sessionId뿐이고,
+# 답에는 층, 역할, 상태 낱말, 시각만 내요. 쓰지 않는 칸(제목, 폴더, 소켓 등)은 어디로도 내보내지 않아요.
+RUN_FILE = re.compile(r"^\d{1,10}\.json\Z")
+RUN_UUID = re.compile(r"^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z")
+RUN_MAX = 64 * 1024
+RUN_STATUS = ("busy", "waiting", "idle")
+RUN_IDLE = 30           # idle이 이만큼(초) 지나면 뺀 자리예요. 페이지의 꼬리는 8초라 그 뒤로는 안 써요
+RUN_FRESH_START = 3000  # 켜지기만 한 세션: 켠 지 이만큼(ms) 안의 idle은 일한 적이 없어요
+RUN_QUIET = 30 * 60     # busy가 이만큼 이어지면 기록이 움직이는지 봐요
+RUN_QUIET_EVERY = 60    # 세션마다 이 간격으로만 기록의 고친 시각을 봐요
+RUN_SEEN = {}           # 세션 id → (본 때, 조용한지)
+
+
+def run_file(name, now):
+    """pid 파일 하나에서 쓸 값만 꺼내요. 쓸 수 없는 파일이면 None이에요."""
+    path = os.path.join(RUN_DIR, name)
+    st = os.lstat(path)
+    if not stat.S_ISREG(st.st_mode) or st.st_size > RUN_MAX:
+        return None
+    with open(path, encoding="utf-8") as f:
+        rec = json.load(f)
+    if not isinstance(rec, dict):
+        return None
+    pid, host, status = rec.get("pid"), rec.get("hostSessionId"), rec.get("status")
+    if type(pid) is not int or not 0 < pid < 2 ** 31 or name != f"{pid}.json":
+        return None
+    if not isinstance(host, str) or not SESSION_ID.match(host) or status not in RUN_STATUS:
+        return None
+    ms = rec.get("statusUpdatedAt")
+    since = ms if type(ms) in (int, float) and ms > 0 else st.st_mtime * 1000
+    started = rec.get("startedAt")
+    if status == "idle":
+        if now - since > RUN_IDLE * 1000:
+            return None
+        if type(started) in (int, float) and since - started < RUN_FRESH_START:
+            return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        pass
+    sid = rec.get("sessionId")
+    return {"host": host, "s": status, "since": int(since), "sid": sid if isinstance(sid, str) and RUN_UUID.match(sid) else None}
+
+
+def run_log_quiet(sid, now):
+    """메인 기록과 subagents가 모두 30분 넘게 그대로인지. 고친 시각만 봐요. 기록을 못 찾으면 조용하다고 치지 않아요."""
+    cut = now / 1000 - RUN_QUIET
+    try:
+        folders = list(os.scandir(PROJECTS_DIR))
+    except OSError:
+        return False
+    for d in folders:
+        try:
+            if os.stat(os.path.join(d.path, sid + ".jsonl")).st_mtime > cut:
+                return False
+        except OSError:
+            continue
+        for root, _, files in os.walk(os.path.join(d.path, sid, "subagents")):
+            for n in files:
+                try:
+                    if os.stat(os.path.join(root, n)).st_mtime > cut:
+                        return False
+                except OSError:
+                    pass
+        return True
+    return False
+
+
+def run_quiet(sid, now):
+    hit = RUN_SEEN.get(sid)
+    if hit and now / 1000 - hit[0] < RUN_QUIET_EVERY:
+        return hit[1]
+    quiet = run_log_quiet(sid, now)
+    if len(RUN_SEEN) > 64:
+        RUN_SEEN.clear()
+    RUN_SEEN[sid] = (now / 1000, quiet)
+    return quiet
+
+
+def run_states():
+    """{세션 id: {s, since}}. 폴더가 없으면 빈 값이에요. 폴더를 못 읽으면 예외예요(부르는 쪽이 live 칸을 빼서 페이지가 앞 값을 잠깐 써요)."""
+    try:
+        names = os.listdir(RUN_DIR)
+    except FileNotFoundError:
+        return {}
+    now, out = time.time() * 1000, {}
+    for name in names:
+        if not RUN_FILE.match(name):
+            continue
+        try:
+            rec = run_file(name, now)
+        except Exception:  # noqa: BLE001  파일 하나가 이상해도 다른 세션은 봐요
+            continue
+        if rec and (rec["host"] not in out or rec["since"] >= out[rec["host"]]["since"]):
+            out[rec["host"]] = rec
+    for rec in out.values():
+        if rec["s"] == "busy" and rec["sid"] and now - rec["since"] > RUN_QUIET * 1000 and run_quiet(rec["sid"], now):
+            rec["s"] = "quiet"
+    return {k: {"s": r["s"], "since": r["since"]} for k, r in out.items()}
+
+
+def run_seats(t):
+    """층의 {역할: 세션 id}. 명단은 team.json의 모든 줄을 그리니, 말 걸기와 달리 역할 이름 규칙 밖의 줄도 이어요. 역할 글은 JSON 키로만 쓰고 경로에 넣지 않아요."""
+    ms = load_json(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json")).get("members")
+    return {m["role"]: m["sessionId"] for m in ms if isinstance(m, dict) and isinstance(m.get("role"), str) and real_sid(m.get("sessionId"))} if isinstance(ms, list) else {}
+
+
+def run_live():
+    """/api/state의 live: {층 id: {역할: {s, since}}}. 앉은 자리만 이어요. 예시 층, Codex, 빈자리는 없어요."""
+    runs = run_states()
+    live = {}
+    if not runs:
+        return live
+    for t in org().get("teams", []):
+        if not isinstance(t, dict) or not t.get("office") or is_example(t):
+            continue
+        try:
+            seats = {r: runs[sid] for r, sid in run_seats(t).items() if sid in runs}
+        except Exception:  # noqa: BLE001  층 하나가 깨져도 다른 층은 봐요
+            continue
+        if seats:
+            live[t["id"]] = seats
+    return live
 
 
 # GitHub 로그인 -------------------------------------------------------------
@@ -6481,6 +6612,10 @@ class Handler(SimpleHTTPRequestHandler):
                     if uc["enabled"]:
                         usage_kick(conf=uc)
                         res["usage"] = usage_brief(uc)
+                except Exception:  # noqa: BLE001
+                    pass
+                try:   # 세션 실행 상태. 못 읽으면 칸을 빼요. 페이지는 앞 값을 20초 동안 써요
+                    res["live"] = run_live()
                 except Exception:  # noqa: BLE001
                     pass
                 try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
