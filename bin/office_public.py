@@ -88,7 +88,7 @@ SCRUB = [
     (re.compile(r"\b(?:\d{4}[\s-]?){3}\d{4}\b"), "(번호)"),                                             # 카드번호 꼴
 ]
 # 이런 게 남아 있으면 그 줄은 통째로 빼요(파일·경로·인용).
-DROP = re.compile(r"`|['\"“”‘’「」『』]|\b[\w.-]+/[\w./-]+|\.(?:md|json|jsonl|ts|tsx|js|mjs|py|sh|yml|yaml|env|sql|txt|html|png|mp4)\b|\((?:경로|주소|메일|값|세션|id|전화|번호)\)", re.I)
+DROP = re.compile(r"`|['\"“”‘’「」『』]|\b[\w.-]+/[\w./-]+|\.(?:md|json|jsonl|ts|tsx|js|mjs|py|sh|yml|yaml|env|sql|txt|html|png|jpe?g|gif|webp|heic|mp4)\b|\((?:경로|주소|메일|값|세션|id|전화|번호)\)", re.I)
 
 
 def clip(s, n):

@@ -19,7 +19,7 @@ Claude Code 세션들이 팀이 되어 사무실 한 층에서 움직여요.<br>
 - **연결하면 추천 팀을 만들어 줘요**: Claude·Codex 세션 목록을 훑어 층마다 팀을 추천해요. 보고 고친 뒤 한 번에 만들어요.
 - **한눈에 보기**: 층마다 사무실 장면과 팀원 명단이 있어요. 사람들이 실제 상태대로 움직이고, 명단에는 세션 상태와 하는 일이 떠요. 회의실·업무판·보고서도 한 화면에 있어요.
 - **팀은 내 마음대로**: 세션을 팀장·팀원 자리에 앉히고, 역할 이름은 직접 지어요. 빈자리는 **세션 만들기**로 바로 채워요.
-- **바로 대화**: 사람이나 명단의 이름을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요.
+- **바로 대화**: 사람이나 명단의 이름을 누르면 그 세션과 대화해요. 답도 같은 화면에 올라와요. 사진도 주고받아요.
 - **회의**: 내가 같이 하거나(참석), 팀에 맡기고 회의록으로 받아요(위임).
 - **결재**: 팀장이 올린 결재를 결재함에서 고르면 그 팀장에게 바로 전해져요.
 - **팀끼리**: 팀장끼리 다른 층과 이야기해요. 주고받은 말은 화면의 **팀 간 대화**에 남아요.
@@ -66,6 +66,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인·도시 공개·알
 ## 안전하게
 
 - 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude·Codex에서는 세션 목록(제목·폴더·그룹·마지막 활동)과 Claude 세션의 실행 상태만 읽어요. 세션이 30분 넘게 일하는 상태면 대화 기록(`~/.claude/projects`)의 고친 시각도 봐요. 이때 글은 꺼내지 않아요. 허락하면 추천 팀을 위해 세션마다 첫 메시지 앞부분에서 역할 낱말만 찾아요. 세션 만들기·총괄 만들기로 기다리는 동안(30분까지)은 그사이 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 이 맥 안에서만 보고, 저장하거나 AI에 보내지 않아요.
+- 대화에 붙인 사진은 세션이 열면 Claude로 보내지고 세션 기록에 남아요. 지워도 그 사본은 남아요. 위치 정보는 지우지 않아요.
 - 화면에서 보낸 말은 승인으로 쓰이지 않아요. 커밋·배포·결제는 그 세션 창에서 내가 직접 확인해요.
 - 도시에는 내가 확인한 것만 올라가요. 대화·결재·보고서 원문은 올리지 않아요.
 - 내 건물을 세울 때는 Claude·Codex·Gemini 로그에서 숫자(토큰·횟수·환산액)·모델 이름·날짜만 세요(대화 글은 꺼내지 않아요). 올라가는 건 이 내용과 나라·시간대뿐이고, **gist에 올리기**를 누를 때(켜 둔 자동으로 올리기는 1시간마다, 숫자가 바뀌었을 때만)만 나가요. 고른 나라는 공개 gist에 올라가고, 시간대는 나라와 따로 늘 올라가요. 그만두려면 [탈퇴 이슈](https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave)를 열고 gist를 지워요.
@@ -90,7 +91,7 @@ v0.3.1까지는 클로드 오피스(Claude Office)라는 이름이었어요. 라
 Your Claude Code sessions become a team on one office floor.
 They sit at their desks while working, walk to the meeting room for meetings, and grab a coffee while they wait.
 On first run it skims your session list (Claude Code and Codex) and recommends a team per floor, which you review and create in one click; with your consent it also checks the first lines of each session for role words, on this Mac only.
-From one page you can message any session, run meetings, and approve what team leads file.
+From one page you can message any session, trade images with it, run meetings, and approve what team leads file. An image a session opens goes to Claude and stays in the session record, even if you delete your copy. Location data in an image is not removed.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
 The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed). Buildings stand in the country each member picks, with a total-token leaderboard, and the city page is in Korean and English.

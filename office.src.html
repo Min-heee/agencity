@@ -12,7 +12,7 @@
   --work-w:#E4E1DA; --idle-w:#E4E1DA; --meet-w:#E4E1DA; --block-w:#E4E1DA; --none-w:#E4E1DA; --hot:#B93610; --hot-w:#E8E5DE; --note:#E8E5DE; --note-l:#B2AEA4;
   --plate:#1E2024; --plate-ink:#F1EFEA; --plate-rim:#45474C; --gold:#B88A1E; --sc-bg:#7E7D77;
   --work:#A85F05; --ok:#147A50; --rest:#6E7076; --err:#C92222; --meet:#6A4BD6;
-  --err-ink:#C92222; --on-a:#FFFFFF; --on-s:#FFFFFF; --chip-wash:rgba(0,0,0,.22);
+  --err-ink:#C92222; --on-a:#FFFFFF; --on-s:#FFFFFF; --chip-wash:rgba(0,0,0,.22); --me:#2E3239; --me-ink:#F1EFEA;
   --w-a:#E2DFD8; --a-a:#14694A;
   --w-b:#E2DFD8; --a-b:#1F5CB8;
   --w-c:#E2DFD8; --a-c:#B01F50;
@@ -30,7 +30,7 @@
     --work-w:#2A2E35; --idle-w:#2A2E35; --meet-w:#2A2E35; --block-w:#2A2E35; --none-w:#2A2E35; --hot:#FF8F6B; --hot-w:#2A2E35; --note:#2A2E35; --note-l:#454A53;
     --plate:#0E1014; --plate-ink:#E7E5DF; --plate-rim:#454A53; --gold:#D8AC48; --sc-bg:#0E1014;
     --work:#F0A33A; --ok:#3DD68C; --rest:#9AA0A6; --err:#FF6369; --meet:#A68BEA;
-    --err-ink:#FF6369; --on-a:#14161B; --on-s:#14161B; --chip-wash:rgba(255,255,255,.22);
+    --err-ink:#FF6369; --on-a:#14161B; --on-s:#14161B; --chip-wash:rgba(255,255,255,.22); --me:#D9D5CC; --me-ink:#16181C;
     --w-a:#252930; --a-a:#5ADCAD; --w-b:#252930; --a-b:#8DB8FF; --w-c:#252930; --a-c:#FF97B6; --w-hq:#252930; --a-hq:#E6BC5E;
   }
 }
@@ -42,7 +42,7 @@
   --work-w:#2A2E35; --idle-w:#2A2E35; --meet-w:#2A2E35; --block-w:#2A2E35; --none-w:#2A2E35; --hot:#FF8F6B; --hot-w:#2A2E35; --note:#2A2E35; --note-l:#454A53;
   --plate:#0E1014; --plate-ink:#E7E5DF; --plate-rim:#454A53; --gold:#D8AC48; --sc-bg:#0E1014;
   --work:#F0A33A; --ok:#3DD68C; --rest:#9AA0A6; --err:#FF6369; --meet:#A68BEA;
-  --err-ink:#FF6369; --on-a:#14161B; --on-s:#14161B; --chip-wash:rgba(255,255,255,.22);
+  --err-ink:#FF6369; --on-a:#14161B; --on-s:#14161B; --chip-wash:rgba(255,255,255,.22); --me:#D9D5CC; --me-ink:#16181C;
   --w-a:#252930; --a-a:#5ADCAD; --w-b:#252930; --a-b:#8DB8FF; --w-c:#252930; --a-c:#FF97B6; --w-hq:#252930; --a-hq:#E6BC5E;
 }
 *{box-sizing:border-box}
@@ -154,6 +154,7 @@ a{color:inherit}
 .drawer-bg{position:absolute; inset:0; background:var(--scrim)}
 .drawer-panel{position:relative; width:min(520px, 100%); height:100%; overflow-y:auto; overscroll-behavior:contain; background:var(--surface); color:var(--ink); padding:calc(14px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) 22px; box-shadow:-24px 0 60px -30px rgba(0,0,0,.55); animation:slidein .22s ease-out}
 .d-bar{display:flex; justify-content:flex-end; margin-bottom:10px}
+.d-bar:empty{display:none}   /* 대화 서랍은 [닫기]가 머리에 있어요 */
 .d-close{padding:6px 12px; border-radius:2px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:13px; font-weight:500; cursor:pointer}
 .d-title{margin:0; font-family:var(--font-display); font-weight:700; font-size:28px; line-height:1.1}
 .d-eyebrow{margin:0 0 2px; font-size:12.5px; color:var(--ink-2); font-weight:500}
@@ -178,17 +179,39 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .su-state .relay-re{margin-left:6px; font:inherit; font-weight:600; padding:2px 8px; border-radius:2px; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); cursor:pointer}   /* 설정 총괄 묶음의 [다시 연결](머리말 칩과 같은 단추) */
 .live .relay-re{font:inherit; font-weight:600; padding:2px 8px; border-radius:2px; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); cursor:pointer}
 .d-sec{margin:20px 0 6px; font-size:13px}
-.thread{list-style:none; margin:10px 0 0; padding:10px; display:flex; flex-direction:column; gap:8px; max-height:46vh; overflow:auto; border-radius:4px; background:var(--surface-2)}
-.msg{align-self:flex-start; max-width:88%; padding:7px 11px; border-radius:4px; background:var(--surface); font-size:13.5px; white-space:pre-wrap; overflow-wrap:anywhere; box-shadow:0 1px 0 var(--line)}
-.msg.me{align-self:flex-end; background:color-mix(in srgb, var(--focus) 16%, var(--surface))}
-.msg .who{display:block; margin-bottom:2px; font:600 11.5px var(--font-body); color:var(--ink-3); white-space:normal}
-.msg.sys{align-self:center; max-width:100%; padding:2px 8px; background:none; box-shadow:none; color:var(--ink-3); font-size:12px; text-align:center}
+/* 대화(U-29 B): 대표 말은 오른쪽 흑연색 말풍선(쓴 그대로), 세션 말은 왼쪽 돌색 말풍선(굵게·목록을 그려요). 같은 사람이 잇달아 말하면 이름과 시각은 한 번만 */
+.thread{list-style:none; margin:0; padding:0; display:flex; flex-direction:column}
+.msg{align-self:flex-start; max-width:100%; min-width:0; margin-top:14px; font-size:15px; line-height:24px}
+.msg:first-child{margin-top:0}
+.msg.cont{margin-top:4px}
+.msg .who{display:block; margin:0 0 4px; font:600 12.5px/1.4 var(--font-body); color:var(--ink-2)}   /* 다른 곳의 .who(flex 세로)를 따르지 않게 */
+.msg .who time{margin-left:6px; font-weight:400; color:var(--ink-3)}
+.msg .b{padding:9px 13px 10px; border:1px solid var(--line); border-radius:4px; background:var(--surface-2); overflow-wrap:anywhere; word-break:keep-all}
+.msg.me{align-self:flex-end; max-width:88%; display:flex; flex-direction:column; align-items:flex-end}
+.msg.me .b{border-color:var(--me); background:var(--me); color:var(--me-ink); white-space:pre-wrap}
+.msg .t{margin:4px 0 0; font-size:12px; line-height:1.4; color:var(--ink-3)}
+.msg .t span + time{margin-left:6px}
+.msg.me:has(+ .msg.me.cont) .t{display:none}   /* 대표 시각은 묶음의 마지막 말 아래에만 */
+.msg.sys{align-self:center; font-size:12px; line-height:1.5; color:var(--ink-3); text-align:center}
+.msg.t-empty{margin:auto; max-width:28em; font-size:13.5px; color:var(--ink-2); word-break:keep-all}
+.md{white-space:pre-wrap}   /* mdLite는 줄을 <br>로 나눠요. 그래서 들여쓰기와 여러 빈칸이 그대로 남아요 */
+.md p{margin:0 0 8px}
+.md > :last-child{margin-bottom:0}
+.md p.lead{margin:14px 0 4px; font-weight:700}
+.md p.lead:first-child{margin-top:0}
+.md strong{font-weight:700}
+.md ul,.md ol{margin:2px 0 10px; padding-left:20px}
+.md ul{list-style:disc}   /* 대화 칸도 목록이라 그냥 두면 속 빈 동그라미가 돼요 */
+.md ol{list-style:decimal}
+.md li{margin:3px 0 0}
+.md li:first-child{margin-top:0}
+.md ul li::marker{color:var(--ink-3); font-size:.8em}
+.md ol li::marker{color:var(--ink-2); font-variant-numeric:tabular-nums}
 .composer{display:flex; flex-direction:column; gap:8px; margin-top:10px}
 .composer textarea,.composer input[type="text"]{width:100%; padding:9px 10px; border:1px solid var(--line-2); border-radius:3px; background:var(--surface); color:var(--ink); font:inherit; font-size:14px}
 .composer textarea{min-height:76px; resize:vertical}
 .composer .row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between}
 .composer .row .hint{flex:1 1 220px}
-.composer .acts{display:flex; gap:6px; align-items:center}
 /* 일 맡기기 네 칸: 이름표 | 칸. 한 줄로 시작해서 Shift+Enter로 줄을 늘려요 */
 .composer .ho{margin:0; padding:0; border:0; min-width:0}
 .composer .ho-g{display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px 8px; align-items:center}
@@ -196,25 +219,67 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .drawer-panel .composer .ho textarea[data-ho]{min-height:0; padding:6px 9px; resize:none; field-sizing:content; max-height:20vh}
 /* field-sizing을 모르는 브라우저(Firefox, 예전 Safari·WebKit)는 hoGrow가 글 높이에 맞춰 늘리고, 손으로도 늘릴 수 있어요 */
 @supports not (field-sizing:content){.drawer-panel .composer .ho textarea[data-ho]{resize:vertical}}
-.composer .ho-tg[aria-pressed="true"]{border-color:var(--ink); background:var(--chip-wash)}
-.keys{color:var(--ink-2); font-weight:600}
-/* 대화 서랍(총괄·팀원·회의): 제목(d-head)은 맨 위에, 작성창은 맨 아래에 붙어 있고, 그 사이(d-main)만 스크롤해요. 대화(thread)는 d-main 맨 아래에서 남는 자리를 채워요. */
-.drawer-panel.chat{display:flex; flex-direction:column; overflow:hidden; padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px))}
-.drawer-panel.chat .d-bar{flex:none}
+.composer .ho-tg{flex:none; min-height:24px; padding:0; border:0; background:none; color:var(--ink-2); font:600 12.5px var(--font-body); text-decoration:underline; text-underline-offset:3px; white-space:nowrap; cursor:pointer}
+.composer .ho-tg[aria-pressed="true"]{color:var(--ink); text-decoration-thickness:2px}
+.composer .keys{flex:1 1 auto; min-width:0; margin:0; font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+/* 대화 서랍(U-29 B '대화 먼저'): 머리(이름·상태 한 줄, [Claude 창 열기]·[닫기], 위험한 일 안내, [대화 | 정보] 탭), 끊김 띠, 대화 칸, 작성창.
+   스크롤은 대화 칸(정보 탭이면 정보 칸) 하나예요. 머리·띠·작성창은 서랍 끝까지 닿고 글은 --pl/--pr만큼 들여요. Codex·예시 서랍은 머리만 같아요 */
+.drawer-panel.chat{--dx:24px; --pl:max(var(--dx), env(safe-area-inset-left, 0px)); --pr:max(var(--dx), env(safe-area-inset-right, 0px)); display:flex; flex-direction:column; overflow:hidden; overflow:clip; padding:0}   /* clip: 초점이 작성창 끝으로 가도 머리가 위로 밀리지 않아요 */
 .drawer-panel.chat #drawerBody{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
-.drawer-panel.chat #drawerBody > :not(.d-main){flex:none}
-.d-head{padding-bottom:2px}
-.d-main{position:relative; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overscroll-behavior:contain; margin:0 -4px; padding:0 4px 4px}
-.d-main > *{flex-shrink:0}
-.drawer-panel.chat .thread{flex:1 0 min(40vh, 300px); max-height:none}
-.drawer-panel.chat .composer{margin-top:0; padding-top:10px; border-top:1px solid var(--line); background:var(--surface)}
-.drawer-panel.chat .composer textarea{max-height:30vh}
-.d-links{margin-top:12px}
-.d-links .btn-primary{margin-top:0}
-.d-more{margin-top:14px; border:1px solid var(--line); border-radius:3px; padding:0 10px}
-.d-more summary{padding:8px 0; font-size:13px; font-weight:600; cursor:pointer}
-.d-more h3{margin:10px 0 6px; font-size:13px}
-.d-more[open]{padding-bottom:10px}
+.drawer-panel.chat #drawerBody > *{flex:none}
+.drawer-panel.chat #drawerBody > .d-main{flex:1 1 0; min-height:96px; display:flex; flex-direction:column}   /* 남는 자리를 다 가져요. 작은 창에서도 대화가 두 줄쯤 보여요(basis 0: 긴 대화 때문에 작성창이 줄지 않게) */
+.drawer-panel.chat #drawerBody > .composer,.drawer-panel.chat #drawerBody > #meetSay,#meetSay > .composer{flex:0 1 auto; min-height:0}   /* 자리가 모자라면 작성창이 줄어요 */
+#meetSay:not([hidden]){display:flex; flex-direction:column}
+.d-head{padding:calc(12px + env(safe-area-inset-top, 0px)) var(--pr) 0 var(--pl); border-bottom:1px solid var(--line)}
+.d-head:not(:has(.d-tabs)){padding-bottom:12px}
+.d-top{display:flex; align-items:center; gap:10px}
+.d-name{flex:1; min-width:0}
+.d-top .d-title{font-size:19px; line-height:1.25; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.d-team{margin-left:6px; font:500 12.5px var(--font-body); color:var(--ink-3); white-space:nowrap}
+.d-line{margin:2px 0 0; font-size:12.5px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.d-line .dot{margin-right:6px; vertical-align:0}
+.d-sub{margin:2px 0 0; font-size:12.5px; color:var(--ink-2); word-break:keep-all}
+.d-x{display:flex; flex:none}
+.d-top .btn{flex:none; white-space:nowrap}
+.d-top .d-close{flex:none; padding:5px 12px; border-color:var(--line-2); font-weight:600}
+.d-must{margin:8px 0 0; font-size:12.5px; color:var(--ink-2); word-break:keep-all}
+#meetCtl:empty{display:none}
+#meetCtl .meet-actions{margin-top:8px}
+#meetCtl .hint{margin-top:6px}
+.d-tabs{display:flex; gap:18px; margin-top:6px}
+.d-tabs button{min-width:24px; padding:8px 0 9px; border:0; border-bottom:2px solid transparent; background:none; color:var(--ink-3); font:600 13.5px var(--font-body); cursor:pointer}
+.d-tabs button[aria-selected="true"]{color:var(--ink); border-bottom-color:var(--ink)}
+.d-tabs small{font-weight:500}
+.d-relay{display:flex; align-items:center; gap:10px; padding:8px var(--pr, 10px) 8px var(--pl, 10px); background:var(--surface-2); border-bottom:1px solid var(--line); font-size:12.5px; word-break:keep-all}
+.d-relay p{flex:1; margin:0}
+.d-relay p::before{content:""; display:inline-block; width:8px; height:8px; margin-right:7px; border-radius:2px; background:var(--err-ink); vertical-align:1px}
+.d-relay .btn{flex:none; white-space:nowrap}
+.composer .d-relay{border:0; border-radius:3px}   /* 회의 열기 서랍의 띠 */
+.d-talk{flex:1 1 auto; min-height:0; display:flex; flex-direction:column}
+.d-relay[hidden],.d-talk[hidden],.d-info[hidden]{display:none}
+.drawer-panel.chat .thread{flex:1 1 auto; min-height:0; padding:18px var(--pr) 20px var(--pl); overflow-y:auto; overscroll-behavior:contain}
+.d-info{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:6px var(--pr) 18px var(--pl)}
+.d-info .facts{margin-top:0}
+.d-info h3{margin:18px 0 6px; font-size:13px}
+.d-info .feed{max-height:none; overflow:visible}
+.d-via{margin:8px 0 0}
+.d-foot{padding:12px var(--pr) calc(14px + env(safe-area-inset-bottom, 0px)) var(--pl); border-top:1px solid var(--line)}
+.drawer-panel.chat .composer{gap:6px; margin:0; padding:10px var(--pr) calc(14px + env(safe-area-inset-bottom, 0px)) var(--pl); border-top:1px solid var(--line); background:var(--surface)}
+.c-box{display:flex; align-items:flex-end; gap:8px}
+.c-box > textarea,.c-box > .ho{flex:1 1 auto; min-width:0; align-self:stretch}
+.drawer-panel.chat .composer > *{flex:none}
+.drawer-panel.chat .composer > .c-box{flex:0 1 auto; min-height:0}   /* 작성창이 줄면 글칸과 일 맡기기 칸이 안에서 스크롤돼요. [보내기]와 [일 맡기기]는 늘 보여요 */
+.c-box > .ho{min-height:0; overflow-y:auto}
+.c-box > .btn{flex:none; white-space:nowrap}
+.drawer-panel.chat .composer textarea[name="text"]{min-height:46px; max-height:30vh; padding:10px 12px; font-size:15px; line-height:1.5; resize:none; field-sizing:content}
+.composer[data-form="say"] .row{flex-wrap:nowrap; gap:12px}
+@media (max-height:600px){   /* 낮은 창(맥 앱 640×460 같은): 머리·띠·작성창의 틈을 줄여 대화 칸을 넓혀요 */
+  .d-head{padding-top:calc(8px + env(safe-area-inset-top, 0px))}
+  .d-must{margin-top:4px}
+  .d-tabs{margin-top:2px}
+  .d-relay{padding-top:5px; padding-bottom:5px}
+  .drawer-panel.chat .composer{padding-top:8px; padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
+}
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; border:0; min-width:0}
 .chips legend{padding:0; margin-bottom:4px; font-size:12px; color:var(--ink-3)}
 .chips label{display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border:1px solid var(--line); border-radius:2px; background:var(--surface); font-size:12.5px; cursor:pointer}
@@ -233,9 +298,7 @@ button.live{cursor:pointer; font:inherit; font-size:12.5px}
 .meet-now ol{margin:6px 0 0; padding-left:18px; color:var(--ink-2); font-size:12.5px}
 .meet-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
 .new-dot{display:inline-block; margin-left:6px; padding:1px 6px; border-radius:2px; background:var(--err); color:#fff; font:700 10.5px/1.4 var(--font-body); vertical-align:middle}
-.relay-note{margin:0; font-size:12px; color:var(--err-ink)}
-.relay-note:empty{display:none}
-#relay a,.relay-note a{font-weight:600; white-space:nowrap; text-underline-offset:3px}   /* 총괄 창이 멈췄을 수 있을 때의 ‘총괄 창 열기 ↗’ */
+#relay a{font-weight:600; white-space:nowrap; text-underline-offset:3px}   /* 총괄 창이 멈췄을 수 있을 때의 ‘총괄 창 열기 ↗’ */
 .past{list-style:none; margin:0; padding:0}
 .past li + li{border-top:1px solid var(--line)}
 .past button{width:100%; padding:7px 0; border:0; background:none; color:var(--ink); font:500 12.5px var(--font-body); text-align:left; cursor:pointer; overflow-wrap:anywhere}
@@ -700,8 +763,10 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
   .plate{font-size:28px}
   .drawer{align-items:flex-end}
   .drawer-panel{height:auto; max-height:88%; border-radius:4px 4px 0 0; padding-left:max(18px, env(safe-area-inset-left, 0px)); padding-right:max(18px, env(safe-area-inset-right, 0px)); animation-name:slideup}
-  .drawer-panel.chat{height:88%}
-  .drawer-panel.chat .composer textarea{min-height:56px}
+  .drawer-panel.chat{height:88%; --dx:16px}
+  .composer[data-form="say"] .keys{display:none}   /* 좁은 창은 단축키 줄을 늘 숨겨요(U-29 5번) */
+  .composer[data-form="say"] .row{justify-content:flex-end}
+  .composer[data-form="say"] .row:not(:has(.ho-tg)){display:none}
 }
 @keyframes pulse{50%{opacity:.35}}
 @keyframes slidein{from{opacity:0; transform:translateX(28px)}}
@@ -872,6 +937,7 @@ li.r:has(.seat) ~ li.r .seat > .hint[data-must]{display:none}   /* 안내 줄은
   .ib{width:32px; height:28px; background:var(--surface-2)}
   .btn,.wrap .btn,.sc-head .btn,.seat-acts .btn,.seat-pick .btn,.fill-acts .btn,.talk-th-h .btn,.hdr .hdr-more,.btn-primary,.notion,.d-close{min-height:44px; min-width:44px}   /* 폰의 주요 단추: 글자가 있고 누르면 일이 일어나는 단추(운영 ★D3) */
   .btn-primary{display:inline-flex; align-items:center; justify-content:center}
+  .d-tabs button,.composer .ho-tg{min-height:44px; min-width:44px}
   .seg button{min-height:24px}
   .r-main.has-ib{padding-bottom:18px; align-items:flex-start}
   .r-main.has-ib .r-task{padding-right:76px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
@@ -890,6 +956,51 @@ li.r:has(.seat) ~ li.r .seat > .hint[data-must]{display:none}   /* 안내 줄은
   .sc-head h2{font-size:21px}
   .drawer-panel{border-radius:4px 4px 0 0}
 }
+/* 대화 사진 (U-28) */
+.msg-pics{display:grid; grid-template-columns:repeat(2, minmax(0, 148px)); gap:4px; margin-top:6px; white-space:normal}
+.msg-pics[data-n="1"]{grid-template-columns:minmax(0, 200px)}
+.pic{display:block; width:100%; height:auto; aspect-ratio:4/3; padding:0; border:1px solid var(--line); border-radius:3px; overflow:hidden; background:#6B6A65; cursor:zoom-in}
+.pic:hover{border-color:var(--ink-3)}
+.pic img{display:block; width:100%; height:100%; object-fit:contain}
+.pic-miss{display:grid; place-items:center; padding:6px; border:1px dashed var(--line-2); background:none; color:var(--ink-2); font-size:12px; line-height:1.35; text-align:center; word-break:keep-all; cursor:default}
+.pic-miss:hover{border-color:var(--line-2)}
+.msg.me .pic-miss{color:var(--me-ink); border-color:currentColor}   /* 대표 말풍선(흑연·밝은 돌) 안에서도 또렷하게 */
+.msg.me .pic:focus-visible{outline-color:var(--me-ink)}
+.b > .msg-pics:first-child,.md > .msg-pics{margin-top:0}
+
+.att-band{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px}
+.att{list-style:none; margin:0; padding:0; display:flex; flex:none; gap:6px}
+.att li{position:relative; flex:none; width:52px; height:52px; border:1px solid var(--line-2); border-radius:3px; overflow:hidden; background:#6B6A65}
+.att img{display:block; width:100%; height:100%; object-fit:cover}
+.att button{position:absolute; top:0; right:0; display:grid; place-items:center; box-sizing:border-box; width:24px; height:24px; padding:0 0 6px 6px; border:0; background:rgba(18,20,24,.82) content-box; color:#F2F0EA; font-size:13px; line-height:1; cursor:pointer}
+.att button:hover{background-color:rgba(18,20,24,.96)}
+.att button:focus-visible{outline-offset:-2px}
+.att-note{flex:1 1 120px; margin:0; font-size:12px; color:var(--ink-2); word-break:keep-all}
+.composer[data-busy] .att img{opacity:.45}
+.composer[data-busy] .att button{display:none}
+.att li[data-st="up"]::after{content:""; position:absolute; left:0; right:0; bottom:0; height:4px; background:var(--ink); animation:pulse 1.2s ease-in-out infinite}
+.att li[data-st="bad"]{border-color:var(--err-ink); box-shadow:inset 0 0 0 1px var(--err-ink)}
+.att li[data-st="bad"]::after{content:"!"; position:absolute; left:0; bottom:0; display:grid; place-items:center; width:18px; height:18px; border-top-right-radius:3px; background:var(--err-ink); color:var(--surface); font-size:12px; font-weight:700; line-height:1}
+@media (max-height:600px),(max-width:559px){
+  .drawer-panel.chat .composer:has(.att-band:not([hidden])) textarea[name="text"]{max-height:88px}   /* 사진이 붙은 동안 글칸이 대화 칸을 덜 먹게 */
+}
+@media (max-height:600px){
+  .msg-pics[data-n="1"]{grid-template-columns:minmax(0, 148px)}
+}
+
+.drawer-panel.dropping::after{content:"여기에 놓으면 붙어요"; position:absolute; z-index:5; inset:8px; display:grid; place-items:center; border:2px dashed var(--ink-3); border-radius:3px; background:color-mix(in srgb, var(--surface) 90%, transparent); color:var(--ink); font-size:14px; font-weight:600; pointer-events:none}
+
+.pic-view{position:fixed; inset:0; z-index:55; display:grid; place-items:center; padding:calc(60px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)); background:rgba(14,15,18,.94)}
+.pic-view img{position:static; display:block; background:#6B6A65; width:auto; height:auto; max-width:100%; max-height:100%; object-fit:contain; min-width:0; min-height:0}
+.pic-view .d-close{position:absolute; top:calc(12px + env(safe-area-inset-top, 0px)); right:16px; border-color:var(--ink-3)}
+.att-also{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; margin:0; font-size:12px; color:var(--ink-2)}
+.att-also button{min-height:30px; padding:4px 10px; border:1px solid var(--line-2); border-radius:2px; background:var(--surface); color:var(--ink); font:inherit; font-size:12.5px; font-weight:600; text-decoration:none; cursor:pointer}
+.att-also button:hover{border-color:var(--ink-3)}
+@media (max-width:720px){.att-also button{min-height:44px; min-width:44px}}   /* 폰의 주요 단추와 같아요. 위 30px 규칙보다 뒤에 둬요 */
+.pic-wait{margin:0; font-size:12px; color:var(--ink); word-break:keep-all}
+.pic-wait::before{content:""; display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:2px; background:var(--work); vertical-align:1px; animation:pulse 1.2s ease-in-out infinite}
+.pic-wait a{display:inline-block; padding:3px 0; color:var(--ink); font-weight:600; white-space:nowrap}
+.att-band[hidden],.att-also[hidden],.pic-wait[hidden],.pic-view[hidden]{display:none}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
@@ -937,6 +1048,11 @@ li.r:has(.seat) ~ li.r .seat > .hint[data-must]{display:none}   /* 안내 줄은
     <div class="d-bar"><button class="d-close" id="drawerClose" type="button">닫기</button></div>
     <div id="drawerBody"></div>
   </div>
+</div>
+
+<div class="pic-view" id="picView" role="dialog" aria-modal="true" aria-label="크게 본 사진" hidden>
+  <button class="d-close" id="picClose" type="button">닫기</button>
+  <img id="picBig" alt="">
 </div>
 
 <div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="suTitle" hidden>
@@ -2697,10 +2813,14 @@ stageDark.addEventListener('change', stageSync);
 /* ---------- 서랍 ---------- */
 let lastFocus = null, lastKey = null, pending = false;
 let NE = null;   // 책상에서 이름을 고치는 중: { tid, role, value, orig, err, busy }. 고치는 동안은 4초마다 다시 그리지 않아요(pending으로 미뤄 둬요)
-// chat: 대화 서랍(제목은 맨 위, 작성창은 맨 아래에 붙고 그 사이만 스크롤해요). html은 <div class="d-head">제목</div><div class="d-main">…</div> 다음에 작성창을 둬요.
+// chat: 대화 서랍(U-29 B). html은 dHead(머리와 끊김 띠), <div class="d-main">대화·정보</div>, 작성창 순서예요. 머리의 data-close-slot이 [닫기] 자리예요
 function openDrawer(html, team, chat) {
   if (NE) { NE = null; pending = true; }   // 서랍을 열면 책상의 이름 고치기는 접어요(서랍을 닫을 때 다시 그려요)
+  const x = $('#drawerClose');
+  $('.d-bar').appendChild(x);   // 머리에 옮겨 둔 [닫기]를 먼저 꺼내요. 서랍 글을 바꾸면 같이 지워져요
   $('#drawerBody').innerHTML = html;
+  const slot = $('#drawerBody [data-close-slot]');
+  if (slot) slot.appendChild(x);
   const p = $('.drawer-panel');
   p.classList.toggle('chat', !!chat);
   if (team) p.dataset.team = team; else delete p.dataset.team;
@@ -2708,13 +2828,16 @@ function openDrawer(html, team, chat) {
   if (tt) p.dataset.tone = toneOf(tt); else delete p.dataset.tone;
   const dr = $('#drawer');
   if (dr.hidden) { lastFocus = document.activeElement; lastKey = focusKey(lastFocus); dr.hidden = false; }
+  $('.wrap').inert = true;   // 서랍이 열린 동안 Tab이 어두운 막 뒤로 나가지 않아요
   p.scrollTop = 0;
   restoreDrafts();
   armButtons();
   $('#drawerClose').focus();
 }
 function closeDrawer() {
+  picClose();
   $('#drawer').hidden = true;
+  $('.wrap').inert = !!SU.open;
   live = null;
   if (pending) { pending = false; render(); }
   if (lastFocus && lastFocus.isConnected && lastFocus.focus) lastFocus.focus(); else refocus(lastKey);
@@ -3534,21 +3657,78 @@ try { if (localStorage.getItem(TALK_KEY) === '1') $('#talkBox').open = true; } c
 // 서랍을 닫거나 다시 그려도 쓰던 글이 남아요. 보내면 지워요.
 const drafts = new Map();
 const draftKey = ta => { const f = ta.form; return f ? `${f.dataset.form}|${f.dataset.key || ''}|${ta.name}` : ''; };
-function restoreDrafts() { $$('#drawerBody form[data-form] textarea').forEach(ta => { const v = drafts.get(draftKey(ta)); if (v) ta.value = v; hoGrow(ta); }); }
+function restoreDrafts() {
+  $$('#drawerBody form[data-form] textarea').forEach(ta => { const v = drafts.get(draftKey(ta)); if (v) ta.value = v; hoGrow(ta); });
+  $$('#drawerBody form[data-form="say"]').forEach(attPaint);
+}
 document.addEventListener('input', e => { if (e.target.matches && e.target.matches('form[data-form] textarea')) { drafts.set(draftKey(e.target), e.target.value); hoGrow(e.target); } });
 
 /* ---------- 대화(사이트 → 총괄 → 세션, 답은 대화 파일로) ---------- */
 // live: 지금 열린 서랍의 대화 파일. 3초마다 다시 읽어 말풍선만 바꿔요(쓰던 글은 그대로).
 let live = null;
-function threadHTML(lines, tid) {   // tid: 대화하는 층(있으면 보낸·받는 사람을 팀원 이름으로도 보여 줘요. 파일에는 역할 그대로 남아요)
-  if (!lines.length) return '<li class="msg sys">아직 주고받은 말이 없어요.</li>';
-  const nm = x => (tid ? seatHTML(tid, x) : esc(x));
-  return lines.map(l => {
-    if (l.kind && l.kind !== '말') return `<li class="msg sys">${esc(hm(l.t))} · ${esc(l.text)}</li>`;
-    const to = Array.isArray(l.to) && l.to.length ? ` → ${l.to.map(nm).join(', ')}` : '';
-    return `<li class="msg${l.from === '대표' ? ' me' : ''}"><span class="who">${nm(l.from)}${to} · ${esc(hm(l.t))}</span>${esc(l.text)}</li>`;
-  }).join('');
+// 대화 사진 받기: 줄에는 이름만 있고, 페이지는 이름 규칙을 지난 값으로만 전용 주소를 만들어요. tid가 없으면 총괄 대화예요.
+// 숫자는 bin/chat_image.py와 같아요(시험으로 대조해요).
+const PIC_NAME = /^[0-9a-f]{32}\.(?:png|jpg|gif|webp)$/;
+const ATT = new Map(), SENDING = new Set(), ATT_MAX = 4, ATT_BYTES = 10 * 1024 * 1024, ATT_PIXELS = 24000000, ATT_SIDE = 2400, ATT_LONG = 12000, ATT_OK = /^image\/(png|jpeg|gif|webp)$/, ATT_HEIC = /^image\/hei[cf]|\.hei[cf]$/i;
+let PIC_V = 0;   // 서랍을 열 때마다 올려요. 같은 주소의 그림은 메모리에서 다시 나와서, 지운 사진이 남아 보이지 않게 해요
+const picUrl = (name, tid) => `${tid ? `api/image/team/${encodeURIComponent(tid)}/${name}` : `api/image/hq/${name}`}?v=${PIC_V}`;
+const linePics = l => (Array.isArray(l.img) ? l.img.filter(n => typeof n === 'string' && PIC_NAME.test(n)).slice(0, ATT_MAX) : []);
+function picsHTML(pics, who, tid) {
+  return `<span class="msg-pics" data-n="${pics.length}">${pics.map((name, i) => { const url = esc(picUrl(name, tid)); return `<button type="button" class="pic" data-pic="${url}" data-alt="${esc(`${who} 사진`)}" aria-label="${pics.length > 1 ? `사진 ${i + 1} 크게 보기` : '사진 크게 보기'}"><img src="${url}" alt="" loading="lazy" decoding="async" draggable="false"></button>`; }).join('')}</span>`;
 }
+// 같은 사람이 5분 안에 같은 사람에게 잇달아 말하면 이름과 시각은 한 번만 써요(U-29 B). 시각을 모르면 묶지 않아요
+const TURN_GAP = 5 * 60000;
+const sameTurn = (a, b) => !!a && !!b && !(a.kind && a.kind !== '말') && !(b.kind && b.kind !== '말') && a.from === b.from && JSON.stringify(a.to || []) === JSON.stringify(b.to || []) && Math.abs(Date.parse(b.t) - Date.parse(a.t)) <= TURN_GAP;
+// 세션 답의 글 그리기(U-29 결정 7번, 디자이너 글-그리기.js): 먼저 글을 통째로 esc한 뒤 굵게(**…**), 목록(- * • / 1. 1)), 문단과 줄바꿈만
+// 우리가 만든 태그(p br strong ul ol li)로 바꿔요. 붙는 속성은 class="lead"와 숫자 value뿐이에요. 링크·제목·코드·표·그림·HTML은 쓴 글자 그대로예요
+function mdLite(text) {
+  // 백틱 코드(`…`), ``` 펜스, 주소 안의 **와 목록 기호는 쓴 그대로예요. 굵게는 앞뒤가 영문·숫자·/가 아닐 때만이라 x**2, src/**/x도 그대로예요(코드 검토 ①)
+  const MD_BOLD = /(^|[^\w/])\*\*([^*\s](?:[^*\n]*?[^*\s])?)\*\*(?![\w/])/g, MD_KEEP = /(`[^`]*`|\b(?:https?|file):\/\/\S+)/, MD_FENCE = /^\s{0,3}```/;
+  const bold = s => String(s).split(MD_KEEP).map((x, i) => (i % 2 ? esc(x) : esc(x).replace(MD_BOLD, '$1<strong>$2</strong>'))).join('');
+  const out = [];
+  let list = '', para = [], code = null;   // code: ``` 펜스 안의 줄(쓴 그대로, 빈 줄도 남겨요)
+  const endPara = () => {   // 한 줄 전체가 굵은 글 하나(뒤에 : 허용)면 작은 제목이에요
+    if (!para.length) return;
+    const lead = para.length === 1 && /^<strong>(?:(?!<\/?strong>).)*<\/strong>:?$/.test(bold(para[0].trim()));
+    out.push(`<p${lead ? ' class="lead"' : ''}>${para.map(bold).join('<br>')}</p>`);
+    para = [];
+  };
+  const endList = () => { if (list) out.push(`</${list}>`); list = ''; };
+  const endCode = () => { if (code) out.push(`<p>${code.map(esc).join('<br>')}</p>`); code = null; };
+  for (const line of String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n')) {
+    if (code) { code.push(line); if (MD_FENCE.test(line)) endCode(); continue; }
+    if (MD_FENCE.test(line)) { endPara(); endList(); code = [line]; continue; }
+    const m = line.match(/^\s{0,3}(?:([-*•])|(\d{1,3})[.)])\s+(.*)$/s);   // s: U+2028이 있어도 한 번에 끝나요(없으면 긴 빈칸에서 제곱으로 느려져요)
+    if (m) {
+      const kind = m[1] ? 'ul' : 'ol';
+      endPara();
+      if (list !== kind) { endList(); out.push(`<${kind}>`); list = kind; }
+      out.push(`<li${kind === 'ol' ? ` value="${Number(m[2])}"` : ''}>${bold(m[3])}</li>`);   // 번호는 쓴 그대로 보여요
+      continue;
+    }
+    endList();
+    if (line.trim()) para.push(line); else endPara();
+  }
+  endCode(); endPara(); endList();
+  return out.join('');
+}
+function lineHTML(l, tid, prev) {   // tid: 대화하는 층(있으면 보낸·받는 사람을 팀원 이름으로도 보여 줘요. 파일에는 역할 그대로 남아요). prev: 바로 앞 말
+  if (l.kind && l.kind !== '말') return `<li class="msg sys">${esc(hm(l.t))} · ${esc(l.text)}</li>`;
+  const nm = x => (tid ? seatHTML(tid, x) : esc(x));
+  const to = Array.isArray(l.to) && l.to.length ? `→ ${l.to.map(nm).join(', ')}` : '';
+  // 사진만 보낸 말은 서버가 채운 '사진 N장'을 그리지 않아요. 스냅샷에는 사진이 없어서 장수만 글로 보여요
+  const said = l.text == null ? '' : String(l.text), pics = API ? linePics(l) : [], n = API ? pics.length : Number(l.imgs) || 0, bare = n > 0 && said === `사진 ${n}장`;
+  const words = API ? (bare ? '' : said) : said + (n && !bare ? `\n사진 ${n}장` : '');
+  const me = l.from === '대표', cont = sameTurn(prev, l), time = `<time>${esc(hm(l.t))}</time>`;
+  // 대표 말은 쓴 그대로예요(pre-wrap이라 사진 앞에 공백을 넣지 않아요). 세션 답은 굵게·목록만 그려요
+  const body = (me ? esc(words) : mdLite(words)) + (API && n ? picsHTML(pics, tid ? seatText(tid, l.from) : l.from, tid) : '');
+  return me ? `<li class="msg me${cont ? ' cont' : ''}"><div class="b">${body}</div><p class="t">${to ? `<span>${to}</span>` : ''}${time}</p></li>`
+    : `<li class="msg${cont ? ' cont' : ''}">${cont ? '' : `<p class="who">${nm(l.from)}${to ? ` ${to}` : ''}${time}</p>`}<div class="b md">${body}</div></li>`;
+}
+const linesHTML = (lines, tid, prev) => lines.map((l, i) => lineHTML(l, tid, i ? lines[i - 1] : prev)).join('');
+// 빈 대화 가운데 글(마케팅 5-3장): 팀원(seat)은 이 세션, 회의(tid만)는 받는 사람, 총괄 대화(tid 없음)는 첫 줄만. 보낸 말이 총괄을 거친다는 줄은 정보 탭에도 늘 있어요(VIA_BOSS)
+const VIA_BOSS = '보낸 말은 총괄이 받아서 이 세션에 전해요.';
+const threadHTML = (lines, tid, seat) => linesHTML(lines, tid) || `<li class="msg sys t-empty">아직 주고받은 말이 없어요.${API && tid ? `<br>${seat ? VIA_BOSS : '보낸 말은 총괄이 받아서 받는 사람에게 전해요.'} 답은 여기에 올라와요.` : ''}</li>`;
 async function refreshThread(force) {
   if (!live || $('#drawer').hidden) return;
   const el = $('#thread'), cur = live;
@@ -3566,15 +3746,45 @@ async function refreshThread(force) {
     return;
   }
   if (!force && text === cur.last) return;
+  const old = cur.last;
   cur.last = text;
   const lines = jsonl(text);
-  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  el.innerHTML = threadHTML(lines, cur.tid);
-  if (atBottom || force) el.scrollTop = el.scrollHeight;
-  // 대화 서랍을 열거나 보낸 뒤: 위쪽(d-main)도 맨 아래로 내려서 마지막 말이 작성창 바로 위에 보이게 해요
-  const main = force && el.closest('.d-main');
-  if (main) main.scrollTop = main.scrollHeight;
-  if (lines.length) markSeen(cur.file, lines[lines.length - 1].t);
+  const atBottom = thPinned(el);
+  // 뒤에만 늘었으면 새 줄만 덧붙여요. 앞 사진을 다시 받지 않고 초점과 글 선택이 남아요. 바로 앞 말을 알아야 이어 말하기로 묶어요.
+  // 빈 대화(안내 한 줄)에 첫 말이 오면 통째로 그려요
+  const more = old && old.endsWith('\n') && text.startsWith(old) ? jsonl(text.slice(old.length)) : null;
+  if (more && lines.length > more.length) { if (more.length) el.insertAdjacentHTML('beforeend', linesHTML(more, cur.tid, lines[lines.length - more.length - 1])); }
+  else el.innerHTML = threadHTML(lines, cur.tid, cur.seat);
+  if (atBottom || force) { el.scrollTop = el.scrollHeight; el._pin = true; }   // 스크롤은 대화 칸 하나예요. 열거나 보낸 뒤에는 맨 아래
+  cur.lastT = lines.length ? lines[lines.length - 1].t : '';
+  talkSeen();
+  const last = lines[lines.length - 1];
+  cur.picAsk = !!last && last.from === '대표' && linePics(last).length > 0;
+  picWaitPaint();
+}
+// 대화 칸이 맨 아래에 붙어 있는지 스크롤할 때마다 기억해요(_pin). 끊김 띠, 여러 줄 글칸, 일 맡기기로 칸이 줄어도 맨 아래였으면 따라 내려가요(코드 검토 ②)
+let TH_RO = null;
+const thPinned = th => (th._pin == null ? th.scrollHeight - th.scrollTop - th.clientHeight < 40 : th._pin);
+const thMark = th => { if (th.clientHeight) th._pin = th.scrollHeight - th.scrollTop - th.clientHeight < 40; };   // 스크롤할 때(숨은 칸은 재지 않아요)
+const thFollow = th => { if (th.isConnected && th._pin && th.clientHeight) th.scrollTop = th.scrollHeight; };       // 칸 크기가 바뀔 때
+function thWatch(th) {
+  th._pin = true;
+  th.scrollTop = th.scrollHeight;
+  th.addEventListener('scroll', () => thMark(th), { passive: true });
+  if (!window.ResizeObserver) return;
+  if (TH_RO) TH_RO.disconnect();
+  TH_RO = new ResizeObserver(() => thFollow(th));
+  TH_RO.observe(th);
+}
+// [대화] 탭을 보고 있을 때만 읽은 걸로 해요. 정보 탭을 보는 동안 온 말은 [대화] 탭에 '새 답'을 달고, 돌아오면 읽은 걸로 해요(코드 검토 5)
+function talkSeen() {
+  const cur = live, t = cur && cur.lastT, tab = $('#dTab0'), talk = $('#dTalk');
+  if (!t) return;
+  const dot = tab && $('.new-dot', tab);
+  if (talk && talk.hidden) { if (tab && !dot && cur.seenT !== t) tab.insertAdjacentHTML('beforeend', '<span class="new-dot"><span class="su-sr"> </span>새 답</span>'); return; }   // 탭 이름이 '대화 새 답'으로 띄어 읽혀요
+  if (dot) dot.remove();
+  markSeen(cur.file, t);
+  cur.seenT = t;
 }
 // 감시는 살아 있는데(heartbeat) 1분 넘게 대기가 줄지 않으면 총괄 창이 멈췄을 수 있어요(Claude 앱은 사람 입력 없이 SendMessage를 10번쯤 보내면 막아요)
 const relayStuck = r => !!(r && r.relayAge != null && r.relayAge < 15 && r.pending && r.oldestAge > 60);
@@ -3584,12 +3794,13 @@ const STUCK_STEP = '총괄 창에 아무 말이나 한 번 입력해 주세요.'
 // 링크로 채워 주지 않아서(새 세션만 돼요) 붙여 넣기와 Enter는 대표가 해요. 3분 동안은 칩에 그 할 일을 보여 줘요.
 const REARM_MS = 180000;
 let REARM = null;   // {at, copied}
+const rearmStep = copied => `총괄 창에서 ${copied ? '붙여 넣고(⌘V) Enter를 눌러요' : '“사이트 전달 감시 다시 켜 줘”라고 보내요'}`;
+// 머리말 칩과 대화 서랍 끊김 띠의 같은 단추예요. 누른 뒤 3분은 [총괄 창 다시 열기]
+const relayBtn = cls => `<button type="button" class="${cls}" data-act="relay-rearm">${REARM && Date.now() - REARM.at < REARM_MS ? '총괄 창 다시 열기' : '다시 연결'}</button>`;
 function relayDownHTML(r) {
   const wait = r && r.pending ? ` · 전달 대기 <b>${esc(r.pending)}</b>` : '';
-  if (REARM && Date.now() - REARM.at < REARM_MS) {
-    return `총괄 창에서 ${REARM.copied ? '붙여 넣고(⌘V) Enter를 눌러요' : '“사이트 전달 감시 다시 켜 줘”라고 보내요'}${wait} <button type="button" class="relay-re" data-act="relay-rearm">총괄 창 다시 열기</button>`;
-  }
-  return `총괄 연결 끊김${wait} <button type="button" class="relay-re" data-act="relay-rearm">다시 연결</button>`;
+  if (REARM && Date.now() - REARM.at < REARM_MS) return `${rearmStep(REARM.copied)}${wait} ${relayBtn('relay-re')}`;
+  return `총괄 연결 끊김${wait} ${relayBtn('relay-re')}`;
 }
 async function relayRearm() {
   if (!realBoss()) return;
@@ -3599,20 +3810,40 @@ async function relayRearm() {
   REARM = { at: Date.now(), copied };
   render();
   if (SU.open && SU.view === 'boss') renderSetup();   // 설정의 총괄 묶음에서 눌렀으면 그 줄도 할 일로 바꿔요
+  relayPaint();   // 대화 서랍의 띠도 같은 할 일로
   seatSay(copied ? '다시 켜는 말을 복사했어요. 총괄 창에 붙여 넣고 Enter를 눌러요' : '총괄 창에 “사이트 전달 감시 다시 켜 줘”라고 보내요');
   location.href = chatLink(state.org.boss.sessionId);
 }
+const RELAY_DOWN = '총괄 연결이 끊겨 있어요. 보낸 말은 쌓여 있다가 총괄이 돌아오면 전해져요.';
 function relayWarn() {
   const r = state && state.relay;
   if (!API) return '';
-  if (!r || r.relayAge == null || r.relayAge >= 15) return '총괄 연결이 끊겨 있어요. 보낸 말은 쌓여 있다가 총괄이 돌아오면 전해져요. 위쪽 [다시 연결]을 누르고 총괄 창에 붙여 넣은 뒤 Enter를 눌러요.';
+  if (!r || r.relayAge == null || r.relayAge >= 15) return RELAY_DOWN;
   if (relayStuck(r)) return `총괄 창이 멈췄을 수 있어요(대기 ${r.pending}개). ${STUCK_STEP}`;
   return '';
 }
-// 작성창 아래 안내: relayWarn 글(esc)에, 총괄 창이 멈췄을 수 있을 때만 총괄 창 링크를 붙여요
-function relayNote() {
-  const w = relayWarn();
-  return esc(w) + (w && relayStuck(state && state.relay) && realBoss() ? ` <a href="${esc(chatLink(state.org.boss.sessionId))}">총괄 창 열기 ↗</a>` : '');
+// 끊김 띠(U-29 B, 대화 서랍의 탭 아래와 회의 열기 서랍): 두 문장과 머리말과 같은 [다시 연결]. 서랍이 열리면 머리말 칩은 어두운 막 아래라서
+// 누른 뒤 3분은 띠도 할 일 글로 바뀌어요. 복사했으면 페이지가 클립보드를 바꿨다는 것도 알려요. 총괄 창이 멈췄을 수 있으면 그 글과 총괄 창 링크예요(마케팅 5-3장)
+const rearmBand = copied => (copied ? '다시 켜는 말을 복사했어요. 총괄 창에 붙여 넣고(⌘V) Enter를 눌러요.' : `${rearmStep(false)}.`);
+function relayBand() {
+  const w = relayWarn(), r = state && state.relay;
+  if (!w) return '';
+  if (relayStuck(r)) return `<p>${esc(w)}</p>${realBoss() ? `<a class="btn" href="${esc(chatLink(state.org.boss.sessionId))}">총괄 창 열기 ↗</a>` : ''}`;
+  const re = REARM && Date.now() - REARM.at < REARM_MS;
+  return `<p>${esc(re ? rearmBand(REARM.copied) : w)}</p>${realBoss() ? relayBtn('btn') : ''}`;
+}
+const relayBox = () => (b => `<div class="d-relay" role="status"${b ? '' : ' hidden'}>${b}</div>`)(relayBand());
+// 띠를 지금 연결 상태로 고쳐요. 같은 글이면 건드리지 않아요(읽기 프로그램이 다시 읽지 않게)
+function relayPaint() {
+  $$('#drawerBody .d-relay').forEach(b => {
+    const h = relayBand(), had = b.contains(document.activeElement);
+    if (b._html == null) b._html = b.innerHTML;
+    b.hidden = !h;
+    if (!put(b, h) || !had) return;
+    // 키보드로 누른 단추가 바뀌거나 띠가 숨어도 초점은 서랍 안이에요: 띠의 새 단추 → [대화] 탭 → [닫기](코드 검토 ④)
+    const to = (!b.hidden && b.querySelector('[data-act="relay-rearm"], a')) || $('#dTab0') || $('#drawerClose');
+    if (to) to.focus();
+  });
 }
 // 예시 팀·자리 표시용 세션(local_00000000…)에는 전할 세션이 없어요. 작성창·결재·회의 단추 대신 이 안내를 보여요(서버도 받지 않아요)
 const EX_NO_TALK = '예시 팀이에요. 설정에서 내 층을 만들면 말을 걸 수 있어요.';
@@ -3620,29 +3851,32 @@ const EX_NO_DECIDE = '예시 팀이에요. 설정에서 내 층을 만들면 결
 const EX_NO_MEET = '예시 팀이에요. 설정에서 내 층을 만들면 회의를 열 수 있어요.';
 function exampleTeam(tid) { return String(((state.org.teams.find(t => t.id === tid) || {}).office) || '').startsWith('examples/'); }
 const exampleSeat = (tid, sid) => exampleTeam(tid) || String(sid || '').startsWith('local_00000000');
-// 대화 작성창(say): Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
-// ho: 팀장·팀원 작성창에만 [일 맡기기] 단추를 둬요(총괄·회의·Codex 자리·예시 팀에는 없어요).
+// 대화 작성창(say, U-29 B): 한 줄 글칸 + [보내기], 그 아래 단축키 한 줄과 [일 맡기기] 글 단추. 좁은 창은 단축키 줄을 숨겨요(CSS).
+// Enter로 보내고 Shift+Enter로 줄을 바꿔요(아래 keydown). 서랍마다 작성창은 하나라 안내 id(sayKeys)도 하나예요.
+// ho: 팀장·팀원 작성창에만 [일 맡기기] 단추를 둬요(총괄·회의·Codex 자리·예시 팀에는 없어요). 끊김 안내는 탭 아래 띠에 있어요(relayBand)
 function composerHTML(form, extra = '', placeholder = '여기에 쓰고 Enter로 보내기', key = '', ho = false) {
-  if (!API) return '<p class="hint" style="margin-top:10px">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
+  if (!API) return '<p class="hint d-foot">말 걸기는 이 맥의 로컬 페이지(http://127.0.0.1:8765)에서만 돼요.</p>';
   const on = ho && HO.has(key);
   const box = ho ? `<fieldset class="ho"${on ? '' : ' hidden disabled'}><legend class="su-sr">일 맡기기</legend><div class="ho-g">${HO_FIELDS.map(([k, l, ph], i) =>
     `<label for="ho-${esc(k)}">${esc(l)}</label><textarea id="ho-${esc(k)}" name="${esc(k)}" data-ho="${esc(k)}" rows="1" maxlength="${HO_MAX}"${i ? '' : ' required'} placeholder="${esc(ph)}" aria-describedby="sayKeys"></textarea>`).join('')}</div></fieldset>` : '';
   return `<form class="composer" data-form="${form}" data-key="${esc(key)}"${ho ? ` data-ho="${on ? 1 : 0}"` : ''}>${extra}
-    <textarea name="text" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"${on ? ' hidden disabled' : ''}></textarea>${box}
-    <div class="row"><p class="hint"><span class="keys" id="sayKeys">${esc(on ? HO_KEYS : SAY_KEYS)}</span><br>총괄이 받아서 그 세션에 전해요. 답은 여기에 올라와요.</p><span class="acts">${ho ? `<button type="button" class="btn ho-tg" data-ho-toggle aria-pressed="${on ? 'true' : 'false'}">일 맡기기</button>` : ''}<button type="submit" class="btn primary">보내기</button></span></div>
-    <p class="relay-note" role="status">${relayNote()}</p>
+    <div class="att-band" hidden><ul class="att" aria-label="보낼 사진"></ul><p class="att-note">세션이 열면 Claude로 보내지고 기록에 남아요.</p></div>
+    <p class="att-also" hidden>복사한 사진은 안 붙였어요. <button type="button" data-att-also>사진도 붙이기</button></p>
+    <div class="c-box"><textarea name="text" rows="1" required maxlength="4000" placeholder="${esc(placeholder)}" aria-label="보낼 말" aria-describedby="sayKeys"${on ? ' hidden disabled' : ''}></textarea>${box}<button type="submit" class="btn primary">보내기</button></div>
+    <div class="row"><p class="keys" id="sayKeys">${esc(on ? HO_KEYS : SAY_KEYS)}</p>${ho ? `<button type="button" class="ho-tg" data-ho-toggle aria-pressed="${on ? 'true' : 'false'}">일 맡기기</button>` : ''}</div>
+    <p class="pic-wait" hidden></p>
     <p class="err" role="alert"></p></form>`;
 }
 // 일 맡기기: 켜면 작성창 대신 네 칸이 나오고, 보내면 한 메시지(docs/TEAM_RULES.md 9장 모양)로 보통 말 걸기처럼 보내요.
 // 켠 자리는 HO(작성창 key)에 남아서 서랍을 다시 열어도 그대로고, 칸마다 쓰던 글은 drafts에 남아요. 끄면 예전 작성창 그대로예요.
 const HO_FIELDS = [['goal', '목표', '무엇을 이루면 되나요 (꼭)'], ['out', '결과물', '예: PR 하나, 보고서'], ['tools', '쓸 도구', '예: Figma, 테스트'], ['scope', '범위·완료 기준', '어디까지 하면 끝인가요']];
 const HO = new Set(), HO_MAX = 900, HO_NEED = '목표를 써 주세요';
-const SAY_KEYS = 'Enter 보내기 · Shift+Enter 줄바꿈', HO_KEYS = 'Enter 다음 칸 · 마지막 칸에서 Enter 보내기 · Shift+Enter 줄바꿈';
-// 칸 높이: CSS field-sizing을 모르는 브라우저(Firefox, 예전 Safari·맥 앱의 WebKit)에서는 글에 맞춰 늘려요(max-height까지, 넘으면 스크롤).
+const SAY_KEYS = 'Enter 보내기 · Shift+Enter 줄바꿈 · ⌘V 사진 붙이기', HO_KEYS = 'Enter 다음 칸 · 마지막 칸에서 Enter 보내기 · Shift+Enter 줄바꿈 · ⌘V 사진 붙이기';
+// 칸 높이(일 맡기기 칸과 한 줄 작성창): CSS field-sizing을 모르는 브라우저(Firefox, 예전 Safari·맥 앱의 WebKit)에서는 글에 맞춰 늘려요(max-height까지, 넘으면 스크롤).
 // 숨은 칸은 높이를 잴 수 없어서 켤 때(hoSet) 맞춰요
 const HO_GROW = !(window.CSS && CSS.supports && CSS.supports('field-sizing', 'content'));
 function hoGrow(ta) {
-  if (!HO_GROW || !ta || !ta.dataset || !ta.dataset.ho) return;
+  if (!HO_GROW || !ta || !ta.dataset || !(ta.dataset.ho || (ta.name === 'text' && ta.form && ta.form.dataset.form === 'say'))) return;
   ta.style.height = '';
   if (!ta.getClientRects().length) return;
   ta.style.height = 'auto';
@@ -3666,6 +3900,15 @@ function hoSet(form, on) {   // 숨긴 쪽은 disabled라 FormData와 필수 칸
   if (on) $$('textarea[data-ho]', form).forEach(hoGrow);
   (on ? $('textarea[data-ho="goal"]', form) : ta).focus();
 }
+// 작성창의 Enter: 글이나 사진이 있으면 보내요. Shift+Enter는 줄바꿈, 한글 조합 중·조합 직후는 건드리지 않아요
+function sayKey(e, t) {
+  if (e.isComposing || e.keyCode === 229 || e.shiftKey) return;
+  e.preventDefault();
+  if (e.repeat || performance.now() - (t._imeEnd || -Infinity) < IME_GAP) return;
+  const form = t.form, btn = form && form.querySelector('button[type="submit"]');
+  if ((!t.value.trim() && !attCount(form.dataset.key)) || !btn || btn.disabled || form.dataset.busy) return;
+  form.requestSubmit(btn);
+}
 // 일 맡기기 칸의 Enter: 다음 칸으로, 마지막 칸에서는 보내기(목표가 비었으면 목표 칸으로). Shift+Enter는 줄바꿈.
 // 한글 조합 중·조합 직후(IME_GAP)의 Enter는 보통 작성창과 같이 건드리지 않아요
 function hoKey(e, t) {
@@ -3680,67 +3923,99 @@ function hoKey(e, t) {
   form.requestSubmit(btn);
 }
 function openThread(file, opts = {}) {
+  PIC_V++;
   live = Object.assign({ file, last: null }, opts);
+  const th = $('#thread');
+  if (th) thWatch(th);
   refreshThread(true);
 }
-function bossDrawer() {
-  openDrawer(`<div class="d-head"><p class="d-eyebrow">총괄실</p><h2 class="d-title" id="dTitle">총괄과 대화</h2></div>
-    <div class="d-main"><p class="hint" style="margin-top:6px">무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.</p>
-    ${realBoss() ? `<div class="d-links"><a class="btn-primary" href="${esc(chatLink(state.org.boss.sessionId))}">세션 창 열기</a></div>` : ''}
-    <ul class="thread" id="thread" aria-live="polite"></ul></div>
-    ${API && !realBoss() ? '<p class="hint" style="margin-top:10px">아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요.</p>' : composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')}`, null, true);
+// 대화 서랍의 머리(U-29 B '대화 먼저'): 이름과 상태 한 줄, [Claude 창 열기]와 [닫기](openDrawer가 data-close-slot으로 옮겨요), 위험한 일 안내, [대화 | 정보] 탭, 그 아래 끊김 띠.
+// o: { title(HTML), team, line(HTML)·lineId, sub, link, must, ctl(머리 안 HTML), tabs(정보 탭 옆 작은 글. 없으면 탭이 없어요), relay }
+const MUST_LINE = '커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.';
+function dHead(o) {
+  // 서랍과 탭 목록 이름은 이 제목을 읽어요. 이름·역할·팀이 붙어 읽히지 않게 화면에 안 보이는 띄어 읽기를 넣어요
+  const title = String(o.title).replace(/<small class="rl">/g, '<span class="su-sr"> </span>$&');
+  return `<div class="d-head"><div class="d-top"><div class="d-name"><h2 class="d-title" id="dTitle">${title}<span class="su-sr">, </span><small class="d-team">${esc(o.team)}</small></h2>${o.line == null ? '' : `<p class="d-line" id="${o.lineId || 'dfLine'}">${o.line}</p>`}${o.sub ? `<p class="d-sub">${esc(o.sub)}</p>` : ''}</div>${o.link ? `<a class="btn d-open" href="${esc(o.link)}">Claude 창 열기 ↗</a>` : ''}<span class="d-x" data-close-slot></span></div>`
+    + `${o.must ? `<p class="d-must">${MUST_LINE}</p>` : ''}${o.ctl || ''}`
+    + `${o.tabs == null ? '' : `<div class="d-tabs" role="tablist" aria-labelledby="dTitle"><button type="button" role="tab" id="dTab0" aria-controls="dTalk" aria-selected="true">대화</button><button type="button" role="tab" id="dTab1" aria-controls="dInfo" aria-selected="false" tabindex="-1">정보 <small>${esc(o.tabs)}</small></button></div>`}</div>`
+    + `${o.relay ? relayBox() : ''}`;
+}
+// 대화 칸 이름: 탭이 있으면 [대화] 탭을 따라가요. 탭이 없으면 label(이름 뒤에 조사를 붙이지 않아요. 따로 정한 이름이면 틀려요)
+const talkPane = (tabs, label) => `<div class="d-talk" id="dTalk"${tabs ? ' role="tabpanel" aria-labelledby="dTab0"' : ''}><ul class="thread" id="thread" aria-live="polite"${label ? ` aria-label="${esc(label)}"` : ''}></ul></div>`;
+// [대화 | 정보] 탭: 고른 탭만 Tab으로 가고 ←→ Home End로 옮겨요. 대화로 돌아오면 보던 자리예요(맨 아래였으면 그사이 온 말까지 맨 아래)
+function dTab(i, focus) {
+  const tabs = $$('#drawerBody [role="tab"]'), th = $('#thread');
+  if (!tabs[i]) return;
+  if (tabs[i].getAttribute('aria-selected') !== 'true') {
+    if (th && i !== 0) th._back = thPinned(th) ? null : th.scrollTop;
+    tabs.forEach((t, j) => { t.setAttribute('aria-selected', i === j ? 'true' : 'false'); t.tabIndex = i === j ? 0 : -1; const p = $('#' + t.getAttribute('aria-controls')); if (p) p.hidden = i !== j; });
+    if (th && i === 0) th.scrollTop = th._back == null ? th.scrollHeight : th._back;
+  }
+  if (i === 0) talkSeen();
+  if (focus) tabs[i].focus();
+}
+function dTabKey(e) {
+  const tabs = $$('#drawerBody [role="tab"]'), i = tabs.indexOf(e.target), n = tabs.length;
+  const to = i < 0 ? undefined : { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: n - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault();
+  dTab((to + n) % n, true);
+}
+function bossDrawer() {   // 총괄 서랍: 세션 표가 없어서 탭 없이 대화만이에요. 총괄도 세션이라 위험한 일 줄이 같아요(팀장 결정 11-03)
+  openDrawer(dHead({ title: '총괄과 대화', team: '총괄실', sub: '무엇이든 총괄에게 말하면 팀에 나눠 시키거나 바로 답해요. 팀에서 올라온 보고도 여기에 정리돼요.', link: realBoss() ? chatLink(state.org.boss.sessionId) : '', must: true, relay: true })
+    + `<div class="d-main">${talkPane(false, '총괄과 대화')}</div>`
+    + (API && !realBoss() ? '<p class="hint d-foot">아직 총괄이 없어요. 총괄을 만들면 말을 걸 수 있어요.</p>' : composerHTML('say', '<input type="hidden" name="thread" value="boss"><input type="hidden" name="team" value="hq">', '예: 1층 팀 진행 상황 알려 줘', 'boss')), null, true);
   openThread('hq/chat.jsonl');
 }
 // Codex 자리: 무엇이 앉았는지와 상태만 보여 주고 작성창은 없어요(말 걸기는 아직 안 돼요. 앞으로 붙여요)
 function cxDrawer(tid, m) {
   const d = state.teams[tid], x = cxInfo(tid, m), cn = customName(m, teamNames(tid));
-  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀 · Codex</p><h2 class="d-title" id="dTitle">${seatHTML(tid, m.role)}</h2></div>
-    <div class="d-main"><dl class="facts">
+  const line = `${esc(x.state)}${x.at ? ` · 마지막 활동 ${esc(ago(new Date(x.at).toISOString()))}` : x.missing ? ' · 기록을 찾지 못했어요' : ''}`;
+  openDrawer(dHead({ title: seatHTML(tid, m.role), team: `${d.team.team} 팀 · Codex`, line }) + `<div class="d-main"><div class="d-info"><dl class="facts">
       ${cn ? `<dt>역할</dt><dd>${esc(m.role)}</dd>` : ''}<dt>세션</dt><dd>${esc(x.title || 'Codex 세션')} <span class="chip cx">Codex · 읽기 전용</span><br><code>${esc(m.codexId)}</code></dd>
-      <dt>상태</dt><dd>${esc(x.state)}${x.at ? ` · 마지막 활동 ${esc(ago(new Date(x.at).toISOString()))}` : x.missing ? ' · 기록을 찾지 못했어요' : ''}</dd>
+      <dt>상태</dt><dd>${line}</dd>
     </dl>
     <p style="margin:14px 0 0; font-size:13.5px"><b>${CX_NO_TALK}.</b></p>
-    <p class="hint" style="margin-top:6px">에이전시티는 이 Codex 세션의 기록 파일이 언제 바뀌었는지만 보고 상태를 보여 줘요(2분 안에 바뀌었으면 ‘일하는 중’, 아니면 ‘대기’). 상태를 볼 때 대화 내용은 읽지 않고, Codex 폴더에는 아무것도 쓰지 않아요. 일을 시키려면 Codex 창에서 직접 해요.</p></div>`, tid);
+    <p class="hint" style="margin-top:6px">에이전시티는 이 Codex 세션의 기록 파일이 언제 바뀌었는지만 보고 상태를 보여 줘요(2분 안에 바뀌었으면 ‘일하는 중’, 아니면 ‘대기’). 상태를 볼 때 대화 내용은 읽지 않고, Codex 폴더에는 아무것도 쓰지 않아요. 일을 시키려면 Codex 창에서 직접 해요.</p></div></div>`, tid, true);
 }
 // 서랍의 상태·맡은 일·한마디. 명단과 같은 값이에요
 function drawerFacts(tid, role, rel = ago) {
   const d = state.teams[tid], m = d.team.members.find(x => x.role === role), v = seatView(tid, m, d.status[role], meetNow(d), viewNow());
-  return { state: `${seatChip(v)}${v.updated ? ` · ${rel(v.updated)}` : ''}`, task: v.task || '—', say: v.say || '—' };
+  return { state: `${seatChip(v)}${v.updated ? ` · ${rel(v.updated)}` : ''}`, task: v.task || '—', say: v.say || '—', dot: v.quiet ? '' : seatDot(v.state), wait: !!v.wait };
 }
+// 머리의 상태 줄: 상태 점, 명단과 같은 칩, 맡은 일(없으면 붙이지 않아요). 확인 대기면 맡은 일 자리에 명단 둘째 줄(seatLine)과 같은 말이에요
+const factLine = f => `<i class="dot${f.dot ? ` ${f.dot}` : ''}"></i>${esc(f.state)}${f.wait ? ' · Claude 창에서 확인해요' : f.task && f.task !== '—' ? ` · ${esc(f.task)}` : ''}`;
 let DF = null;   // 열려 있는 팀원 서랍 { tid, role }
-function drawerPaint() {   // 열린 동안에는 이 세 칸만 고쳐요. 쓰던 글과 위치는 그대로예요
+function drawerPaint() {   // 열린 동안에는 머리의 상태 줄과 정보 탭의 세 칸만 고쳐요. 쓰던 글과 위치는 그대로예요
   const d = DF && !$('#drawer').hidden && $('#dfState') && state.teams[DF.tid];
   if (!d || !d.team.members.some(x => x.role === DF.role)) return;
   const f = drawerFacts(DF.tid, DF.role);
-  put($('#dfState'), esc(f.state)); put($('#dfTask'), esc(f.task)); put($('#dfSay'), esc(f.say));
+  put($('#dfLine'), factLine(f)); put($('#dfState'), esc(f.state)); put($('#dfTask'), esc(f.task)); put($('#dfSay'), esc(f.say));
+  picWaitPaint();
 }
 function memberDrawer(tid, role) {
   const d = state.teams[tid], m = d.team.members.find(x => x.role === role);
   if (isCx(m)) { cxDrawer(tid, m); return; }
   const facts = drawerFacts(tid, role), mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
   const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
-  const cn = customName(m, teamNames(tid));
-  // 대화가 서랍의 주인공이라 작성창은 맨 아래에 붙고, 주고받은 메시지·보고서는 접어 둔 칸에 넣어요(누르면 펼쳐져요).
-  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀</p>
-    <h2 class="d-title" id="dTitle">${seatHTML(tid, role)}</h2></div>
-    <div class="d-main"><dl class="facts">
+  const cn = customName(m, teamNames(tid)), ex = API && exampleSeat(tid, m.sessionId);
+  // U-29 B '대화 먼저': 대화가 주인공이에요. 세션 표, 주고받은 메시지, 보고서는 [정보] 탭에 있어요. 예시 층은 대화가 없어서 머리와 정보만 보여요
+  const info = `<dl class="facts">
       ${cn ? `<dt>역할</dt><dd>${esc(role)}</dd>` : ''}<dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
       <dt>상태</dt><dd id="dfState">${esc(facts.state)}</dd>
       <dt>맡은 일</dt><dd id="dfTask">${esc(facts.task)}</dd>
       <dt>한마디</dt><dd id="dfSay">${esc(facts.say)}</dd>
-    </dl>
-    <div class="d-links"><a class="btn-primary" href="${esc(chatLink(m.sessionId))}">세션 창 열기</a>
-      <p class="hint" style="margin-top:6px">커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.</p></div>
-    <details class="d-more"><summary>주고받은 메시지 ${mine.length}개 · 보고서 ${reps.length}개</summary>
-      <h3>주고받은 메시지</h3>
-      ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${seatHTML(tid, e.from)}</b> → <b>${seatHTML(tid, e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
-      <h3>보고서</h3>
-      ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}</details>
-    <h3 class="d-sec">바로 대화</h3>
-    <ul class="thread" id="thread" aria-live="polite"></ul></div>
-    ${API && exampleSeat(tid, m.sessionId) ? `<p class="hint" style="margin-top:10px">${EX_NO_TALK}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`, tid, true);
+    </dl>${ex ? '' : `<p class="hint d-via">${VIA_BOSS}</p>`}
+    <h3>주고받은 메시지</h3>
+    ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${seatHTML(tid, e.from)}</b> → <b>${seatHTML(tid, e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
+    <h3>보고서</h3>
+    ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}`;
+  const head = dHead({ title: seatHTML(tid, role), team: `${d.team.team} 팀`, line: factLine(facts), link: chatLink(m.sessionId), must: true, tabs: ex ? null : `주고받은 메시지 ${mine.length} · 보고서 ${reps.length}`, relay: !ex });
+  openDrawer(head + (ex ? `<div class="d-main"><div class="d-info">${info}</div></div><p class="hint d-foot">${EX_NO_TALK}</p>`
+    : `<div class="d-main">${talkPane(true)}<div class="d-info" id="dInfo" role="tabpanel" aria-labelledby="dTab1" tabindex="0" hidden>${info}</div></div>
+    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`), tid, true);
   DF = { tid, role };
-  openThread(d.base + 'chat/' + role + '.jsonl', { tid });
+  if (!ex) openThread(d.base + 'chat/' + role + '.jsonl', { tid, seat: role });
 }
 
 /* ---------- 회의(대표만 시작) ---------- */
@@ -3761,7 +4036,7 @@ function meetStartDrawer(tid, preset = {}) {
       <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>
       <textarea name="note" maxlength="2000" placeholder="안건이나 메모 (선택)" aria-label="회의 메모">${esc(preset.note || '')}</textarea>
       <div class="row"><p class="hint">참석: 내 말이 참석자에게 바로 가요. 위임: 팀장이 진행하고 결과를 회의록·결재로 올려요. 중간에 빠지면 나머지는 팀이 이어서 해요.</p><button type="submit" class="btn primary">회의 시작</button></div>
-      <p class="relay-note" role="status">${relayNote()}</p>
+      ${relayBox()}
       <p class="err" role="alert"></p></form>`, tid);
 }
 function meetDrawer(tid, id) {
@@ -3769,23 +4044,25 @@ function meetDrawer(tid, id) {
   const am = (id && (d.metas || []).find(m => m.id === id)) || (d.metas || []).find(m => m.status === '진행 중') || d.active;
   if (!am) { meetStartDrawer(tid); return; }
   let minutes = d.meetings.includes(am.id + '.md');
+  // 머리: 번호와 진행 상태 한 줄, 회의 단추. 정보 탭: 주제와 참석자(U-29 결정 8번)
   const drawControls = meta => {
     const box = $('#meetCtl');
     if (!box) return;
     const going = meta.status === '진행 중';
-    put(box, `<p class="hint">${esc(meta.id)} · ${going ? (meta.mode === '참석' ? '대표 참석 중' : '대표 없이 진행 중(위임)') : esc(meta.status)} · 참석 ${(meta.participants || []).map(r => seatHTML(tid, r)).join(', ')}</p>
-      ${API && going ? `<div class="meet-actions">${meta.mode === '참석'
+    put($('#meetLine'), `${esc(meta.id)} · ${going ? (meta.mode === '참석' ? '대표 참석 중' : '대표 없이 진행 중(위임)') : esc(meta.status)}`);
+    put($('#meetWho'), (meta.participants || []).map(r => seatHTML(tid, r)).join(', '));
+    put(box, [API && going ? `<div class="meet-actions">${meta.mode === '참석'
         ? `<button type="button" class="btn" data-arm data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="위임">나는 빠질게 (나머지는 너희끼리)</button>`
         : `<button type="button" class="btn primary" data-act="meet-mode" data-team="${esc(tid)}" data-id="${esc(meta.id)}" data-mode="참석">회의에 참석하기</button>`}
-        <button type="button" class="btn warn" data-act="meet-end" data-team="${esc(tid)}" data-id="${esc(meta.id)}">회의 끝내기</button></div>` : ''}
-      ${meta.status === '정리 중' ? `<p class="hint">팀장이 회의록을 정리하고 있어요. 오래 멈춰 있으면 직접 닫을 수 있어요.</p>${API ? `<div class="meet-actions"><button type="button" class="btn" data-act="meet-close" data-team="${esc(tid)}" data-id="${esc(meta.id)}">정리 끝내기 (내가 닫기)</button></div>` : ''}` : ''}
-      ${minutes ? `<p class="hint"><button type="button" class="meet-file" data-file="${esc(d.base + 'meetings/' + meta.id + '.md')}">회의록 보기</button></p>` : ''}`);
+        <button type="button" class="btn warn" data-act="meet-end" data-team="${esc(tid)}" data-id="${esc(meta.id)}">회의 끝내기</button></div>` : '',
+      meta.status === '정리 중' ? `<p class="hint">팀장이 회의록을 정리하고 있어요. 오래 멈춰 있으면 직접 닫을 수 있어요.</p>${API ? `<div class="meet-actions"><button type="button" class="btn" data-act="meet-close" data-team="${esc(tid)}" data-id="${esc(meta.id)}">정리 끝내기 (내가 닫기)</button></div>` : ''}` : '',
+      minutes ? `<p class="hint"><button type="button" class="meet-file" data-file="${esc(d.base + 'meetings/' + meta.id + '.md')}">회의록 보기</button></p>` : ''].join(''));
     const f = $('#meetSay');
     if (f) f.hidden = !(API && going && meta.mode === '참석');
   };
-  openDrawer(`<div class="d-head"><p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">${esc(am.topic)}</h2></div>
-    <div class="d-main"><div id="meetCtl"></div>
-    <ul class="thread" id="thread" aria-live="polite"></ul></div>
+  const parts = am.participants || [];
+  openDrawer(dHead({ title: esc(am.topic), team: `${d.team.team} 팀 회의실`, line: '', lineId: 'meetLine', ctl: '<div id="meetCtl"></div>', tabs: `참석 ${parts.length}명`, relay: true })
+    + `<div class="d-main">${talkPane(true)}<div class="d-info" id="dInfo" role="tabpanel" aria-labelledby="dTab1" tabindex="0" hidden><dl class="facts"><dt>주제</dt><dd>${esc(am.topic)}</dd><dt>참석자</dt><dd id="meetWho">${parts.map(r => seatHTML(tid, r)).join(', ')}</dd></dl></div></div>
     <div id="meetSay">${composerHTML('say', `<input type="hidden" name="thread" value="meeting:${esc(am.id)}"><input type="hidden" name="team" value="${esc(tid)}">
       <fieldset class="chips"><legend>받는 사람</legend>${(am.participants || []).map(r => `<label><input type="checkbox" name="to" value="${esc(r)}"${r === LEAD || !(am.participants || []).includes(LEAD) ? ' checked' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>`, '회의에서 할 말 (받는 사람만 답해요)', `meet:${tid}:${am.id}`)}</div>`, tid, true);
   drawControls(am);
@@ -3862,9 +4139,241 @@ function apprDrawer(note = '') {
   if (keepScroll) $('.drawer-panel').scrollTop = keepScroll;
 }
 
+/* ---------- 대화 사진 보내기와 크게 보기 ---------- */
+// 붙인 사진은 작성창 key별로 ATT에 있고 [보내기]를 누를 때만 올라가요. 그래서 뺀 사진이 서버에 남지 않아요. 새로고침하면 사라져요(쓰던 글과 같아요).
+const ATT_SAY = { type: 'PNG·JPG·GIF·WebP만 붙일 수 있어요.', heic: 'HEIC는 안 돼요. JPG로 바꿔서 붙여요.', max: '사진은 한 번에 4장까지예요.', big: '사진이 너무 커요. 10MB 안으로 줄여서 붙여요.', up: '사진을 올리지 못했어요. 다시 보내요.', net: '연결이 끊겼어요. 글과 사진은 그대로예요.', busy: '보내는 중이에요. 끝난 뒤 붙여요.', gif: 'GIF가 너무 커서 안 붙였어요. 여기서 줄이면 움직임이 사라져요.' };
+let ATT_SEQ = 0, ATT_ALSO = null;   // ATT_ALSO: 글과 같이 복사돼서 아직 안 붙인 사진
+const attList = key => { if (!ATT.has(key)) ATT.set(key, []); return ATT.get(key); };
+const attCount = key => (ATT.get(key) || []).length;
+const attFormOf = key => $$('#drawerBody form[data-form="say"]').find(f => f.dataset.key === key) || null;
+const attForm = () => { if ($('#drawer').hidden) return null; const f = $('#drawerBody form[data-form="say"]'); return f && !f.closest('[hidden]') ? f : null; };
+const attRepaint = key => { const f = attFormOf(key); if (f) attPaint(f); };
+function attPaint(form) {
+  const ul = $('.att', form);
+  if (!ul) return;
+  const key = form.dataset.key, list = attList(key), band = ul.closest('.att-band'), th = $('#thread');
+  const low = !!th && thPinned(th);   // 띠가 생기거나 칩 옆 글이 내려가 높아지면 대화 칸이 줄어요. 맨 아래를 보던 중이면 계속 따라가요
+  band.hidden = !list.length;
+  if (SENDING.has(key)) form.dataset.busy = '1';   // 보내는 중에 서랍을 다시 열어도 칩이 잠겨 있어요
+  ul.innerHTML = list.map((a, i) => `<li data-st="${a.st}"${a.st === 'up' ? ' aria-label="사진 올리는 중"' : ''}><img alt="붙인 사진 ${i + 1}" src="${esc(a.url)}"><button type="button" data-att-x="${a.id}" aria-label="${list.length > 1 ? `사진 ${i + 1} 빼기` : '사진 빼기'}" title="빼기">×</button></li>`).join('');
+  const ta = $('textarea[name="text"]', form);
+  if (ta) ta.required = !list.length;
+  if (low) th.scrollTop = th.scrollHeight;
+}
+function attAlso(form, files) {
+  ATT_ALSO = files;
+  const line = $('.att-also', form);
+  if (line) line.hidden = !files;
+}
+function attAdd(form, files) {
+  const key = form.dataset.key, list = attList(key), err = $('.err', form);
+  if (SENDING.has(key)) { err.textContent = ATT_SAY.busy; return; }
+  err.textContent = '';
+  attAlso(form, null);
+  for (const f of files) {
+    if (ATT_HEIC.test(f.type) || ATT_HEIC.test(f.name || '')) { err.textContent = ATT_SAY.heic; continue; }
+    if (!ATT_OK.test(f.type)) { err.textContent = ATT_SAY.type; continue; }
+    if (list.length >= ATT_MAX) { err.textContent = ATT_SAY.max; break; }
+    const a = { id: ++ATT_SEQ, blob: f, url: URL.createObjectURL(f), st: '', name: '' };
+    list.push(a);
+    a.job = attFit(a, key);
+  }
+  attPaint(form);
+  attFocus(form);
+}
+// 서랍을 열면 초점이 [닫기]에 있어요. 붙인 뒤 Enter가 서랍을 닫지 않게 글칸으로 옮겨요
+function attFocus(form) {
+  const a = document.activeElement, ta = $(form.dataset.ho === '1' ? 'textarea[data-ho="goal"]' : 'textarea[name="text"]', form);
+  if (ta && !(a && a.matches && a.matches('textarea') && a.closest('form') === form)) ta.focus({ preventScroll: true });
+}
+function attDrop(key, a) {
+  const l = attList(key), i = l.indexOf(a);
+  if (i >= 0) l.splice(i, 1);
+  URL.revokeObjectURL(a.url);
+}
+// 칩을 다시 그리면 초점이 있던 ✕가 사라져요. 키보드로 뺐으면 다음 ✕로, 마우스로 눌렀으면 글칸으로 옮겨요.
+// 마우스 뒤에 보이지 않는 ✕에 초점이 가면 이어 친 글이 사라지고 Enter가 사진을 하나 더 빼요
+function attRemove(form, a, byKey) {
+  const key = form.dataset.key, i = attList(key).indexOf(a);
+  attDrop(key, a);
+  $('.err', form).textContent = '';
+  attPaint(form);
+  const xs = $$('[data-att-x]', form), next = xs[Math.min(i, xs.length - 1)];
+  if (byKey && next) next.focus(); else attFocus(form);
+}
+function attRefuse(a, key, text) {
+  attDrop(key, a);
+  const f = attFormOf(key);
+  if (f) { attPaint(f); $('.err', f).textContent = text; }
+}
+// 크기, 화소, 긴 변 중 하나라도 상한을 넘을 때만 올리기 전에 JPEG로 줄여요. 상한 안의 PNG 캡처는 그대로 보내요.
+// 용량 때문이면 긴 변 2400으로, 긴 변·화소 때문이면 그 상한 안으로만 줄여서 긴 캡처의 글이 읽혀요. 그래도 10MB가 넘으면 긴 변 2400으로 한 번 더 줄여요.
+// GIF는 줄이면 움직임이 사라져서 조용히 바꾸지 않고 알려요.
+async function attFit(a, key) {
+  try {
+    const im = new Image();
+    await new Promise((ok, no) => { im.onload = ok; im.onerror = no; im.src = a.url; });
+    const w = im.naturalWidth, h = im.naturalHeight;
+    const big = a.blob.size > ATT_BYTES;
+    if (!big && w * h <= ATT_PIXELS && Math.max(w, h) <= ATT_LONG) return;
+    if (a.blob.type === 'image/gif') { attRefuse(a, key, ATT_SAY.gif); return; }
+    const fit = Math.min(1, ATT_LONG / Math.max(w, h), Math.sqrt(ATT_PIXELS / (w * h))), small = Math.min(1, ATT_SIDE / Math.max(w, h));
+    for (const r of big ? [small] : [fit, small]) {
+      const c = document.createElement('canvas'), g = c.getContext('2d');
+      c.width = Math.max(1, Math.floor(w * r + 1e-6)); c.height = Math.max(1, Math.floor(h * r + 1e-6));
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(im, 0, 0, c.width, c.height);
+      const b = await new Promise(ok => c.toBlob(ok, 'image/jpeg', .86));
+      if (!b || b.size > ATT_BYTES) continue;
+      if (!attList(key).includes(a)) return;
+      URL.revokeObjectURL(a.url);
+      a.blob = b; a.url = URL.createObjectURL(b);
+      attRepaint(key);
+      return;
+    }
+    throw new Error(ATT_SAY.big);
+  } catch (e) {
+    if (a.blob.size <= ATT_BYTES) return;   // 줄이지 못해도 크기가 맞으면 서버가 판별해요
+    attRefuse(a, key, ATT_SAY.big);
+  }
+}
+async function attUpload(a, body, key) {
+  a.st = 'up';
+  attRepaint(key);
+  const q = new URLSearchParams({ thread: body.thread });
+  if (body.thread !== 'boss') q.set('team', body.team);
+  let r, j = {};
+  try {
+    r = await fetch(`api/image?${q}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Office-Token': TOKEN }, body: a.blob });
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok || !j.ok) throw new Error(j.error || ATT_SAY.up);
+  } catch (e) {
+    a.st = 'bad';
+    attRepaint(key);
+    throw e;
+  }
+  a.st = ''; a.name = j.id;
+  attRepaint(key);
+}
+// 사진을 하나씩 올린 뒤 말을 보내요. 올린 이름은 남겨서 말이 실패해도 다시 보낼 때 또 올리지 않아요.
+async function attSend(key, body) {
+  const pics = attList(key), count = pics.length;
+  try {
+    await Promise.all(pics.map(a => a.job));
+    if (pics.length < count) throw new Error('');   // 판정에서 빠진 사진(큰 GIF 등)이 있으면 보내지 않아요. 까닭은 이미 떠 있어서 덮지 않아요
+    for (const a of pics) if (!a.name) await attUpload(a, body, key);
+    if (pics.length) body.images = pics.map(a => a.name);
+    return await post('api/say', body);
+  } catch (e) {
+    if (/올리지 않은 사진/.test(e.message)) pics.forEach(a => { a.name = ''; });   // 그사이 지운 사진은 다시 올려요
+    throw e instanceof TypeError ? new Error(ATT_SAY.net) : e;
+  }
+}
+function picWaitPaint() {   // 마지막 대표 말에 사진이 있고, 답이 없고, 세션이 확인을 기다릴 때만. 기다리는 까닭은 단정하지 않아요
+  const p = $('#drawerBody .pic-wait'), cur = live;
+  if (!p) return;
+  const now = Date.now(), wait = !!(cur && cur.picAsk && (liveOn(seatLive(cur.tid, cur.seat, now), now) || {}).wait);
+  const d = wait && state.teams[cur.tid], m = d && d.team.members.find(x => x.role === cur.seat);
+  p.hidden = !m;
+  if (!m) return;
+  p.innerHTML = `세션이 확인을 기다려요. 사진은 아직 못 봤을 수 있어요. <a href="${esc(chatLink(m.sessionId))}">Claude 창 열기</a>`;
+}
+const PV = { back: null };
+function picOpen(btn) {
+  const im = $('#picBig');
+  im.src = btn.dataset.pic;
+  im.alt = btn.dataset.alt || '';
+  $('#picView').hidden = false;
+  $('#drawer').inert = true;
+  $('.wrap').inert = true;   // 대화상자 밖으로 Tab이 나가지 않게 해요
+  PV.back = btn;
+  $('#picClose').focus();
+}
+function picClose() {
+  const v = $('#picView');
+  if (v.hidden) return;
+  v.hidden = true;
+  $('#picBig').removeAttribute('src');
+  $('#drawer').inert = false;
+  $('.wrap').inert = SU.open || !$('#drawer').hidden;
+  const b = PV.back;
+  PV.back = null;
+  (b && b.isConnected ? b : $('#drawerClose')).focus();
+}
+function picOnKey(e) {   // 첫 Esc는 크게 보기만 닫아요. 서랍은 그대로예요
+  if (e.key !== 'Escape' || e.isComposing || $('#picView').hidden) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  picClose();
+}
+function attOnClick(e) {
+  const t = e.target;
+  if (!t.closest) return;
+  const x = t.closest('[data-att-x]');
+  if (x) {
+    const form = x.closest('form'), key = form.dataset.key, a = attList(key).find(q => String(q.id) === x.dataset.attX);
+    if (a && !SENDING.has(key)) attRemove(form, a, e.detail === 0);   // detail 0: Enter·Space로 누른 단추
+    return;
+  }
+  if (t.closest('[data-att-also]')) { const form = t.closest('form'); if (ATT_ALSO) attAdd(form, ATT_ALSO); return; }
+  const p = t.closest('[data-pic]');
+  if (p) { picOpen(p); return; }
+  if (t.id === 'picClose' || t.id === 'picView') picClose();
+}
+// 사진 오류: 서버가 없다고 하면(404) 없는 사진이에요. 그 밖에는 잠깐 끊긴 것이라 칸을 두고 세 번까지 다시 받아요
+const PIC_RETRY = 5000;
+async function picFail(i) {
+  const b = i.closest('.pic'), url = b.dataset.pic;
+  let gone = false;
+  try { gone = (await fetch(url, { cache: 'no-store' })).status === 404; } catch (e) {}
+  if (!i.isConnected) return;
+  const tries = Number(i.dataset.tries) || 0;
+  if (gone || tries >= 3) {
+    b.classList.add('pic-miss');
+    b.disabled = true;
+    i.remove();
+    b.textContent = gone ? '사진을 찾지 못했어요' : '사진을 불러오지 못했어요. 서랍을 다시 열어요.';
+    return;
+  }
+  i.dataset.tries = tries + 1;
+  setTimeout(() => { if (i.isConnected) i.src = `${url}&r=${Date.now()}`; }, PIC_RETRY);
+}
+function picOnError(e) { const i = e.target; if (i && i.matches && i.matches('.pic img')) picFail(i); }
+function attOnPaste(e) {   // 초점이 어디 있어도 서랍이 열려 있으면 받아요
+  const form = attForm(), d = e.clipboardData;
+  if (!form || !d) return;
+  const all = [...d.files], pics = all.filter(f => f.type.startsWith('image/'));
+  if ([...d.types].includes('text/plain')) { if (pics.length) attAlso(form, pics); return; }   // 글만 넣어요. 대표가 모르는 사진이 Claude로 가면 안 돼요
+  if (!all.length) return;
+  e.preventDefault();   // 안 막으면 Finder 경로가 글로 들어가요
+  attAdd(form, all);
+}
+const attDrag = e => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');   // WebKit은 dragover에서 files가 0개라 types로 봐요
+function attOnDrag(e) {
+  if (!attDrag(e)) return;
+  e.preventDefault();   // 안 막으면 페이지가 그 파일로 넘어가요
+  const on = !!attForm() && !!e.target.closest && !!e.target.closest('.drawer-panel');
+  e.dataTransfer.dropEffect = on ? 'copy' : 'none';
+  $('.drawer-panel').classList.toggle('dropping', on);
+}
+function attOnLeave(e) { if (!e.relatedTarget) $('.drawer-panel').classList.remove('dropping'); }
+function attOnDrop(e) {
+  if (!attDrag(e)) return;
+  e.preventDefault();
+  $('.drawer-panel').classList.remove('dropping');
+  const form = attForm();
+  if (form && e.target.closest && e.target.closest('.drawer-panel')) attAdd(form, [...e.dataTransfer.files]);
+}
+document.addEventListener('keydown', picOnKey, true);
+document.addEventListener('click', attOnClick);
+document.addEventListener('error', picOnError, true);
+document.addEventListener('paste', attOnPaste);
+for (const ev of ['dragenter', 'dragover']) document.addEventListener(ev, attOnDrag);
+document.addEventListener('dragleave', attOnLeave);
+document.addEventListener('drop', attOnDrop);
+
 /* ---------- 보내기 ---------- */
 async function submitForm(form, submitter) {
-  if (form.dataset.busy) return;          // 같은 말을 두 번 보내지 않게
+  if (form.dataset.busy || (form.dataset.form === 'say' && SENDING.has(form.dataset.key))) return;          // 같은 말을 두 번 보내지 않게
   const err = $('.err', form), btns = $$('button[type="submit"]', form);
   const fd = new FormData(form);
   err.textContent = '';
@@ -3878,11 +4387,33 @@ async function submitForm(form, submitter) {
       const body = { team: fd.get('team'), thread: fd.get('thread'), text };
       const to = fd.getAll('to');
       if (String(body.thread).startsWith('meeting:')) { if (!to.length) throw new Error('받는 사람을 한 명 이상 골라요'); body.to = to; }
-      const res = await post('api/say', body);
-      (ho ? $$('textarea[data-ho]', form) : [form.querySelector('textarea')]).forEach(ta => { drafts.delete(draftKey(ta)); ta.value = ''; hoGrow(ta); });
+      // 보내는 순간 글을 drafts에서 꺼내요. 서랍을 다시 열어도 보낸 글이 남지 않고, 실패하면 되돌려요
+      const key = form.dataset.key, boxes = ho ? $$('textarea[data-ho]', form) : [form.querySelector('textarea')], locked = attCount(key) > 0, kept = boxes.map(ta => [draftKey(ta), ta.value]);
+      SENDING.add(key);
+      boxes.forEach(ta => { drafts.delete(draftKey(ta)); if (locked) ta.readOnly = true; });
+      let res;
+      try {
+        res = await attSend(key, body);
+      } catch (e) {
+        kept.forEach(([k, v]) => { if (v) drafts.set(k, v); });
+        restoreDrafts();
+        const now = attFormOf(key);
+        if (now && now !== form && e.message) $('.err', now).textContent = e.message;
+        throw e;
+      } finally {
+        SENDING.delete(key);
+        boxes.forEach(ta => { ta.readOnly = false; });
+        const now = attFormOf(key);
+        if (now && now !== form) delete now.dataset.busy;
+      }
+      attList(key).splice(0).forEach(a => URL.revokeObjectURL(a.url));
+      const shown = attFormOf(key);
+      if (shown) { attAlso(shown, null); attPaint(shown); }
+      boxes.forEach(ta => { drafts.delete(draftKey(ta)); ta.value = ''; hoGrow(ta); });
       if (ho && form.isConnected) $('textarea[data-ho="goal"]', form).focus();   // 다음 일을 바로 맡길 수 있게
       if (state) state.relay = Object.assign({}, state.relay || {}, res);
-      const note = $('.relay-note', form); if (note) note.innerHTML = relayNote();
+      relayPaint();
+      dTab(0);   // 정보 탭에서 보냈어도 대화로 돌아와요
       await refreshThread(true);
     } else if (form.dataset.form === 'meet-start') {
       const parts = [LEAD, ...fd.getAll('p')];
@@ -5649,7 +6180,7 @@ function closeSetup() {
   ghStop(); SU.gh.flow = null; SU.gh.note = '';
   SU.open = false; SU.confirm = false; SU.err = '';
   $('#setup').hidden = true;
-  $('.wrap').inert = false;
+  $('.wrap').inert = !$('#drawer').hidden;
   document.body.style.overflow = '';
   const b = SU.back; SU.back = null;
   if (b && b !== document.body && b.isConnected && b.focus) b.focus(); else if (!$('#setupBtn').hidden) $('#setupBtn').focus();
@@ -6856,7 +7387,8 @@ async function updUnskipChip(b) {
 // 업데이트 확인 창·업데이트 중 화면이 떠 있는 동안 나머지(사무실·설정·서랍)는 누르거나 키보드로 갈 수 없어요
 function updInert(on) {
   const w = $('.wrap'), s = $('#setup'), d = $('#drawer');
-  w.inert = on || SU.open; s.inert = on; d.inert = on;
+  if (on) picClose();
+  w.inert = on || SU.open || !d.hidden; s.inert = on; d.inert = on; $('#picView').inert = on;
   document.body.style.overflow = on || SU.open ? 'hidden' : '';
 }
 function updAskOpen(from) {
@@ -7205,6 +7737,8 @@ document.addEventListener('keydown', e => {
 /* ---------- 이벤트 ---------- */
 document.addEventListener('click', e => {
   if (e.target.closest('a[href^="claude://"]')) return;
+  const tb = e.target.closest('#drawerBody [role="tab"]');   // 서랍의 [대화 | 정보]
+  if (tb) { dTab($$('#drawerBody [role="tab"]').indexOf(tb)); return; }
   const hot = e.target.closest('[data-ho-toggle]');   // 작성창의 [일 맡기기] 켜기·끄기
   if (hot) { if (hot.form) hoSet(hot.form, hot.form.dataset.ho !== '1'); return; }
   const ub = e.target.closest('[data-upd]');
@@ -7337,16 +7871,7 @@ document.addEventListener('keydown', e => {
   const t = e.target;
   if (t.matches('form[data-form] input')) { if (!e.isComposing) e.preventDefault(); return; }
   if (t.matches(SAY_BOX) && t.dataset.ho) { hoKey(e, t); return; }   // 일 맡기기 칸
-  if (t.matches(SAY_BOX)) {
-    if (e.isComposing || e.keyCode === 229) return;
-    if (e.shiftKey) return;   // 줄바꿈
-    e.preventDefault();
-    if (e.repeat || performance.now() - (t._imeEnd || -Infinity) < IME_GAP) return;
-    const form = t.form, btn = form && form.querySelector('button[type="submit"]');
-    if (!t.value.trim() || !btn || btn.disabled || form.dataset.busy) return;
-    form.requestSubmit(btn);
-    return;
-  }
+  if (t.matches(SAY_BOX)) { sayKey(e, t); return; }
   if ((e.metaKey || e.ctrlKey) && !e.isComposing && !e.repeat && t.matches('form[data-form] textarea')) {
     e.preventDefault();
     const form = t.form, btn = form && form.querySelector('button[type="submit"]');
@@ -7360,6 +7885,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape' && !$('#drawer').hidden && !e.isComposing) { closeDrawer(); return; }
 });
+document.addEventListener('keydown', e => { if (e.target && e.target.matches && e.target.matches('#drawerBody [role="tab"]')) dTabKey(e); });
 window.addEventListener('hashchange', () => {
   const id = hashFloor();
   if (!state || !hasFloor(state.org, id) || id === floor) return;
@@ -7370,11 +7896,11 @@ window.addEventListener('hashchange', () => {
 $('#drawerBg').addEventListener('click', closeDrawer);
 $('#drawerClose').addEventListener('click', closeDrawer);
 
-// 서랍이 열려 있어도 총괄 연결 상태는 계속 확인해서 작성창 아래에 알려요.
+// 서랍이 열려 있어도 총괄 연결 상태는 계속 확인해서 탭 아래 띠(회의 열기는 안내 줄)에 알려요.
 async function pollRelay() {
   if (!API || !state || document.visibilityState === 'hidden') return;
   try { state.relay = JSON.parse(await getText('api/state')); liveTake(state.relay); } catch (e) { return; }
-  $$('#drawerBody .relay-note').forEach(n => { n.innerHTML = relayNote(); });
+  relayPaint();
   drawerPaint();
 }
 

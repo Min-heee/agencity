@@ -84,7 +84,11 @@ def snapshot():
             for line in read(base + "meetings/" + active["id"] + ".chat.jsonl").splitlines():
                 try:
                     if line.strip():
-                        active_chat.append(json.loads(line))
+                        row = json.loads(line)
+                        pics = row.pop("img", None) if isinstance(row, dict) else None   # 사진 이름은 스냅샷에 넣지 않아요. 몇 장인지만 남겨요
+                        if isinstance(pics, list) and pics:
+                            row["imgs"] = len(pics)
+                        active_chat.append(row)
                 except ValueError:
                     pass
         approvals = json_files("approvals", r"^.+\.json$")
