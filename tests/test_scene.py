@@ -6,6 +6,7 @@ python3 -m unittest tests/test_scene.py -v      (저장소 맨 위에서)
 파이썬 표준 라이브러리만 써요. 진짜 세션·파일은 건드리지 않아요.
 """
 import datetime
+import glob
 import hashlib
 import html
 import json
@@ -64,7 +65,9 @@ def floor_names_in(text, digests=REAL_FLOORS):
     return [w[:n] for w in re.findall(r"[\w가-힣]+", text.lower()) for n in range(1, min(len(w), 40) + 1) if hashlib.sha1(w[:n].encode()).hexdigest() in digests]
 
 
-CHROME = next((c for c in ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", shutil.which("google-chrome"), shutil.which("chromium")) if c and os.path.exists(c)), None)
+# 헤드리스 셸(Playwright·Puppeteer가 받아둬요)을 먼저 써요. 앱 Chrome은 켤 때마다 Dock에 빈 아이콘이 잠깐 떠요
+SHELLS = sorted(glob.glob(os.path.expanduser("~/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell")) + glob.glob(os.path.expanduser("~/.cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell")), reverse=True)
+CHROME = next((c for c in (shutil.which("chrome-headless-shell"), *SHELLS, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", shutil.which("google-chrome"), shutil.which("chromium")) if c and os.path.exists(c)), None)
 
 
 def in_browser(body, script, width=1280):
