@@ -119,5 +119,52 @@ class MeetingNudge(unittest.TestCase):
         self.assertEqual(self.srv.meeting_nudge(), [])
 
 
+class RateLimitBeforeSave(unittest.TestCase):
+    """1분 제한(429)에 걸리면 회의·결재 파일을 바꾸지 않아요. 바꾼 뒤에 429가 나면 다시 눌러도 409라 팀장에게 영영 전하지 못해요."""
+    setUp, tearDown, meeting, outbox = MeetingNudge.setUp, MeetingNudge.tearDown, MeetingNudge.meeting, MeetingNudge.outbox
+
+    def full(self):
+        self.srv.RECENT[:] = [time.time()] * self.srv.MAX_PER_MIN
+
+    def load(self, p):
+        with open(p, encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_meeting_end_mode_close_wait_for_rate(self):
+        meta, _ = self.meeting("20261027-M-9", mode="참석")
+        for fn, extra in ((self.srv.api_meeting_mode, {"mode": "위임"}), (self.srv.api_meeting_end, {})):
+            self.full()
+            with self.assertRaises(self.srv.ApiError) as e:
+                fn(dict({"team": "t1", "id": "20261027-M-9"}, **extra))
+            self.assertEqual(e.exception.code, 429)
+            self.assertEqual(self.load(meta)["status"], "진행 중")
+            self.assertEqual(self.load(meta)["mode"], "참석")
+        self.srv.RECENT[:] = []
+        self.srv.api_meeting_end({"team": "t1", "id": "20261027-M-9"})   # 제한이 풀리면 끝내고 팀장에게 전해요
+        self.assertEqual(self.load(meta)["status"], "정리 중")
+        self.full()
+        with self.assertRaises(self.srv.ApiError) as e:
+            self.srv.api_meeting_close({"team": "t1", "id": "20261027-M-9"})
+        self.assertEqual(e.exception.code, 429)
+        self.assertEqual(self.load(meta)["status"], "정리 중")
+        self.assertEqual(len(self.outbox()), 1)
+
+    def test_decide_waits_for_rate(self):
+        os.makedirs(os.path.join(self.office, "approvals"))
+        ap = os.path.join(self.office, "approvals", "20261027-DM-1.json")
+        with open(ap, "w", encoding="utf-8") as f:
+            json.dump({"id": "20261027-DM-1", "title": "시험", "status": "결재 대기"}, f, ensure_ascii=False)
+        self.full()
+        with self.assertRaises(self.srv.ApiError) as e:
+            self.srv.api_decide({"team": "t1", "id": "20261027-DM-1", "choice": "승인"})
+        self.assertEqual(e.exception.code, 429)
+        self.assertEqual(self.load(ap)["status"], "결재 대기")
+        self.assertEqual(self.outbox(), [])
+        self.srv.RECENT[:] = []
+        self.assertTrue(self.srv.api_decide({"team": "t1", "id": "20261027-DM-1", "choice": "승인"})["delivered"])   # 다시 누르면 돼요
+        self.assertEqual(self.load(ap)["status"], "승인")
+        self.assertEqual(len(self.outbox()), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

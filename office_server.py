@@ -623,7 +623,8 @@ def pics_mark(names):
 def options_of(a):
     """결재 선택지: [{key,label}] 또는 ["A안", ...] 둘 다 받아요. key는 글로 맞춰요."""
     out = []
-    for o in a.get("options") or []:
+    opts = a.get("options")
+    for o in opts if isinstance(opts, list) else []:   # 화면의 optionsOf처럼 목록만 봐요. 숫자면 TypeError(500)로 결재를 못 하고, 글이면 글자 하나하나가 선택지가 돼 '승인'이 400이에요
         if isinstance(o, dict) and str(o.get("key", "")).strip():
             out.append({"key": str(o["key"]).strip(), "label": one_line(o.get("label", ""), 80)})
         elif isinstance(o, (str, int, float)) and str(o).strip():
@@ -806,6 +807,8 @@ def api_meeting_mode(body):
     if mode not in ("참석", "위임"):
         raise ApiError(400, "회의 방식은 참석 또는 위임이에요")
     meta_path, chat = meeting_paths(base, str(body.get("id", "")))
+    if "팀장" in members:
+        check_rate(1)   # 바꾸기 전에 확인해요. 바꾼 뒤에 429가 나면 다시 눌러도 '이미 그 방식'이라 팀장에게 전하지 못해요
     with LOCK:
         meta = load_json(meta_path)
         if meta.get("status") != "진행 중":
@@ -821,7 +824,6 @@ def api_meeting_mode(body):
     append_line(chat, {"t": now(), "from": "대표", "kind": "참석" if mode == "참석" else "퇴장", "text": line})
     log(base, "회의", "회의", f"{meta['id']} {line}")
     if "팀장" in members:
-        check_rate(1)
         enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']} · {msg}\n회의 파일: {chat}{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
     return {"ok": True}
@@ -830,6 +832,8 @@ def api_meeting_mode(body):
 def api_meeting_end(body):
     t, base, members = team_info(body.get("team"))
     meta_path, chat = meeting_paths(base, str(body.get("id", "")))
+    if "팀장" in members:
+        check_rate(1)   # 끝내기 전에 확인해요. 끝낸 뒤에 429가 나면 다시 눌러도 409라 팀장에게 전하지 못해요
     with LOCK:
         meta = load_json(meta_path)
         if meta.get("status") != "진행 중":
@@ -840,7 +844,6 @@ def api_meeting_end(body):
     append_line(chat, {"t": now(), "from": "대표", "kind": "끝", "text": "대표가 회의를 끝냈어요. 팀장이 회의록을 정리해요."})
     log(base, "회의", "회의", f"{meta['id']} 끝내기")
     if "팀장" in members:
-        check_rate(1)
         enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']}를 대표가 끝냈어요. 팀 규칙의 회의 끝 순서로: 회의록 {os.path.join(base, 'meetings', meta['id'] + '.md')} → "
                 f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.\n"
@@ -949,6 +952,8 @@ def api_meeting_close(body):
     """'정리 중'에서 멈춘 회의를 대표가 직접 닫아요(새 회의를 열 수 있게)."""
     t, base, members = team_info(body.get("team"))
     meta_path, chat = meeting_paths(base, str(body.get("id", "")))
+    if "팀장" in members:
+        check_rate(1)   # 닫기 전에 확인해요. 닫은 뒤에 429가 나면 다시 눌러도 409라 팀장에게 전하지 못해요
     with LOCK:
         meta = load_json(meta_path)
         if meta.get("status") != "정리 중":
@@ -960,7 +965,6 @@ def api_meeting_close(body):
     append_line(chat, {"t": now(), "from": "대표", "kind": "끝", "text": "대표가 회의를 닫았어요."})
     log(base, "회의", "회의", f"{meta['id']} 닫기")
     if "팀장" in members:
-        check_rate(1)
         enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']}는 대표가 닫았어요. 회의록·결재 등 남은 정리가 있으면 이어서 하되, 회의 정보 status는 다시 바꾸지 말아요.\n\n{NOTE}", chat)
     return {"ok": True}
@@ -976,6 +980,8 @@ def api_decide(body):
         raise ApiError(404, "그런 결재가 없어요")
     choice = str(body.get("choice") or "")
     comment = text_of(body, "comment", 2000, required=False)
+    if "팀장" in members:
+        check_rate(1)   # 결정을 저장하기 전에 확인해요. 저장한 뒤에 429가 나면 다시 눌러도 '이미 처리' 409라 팀장에게 전하지 못해요
     with LOCK:
         a = load_json(path)
         if a.get("status") not in ("결재 대기", "보류"):
@@ -994,7 +1000,6 @@ def api_decide(body):
     log(base, "팀장", "결재", f"{aid} {status}{picked}")
     delivered = "팀장" in members   # 팀장 자리가 비었으면 결정만 남기고 아무에게도 전하지 못해요(화면이 알려 줘요)
     if delivered:
-        check_rate(1)
         risky = ("\n이 결재는 팀 규칙의 '사람 승인이 필요한 일'이에요. 결재는 '하기로 정함'이고, 실제 실행은 그 일을 할 세션 창에서 대표가 직접 말하거나 권한 창을 눌러야 해요. "
                  "실행할 세션과 할 말을 대표에게 다시 알려 주세요.") if a.get("risky") else ""
         chat = os.path.join(base, "chat", "팀장.jsonl")
@@ -1569,7 +1574,7 @@ def show_path(p):
 
 def epoch_ms(v):
     """lastActivityAt(초·밀리초 숫자나 ISO 시각)를 밀리초 숫자로. 모르면 None."""
-    if isinstance(v, str) and v.strip().isdigit():
+    if isinstance(v, str) and v.strip().isdecimal():   # isdigit()은 '²'도 참이라 int()가 ValueError를 내요
         v = int(v.strip())
     if isinstance(v, bool) or (isinstance(v, float) and not math.isfinite(v)):
         return None   # Infinity·1e400은 int로 못 바꿔요
@@ -4695,7 +4700,7 @@ def usage_amount(v):
     if isinstance(v, bool):
         raise bad
     if isinstance(v, (int, float)):
-        if not math.isfinite(v) or v < 0:
+        if (isinstance(v, float) and not math.isfinite(v)) or v < 0:   # 아주 큰 정수는 isfinite가 OverflowError를 내요(정수는 늘 유한해요)
             raise bad
         n = v
     elif isinstance(v, str):
@@ -6910,7 +6915,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             self.send_json(415, {"ok": False, "error": "JSON만 받아요"})
             return
-        if not secrets.compare_digest(self.headers.get("X-Office-Token", ""), TOKEN):
+        if not secrets.compare_digest(self.headers.get("X-Office-Token", "").encode("utf-8", "replace"), TOKEN.encode("utf-8")):   # 글끼리는 ASCII만 돼요
             self.send_json(403, {"ok": False, "error": "열쇠가 맞지 않아요. 페이지를 새로고침해 주세요"})
             return
         try:
@@ -6924,7 +6929,7 @@ class Handler(SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
             if not isinstance(body, dict):
                 raise ValueError
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):   # 아주 깊게 겹친 [[[…]]]는 RecursionError예요
             self.send_json(400, {"ok": False, "error": "JSON을 읽지 못했어요"})
             return
         try:

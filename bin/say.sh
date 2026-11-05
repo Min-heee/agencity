@@ -65,11 +65,11 @@ if [ "$image" = yes ]; then
   echo "사이트에 남겼어요: $dir/$name"
   exit 0
 fi
+src=
 if [ "${1:-}" = "--file" ]; then
   src=${2:-}
   check_src "$src"
   text=$(cat "$src")
-  rm -f "$src"
 elif [ $# -gt 0 ]; then
   text=$*
 else
@@ -77,4 +77,6 @@ else
 fi
 [ -n "$text" ] || { echo "내용이 비었어요" >&2; exit 1; }
 jq -nc --arg t "$(date -Iseconds)" --arg from "$who" --arg text "$text" '{t:$t,from:$from,text:$text}' >> "$dir/$name"
+# 줄을 남긴 뒤에 답 파일을 지워요. 남기기가 실패하면(set -e로 여기 오지 않아요) 답 파일이 그대로 남아 다시 보낼 수 있어요
+if [ -n "$src" ]; then rm -f "$src"; fi
 echo "사이트에 남겼어요: $dir/$name"
