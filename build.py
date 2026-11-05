@@ -20,6 +20,12 @@ HEAD = (
 )
 
 
+def meet_key(f):
+    """회의 파일 차례(office.src.html의 meetKey와 같아요): 하루 10번째 회의(M-10)도 M-9 뒤로. 그냥 sorted()면 M-10이 M-2 앞이에요."""
+    m = re.match(r"^(\d{8})-M-(\d+)", f)
+    return m.group(1) + m.group(2).zfill(6) if m else f
+
+
 def read(path, default=""):
     try:
         with open(path, encoding="utf-8") as f:
@@ -52,7 +58,7 @@ def snapshot():
                 pass
         def md_list(sub):
             try:
-                return sorted(f for f in os.listdir(base + sub) if f.endswith(".md"))
+                return sorted((f for f in os.listdir(base + sub) if f.endswith(".md")), key=meet_key if sub == "meetings" else None)
             except OSError:
                 return []
         meetings, reports = md_list("meetings"), md_list("reports")
@@ -65,7 +71,7 @@ def snapshot():
         def json_files(sub, pattern):
             out = []
             try:
-                names = sorted(f for f in os.listdir(base + sub) if re.match(pattern, f))
+                names = sorted((f for f in os.listdir(base + sub) if re.match(pattern, f)), key=meet_key if sub == "meetings" else None)
             except OSError:
                 return out
             for n in names:
@@ -78,7 +84,7 @@ def snapshot():
                     out.append(obj)
             return out
         metas = json_files("meetings", r"^\d{8}-M-\d+\.json$")[-12:]
-        active = next((m for m in metas if m.get("status") in ("진행 중", "정리 중")), None)
+        active = next((m for m in metas if m.get("status") == "진행 중"), None) or next((m for m in metas if m.get("status") == "정리 중"), None)   # 페이지처럼 진행 중 먼저
         active_chat = []
         if active:
             for line in read(base + "meetings/" + active["id"] + ".chat.jsonl").splitlines():

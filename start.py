@@ -108,7 +108,12 @@ def main():
     print(f"에이전시티 {ver}")
 
     # 이 폴더의 사무실이 이미 켜져 있으면 그걸 열어요. 페이지는 다시 만들지 않아요(켜진 서버와 짝이 맞게).
-    want = int(os.environ.get("OFFICE_PORT", FIRST_PORT))
+    try:   # bin/self_update.py의 first_port()와 같아요: 숫자가 아니거나 범위 밖이면(65516 이상이면 아래 20칸 살피기가 65535를 넘어 OverflowError) 기본 포트
+        want = int(os.environ.get("OFFICE_PORT") or FIRST_PORT)
+    except ValueError:
+        want = FIRST_PORT
+    if not 1 <= want <= 65515:
+        want = FIRST_PORT
     port = None
     for p in range(want, want + 20):
         if not port_open(p):

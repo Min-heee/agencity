@@ -2076,12 +2076,13 @@ async function loadTeam(t) {
   const board = await getText(base + 'board.md').catch(() => '');
   const log = jsonl(await getText(base + 'log.jsonl').catch(() => ''));
   const meetDir = await listDir(base + 'meetings/').catch(() => []);
-  const meetings = meetDir.filter(f => f.endsWith('.md')).sort();
+  const meetKey = f => { const m = /^(\d{8})-M-(\d+)/.exec(f); return m ? m[1] + String(m[2]).padStart(6, '0') : f; };   // 하루 10번째 회의(M-10)도 M-9 뒤로
+  const byMeet = (a, b) => (meetKey(a) < meetKey(b) ? -1 : meetKey(a) > meetKey(b) ? 1 : 0);
+  const meetings = meetDir.filter(f => f.endsWith('.md')).sort(byMeet);   // 회의록(<번호>.md)도 같은 차례로: 그냥 sort()면 M-10.md가 M-2.md 앞이라 '마지막 회의'가 M-9가 돼요
   const reports = (await listDir(base + 'reports/').catch(() => [])).filter(f => f.endsWith('.md')).sort();
   const meeting = meetings.length ? { file: meetings[meetings.length - 1], text: await getText(base + 'meetings/' + enc(meetings[meetings.length - 1])).catch(() => '') } : null;
   // 사이트 회의(대표가 연 회의): meetings/<id>.json 정보 + <id>.chat.jsonl 대화
-  const meetKey = f => { const m = /^(\d{8})-M-(\d+)/.exec(f); return m ? m[1] + String(m[2]).padStart(6, '0') : f; };   // 하루 10번째 회의(M-10)도 M-9 뒤로
-  const metas = (await Promise.all(meetDir.filter(f => /^\d{8}-M-\d+\.json$/.test(f)).sort((a, b) => (meetKey(a) < meetKey(b) ? -1 : meetKey(a) > meetKey(b) ? 1 : 0)).slice(-12)
+  const metas = (await Promise.all(meetDir.filter(f => /^\d{8}-M-\d+\.json$/.test(f)).sort(byMeet).slice(-12)
     .map(f => getJSON(base + 'meetings/' + enc(f)).catch(() => null)))).filter(Boolean);
   const active = metas.find(m => m.status === '진행 중') || metas.find(m => m.status === '정리 중') || null;
   // 대표가 끝낸(정리 중·끝) 사이트 회의 때문에 아직 '회의 중'으로 남은 상태는 회의 전 상태(prev_state·prev_task)로 보여요.

@@ -539,7 +539,7 @@ async function loadMembers(onPerson) {
     return { listed: ppl.length, failed: 0, logins: [] };
   }
   const doc = JSON.parse(await getCapped(new URL('members.json', new URL(CONFIG.registry)).href, MEMBERS_BYTES, true));
-  const list = (Array.isArray(doc.members) ? doc.members : []).slice(0, MAX_MEMBERS).filter(m => m && LOGIN_RE.test(m.login) && GIST_RE.test(m.gist));
+  const list = (Array.isArray(doc.members) ? doc.members : []).slice(0, MAX_MEMBERS).filter(m => m && typeof m.login === 'string' && typeof m.gist === 'string' && LOGIN_RE.test(m.login) && GIST_RE.test(m.gist));   // 숫자 login도 test()는 통과해서 아래 toLowerCase()가 명단 전체를 깨요
   let i = 0, failed = 0;
   const stopAt = Date.now() + DEADLINE;
   async function worker() {
