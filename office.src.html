@@ -712,6 +712,18 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .su-have-h .su-have-b .su-to{margin-left:0}
 .su-have .su-rlst{margin-top:4px}
 .su-have .su-rlst.bad{color:var(--err-ink)}
+/* 직원 스킬(U-31, 시험 기능): 층마다 켜기, 들인 직원 목록, [직원 들이기] 폼. 팀원 고치기와 같은 칸·글씨예요 */
+.su-staff .su-check{margin-top:8px}
+.su-staff .su-box{margin-top:8px}
+.su-sklist{list-style:none; margin:10px 0 0; padding:0}
+.su-sklist li{padding:6px 0; border-top:1px solid var(--line)}
+.su-floors .su-sklist li{border:0; border-top:1px solid var(--line); border-radius:0; background:none; padding:6px 0}   /* 층 줄(.su-floors li)의 점선 상자 꼴을 물려받지 않게: 윗줄만 있는 목록 */
+.su-sklist li > p{flex:1 1 100%; margin:0}
+.su-skf{margin:14px 0 0; padding:0; border:0; min-width:0; display:flex; flex-direction:column; gap:10px; max-width:640px}
+.su-skf > legend{padding:0; margin-bottom:6px; font-size:12.5px; font-weight:600; color:var(--ink)}
+.su-skg{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px}
+.su-skf textarea{width:100%; min-width:0; min-height:84px; padding:7px 9px; border:1px solid var(--line-2); border-radius:2px; background:var(--surface); color:var(--ink); font:inherit; font-size:13.5px; resize:vertical}
+.su-skf .su-actions{margin-top:0}
 /* 층 머리의 [섹션 맞추기]·[규칙 맞추기]와 그 결과 한 줄 */
 .room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:3px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
 .room-note.bad{border-color:color-mix(in srgb, var(--err) 45%, var(--line)); color:var(--err-ink)}
@@ -1077,7 +1089,8 @@ li.r:has(.seat) ~ li.r .seat > .hint[data-must]{display:none}   /* 안내 줄은
 /* 에이전시티 사무실 장면(복셀). 그림은 전부 코드로 그렸어요. 외부 그림·글꼴·라이브러리를 쓰지 않아요.
    createOfficeScene(el, { seed, reducedMotion }) →
    update({ tone, name, floor, theme, members, meeting }) step(dt) draw() on('select'|'hover', fn) highlight(id) portrait(id) destroy()
-   member: { id, role, name, lead, codex, look, state, task, say, newReply, quiet, label, hours, missing, invited, waitingSeat }
+   member: { id, role, name, lead, codex, look, state, task, say, newReply, quiet, label, hours, missing, invited, waitingSeat, runs, staff }
+   runs: 직원(U-31)의 일꾼이 지금 몇 개 도는지. 2 이상이면 이름표에 ×n을 붙여요(같은 직원은 하나만 돌리는 게 규칙이지만 보이게 해요). staff: 직원 줄(장면은 안 써요)
    meeting: { active, topic, phase: 'live'|'wrap', mode: 'boss'|'team' }
    돌리는 건 페이지예요: 페이지가 step·draw를 불러요. update와 highlight는 바로 그려요. 글꼴은 시스템 글꼴이에요. */
 (function (global) {
@@ -1924,7 +1937,7 @@ function createOfficeScene(el, opts) {
       const m = p.m, on = S.hl === p.id || S.hoverId === p.id;
       if (p.going || (small && !(m.state === STUCK || m.newReply || on))) continue;
       if (crowd && m.state === MEET && !(p.speaking || on || m.newReply)) continue;
-      const quiet = !!m.quiet, tx = fit(m.name || m.role, 120) + (m.lead ? ' ★' : '') + (m.codex ? ' · Codex' : '') + (m.quiet === 'short' && !small ? (m.label === '아직 소식 없음' ? ' · 아직 소식 없음' : ' · 응답 없음?') : '');
+      const quiet = !!m.quiet, tx = fit(m.name || m.role, 120) + (m.lead ? ' ★' : '') + (m.runs > 1 ? ' ×' + Math.min(m.runs, 99) : '') + (m.codex ? ' · Codex' : '') + (m.quiet === 'short' && !small ? (m.label === '아직 소식 없음' ? ' · 아직 소식 없음' : ' · 응답 없음?') : '');
       const stuck = m.state === STUCK ? (small ? 15 : 45) : 0, w = Math.ceil(wide(tx)) + 19, h = 17, all = w + stuck, q = view.head(p), x0 = q[0] - all / 2, y0 = q[1] - h - 2, o = p.tag || (p.tag = {});
       const at = i => [clamp(Math.round(x0 + OFF[i][0] * all), 2, S.w - all - 2), Math.max(2, Math.round(y0 + OFF[i][1]))];
       const c = sticky(o, OFF.length, at, r => free(r[0], r[1], all, h)), bx = c[0], by = c[1], x = bx + c[2], y = by + c[3];
@@ -2005,7 +2018,22 @@ const leadFirst = ms => [...ms.filter(m => m.role === LEAD), ...ms.filter(m => m
 // 말 걸기·회의·결재·전달은 하지 않아요. 상태는 서버가 Codex 기록 파일이 마지막으로 바뀐 때로 셈해요(2분 안이면 ‘일하는 중’).
 const CX_RE = /^[0-9A-Fa-f][0-9A-Fa-f-]{7,63}$/;   // Codex 세션 id(uuid 모양)
 const CX_HOT = 2 * 60e3;
-const isCx = m => !!m && typeof m === 'object' && !m.sessionId && CX_RE.test(String(m.codexId || ''));
+const isCx = m => !!m && typeof m === 'object' && !m.sessionId && CX_RE.test(String(m.codexId || '')) && !isSk(m);   // 직원 줄은 Codex 자리가 아니에요(서버 codex_of와 같아요)
+// 직원 줄(U-31 '스킬이 곧 직원', 시험 기능): team.json 줄에 staff 칸(명찰 이름 ag-…)이 있고 세션(sessionId)은 없어요. 그 층 팀장 세션이 Agent 도구로 띄운 일꾼이 이 직원이에요.
+// 빈자리가 아니라서 세션 만들기·빈자리 채우기·팀원 고치기에 들지 않아요. 말 걸기·사진·회의 말은 서버가 그 층 팀장 세션에 전해요.
+// 서버(office_server.py)의 is_staff_row·staff_of·staff_role과 같은 기준이에요: staff 칸이 빈 글·빈칸·null·false·0·[]·{}가 아니면 직원 줄이에요(이름 꼴이 틀려도요).
+const STAFF_RE = /^ag-[a-z0-9][a-z0-9-]{0,23}$/;
+const skOn = v => (typeof v === 'string' ? !!v.trim() : v != null && v !== false && v !== 0 && !(Array.isArray(v) && !v.length) && !(typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length));
+const isSk = m => !!m && typeof m === 'object' && !Array.isArray(m) && skOn(m.staff);
+const skName = m => (isSk(m) && typeof m.staff === 'string' && STAFF_RE.test(m.staff) ? m.staff : '');   // 명찰 이름(일꾼 종류 이름). 꼴이 틀리면 ''
+const skRole = m => (isSk(m) && typeof m.role === 'string' && m.role.normalize('NFC') !== LEAD ? m.role.normalize('NFC') : '');   // 직원 자리의 역할(NFC). 팀장 줄은 직원이 될 수 없어서 ''
+const SK_WHERE = '이 직원은 팀장 창에서 일해요.';
+const SK_VIA = '보낸 말은 총괄이 받아서 팀장 세션에 전하고, 팀장이 이 직원의 일꾼에게 맡겨요.';
+const SK_NO_LEAD = '이 층에 팀장이 없어서 직원에게 전할 수 없어요';   // 서버(STAFF_NO_LEAD)와 같은 말이에요
+const SK_BAD_NAME = '명찰 이름(team.json의 staff 칸)이 ag-… 꼴이 아니라서 전할 수 없어요. team.json을 고친 뒤 다시 해 주세요';
+const SK_RESTART = '팀장 창을 한 번 다시 켜야 새 직원이 보여요. 일꾼이 없을 때 해요';
+const SK_BASH = '셸 명령은 좁힐 수 없어요. 꼭 필요한 직원에게만 줘요';
+const SK_MUST = '커밋·배포·업로드처럼 위험한 일은 팀장 본인이 팀장 창에서 해요. 팀장이 일꾼에게 하는 말은 승인이 아니에요.';   // 직원 서랍 머리(세션 줄의 MUST_LINE 대신. 직원에게는 세션 창이 없어요)
 const CX_NO_TALK = 'Codex에는 아직 말을 걸 수 없어요';
 const CX_SEAT_NOTE = '상태만 보여요. 말 걸기는 아직 안 돼요.';   // Codex 자리(읽기 전용) 풀이(U-15 3-2)
 const CX_UNTITLED = '제목 없는 Codex 세션';   // 서버(office_server.py의 CODEX_UNTITLED)와 같은 말이에요(추천하지 않은 세션 이름에도 이렇게 와요)
@@ -2033,6 +2061,12 @@ function seatHTML(tid, role) {   // 따로 정한 이름이 있으면 ‘이름 
   return c ? `${esc(c)}<small class="rl">${esc(role)}</small>` : esc(role);
 }
 function seatText(tid, role) { const m = memberOf(tid, role), c = m ? customName(m, teamNames(tid)) : ''; return c ? `${c}(${role})` : String(role); }
+// 직원에게 가는 말을 받을 팀장 세션 id: 그 층 team.json의 첫 팀장 세션 줄(직원 줄·자리 표시용 세션은 빼요. 서버 team_info의 _via와 같아요). 없으면 ''
+const skLead = tid => { const d = state && state.teams[tid], m = d && d.team && Array.isArray(d.team.members) ? d.team.members.find(x => x && x.role === LEAD && !isSk(x) && SID_RE.test(String(x.sessionId || '')) && !x.sessionId.startsWith('local_00000000')) : null; return m ? m.sessionId : ''; };
+// 서버가 /api/state의 staff로 알려 준 직원 정보 { staff, skill_path, memory_path, tools, model, skills, agent: 'ok'|'없음'|'바뀜', missing_skills, error? }. 모르면 null(스냅샷 등)
+const skInfo = (tid, role) => { const s = state && state.relay && state.relay.staff, x = s && typeof s === 'object' && s[tid] && typeof s[tid] === 'object' ? s[tid][role] : null; return x && typeof x === 'object' && !Array.isArray(x) ? x : null; };
+// 층의 직원 줄(역할 이름으로 쓸 수 있는 줄만, 역할마다 처음 줄만. 서버 staff_list와 같은 기준이에요)
+const skRows = ms => { const seen = new Set(); return (Array.isArray(ms) ? ms : []).filter(m => { const r = skRole(m); if (!r || !roleOk(r) || seen.has(roleKey(r))) return false; seen.add(roleKey(r)); return true; }); };
 // 로컬 서버(office_server.py)가 페이지를 줄 때 이 자리에 열쇠를 넣어요. 스냅샷(artifact)에서는 그대로 남아서 보내기 기능이 꺼져요.
 const TOKEN = '@@OFFICE_TOKEN@@';
 const API = /^[A-Za-z0-9_-]{20,}$/.test(TOKEN);
@@ -2220,12 +2254,13 @@ function liveOn(x, now) {
   return { work: true, hold: x.s === 'waiting' && late, wait: x.s === 'waiting' && late };
 }
 function seatView(tid, m, s, am, now) {
-  const base = { kind: 'member', state: '대기', label: '대기', task: '', say: '', updated: '', quiet: '', stale: false, invited: false, arriving: false, waitingSeat: false, missing: false, hold: false, wait: false, at: 0 };
+  const base = { kind: 'member', state: '대기', label: '대기', task: '', say: '', updated: '', quiet: '', stale: false, invited: false, arriving: false, waitingSeat: false, missing: false, hold: false, wait: false, at: 0, runs: 0 };
   const seat = seatGet(seatKey(tid, m.role));
   if (isCx(m)) {
     const x = cxInfo(tid, m);
     return Object.assign(base, { kind: 'cx', state: x.missing ? '빈자리' : x.state, label: x.state, task: x.title, missing: !!x.missing, at: x.at });
   }
+  if (isSk(m)) return skView(base, tid, m, s, am, now);   // 직원 줄은 빈자리가 아니에요
   if (!m.sessionId) return Object.assign(base, { kind: 'vacant', state: '빈자리', label: '빈자리', waitingSeat: !!seat && (seat.state === 'waiting' || seat.state === 'pick') });
   const v = Object.assign(base, { arriving: !!seat && seat.state === 'seated' && seat.sessionId === m.sessionId });
   const sig = liveOn(seatLive(tid, m.role, now), now), at = s ? Date.parse(s.updated) : 0, age = at && !exampleTeam(tid) ? now - at : 0, live = !!am && am.status === '진행 중';   // 시각을 모르면 시간을 세지 않아요. 예시 층도 재지 않아요
@@ -2252,6 +2287,17 @@ function seatView(tid, m, s, am, now) {
   if (v.quiet === 'long') v.hours = Math.floor(age / 3600e3);   // ‘n시간째 소식 없음’(자기 자리에 앉아 있어요, 타자는 안 쳐요. 팀장 결정)
   return v;
 }
+// 직원 자리의 지금 모습(U-31). 서버가 팀장 세션의 일꾼 기록으로 정한 신호(live의 staff 칸, busy·idle)를 먼저 보고, 신호가 없으면(스냅샷·서버 끊김) 서버가 쓴 status 파일을 봐요.
+// 일하는 중이면 책상, 대기면 돌아다니기예요. 서버는 직원에게 '회의 중'을 쓰지 않아서, 진행 중인 사이트 회의의 참석자면 회의실에 있어요.
+// 상태 파일은 서버가 바뀔 때만 써서 오래돼도 '응답 없음?'으로 보지 않아요. runs: 지금 도는 그 직원의 일꾼 수(2 이상일 때만, 이름표의 ×n)
+// 직원 신호에는 세션 자리의 끝 꼬리(liveOn의 LIVE_TAIL)를 붙이지 않아요. 서버가 이미 이어 쓰기 꼬리(20초)를 둔 뒤 idle로 내려요
+function skView(v, tid, m, s, am, now) {
+  const x = seatLive(tid, m.role, now), sig = x && x.staff === true ? x : null, filed = !!s && s.state === '일하는 중';
+  const meet = !!am && am.status === '진행 중' && Array.isArray(am.participants) && am.participants.includes(m.role), work = sig ? sig.s === 'busy' : filed;
+  const st = meet ? '회의 중' : work ? '일하는 중' : '대기';
+  return Object.assign(v, { kind: 'staff', state: st, label: st, task: work && filed ? String(s.task || '') : '', updated: sig && sig.since > 0 ? new Date(sig.since).toISOString() : (s && s.updated) || '',
+    runs: sig && sig.s === 'busy' && Number.isInteger(sig.n) && sig.n > 1 ? Math.min(sig.n, 99) : 0 });
+}
 // 층 칩의 팀원 점·명단의 상태 색
 const seatDot = st => ({ '일하는 중': 'd-work', '대기': 'd-idle', '회의 중': 'd-meet', '막힘': 'd-block' }[st] || '');
 const SEAT_CHIP = { '일하는 중': 's-work', '대기': 's-idle', '회의 중': 's-meet', '막힘': 's-block' };
@@ -2261,11 +2307,11 @@ const icon = n => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>
 // 줄의 둘째 줄. 명단과 호버 카드가 같은 말을 써요. 일하는데 적어 둔 일이 없으면 비어요(명단은 —로 그리고, 스크린리더는 읽지 않아요)
 const seatLine = v => (v.wait ? 'Claude 창에서 확인해요' : v.task || (v.state === '일하는 중' ? '' : '다음 일을 기다리는 중'));
 // 칩 글. 명단, 호버 카드, 서랍 상태 줄이 같은 말을 써요
-const seatChip = v => (v.missing ? '기록 없음' : v.quiet === 'long' ? '소식 없음' : (v.label || v.state) + (v.stale ? ' · 응답 없음?' : ''));
+const seatChip = v => (v.missing ? '기록 없음' : v.quiet === 'long' ? '소식 없음' : (v.label || v.state) + (v.runs > 1 && v.state === '일하는 중' ? ` ×${v.runs}` : '') + (v.stale ? ' · 응답 없음?' : ''));   // ×n: 직원 일꾼이 둘 이상 도는 중
 // 명단 줄을 읽는 글. 이름을 따로 정했을 때만 역할을 더 읽고, 보이는 시간도 읽어요
-const rowAria = r => [r.who, r.who !== r.role && r.role, r.cx && 'Codex', r.chip, r.when, r.nw && '새 답', r.task].filter(Boolean).join(', ') + `. ${r.cx ? '자세히 보기' : '대화 열기'}`;
+const rowAria = r => [r.who, r.who !== r.role && r.role, r.cx && 'Codex', r.sk && '직원', r.chip, r.when, r.nw && '새 답', r.task].filter(Boolean).join(', ') + `. ${r.cx ? '자세히 보기' : '대화 열기'}`;
 function seatRowHTML(m, st, tid, newReply, cx, am) {
-  const v = seatView(tid, m, st, am, viewNow()), c = customName(m, cx.names), who = c || m.role, role = esc(m.role), cxm = v.kind === 'cx';
+  const v = seatView(tid, m, st, am, viewNow()), c = customName(m, cx.names), who = c || m.role, role = esc(m.role), cxm = v.kind === 'cx', skm = v.kind === 'staff';
   const pen = cx.edit && cx.edit.has(m) ? `<button type="button" class="ib" data-nm-edit data-team="${esc(tid)}" data-role="${role}" aria-label="${esc(who)} 이름 바꾸기" title="이름 바꾸기">${icon('pen')}</button>` : '';
   const L = lookOf(cxm ? m.codexId : m.sessionId || m.role, m.role);
   if (NE && NE.tid === tid && NE.role === m.role) return `<li class="r" data-member="${role}"><div class="r-main is-edit">${avHTML(L, v.state, v.kind === 'vacant')}<span class="r-t">${nameEditHTML(m, cx)}</span></div></li>`;
@@ -2282,8 +2328,9 @@ function seatRowHTML(m, st, tid, newReply, cx, am) {
   const line = v.missing ? '기록을 찾지 못했어요' : v.quiet === 'long' ? `${v.hours}시간째 소식 없음` : v.invited ? '회의에 아직 안 왔어요'
     : cxm ? `읽기 전용 · ${v.task || 'Codex 세션'}` : v.state === '회의 중' ? '회의실에 있어요' : seatLine(v);
   const task = [line, v.say && `“${v.say}”`].filter(Boolean).join(' · ');
-  return `<li class="r" data-member="${role}"><button type="button" class="r-main has-ib" data-role="${role}" data-team="${esc(tid)}" aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, chip, nw: newReply, when, task }))}">${avHTML(L, v.state)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}${when ? `<small><i>${esc(when)}</i></small>` : ''}${newReply ? '<span class="nw">새 답</span>' : ''}<span class="r-st ${v.stale || v.quiet || v.missing ? 'st-q' : SEAT_CHIP[v.state] || ''}"><i></i>${esc(chip)}</span></span><span class="r-task">${cxm ? '<span class="cxc">Codex</span> ' : ''}${esc(task || '—')}</span></span></button>
-    <div class="r-acts over">${cxm ? '' : `<a class="ib" href="${chatLink(m.sessionId)}" aria-label="${esc(who)} Claude 창 열기" title="Claude 창 열기">${icon('out')}</a>`}${pen}</div>${seatOk}</li>`;
+  return `<li class="r" data-member="${role}"><button type="button" class="r-main has-ib" data-role="${role}" data-team="${esc(tid)}" aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, sk: skm, chip, nw: newReply, when, task }))}">${avHTML(L, v.state)}<span class="r-t"><span class="r-n"><b>${esc(who)}</b>${small}${when ? `<small><i>${esc(when)}</i></small>` : ''}${newReply ? '<span class="nw">새 답</span>' : ''}<span class="r-st ${v.stale || v.quiet || v.missing ? 'st-q' : SEAT_CHIP[v.state] || ''}"><i></i>${esc(chip)}</span></span><span class="r-task">${cxm ? '<span class="cxc">Codex</span> ' : skm ? `<span class="cxc" title="${SK_WHERE}">직원</span> ` : ''}${esc(task || '—')}</span></span></button>
+    <div class="r-acts over">${cxm ? '' : skm ? (cx.lead ? `<a class="ib" href="${chatLink(cx.lead)}" aria-label="${esc(who)} 팀장 창 열기. ${SK_WHERE}" title="팀장 창 열기 · ${SK_WHERE}">${icon('out')}</a>` : '')
+      : `<a class="ib" href="${chatLink(m.sessionId)}" aria-label="${esc(who)} Claude 창 열기" title="Claude 창 열기">${icon('out')}</a>`}${pen}</div>${seatOk}</li>`;
 }
 const MEET_QUIET = 30 * 60e3;
 // 진행 중 회의의 마지막 대화가 30분을 넘었는지. 회의 중에는 상태 파일을 안 고치니 '응답 없음?' 대신 회의실 칸에서 알려요
@@ -2463,7 +2510,7 @@ function render() {
   put($('#orgTeams'), hqChip + org.teams.map(t => {
     const d = teams[t.id], on = !!d, k = t.office ? ids.indexOf(t.id) : -1, label = `${floorLabel(t)} ${t.name}`, ms = on ? leadFirst(d.team.members) : [], am = on ? meetNow(d) : null;
     const now = ms.map(m => seatView(t.id, m, d.status[m.role], am, nowMs).state), dots = now.map(seatDot), blocked = now.filter(x => x === '막힘').length;
-    const fresh = on && ms.some(m => m.sessionId && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]));
+    const fresh = on && ms.some(m => (m.sessionId || isSk(m)) && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]));
     const mv = orderMode && k >= 0 ? `<span class="mv" role="group" aria-label="${esc(label)} 순서">${moveBtn('up', t, label, k === ids.length - 1)}${moveBtn('down', t, label, k === 0)}</span>` : '';
     return `<li><button type="button" class="ft${on ? '' : ' later'}" data-team="${on ? esc(t.id) : 'hq'}" data-tone="${on ? toneOf(t) : 'hq'}" data-goto="${esc(t.id)}" aria-pressed="${t.id === shown}" aria-controls="rooms" aria-label="${esc(floorAria(label, blocked, fresh))}">
       <span class="no">${esc(t.floor || '·')}</span><span class="tx"><span class="nm">${esc(t.name)}</span><span class="dots">${on ? dots.slice(0, 7).map(c => `<i class="${c}"></i>`).join('') + (dots.length > 7 ? `+${dots.length - 7}` : '') : '입주 예정'}</span></span>${fresh ? '<span class="newd" title="새 답"></span>' : ''}</button>${mv}</li>`;
@@ -2515,9 +2562,10 @@ function countsPaint() {
 }
 function roomHTML(t, d) {
   const ms = leadFirst(d.team.members);
-  // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요)
+  // edit: ✎를 보일 팀원 줄(예시 팀은 못 고쳐요. 역할 이름으로 못 쓰는 줄(shown_rows 밖)은 서버가 그 줄을 찾지 못하니 이름만 보여 줘요). 직원 줄도 이름(name 칸)만은 바꿀 수 있어요
+  // lead: 직원 줄의 [팀장 창 열기]가 여는 팀장 세션
   const mine = API && !String(t.office || '').startsWith('examples/');   // 로컬 페이지의 내 층(예시 팀은 고치지도, 세션을 만들지도 않아요)
-  const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: mine ? new Set(shownRows(d.team.members).map(x => x.m)) : null, seat: mine };
+  const cx = { names: [d.team.team, t.name].filter(x => typeof x === 'string' && x), edit: mine ? new Set([...shownRows(d.team.members).map(x => x.m), ...skRows(d.team.members)]) : null, seat: mine, lead: skLead(t.id) };
   const am = meetNow(d), views = ms.map(m => seatView(t.id, m, d.status[m.role], am, viewNow()));
   const meeting = views.filter(v => v.state === '회의 중').length, counts = countsHTML(views);
   const items = parseBoard(d.board);
@@ -2561,7 +2609,7 @@ function roomHTML(t, d) {
       </div>
       <aside class="roster" aria-labelledby="rosterH"><div class="ro-in">
         <div class="ro-h"><h3 id="rosterH">팀원</h3><small>${ms.length}명 · 이름을 누르면 대화가 열려요.</small></div>
-        <ul class="ro-list">${ms.map(m => seatRowHTML(m, d.status[m.role], t.id, !isCx(m) && !!m.sessionId && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]), cx, am)).join('')}</ul>
+        <ul class="ro-list">${ms.map(m => seatRowHTML(m, d.status[m.role], t.id, !isCx(m) && (!!m.sessionId || isSk(m)) && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]), cx, am)).join('')}</ul>
       </div></aside>
     </div>
     <div class="grid3">
@@ -2593,10 +2641,11 @@ function stageState(t, d, now) {
     tone: tone === 'hq' ? 'a' : tone, name: t.name, theme: stageTheme(), live: mode !== 'lost' && mode !== 'none', still: STAGE.held,
     floor: Number(t.floor) || 0,
     members: leadFirst(d.team.members).map(m => {
-      const v = seatView(t.id, m, d.status[m.role], am, now), cx = v.kind === 'cx', seated = v.kind === 'member';
+      const v = seatView(t.id, m, d.status[m.role], am, now), cx = v.kind === 'cx', seated = v.kind === 'member' || v.kind === 'staff';   // 직원도 대화 파일에 답해요(새 답)
       return { id: m.role, role: m.role, name: customName(m, names) || m.role, lead: m.role === LEAD, codex: cx, look: lookOf(cx ? m.codexId : m.sessionId || m.role, m.role),
         state: v.state, task: v.task, say: v.say, newReply: seated && unread(d.base + 'chat/' + m.role + '.jsonl', d.lastChat && d.lastChat[m.role]),
-        quiet: v.quiet, label: v.label, stale: v.stale, hours: v.hours || 0, invited: v.invited, arriving: v.arriving, waitingSeat: v.waitingSeat, missing: v.missing, hold: v.hold, wait: v.wait, when: v.updated };
+        quiet: v.quiet, label: v.label, stale: v.stale, hours: v.hours || 0, invited: v.invited, arriving: v.arriving, waitingSeat: v.waitingSeat, missing: v.missing, hold: v.hold, wait: v.wait, when: v.updated,
+        runs: v.runs || 0, staff: v.kind === 'staff' };
     }),
     meeting: { active: !!am, topic: am ? String(am.topic || '') : '', phase: am && am.status === '정리 중' ? 'wrap' : 'live', mode: am && am.mode === '참석' ? 'boss' : 'team' }
   };
@@ -2742,7 +2791,7 @@ function stageSelect(tid, id) {
   const m = d.team.members.find(x => x.role === id);
   if (!m) return;
   const row = $$('#rooms [data-member]').find(x => x.dataset.member === id);
-  if (m.sessionId || isCx(m)) {
+  if (m.sessionId || isCx(m) || isSk(m)) {   // 직원도 대화 서랍이에요(세션 만들기가 없어요)
     const open = row && $('.r-main[data-role]', row);
     if (open) open.focus({ preventScroll: true });   // 서랍을 닫으면 키보드가 명단의 그 줄로 돌아와요
     memberDrawer(tid, id);
@@ -2756,7 +2805,7 @@ function stageSelect(tid, id) {
 function stageTipHTML(m) {
   const vac = m.state === '빈자리' && !m.missing, when = m.when && !vac ? ` · ${ago(m.when)}` : '';
   const shown = seatChip(m), line = m.missing ? '기록을 찾지 못했어요' : vac ? '아직 세션이 없어요.' : m.quiet === 'long' ? `${m.hours}시간째 소식 없음` : seatLine(m);
-  return `<b>${esc(m.name)}${m.name !== m.role ? ` · ${esc(m.role)}` : ''}</b><small>${esc(shown)}${esc(when)}${m.codex ? ' · Codex · 읽기 전용' : ''}</small>${esc(line)}${m.say ? `<small>“${esc(m.say)}”</small>` : ''}<small>${vac ? (API ? '눌러서 세션을 만들어요' : '눌러서 명단으로 가요') : m.codex ? '눌러서 자세히 봐요 (말 걸기는 아직 안 돼요)' : '눌러서 대화해요'}</small>`;
+  return `<b>${esc(m.name)}${m.name !== m.role ? ` · ${esc(m.role)}` : ''}</b><small>${esc(shown)}${esc(when)}${m.codex ? ' · Codex · 읽기 전용' : ''}</small>${esc(line)}${m.say ? `<small>“${esc(m.say)}”</small>` : ''}<small>${vac ? (API ? '눌러서 세션을 만들어요' : '눌러서 명단으로 가요') : m.codex ? '눌러서 자세히 봐요 (말 걸기는 아직 안 돼요)' : m.staff ? `직원 · ${SK_WHERE} 눌러서 대화해요` : '눌러서 대화해요'}</small>`;
 }
 function stageHover(tid, id, x, y) {
   const tip = STAGE.tip, v = STAGE.view, m = id && v ? v.members.find(z => z.id === id) : null;
@@ -3220,7 +3269,7 @@ function fillNorm(v) {
 // 도는 줄에서 아직 채우는 중인(안 열었거나 지금 자리인) 자리인지
 const fillQueued = (tid, role) => fillRunning() && FILL.q.items.some(it => it.team === tid && roleKey(it.role) === roleKey(role) && (it.state === 'todo' || it.state === 'open'));
 // 층의 채울 빈자리(서버와 같은 순서: 팀장 먼저, 그다음 책상 순서). cx: Codex 자리인지
-const fillEmpty = (ms, cx = isCx) => leadFirst(shownRows(ms).map(x => x.m)).filter(m => !m.sessionId && !cx(m));
+const fillEmpty = (ms, cx = isCx) => leadFirst(shownRows(ms).map(x => x.m)).filter(m => !m.sessionId && !cx(m) && !isSk(m));   // 직원 줄은 빈자리가 아니에요(shownRows도 빼요)
 function fillBtnHTML(t, d) {   // 층 머리의 [빈자리 모두 만들기 (N)]: 이 층 빈자리 중 아직 줄에 없는 자리 수
   const n = fillCan() ? fillEmpty(d.team.members).filter(m => !fillQueued(t.id, m.role)).length : 0;
   return n ? `<button type="button" class="notion" data-fill="start" data-team="${esc(t.id)}"${FILL.busy ? ' aria-disabled="true"' : ''} title="빈자리마다 차례로 새 세션을 열어요. 자리마다 Claude 창에서 Enter만 눌러요">빈자리 모두 만들기 (${n})</button>` : '';
@@ -3728,7 +3777,7 @@ function lineHTML(l, tid, prev) {   // tid: 대화하는 층(있으면 보낸·�
 const linesHTML = (lines, tid, prev) => lines.map((l, i) => lineHTML(l, tid, i ? lines[i - 1] : prev)).join('');
 // 빈 대화 가운데 글(마케팅 5-3장): 팀원(seat)은 이 세션, 회의(tid만)는 받는 사람, 총괄 대화(tid 없음)는 첫 줄만. 보낸 말이 총괄을 거친다는 줄은 정보 탭에도 늘 있어요(VIA_BOSS)
 const VIA_BOSS = '보낸 말은 총괄이 받아서 이 세션에 전해요.';
-const threadHTML = (lines, tid, seat) => linesHTML(lines, tid) || `<li class="msg sys t-empty">아직 주고받은 말이 없어요.${API && tid ? `<br>${seat ? VIA_BOSS : '보낸 말은 총괄이 받아서 받는 사람에게 전해요.'} 답은 여기에 올라와요.` : ''}</li>`;
+const threadHTML = (lines, tid, seat, sk) => linesHTML(lines, tid) || `<li class="msg sys t-empty">아직 주고받은 말이 없어요.${API && tid ? `<br>${sk ? SK_VIA : seat ? VIA_BOSS : '보낸 말은 총괄이 받아서 받는 사람에게 전해요.'} 답은 여기에 올라와요.` : ''}</li>`;   // sk: 직원 대화(팀장 세션을 거쳐요)
 async function refreshThread(force) {
   if (!live || $('#drawer').hidden) return;
   const el = $('#thread'), cur = live;
@@ -3754,7 +3803,7 @@ async function refreshThread(force) {
   // 빈 대화(안내 한 줄)에 첫 말이 오면 통째로 그려요
   const more = old && old.endsWith('\n') && text.startsWith(old) ? jsonl(text.slice(old.length)) : null;
   if (more && lines.length > more.length) { if (more.length) el.insertAdjacentHTML('beforeend', linesHTML(more, cur.tid, lines[lines.length - more.length - 1])); }
-  else el.innerHTML = threadHTML(lines, cur.tid, cur.seat);
+  else el.innerHTML = threadHTML(lines, cur.tid, cur.seat, cur.sk);
   if (atBottom || force) { el.scrollTop = el.scrollHeight; el._pin = true; }   // 스크롤은 대화 칸 하나예요. 열거나 보낸 뒤에는 맨 아래
   cur.lastT = lines.length ? lines[lines.length - 1].t : '';
   talkSeen();
@@ -3930,13 +3979,13 @@ function openThread(file, opts = {}) {
   refreshThread(true);
 }
 // 대화 서랍의 머리(U-29 B '대화 먼저'): 이름과 상태 한 줄, [Claude 창 열기]와 [닫기](openDrawer가 data-close-slot으로 옮겨요), 위험한 일 안내, [대화 | 정보] 탭, 그 아래 끊김 띠.
-// o: { title(HTML), team, line(HTML)·lineId, sub, link, must, ctl(머리 안 HTML), tabs(정보 탭 옆 작은 글. 없으면 탭이 없어요), relay }
+// o: { title(HTML), team, line(HTML)·lineId, sub, link, linkText(없으면 ‘Claude 창 열기 ↗’), must, mustText(위험한 일 안내 글. 없으면 MUST_LINE), ctl(머리 안 HTML), tabs(정보 탭 옆 작은 글. 없으면 탭이 없어요), relay }
 const MUST_LINE = '커밋·배포·업로드처럼 위험한 일의 마지막 확인은 세션 창에서 해요.';
 function dHead(o) {
   // 서랍과 탭 목록 이름은 이 제목을 읽어요. 이름·역할·팀이 붙어 읽히지 않게 화면에 안 보이는 띄어 읽기를 넣어요
   const title = String(o.title).replace(/<small class="rl">/g, '<span class="su-sr"> </span>$&');
-  return `<div class="d-head"><div class="d-top"><div class="d-name"><h2 class="d-title" id="dTitle">${title}<span class="su-sr">, </span><small class="d-team">${esc(o.team)}</small></h2>${o.line == null ? '' : `<p class="d-line" id="${o.lineId || 'dfLine'}">${o.line}</p>`}${o.sub ? `<p class="d-sub">${esc(o.sub)}</p>` : ''}</div>${o.link ? `<a class="btn d-open" href="${esc(o.link)}">Claude 창 열기 ↗</a>` : ''}<span class="d-x" data-close-slot></span></div>`
-    + `${o.must ? `<p class="d-must">${MUST_LINE}</p>` : ''}${o.ctl || ''}`
+  return `<div class="d-head"><div class="d-top"><div class="d-name"><h2 class="d-title" id="dTitle">${title}<span class="su-sr">, </span><small class="d-team">${esc(o.team)}</small></h2>${o.line == null ? '' : `<p class="d-line" id="${o.lineId || 'dfLine'}">${o.line}</p>`}${o.sub ? `<p class="d-sub">${esc(o.sub)}</p>` : ''}</div>${o.link ? `<a class="btn d-open" href="${esc(o.link)}">${esc(o.linkText || 'Claude 창 열기 ↗')}</a>` : ''}<span class="d-x" data-close-slot></span></div>`
+    + `${o.must ? `<p class="d-must">${esc(o.mustText || MUST_LINE)}</p>` : ''}${o.ctl || ''}`
     + `${o.tabs == null ? '' : `<div class="d-tabs" role="tablist" aria-labelledby="dTitle"><button type="button" role="tab" id="dTab0" aria-controls="dTalk" aria-selected="true">대화</button><button type="button" role="tab" id="dTab1" aria-controls="dInfo" aria-selected="false" tabindex="-1">정보 <small>${esc(o.tabs)}</small></button></div>`}</div>`
     + `${o.relay ? relayBox() : ''}`;
 }
@@ -3991,7 +4040,102 @@ function drawerPaint() {   // 열린 동안에는 머리의 상태 줄과 정보
   if (!d || !d.team.members.some(x => x.role === DF.role)) return;
   const f = drawerFacts(DF.tid, DF.role);
   put($('#dfLine'), factLine(f)); put($('#dfState'), esc(f.state)); put($('#dfTask'), esc(f.task)); put($('#dfSay'), esc(f.say));
+  const ag = $('#dfAgent'); if (ag) { put(ag, skAgentHTML(DF.tid, DF.role)); skHeadPaint(DF.tid, DF.role); }   // 직원 서랍: 명찰 상태와 명찰의 도구도 서버가 새로 알려 준 대로
   picWaitPaint();
+}
+// 직원 서랍 정보 탭의 직원 칸(세션 칸 대신): 직원 스킬 이름, SKILL.md·기억.md 경로, 도구, 모델, 명찰 상태. 경로·도구·모델은 서버가 /api/state의 staff로 알려 줘요(모르면 —)
+function skFactsHTML(tid, m) {
+  const x = skInfo(tid, m.role), nm = skName(m), list = v => (Array.isArray(v) && v.some(y => typeof y === 'string') ? esc(v.filter(y => typeof y === 'string').join(', ')) : '—');
+  const path = v => (typeof v === 'string' && v ? `<code>${esc(v)}</code>` : '—');
+  return `<dt>직원 스킬</dt><dd><code>${esc(nm || (typeof m.staff === 'string' ? cut(m.staff, 40) : '(글이 아니에요)'))}</code>${nm ? '' : ' <span class="chip wait">이름 꼴이 틀렸어요</span>'}</dd>
+      <dt>SKILL.md</dt><dd>${path(x && x.skill_path)}</dd>
+      <dt>기억.md</dt><dd>${path(x && x.memory_path)}</dd>
+      <dt>도구</dt><dd>${list(x && x.tools)}</dd>
+      <dt>모델</dt><dd>${x && typeof x.model === 'string' && x.model ? esc(x.model) : '—'}</dd>
+      ${skHeadHTML(x, 'dd')}<dt>명찰</dt><dd id="dfAgent">${skAgentHTML(tid, m.role)}</dd>`;
+}
+// 팀장 폴더 명찰에 실제로 적힌 도구·모델(서버가 명찰 머리말에서 읽어요. 일꾼이 받는 도구예요). '*'는 tools 줄이 없어 모든 도구예요. 모르면 ''
+const skHeadText = x => (x && Array.isArray(x.agent_tools) ? (x.agent_tools.includes('*') ? '모든 도구(tools 줄 없음)' : x.agent_tools.filter(y => typeof y === 'string').join(', ') || '—') + (typeof x.agent_model === 'string' && x.agent_model ? ` · 모델 ${x.agent_model}` : '') : '');
+const SK_DIFF = 'SKILL.md와 달라요';   // 명찰이 손으로 고쳐져 도구가 이미 넓어졌을 수 있어요
+// how 'dd': 서랍 정보 탭의 한 줄(<dt>명찰의 도구</dt>), 'row': 설정 직원 줄의 작은 글
+function skHeadHTML(x, how) {
+  const t = skHeadText(x), diff = !!x && x.agent_diff === true;
+  if (!t) return '';
+  const chip = diff ? ` <span class="chip wait">${SK_DIFF}</span>` : '';
+  return how === 'dd' ? `<dt id="dfHeadT">명찰의 도구</dt><dd id="dfHead">${esc(t)}${chip}</dd>` : `<p class="hint">명찰의 도구: ${esc(t)}${chip}</p>`;
+}
+// 서랍이 열린 동안 '명찰의 도구' 줄(<dt>·<dd>, '명찰' 줄 바로 앞)도 서버가 새로 알려 준 대로 고쳐요. 명찰이 새로 생겼거나 손으로 고쳐졌으면 줄을 만들거나 바꾸고,
+// 모르게 되면(명찰이 없어졌어요) 빼요. 바뀐 게 없으면 그대로 둬요
+function skHeadPaint(tid, role) {
+  const ag = $('#dfAgent'), at = ag && ag.previousElementSibling, html = at ? skHeadHTML(skInfo(tid, role), 'dd') : '', dd = $('#dfHead');
+  if (!at || (dd ? dd._head === html : !html)) return;
+  if (dd) { const dt = $('#dfHeadT'); if (dt) dt.remove(); dd.remove(); }
+  if (html) { at.insertAdjacentHTML('beforebegin', html); const now = $('#dfHead'); if (now) now._head = html; }
+}
+// 명찰(팀장 폴더의 .claude/agents/<이름>.md) 상태: 맞음(ok)·바뀜·없음. 바뀜·없음이면 [명찰 다시 만들기](로컬 페이지, 예시 층이 아닐 때). 누른 결과는 SKR에 있어요
+const SK_AGENT = { ok: '맞음', '바뀜': '바뀜', '없음': '없음' };
+const SKR = {};   // '<층 id>|<역할>' → { busy, text, bad, agent }: [명찰 다시 만들기] 결과(서랍과 설정이 같이 봐요). agent: 결과를 적을 때의 명찰 상태
+// 그 직원의 [명찰 다시 만들기] 결과. 그 뒤로 명찰 상태(맞음·바뀜·없음)가 바뀌었으면 지난 결과라 지우고 빈 값이에요(서랍을 다시 열어도 남지 않게)
+function skResult(tid, role) {
+  const k = tid + '|' + role, r = SKR[k];
+  if (!r) return {};
+  if (!r.busy && 'agent' in r && (skInfo(tid, role) || {}).agent !== r.agent) { delete SKR[k]; return {}; }
+  return r;
+}
+function skAgentHTML(tid, role) {
+  const x = skInfo(tid, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(tid, role);
+  const why = !x ? '서버에서 아직 받지 못했어요' : a === 'ok' ? '팀장 폴더의 명찰이 직원 스킬(SKILL.md)과 같아요' : a === '바뀜' ? '직원 스킬(SKILL.md)이나 명찰이 그 뒤에 바뀌었어요. 명찰이 고쳐져 도구가 이미 넓어졌을 수 있어요(명찰의 도구를 봐요)' : '팀장 폴더에 명찰이 없거나 팀장 폴더를 찾지 못했어요';
+  const miss = x && Array.isArray(x.missing_skills) && x.missing_skills.length ? `<br><small class="hint">팀장 폴더에서 못 찾은 쓸 스킬: ${esc(x.missing_skills.filter(y => typeof y === 'string').join(', '))}</small>` : '';
+  const err = x && typeof x.error === 'string' && x.error ? `<br><small class="err">${esc(x.error)}</small>` : '';
+  const btn = API && !exampleTeam(tid) && !!x && !!x.staff && (a === '바뀜' || a === '없음') ? ` <button type="button" class="btn" data-act="sk-rebuild" data-team="${esc(tid)}" data-role="${esc(role)}"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : '';
+  return `${a ? `<span class="chip${a === 'ok' ? ' on' : ' wait'}">${esc(SK_AGENT[a])}</span> ` : ''}<small class="hint">${esc(why)}</small>${miss}${err}${btn}${r.text ? `<br><small class="${r.bad ? 'err' : 'hint'}" role="status">${esc(r.text)}</small>` : ''}`;
+}
+// [명찰 다시 만들기]: 서버가 SKILL.md로 명찰을 다시 쓰고 해시를 고쳐요. 끝나면 /api/state를 새로 읽어 서랍과 설정의 명찰 칸을 다시 그려요. focus: 설정에서 누른 뒤 키보드를 둘 곳(앞에서부터 있는 것)
+// 서버가 도구가 늘거나 모델이 바뀐다고 멈추면(409 why: widen) 무엇이 바뀌는지 확인 창을 띄우고, 대표가 확인하면 confirm: true와 확인 창에 보인 도구·모델(409의 tools·model을
+// 그대로 expect로)을 함께 다시 보내요. 확인하는 사이에 SKILL.md가 또 바뀌면 서버가 다시 409(again)라 새 차이로 다시 물어요(세 번까지)
+// 확인 창에 적을 바뀌는 것: 새로 받는 도구(409의 add)와 그 도구로 새로 하게 되는 일(SK_KIND, 겹치면 한 번), 모델([예전, 새])
+const SK_KIND = new Map([['Bash', '셸 명령'], ['WebFetch', '인터넷'], ['WebSearch', '인터넷'], ['Write', '파일 쓰기'], ['Edit', '파일 쓰기'], ['Read', '파일 읽기'], ['Grep', '파일 읽기'], ['Glob', '파일 읽기'], ['*', '모든 도구']]);   // '*': tools 줄 없음
+function skWiden(b) {
+  const add = Array.isArray(b.add) ? b.add.filter(x => typeof x === 'string') : [], kinds = [...new Set(add.filter(x => SK_KIND.has(x)).map(x => SK_KIND.get(x)))];
+  return [add.length ? `도구가 늘어요: ${add.join(', ')}${kinds.length ? `${add.length > 1 ? ' ' : ''}(${kinds.join('·')})` : ''}` : '', Array.isArray(b.model) && b.model.length === 2 ? `모델이 바뀌어요: ${b.model[0]} → ${b.model[1]}` : ''].filter(Boolean).join('\n');
+}
+// 들이기·다시 만들기 결과 글의 info/exclude 부분. 서버 답 git(exclude_agents)의 line(명찰 줄)·lines(넣을 줄 모두)·added(이번에 더한 줄)대로 명찰 줄과 스킬 링크 줄을 나눠 세요.
+// 넣을 줄 중 더하지 않은 줄은 '이미 있어요'예요(못 쓴 까닭 skipped가 있으면 더하지 못한 줄이라 세지 않아요). 저장소가 아니면 빈 글이에요
+function skGitText(git) {
+  if (!git || typeof git !== 'object' || !git.repo) return '';
+  const ag = typeof git.line === 'string' ? git.line : '', lines = Array.isArray(git.lines) ? git.lines : ag ? [ag] : [];
+  const added = Array.isArray(git.added) ? git.added : git.excluded && ag ? [ag] : [], skipped = typeof git.skipped === 'string' ? git.skipped : '';
+  const part = xs => { const a = xs.filter(x => x === ag).length, s = xs.length - a; return [a ? `명찰 줄 ${a}개` : '', s ? `스킬 링크 줄 ${s}개` : ''].filter(Boolean).join('·'); };
+  const add = part(added), had = skipped ? '' : part(lines.filter(x => !added.includes(x))), where = '팀장 폴더 저장소의 info/exclude';
+  return [add ? `${where}에 ${add}를 더했어요${had ? `(${had}는 이미 있어요)` : ''}` : had ? `${where}에 ${had}는 이미 있어요` : '', skipped].filter(Boolean).join(' · ');
+}
+async function skRebuild(tid, role, focus) {
+  const k = tid + '|' + role, r = SKR[k] = { busy: true, text: '', bad: false }, widen = e => { if (e.body && e.body.why === 'widen') return e; throw e; };
+  skRepaint(tid, role, focus);
+  try {
+    let res = await post('api/staff/rebuild', { team: tid, role }).catch(widen);
+    for (let n = 0; res instanceof Error && n < 3; n++) {
+      const b = res.body, ok = confirm(`${b.again ? '확인하는 사이에 직원 스킬(SKILL.md)이 또 바뀌었어요.\n' : ''}‘${role}’ 명찰을 다시 만들면\n${skWiden(b)}\n\n직원 스킬(SKILL.md)은 일꾼도 고칠 수 있어요. 누가 고쳤는지 확인한 뒤 만들어요. 계속할까요?`);
+      res = ok ? await post('api/staff/rebuild', { team: tid, role, confirm: true, expect: { tools: b.tools, model: b.model } }).catch(widen) : null;
+    }
+    if (res instanceof Error) throw res;
+    if (res) { const g = skGitText(res.git); r.text = `명찰을 다시 만들었어요.${g ? ` ${g}.` : ''}${res.restart ? ` ${SK_RESTART}.` : ''}`; }
+    else { r.text = '명찰을 다시 만들지 않았어요. 도구나 모델이 바뀌어서 확인 창에서 멈췄어요.'; r.bad = true; }
+  } catch (e) { r.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '명찰을 만들지 못했어요'; r.bad = true; }
+  r.busy = false;
+  if (API && state) { try { state.relay = JSON.parse(await getText('api/state')); liveTake(state.relay); } catch (e) {} }
+  r.agent = (skInfo(tid, role) || {}).agent;   // 이 상태가 바뀌면 결과 글을 지워요(skResult)
+  skRepaint(tid, role, focus);
+}
+function skRepaint(tid, role, focus) {
+  const ag = $('#dfAgent');
+  if (ag && DF && DF.tid === tid && DF.role === role) {
+    const had = ag.contains(document.activeElement);
+    put(ag, skAgentHTML(tid, role));
+    skHeadPaint(tid, role);
+    if (had) { const b = $('button', ag) || $('#dInfo'); if (b) b.focus({ preventScroll: true }); }
+  }
+  if (SU.open && SU.view === 'floors') renderSetup(focus);
 }
 function memberDrawer(tid, role) {
   const d = state.teams[tid], m = d.team.members.find(x => x.role === role);
@@ -3999,23 +4143,27 @@ function memberDrawer(tid, role) {
   const facts = drawerFacts(tid, role), mine = [...d.log].reverse().filter(e => e.from === role || e.to === role).slice(0, 15);
   const reps = d.reports.filter(f => f.includes(`-${role}-`)).reverse();
   const cn = customName(m, teamNames(tid)), ex = API && exampleSeat(tid, m.sessionId);
+  // 직원 줄(U-31): 머리의 링크는 [팀장 창 열기](직원은 팀장 창에서 일해요), 정보 탭은 세션 칸 대신 직원 칸이에요. 말 걸기·사진은 그대로예요(서버가 팀장 세션에 전해요).
+  // 지금 전할 수 없는 직원(명찰 이름 꼴 틀림·팀장 없음)은 작성창 대신 그 까닭을 보여요(서버도 409예요)
+  const sk = isSk(m), lead = sk ? skLead(tid) : '', stop = sk ? (!skName(m) ? SK_BAD_NAME : !lead ? SK_NO_LEAD : '') : '';
   // U-29 B '대화 먼저': 대화가 주인공이에요. 세션 표, 주고받은 메시지, 보고서는 [정보] 탭에 있어요. 예시 층은 대화가 없어서 머리와 정보만 보여요
   const info = `<dl class="facts">
-      ${cn ? `<dt>역할</dt><dd>${esc(role)}</dd>` : ''}<dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>
+      ${cn ? `<dt>역할</dt><dd>${esc(role)}</dd>` : ''}${sk ? skFactsHTML(tid, m) : `<dt>세션</dt><dd>${esc(m.title)}<br><code>${esc(m.sessionId)}</code></dd>`}
       <dt>상태</dt><dd id="dfState">${esc(facts.state)}</dd>
       <dt>맡은 일</dt><dd id="dfTask">${esc(facts.task)}</dd>
       <dt>한마디</dt><dd id="dfSay">${esc(facts.say)}</dd>
-    </dl>${ex ? '' : `<p class="hint d-via">${VIA_BOSS}</p>`}
+    </dl>${ex ? '' : `<p class="hint d-via">${sk ? SK_VIA : VIA_BOSS}</p>`}
     <h3>주고받은 메시지</h3>
     ${mine.length ? `<ul class="feed">${mine.map(e => `<li><time>${esc(hm(e.t))}</time><span><span class="k ${esc(e.kind)}">${esc(e.kind)}</span><span class="route"><b>${seatHTML(tid, e.from)}</b> → <b>${seatHTML(tid, e.to)}</b></span><br>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}
     <h3>보고서</h3>
     ${reps.length ? `<ul class="files">${reps.map(f => `<li><button type="button" data-file="${esc(d.base + 'reports/' + f)}">${esc(f)}</button></li>`).join('')}</ul>` : '<p class="empty">아직 없어요.</p>'}`;
-  const head = dHead({ title: seatHTML(tid, role), team: `${d.team.team} 팀`, line: factLine(facts), link: chatLink(m.sessionId), must: true, tabs: ex ? null : `주고받은 메시지 ${mine.length} · 보고서 ${reps.length}`, relay: !ex });
+  const head = dHead({ title: seatHTML(tid, role), team: `${d.team.team} 팀${sk ? ' · 직원' : ''}`, line: factLine(facts), sub: sk ? SK_WHERE : '', link: sk ? (lead ? chatLink(lead) : '') : chatLink(m.sessionId), linkText: sk ? '팀장 창 열기 ↗' : '',
+    must: true, mustText: sk ? SK_MUST : '', tabs: ex ? null : `주고받은 메시지 ${mine.length} · 보고서 ${reps.length}`, relay: !ex });
   openDrawer(head + (ex ? `<div class="d-main"><div class="d-info">${info}</div></div><p class="hint d-foot">${EX_NO_TALK}</p>`
     : `<div class="d-main">${talkPane(true)}<div class="d-info" id="dInfo" role="tabpanel" aria-labelledby="dTab1" tabindex="0" hidden>${info}</div></div>
-    ${composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`), tid, true);
+    ${stop ? `<p class="hint d-foot">${esc(stop)}</p>` : composerHTML('say', `<input type="hidden" name="thread" value="chat:${esc(role)}"><input type="hidden" name="team" value="${esc(tid)}">`, `${cn || role}에게 바로 말 걸기`, `${tid}:${role}`, true)}`), tid, true);
   DF = { tid, role };
-  if (!ex) openThread(d.base + 'chat/' + role + '.jsonl', { tid, seat: role });
+  if (!ex) openThread(d.base + 'chat/' + role + '.jsonl', sk ? { tid, seat: role, sk: true } : { tid, seat: role });
 }
 
 /* ---------- 회의(대표만 시작) ---------- */
@@ -4023,7 +4171,8 @@ function meetStartDrawer(tid, preset = {}) {
   const d = state.teams[tid];
   const t = state.org.teams.find(x => x.id === tid), gap = t ? leadGapHTML(t, d, 'w') : '';
   if (gap) { openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">회의 시작</h2>${gap}`, tid); return; }
-  const roles = leadFirst(d.team.members).filter(m => m.sessionId).map(m => m.role);
+  // 참석자: 세션이 앉은 자리와 지금 말을 전할 수 있는 직원(명찰 이름 꼴이 맞고 팀장이 있어요. 서버 reachable과 같아요). 직원 일꾼은 팀장이 띄워요
+  const lead = skLead(tid), ms = leadFirst(d.team.members).filter(m => m.sessionId || (lead && skName(m) && skRole(m))), roles = ms.map(m => m.role), sk = new Set(ms.filter(isSk).map(m => m.role));
   const want = Array.isArray(preset.participants) && preset.participants.length ? preset.participants : roles;
   const mode = preset.mode === '위임' ? '위임' : '참석';
   openDrawer(`<p class="d-eyebrow">${esc(d.team.team)} 팀 회의실</p><h2 class="d-title" id="dTitle">회의 시작</h2>
@@ -4033,7 +4182,8 @@ function meetStartDrawer(tid, preset = {}) {
       <fieldset class="chips"><legend>방식</legend>
         <label><input type="radio" name="mode" value="참석"${mode === '참석' ? ' checked' : ''}> 내가 같이 해요 (참석)</label>
         <label><input type="radio" name="mode" value="위임"${mode === '위임' ? ' checked' : ''}> 너희끼리 해요 (위임)</label></fieldset>
-      <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${seatHTML(tid, r)}</label>`).join('')}</fieldset>
+      <fieldset class="chips"><legend>참석자</legend>${roles.map(r => `<label><input type="checkbox" name="p" value="${esc(r)}"${r === LEAD || want.includes(r) ? ' checked' : ''}${r === LEAD ? ' disabled' : ''}> ${seatHTML(tid, r)}${sk.has(r) ? ' <small class="hint">직원</small>' : ''}</label>`).join('')}</fieldset>
+      ${sk.size ? `<p class="hint">직원은 팀장 창에서 일해요. 직원에게 온 말은 팀장이 한 통으로 받아 그 직원의 일꾼에게 맡겨요.</p>` : ''}
       <textarea name="note" maxlength="2000" placeholder="안건이나 메모 (선택)" aria-label="회의 메모">${esc(preset.note || '')}</textarea>
       <div class="row"><p class="hint">참석: 내 말이 참석자에게 바로 가요. 위임: 팀장이 진행하고 결과를 회의록·결재로 올려요. 중간에 빠지면 나머지는 팀이 이어서 해요.</p><button type="submit" class="btn primary">회의 시작</button></div>
       ${relayBox()}
@@ -4504,7 +4654,9 @@ const SU = {
   // 처음 화면의 총괄 줄(팀장 결정 U-19 3장 6번): boss는 ‘총괄 세션도 열기’ 칸(기본 켬), use는 [있는 세션 쓰기]에서 고른 세션. far는 층 폴더 밖 세션 안내를 보여 줄 층들
   first: { boss: true, use: '', busy: false, far: null },
   // 팀 규칙 한 줄(/api/floor/link-rules, 처음 화면의 칸·층 묶음의 결과 상자): on은 체크 상자, res는 층마다 결과 { busy, done, bad, text }
-  rules: { on: true, res: {} }
+  rules: { on: true, res: {} },
+  // 직원 스킬(U-31, 시험 기능) 묶음: 층마다 { open, draft: 직원 들이기 폼에 쓰던 값, busy, text·bad: 마지막 결과, restart: 팀장 창을 다시 켜야 하는지, err: 폼 오류 }
+  sk: {}
 };
 const onFloors = () => SU.view === 'first' || SU.view === 'floors';   // 층을 고르고 만드는 화면(나무·추천·팀원 편집기가 있는 곳)
 // 어느 화면으로 열지(팀장 결정 U-19 1장, 02:10): 처음 화면은 설정을 안 끝냈을 때(done=false)만이고, done=true면 층이 0개여도 탭이에요.
@@ -4590,26 +4742,27 @@ const cut = (s, n) => Array.from(String(s == null ? '' : s)).slice(0, n).join(''
 const glen = s => Array.from(String(s == null ? '' : s)).length;   // 서버(len)와 같은 글자 수
 // team.json 팀원 중 설정 화면이 불러와 보여 주는 줄(서버 office_server.py·bin/new_team.py의 shown_rows와 같은 기준): [{i, role(NFC), m}].
 // {…}인 줄, 역할 이름이 글이고 NFC로 맞추면 쓸 수 있는 이름, 대소문자만 다른 이름은 앞의 줄만, 50줄까지. 나머지 줄은 서버가 지우지 않고 그대로 둬요.
+// 직원 줄(isSk)과 직원과 같은 역할 이름의 줄도 빼요. 세션 자리가 아니어서예요(팀원 목록을 바꿔도 서버가 그대로 둬요)
 const SHOWN_MAX = 50;
 function shownRows(ms) {
-  const out = [], seen = new Set();
-  (Array.isArray(ms) ? ms : []).forEach((m, i) => {
-    if (out.length >= SHOWN_MAX || !m || typeof m !== 'object' || Array.isArray(m) || typeof m.role !== 'string') return;
+  const list = Array.isArray(ms) ? ms : [], out = [], seen = new Set(list.map(skRole).filter(Boolean).map(roleKey));
+  list.forEach((m, i) => {
+    if (out.length >= SHOWN_MAX || !m || typeof m !== 'object' || Array.isArray(m) || typeof m.role !== 'string' || isSk(m)) return;
     const r = m.role.normalize('NFC');
     if (roleOk(r) && !seen.has(roleKey(r))) { seen.add(roleKey(r)); out.push({ i, role: r, m }); }
   });
   return out;
 }
 const hiddenLabel = m => (!m || typeof m !== 'object' || Array.isArray(m) ? '(모양이 이상한 줄)' : typeof m.role === 'string' ? cut(m.role.trim(), 20) || '(빈 이름)' : '(역할 이름 없음)');
-function hiddenRows(ms) {   // shownRows에 들지 않아 그대로 두는 줄의 이름들
+function hiddenRows(ms) {   // shownRows에 들지 않아 그대로 두는 줄의 이름들. 직원 줄은 깨진 줄이 아니라 빼요(서버 existing_team의 kept와 같아요)
   const on = new Set(shownRows(ms).map(x => x.i));
-  return (Array.isArray(ms) ? ms : []).filter((m, i) => !on.has(i)).map(hiddenLabel);
+  return (Array.isArray(ms) ? ms : []).filter((m, i) => !on.has(i) && !skRole(m)).map(hiddenLabel);
 }
 // 그대로 두는 줄에 앉은 세션 → 그 줄 이름(서버 existing_team의 keptSessions와 같아요). 그 세션은 다른 자리에 또 앉히지 않아요
 function heldSessions(ms) {
   const list = Array.isArray(ms) ? ms : [], sh = shownRows(list), on = new Set(sh.map(x => x.i)), m = new Map();
   const seated = new Set(sh.map(x => x.m.sessionId).filter(v => typeof v === 'string' && v));   // 보여 주는 자리에도 앉아 있던 세션은 빼요
-  list.forEach((x, i) => { if (!on.has(i) && x && typeof x === 'object' && typeof x.sessionId === 'string' && SID_RE.test(x.sessionId) && !seated.has(x.sessionId) && !m.has(x.sessionId)) m.set(x.sessionId, hiddenLabel(x)); });
+  list.forEach((x, i) => { if (!on.has(i) && x && typeof x === 'object' && !skRole(x) && typeof x.sessionId === 'string' && SID_RE.test(x.sessionId) && !seated.has(x.sessionId) && !m.has(x.sessionId)) m.set(x.sessionId, hiddenLabel(x)); });   // 직원 줄에 잘못 적힌 세션 id는 앉은 게 아니에요
   return m;
 }
 const heldOf = e => (e.existing ? e.existing.held : e.held) || new Map();   // 만들 층(이미 있는 팀 사무실)·팀원 고치기
@@ -5137,16 +5290,18 @@ function rowHTML(e, r, j, pre, c) {
       ${cxOn ? `<p class="hint su-mnote su-cxn" id="${id}c"><span class="chip cx">Codex · 읽기 전용</span><span>상태(일하는 중·대기)만 보여 주고, 아직 말을 걸 수는 없어요</span></p>` : ''}
       <small class="${guess ? 'su-guess' : 'hint'} su-mnote" id="${id}g"${note || (lead && !r.sid) ? '' : ' hidden'}>${esc(note || (lead && !r.sid ? '팀장이 없으면 회의·결재를 못 해요.' : ''))}</small>${(sk => (sk ? seatBoxHTML(e.id, r.was, 's', ' su-seat su-mnote') : ''))(rowSeat(e, r))}</div>`;
 }
+// 이 편집기에 둘 수 있는 세션 자리 수: 직원 줄도 한 층 자리를 차지해요(서버와 같아요). 직원이 없으면 MAX_MEMBERS 그대로예요
+const seatMax = e => MAX_MEMBERS - (Array.isArray(e.staff) ? e.staff.length : 0);
 function membersHTML(e, pre, owner, used) {
-  const full = e.rows.length >= MAX_MEMBERS, c = seatCtx(e, owner, used);
+  const full = e.rows.length >= seatMax(e), c = seatCtx(e, owner, used);
   c.moves = movePairs(e);
   c.exHint = e.existing ? `${pre}xh` : '';   // 불러온 자리의 역할 이름 칸이 가리킬 안내(existHTML)
-  return `<fieldset class="su-mem" aria-describedby="${pre}mh"><legend>팀원 <small>${e.rows.length}/${MAX_MEMBERS}</small></legend>
+  return `<fieldset class="su-mem" aria-describedby="${pre}mh"><legend>팀원 <small>${e.rows.length}/${seatMax(e)}</small></legend>
       <div class="su-mhead" aria-hidden="true"><span>역할</span><span>이름 <small>(선택)</small></span><span>세션</span></div>
       ${e.rows.map((r, j) => rowHTML(e, r, j, pre, c)).join('')}
       <div class="su-madd"><button type="button" class="btn" id="${pre}add" data-su="madd"${full ? ' disabled' : ''}>+ 팀원 추가</button>
         ${ROLE_SUGGEST.map((r, k) => `<button type="button" class="btn su-sugg" id="${pre}q${k}" data-su="madd" data-role="${esc(r)}" aria-label="${esc(r)} 자리 더하기"${full ? ' disabled' : ''}>${esc(r)}</button>`).join('')}</div>
-      ${full ? `<p class="hint" style="margin-top:4px">${MAX_MEMBERS}명까지예요.</p>` : ''}
+      ${full ? `<p class="hint" style="margin-top:4px">${e.staff && e.staff.length ? `직원 ${e.staff.length}자리를 빼면 ${seatMax(e)}명까지예요.` : `${MAX_MEMBERS}명까지예요.`}</p>` : ''}
       <details class="su-more"><summary>자세히</summary><p class="hint" id="${pre}nh" style="margin-top:4px">${esc(nameHint(e))}</p><p class="hint" id="${pre}mh" style="margin-top:4px">한 세션은 한 자리에만 앉아요. 이 층의 다른 자리에 있는 세션을 고르면 두 자리가 서로 바뀌어요. ‘빈자리로 두기’를 고르면 빈자리로 보여요.${cxSessions().length || e.rows.some(y => y.cx) ? ` Codex 세션은 세션 칸의 ‘${CX_GROUP}’에서 골라 읽기 전용 자리로 앉혀요(팀장 자리는 안 돼요).` : ''}${!API ? '' : e.kind === 'floor' ? ' 저장한 빈자리는 [세션 만들기]로 이 층 폴더에서 새 Claude 세션을 열어 바로 앉혀요.' : ' 층을 만든 뒤 빈자리에 [세션 만들기]로 새 Claude 세션을 열어 앉힐 수 있어요.'}</p></details>
     </fieldset>`;
 }
@@ -5218,23 +5373,155 @@ function ordHTML(f, k, n, j) {
   return `<span class="su-ord" role="group" aria-label="${esc(label)} 순서">${b('up', k === n - 1)}${b('down', k === 0)}</span>`;
 }
 function haveHTML(f, used, k, all) {
-  const j = ix('floor|' + f.id), e = SU.edit[f.id], n = memberCount(f), note = SU.editNote[f.id];
+  const j = ix('floor|' + f.id), e = SU.edit[f.id], n = memberCount(f), note = SU.editNote[f.id], so = !f.example && API && skState(f.id).open, skn = skCount(f);
+  // [직원 스킬](U-31, 시험 기능): 이 층의 직원 스킬 켜기·직원 들이기·퇴근을 펼쳐요
+  const sb = !f.example && API ? `<button type="button" class="btn su-to" id="suSk${j}" data-su="sk-open" data-team="${esc(f.id)}" aria-expanded="${!!so}"${so ? ` aria-controls="suK${j}"` : ''}>${so ? '직원 접기' : '직원 스킬'}</button>` : '';
   const btn = !f.example && API ? `<button type="button" class="btn su-to" id="suEb${j}" data-su="${e ? 'edit-cancel' : 'edit-open'}" data-team="${esc(f.id)}" aria-expanded="${!!e}"${e ? ` aria-controls="suEd${j}"` : ''}>${e ? '접기' : '팀원 고치기'}</button>` : '';
   const rs = SU.rules.res[f.id];   // [규칙 줄 넣기]: 층 폴더의 CLAUDE.local.md에 @.office/RULES.md 한 줄(없을 때만)
   const rb = !f.example && API ? `<button type="button" class="btn su-to" id="suRh${j}" data-su="link-rules" data-team="${esc(f.id)}" aria-label="${esc(f.name)} 층 폴더의 CLAUDE.local.md에 팀 규칙 줄 넣기" title="층 폴더의 CLAUDE.local.md에 @.office/RULES.md 한 줄을 넣어요(이미 있으면 그대로)"${rs && rs.busy ? ' aria-disabled="true"' : ''}>${rs && rs.busy ? '넣는 중…' : '규칙 줄 넣기'}</button>` : '';
-  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h">${ordHTML(f, k, all, j)}<span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명</small>` : ''}${rb || btn ? `<span class="su-have-b">${rb}${btn}</span>` : ''}</div>
+  return `<li class="su-have${e ? ' on' : ''}" data-edit="${esc(f.id)}"><div class="su-have-h">${ordHTML(f, k, all, j)}<span class="fl-no">${f.floor ? esc(f.floor + '층') : '—'}</span><b>${esc(f.name)}</b>${f.example ? '<span class="chip">예시</span>' : ''}<code>${esc(tilde(f.folder))}</code>${n != null ? `<small class="hint">팀원 ${n}명${skn ? ` · 직원 ${skn}명` : ''}</small>` : ''}${rb || btn || sb ? `<span class="su-have-b">${rb}${btn}${sb}</span>` : ''}</div>
     ${rs && rs.text ? `<p class="hint su-rlst${rs.bad ? ' bad' : ''}" role="status">${esc(rs.text)}</p>` : ''}
-    ${e ? editHTML(f, e, j, used) : ''}${note && note.text && !e ? `<p class="hint su-saved" role="status">${esc(note.text)}</p>${note.away.length ? `<p class="hint">층 폴더 밖에서 연 세션(${esc(note.away.join(', '))})은 그 세션 폴더의 CLAUDE.local.md에 이 줄을 넣거나 세션 창에 한 번 보내야 팀 규칙을 읽어요: <code>${esc(note.rules)}</code> <button type="button" class="btn" id="suEn${j}" data-copy="${esc(note.rules)}">줄 복사</button></p>` : ''}` : ''}</li>`;
+    ${e ? editHTML(f, e, j, used) : ''}${so ? skPanelHTML(f, j) : ''}${note && note.text && !e ? `<p class="hint su-saved" role="status">${esc(note.text)}</p>${note.away.length ? `<p class="hint">층 폴더 밖에서 연 세션(${esc(note.away.join(', '))})은 그 세션 폴더의 CLAUDE.local.md에 이 줄을 넣거나 세션 창에 한 번 보내야 팀 규칙을 읽어요: <code>${esc(note.rules)}</code> <button type="button" class="btn" id="suEn${j}" data-copy="${esc(note.rules)}">줄 복사</button></p>` : ''}` : ''}</li>`;
 }
 function editHTML(f, e, j, used) {
   const pre = 'suE' + j;
   const kl = !e.loading && !e.loadErr && e.kept ? keptLine(e.kept, e.kept.length) : '';
+  const sl = !e.loading && !e.loadErr && e.staff && e.staff.length ? `직원 자리(${e.staff.slice(0, 12).join(', ')})는 여기서 고치지 않아요. 옆의 [직원 스킬]에서 들이고 퇴근시켜요.` : '';
   const body = e.loading ? '<p class="empty" style="margin-top:8px">팀원을 읽는 중이에요…</p>' : e.loadErr ? `<p class="err" style="margin-top:8px">${esc(e.loadErr)}</p>`
-    : (kl ? `<p class="hint" style="margin-top:8px">${esc(kl)}</p>` : '') + membersHTML(e, pre, 'floor|' + f.id, used);
+    : (kl ? `<p class="hint" style="margin-top:8px">${esc(kl)}</p>` : '') + (sl ? `<p class="hint" style="margin-top:8px">${esc(sl)}</p>` : '') + membersHTML(e, pre, 'floor|' + f.id, used);
   return `<div class="su-edit" id="suEd${j}" role="group" aria-label="${esc(f.name)} 층 팀원 고치기">${body}
       <p class="err" role="alert" id="${pre}err" tabindex="-1" style="margin-top:8px">${esc(e.err)}</p>
       <div class="su-actions"><button type="button" class="btn primary" id="${pre}save" data-su="edit-save" data-team="${esc(f.id)}"${e.loading || e.loadErr ? ' disabled' : ''}>팀원 저장</button><button type="button" class="btn" id="${pre}cancel" data-su="edit-cancel" data-team="${esc(f.id)}">취소</button>
         <span class="hint">뺀 팀원의 대화·상태 파일은 지우지 않고 그대로 둬요. 이름을 바꾼 자리는 대화·상태도 새 이름으로 옮겨요.</span></div></div>`;
+}
+// ---------- 직원 스킬(U-31 '스킬이 곧 직원', 시험 기능) ----------
+// 층마다 켜고 꺼요(org.json의 층 "staff": true, /api/staff/enable). 켠 층만 [직원 들이기] 폼이 보여요(/api/staff/hire). 직원마다 [퇴근](/api/staff/fire)과,
+// 명찰이 바뀌었거나 없으면 [명찰 다시 만들기](/api/staff/rebuild)가 있어요. 끄면 들이기만 숨겨요(들인 직원과 명찰은 그대로예요). 직원 목록은 사무실 화면이 읽은 team.json이에요.
+const skState = id => SU.sk[id] || (SU.sk[id] = { open: false, draft: null, busy: '', text: '', bad: false, restart: false, err: '' });
+const skCount = f => { const d = state && state.teams && state.teams[f.id]; return d && d.team ? skRows(d.team.members).length : 0; };
+const SK_TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit'];   // 서버가 기본 도구를 못 알려 줄 때(서버 STAFF_BASE_TOOLS와 같아요. Bash 없이)
+const floorWord = n => (String(n).endsWith('층') ? String(n) : `${n} 층`);   // '<층 이름> 층'. 이름이 이미 '층'으로 끝나면 또 붙이지 않아요(서버 floor_word와 같아요)
+function skDraft(f) {
+  const k = skState(f.id), form = f.staffForm || {};
+  if (!k.draft) k.draft = { role: '', staff: '', desc: '', work: '', tools: (Array.isArray(form.defaultTools) ? form.defaultTools : SK_TOOLS).slice(), model: 'inherit', skills: [] };
+  return k.draft;
+}
+function skPanelHTML(f, j) {
+  const k = skState(f.id), on = f.staffOn === true, d = state && state.teams && state.teams[f.id], rows = d && d.team ? skRows(d.team.members) : [], pre = 'suK' + j;
+  const list = rows.length ? `<ul class="su-sklist" aria-label="${esc(floorWord(f.name))} 직원">${rows.map((m, i) => skRowHTML(f, m, `${pre}m${i}`)).join('')}</ul>` : on ? '<p class="hint" style="margin-top:8px">아직 들인 직원이 없어요.</p>' : '';
+  return `<div class="su-edit su-staff" id="${pre}" role="group" aria-label="${esc(floorWord(f.name))} 직원 스킬">
+    <label class="su-check"><input type="checkbox" role="switch" id="${pre}on" data-su-in="sk-on" data-team="${esc(f.id)}"${on ? ' checked' : ''}${k.busy === 'on' ? ' disabled' : ''} aria-describedby="${pre}h"> 직원 스킬(시험 기능) 켜기</label>
+    <p class="hint" id="${pre}h" data-must>직원은 세션 없이 이 층 팀장 세션이 띄우는 일꾼이에요. 켜면 [직원 들이기]가 보이고, 이 층 RULES.md에 ‘직원 일꾼’ 부분이 들어가요. 켜져 있는 팀장에게는 RULES.md를 다시 읽으라는 사이트 알림을 한 번 보내요.</p>
+    <details class="su-more"><summary>자세히</summary><p class="hint">직원마다 이 층 팀 사무실의 staff/&lt;영문 이름&gt;/에 직원 스킬(SKILL.md)과 기억.md를 두고, 팀장 폴더에 명찰(.claude/agents/ag-….md)을 만들어요. 쓸 층 스킬은 팀장 폴더의 .claude/skills/에 링크를 걸고, 팀장 폴더가 git 저장소면 .git/info/exclude에 명찰 한 줄과 건 스킬 링크마다 한 줄을 더해요. 직원에게 건 말과 사진은 팀장 세션이 받아 그 직원의 일꾼에게 맡겨요. 끄면 [직원 들이기]만 숨겨요. 들인 직원과 명찰, 직원이 남아 있는 동안의 ‘직원 일꾼’ 규칙은 그대로예요.</p></details>
+    ${k.text ? `<p class="hint su-rlst${k.bad ? ' bad' : ''}" role="status">${esc(k.text)}</p>` : ''}${k.restart ? `<div class="su-box su-warn" role="note"><p>${esc(SK_RESTART)}.</p></div>` : ''}
+    ${list}${on ? skFormHTML(f, pre) : ''}</div>`;
+}
+// 들인 직원 한 줄: 역할, 명찰 이름, 명찰 상태, [명찰 다시 만들기](바뀜·없음일 때만), [퇴근]
+function skRowHTML(f, m, id) {
+  const role = skRole(m), x = skInfo(f.id, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(f.id, role), nm = skName(m);
+  const miss = x && Array.isArray(x.missing_skills) && x.missing_skills.length ? `<p class="hint">팀장 폴더에서 못 찾은 쓸 스킬: ${esc(x.missing_skills.filter(y => typeof y === 'string').join(', '))}</p>` : '';
+  return `<li class="su-have-h"><b>${esc(role)}</b><code>${esc(nm || '명찰 이름 꼴이 틀림')}</code>${a ? `<span class="chip${a === 'ok' ? ' on' : ' wait'}">명찰 ${esc(SK_AGENT[a])}</span>` : ''}
+      <span class="su-have-b">${nm && (a === '바뀜' || a === '없음') ? `<button type="button" class="btn su-to" id="${id}r" data-su="sk-rebuild" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 명찰 다시 만들기"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : ''}<button type="button" class="btn su-to" id="${id}f" data-su="sk-fire" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 직원 퇴근">퇴근</button></span>
+      ${r.text ? `<p class="hint su-rlst${r.bad ? ' bad' : ''}" role="status">${esc(r.text)}</p>` : ''}${skHeadHTML(x, 'row')}${miss}</li>`;
+}
+// [직원 들이기] 폼: 역할 이름, 영문 이름(ag-…), 한 줄 설명, 하는 일, 도구, 모델, 쓸 스킬. 고를 것(도구·모델·스킬 목록)은 서버가 /api/setup/state의 staffForm으로 줘요
+function skFormHTML(f, pre) {
+  const k = skState(f.id), d = skDraft(f), form = f.staffForm || {}, list = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : []);
+  const tools = list(form.tools).length ? list(form.tools) : SK_TOOLS, models = list(form.models).length ? list(form.models) : ['inherit'], sk = form.skills || {};
+  const fl = list(sk.floor), me = list(sk.personal).filter(n => !fl.includes(n)), bash = d.tools.includes('Bash');
+  const ck = (kind, v, i) => `<label><input type="checkbox" id="${pre}${kind}${i}" data-su-in="sk-${kind === 't' ? 'tool' : 'skill'}" data-team="${esc(f.id)}" value="${esc(v)}"${(kind === 't' ? d.tools : d.skills).includes(v) ? ' checked' : ''}> ${esc(v)}</label>`;
+  const group = (legend, names, from) => (names.length ? `<fieldset class="chips"><legend>${legend}</legend>${names.map((n, i) => ck('s', n, from + i)).join('')}</fieldset>` : '');
+  return `<fieldset class="su-skf" aria-describedby="${pre}fh"><legend>직원 들이기</legend>
+      <p class="hint" id="${pre}fh">직원 스킬(SKILL.md)을 만들고 팀장 폴더에 명찰을 둬요. 들인 뒤 SKILL.md를 고치면 [명찰 다시 만들기]로 맞춰요.</p>
+      <div class="su-skg"><div class="su-field"><label for="${pre}r">역할 이름 <small>화면·파일 이름, 12자까지</small></label><input type="text" id="${pre}r" data-su-in="sk" data-k="role" data-team="${esc(f.id)}" maxlength="12" value="${esc(d.role)}" list="suRoleList" autocomplete="off"></div>
+        <div class="su-field"><label for="${pre}n">영문 이름 <small>ag-로 시작 · 소문자·숫자·-</small></label><input type="text" id="${pre}n" data-su-in="sk" data-k="staff" data-team="${esc(f.id)}" maxlength="27" value="${esc(d.staff)}" placeholder="ag-planner" autocomplete="off" autocapitalize="off" spellcheck="false"></div></div>
+      <div class="su-field"><label for="${pre}d">한 줄 설명 <small>300자까지, 팀장이 이 직원을 고를 때 읽어요</small></label><input type="text" id="${pre}d" data-su-in="sk" data-k="desc" data-team="${esc(f.id)}" maxlength="300" value="${esc(d.desc)}" autocomplete="off"></div>
+      <div class="su-field"><label for="${pre}w">하는 일 <small>여러 줄, 4000자까지</small></label><textarea id="${pre}w" data-su-in="sk" data-k="work" data-team="${esc(f.id)}" maxlength="4000" rows="4">${esc(d.work)}</textarea></div>
+      <fieldset class="chips"><legend>도구</legend>${tools.map((t, i) => ck('t', t, i)).join('')}</fieldset>
+      <p class="err" id="${pre}b" role="status">${bash ? SK_BASH : ''}</p>
+      <div class="su-field"><label for="${pre}mo">모델</label><select id="${pre}mo" data-su-in="sk" data-k="model" data-team="${esc(f.id)}">${models.map(m => `<option value="${esc(m)}"${m === d.model ? ' selected' : ''}>${esc(m === 'inherit' ? 'inherit (팀장과 같게)' : m)}</option>`).join('')}</select></div>
+      ${fl.length || me.length ? group('쓸 스킬 · 이 층 스킬 <small>팀장 폴더에 링크를 걸어요</small>', fl, 0) + group('쓸 스킬 · 개인 스킬', me, fl.length) : '<p class="hint">고를 스킬이 없어요(이 층 .office/skills와 개인 스킬 폴더가 비었어요).</p>'}
+      <p class="err" role="alert" id="${pre}e" tabindex="-1">${esc(k.err)}</p>
+      <div class="su-actions"><button type="button" class="btn primary" id="${pre}go" data-su="sk-hire" data-team="${esc(f.id)}">직원 들이기</button><span class="hint">직원 폴더(.office/staff/영문 이름/)와 팀장 폴더의 명찰을 만들어요.</span></div>
+    </fieldset>`;
+}
+// 폼 칸 하나를 바꿨어요(다시 그리지 않아요. 도구에 Bash가 들면 경고 한 줄만 바꿔요)
+function skInput(t, kind) {
+  const f = floorById(t.dataset.team);
+  if (!f) return;
+  const d = skDraft(f);
+  if (kind === 'sk') {
+    if (t.dataset.k === 'staff') { const low = t.value.toLowerCase(); if (low !== t.value) { const a = t.selectionStart, b = t.selectionEnd; t.value = low; try { t.setSelectionRange(a, b); } catch (e) {} } }
+    if (['role', 'staff', 'desc', 'work', 'model'].includes(t.dataset.k)) d[t.dataset.k] = t.value;
+    return;
+  }
+  const key = kind === 'sk-tool' ? 'tools' : 'skills', v = t.value;
+  d[key] = t.checked ? [...d[key].filter(x => x !== v), v] : d[key].filter(x => x !== v);
+  if (kind === 'sk-tool') { const w = t.closest('fieldset') && t.closest('fieldset').nextElementSibling; if (w && w.id && w.id.endsWith('b')) w.textContent = d.tools.includes('Bash') ? SK_BASH : ''; }
+}
+// [직원 스킬(시험 기능) 켜기]: 서버가 org.json을 고치고 그 층 RULES.md의 ‘직원 일꾼’ 부분을 맞춰요
+async function skEnable(t) {
+  const id = t.dataset.team, on = t.checked, k = skState(id), has = v => Array.isArray(v) && v.includes('staff');
+  t.disabled = true; k.busy = 'on'; k.text = ''; k.bad = false;
+  try {
+    const r = await post('api/staff/enable', { team: id, on }), ru = r.rules && typeof r.rules === 'object' ? r.rules : {}, f = floorById(id);
+    // 끈 층에 직원이 남아 있으면 서버가 ‘직원 일꾼’ 부분을 그대로 둬요(남은 직원은 팀장이 여전히 띄울 수 있어서요)
+    // 그 부분이 없던 층이면(손으로 지웠거나 켤 때 맞추지 못했어요) 끌 때도 남은 직원 때문에 새로 넣어요. 그때는 남은 직원이 있어서라고 알려요
+    const kept = !on && ru.ok !== false && !has(ru.removed) && !!f && skCount(f) > 0;
+    k.text = (on ? '직원 스킬을 켰어요.' : '직원 스킬을 껐어요. 들인 직원과 명찰은 그대로예요.')
+      + (ru.ok === false ? ` 팀 규칙(RULES.md)은 맞추지 못했어요: ${String(ru.error || '알 수 없는 오류')}`
+        : has(ru.appended) || has(ru.updated) ? (on ? ' RULES.md에 ‘직원 일꾼’ 부분을 넣었어요.' : ' 들인 직원이 남아 있어서 RULES.md에 ‘직원 일꾼’ 부분을 넣었어요(일꾼이 지킬 규칙이에요).') : has(ru.removed) ? ' RULES.md에서 ‘직원 일꾼’ 부분을 뺐어요(예전 글은 RULES.md.bak).'
+        : kept ? ' 들인 직원이 남아 있어서 RULES.md의 ‘직원 일꾼’ 부분은 그대로 둬요(일꾼이 지킬 규칙이에요).' : '')
+      + (r.told === true ? ' 켜져 있는 팀장에게 RULES.md를 다시 읽으라는 사이트 알림을 보냈어요.' : r.told === false ? ` 팀장에게 RULES.md를 다시 읽으라는 사이트 알림을 보내지 못했어요(${String(r.tellError || '알 수 없는 오류')}). 팀장 창에서 RULES.md를 다시 읽게 해 주세요.` : '');
+    k.bad = r.told === false;
+    await refreshSetup().catch(() => {});
+  } catch (e) { t.checked = !on; k.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '바꾸지 못했어요'; k.bad = true; }
+  k.busy = ''; t.disabled = false;
+  renderSetup('#' + CSS.escape(t.id));
+  suSay(k.text);
+}
+// 폼을 서버에 보내기 전에 보는 것(서버가 다시 봐요): 빈 칸, 역할 이름 규칙과 이 층에서 겹치는지, 영문 이름 꼴, 도구
+function skCheck(f, d) {
+  const role = String(d.role || '').normalize('NFC').trim(), dd = state && state.teams && state.teams[f.id];
+  const taken = new Set((dd && dd.team && Array.isArray(dd.team.members) ? dd.team.members : []).filter(m => m && typeof m.role === 'string').map(m => roleKey(m.role)));
+  return roleErr(role, taken) ? ['r', roleErr(role, taken)] : !STAFF_RE.test(String(d.staff || '').trim()) ? ['n', '영문 이름은 ag-로 시작하고 영문 소문자·숫자·-로 써요(27자까지, 예: ag-planner)']
+    : !String(d.desc || '').trim() ? ['d', '한 줄 설명을 적어 주세요'] : !String(d.work || '').trim() ? ['w', '하는 일을 적어 주세요'] : !d.tools.length ? ['t0', '도구를 하나 이상 골라 주세요'] : null;
+}
+async function skHire(id, pre) {
+  const f = floorById(id), k = skState(id);
+  if (!f) return;
+  const d = skDraft(f), bad = skCheck(f, d);
+  k.err = bad ? bad[1] : ''; k.restart = false;
+  if (bad) { renderSetup([`#${pre}${bad[0]}`, `#${pre}e`]); return; }
+  let r;
+  try {
+    r = await post('api/staff/hire', { team: id, role: String(d.role).normalize('NFC').trim(), staff: String(d.staff).trim(), desc: String(d.desc).trim(), work: String(d.work), tools: d.tools, model: d.model, skills: d.skills });
+  } catch (e) { k.err = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '들이지 못했어요'; renderSetup(`#${pre}e`); return; }
+  const links = Array.isArray(r.links) ? r.links.length : 0, g = skGitText(r.git);   // exclude 줄은 서버 답 git대로(명찰 줄·스킬 링크 줄, 이미 있던 줄)
+  k.draft = null; k.bad = false; k.restart = r.restart === true;
+  k.text = `‘${r.role}’ 직원(${r.staff})을 들였어요. 직원 스킬: ${r.folder}/SKILL.md`
+    + (links ? ` · 층 스킬 ${links}개를 팀장 폴더에 링크했어요` : '') + (g ? ` · ${g}` : '') + '.';
+  await Promise.all([refreshSetup().catch(() => {}), load()]);
+  renderSetup([`#${pre}on`]);
+  suSay(k.text + (k.restart ? ` ${SK_RESTART}.` : ''));
+}
+// [퇴근]: 확인 창 뒤에 서버가 team.json의 직원 줄을 빼고 명찰을 직원 폴더의 retired/로 옮겨요. 직원 폴더는 남아요(지우지 않아요)
+async function skFire(id, role, pre) {
+  if (!confirm(`‘${role}’ 직원을 퇴근시킬까요?\n팀원 목록(team.json)에서 빼고, 팀장 폴더의 명찰은 직원 폴더의 retired/로 옮겨요.\n직원 폴더(SKILL.md·기억.md)는 남아요. 지우지 않아요.`)) return;
+  const k = skState(id);
+  let r;
+  try {
+    r = await post('api/staff/fire', { team: id, role }).catch(e => { if (e.body && e.body.why === 'lead') return e; throw e; });
+    // 팀장 폴더를 못 찾아 명찰을 옮길 수 없어요: 그래도 줄만 뺄지 한 번 더 물어요(명찰이 남으면 팀장이 아직 그 일꾼을 띄울 수 있어요)
+    if (r instanceof Error) r = confirm(`${r.message}\n\n그래도 팀원 목록에서만 뺄까요?`) ? await post('api/staff/fire', { team: id, role, anyway: true }) : null;
+  } catch (e) { k.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '퇴근시키지 못했어요'; k.bad = true; renderSetup(`#${pre}on`); return; }
+  if (!r) { k.text = `‘${role}’ 직원을 퇴근시키지 않았어요. 팀장 창을 한 번 연 뒤 다시 해 주세요.`; k.bad = true; renderSetup(`#${pre}on`); suSay(k.text); return; }
+  k.bad = !!r.left; k.restart = false;
+  k.text = `‘${role}’ 직원을 퇴근시켰어요. 직원 폴더는 남아요${r.kept ? `(${r.kept})` : ''}.${r.retired ? ` 명찰은 ${r.retired}로 옮겼어요.` : ''}${r.left ? ` ${r.left}.` : ''}`;
+  delete SKR[id + '|' + role];
+  await Promise.all([refreshSetup().catch(() => {}), load()]);
+  renderSetup(`#${pre}on`);
+  suSay(k.text);
 }
 // 총괄: 제목이 총괄 같은 세션을 맨 위에(서버가 고른 후보가 맨 앞), 그다음 묶음별로 모든 세션. 아직 총괄이 없으면 후보를 미리 골라 둬요(‘층 만들기’를 눌러야 정해져요).
 function bossHTML(all, save = '') {   // save: 고르기 바로 아래에 둘 단추(총괄 묶음의 [총괄로 정하기])
@@ -5323,6 +5610,7 @@ function readInfoHTML() {
   return `<div class="su-read"><p class="hint" data-must data-say>이 맥의 세션 목록(제목·폴더·마지막 활동)과 실행 상태만 읽어요.</p>
     <details class="su-more"><summary>자세히</summary><p class="hint">읽는 것: 세션 제목·폴더·마지막 활동·실행 상태, Claude 앱 사이드바의 그룹 이름·순서예요. 보관한 세션은 빼요. Codex 기록(<code>~/.codex</code>)은 id·폴더·제목·고친 시각만 읽고 아무것도 쓰지 않아요.
       세션이 30분 넘게 일하는 상태면 대화 기록(<code>~/.claude/projects</code>)의 고친 시각도 봐요. 이때 글은 꺼내지 않아요.
+      직원을 둔 층은 팀장 세션의 일꾼 기록(meta.json)에서 종류 이름·끝 표시·고친 시각만 꺼내요. 일꾼에게 준 글과 답은 열지 않아요.
       [첫 메시지도 읽기]를 켜면 세션마다 첫 메시지 앞 600자에서 역할 낱말만 찾아요. 화면에는 찾은 낱말과 어디서 찾았는지만 나와요.
       [세션 만들기]·[총괄 만들기]로 기다리는 30분 동안은 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 추천은 낱말표로만 정해서 틀릴 수 있어요. 팀을 펼쳐 [고치기]로 바꿔요.
       밖으로 나가는 건 하루 한 번 새 버전 확인뿐이에요(버전 번호만 물어요).</p></details></div>`;
@@ -6303,11 +6591,12 @@ const roleErr = (r, names) => !r ? '역할 이름을 적어 주세요'
   : !ROLE_RE.test(r) ? '한글·영문·숫자로 지어요(빈칸·/·.은 안 되고 _ · - 는 돼요)'
   : names.has(roleKey(r)) ? '같은 이름의 역할이 이미 있어요. 숫자를 붙여 보세요(예: 개발자2)' : '';
 function checkRows(e, owner) {
-  const all = allSessions(), used = seatsInUse(), fid = ownFloor(owner), names = new Set(), seen = new Set(), held = heldOf(e);
+  const all = allSessions(), used = seatsInUse(), fid = ownFloor(owner), names = new Set(), seen = new Set(), held = heldOf(e), sk = new Set((e.staff || []).map(roleKey));
   let first = null;
   e.rows.forEach((r, j) => {
     r.role = j === 0 ? LEAD : String(r.role || '').normalize('NFC').trim();
     r.err = j === 0 ? '' : roleErr(r.role, names); r.errAt = r.err ? 'n' : '';
+    if (!r.err && j && sk.has(roleKey(r.role))) { r.err = `‘${r.role}’은 이 층의 직원 자리 이름이에요. 다른 이름을 지어 주세요`; r.errAt = 'n'; }   // 직원 자리는 세션을 앉히지 않아요(서버도 409예요)
     names.add(roleKey(r.role));
     if (!r.err) {   // 이름: 서버와 같은 검사(1~20자, 제어·서식 문자·대표·총괄 불가, 이 층의 다른 이름·역할과 겹치지 않게)
       r.name = nameNorm(r.name);
@@ -6334,7 +6623,7 @@ function checkRows(e, owner) {
     if (r.sid) seen.add(r.sid);
     if (r.err && !first) first = r;
   });
-  if (e.rows.length > MAX_MEMBERS) return { msg: `팀원은 팀장까지 ${MAX_MEMBERS}명까지예요. 자리를 줄여 주세요`, at: 'add' };
+  if (e.rows.length > seatMax(e)) return { msg: e.staff && e.staff.length ? `직원 ${e.staff.length}자리를 빼면 팀원은 팀장까지 ${seatMax(e)}명까지예요. 자리를 줄여 주세요` : `팀원은 팀장까지 ${MAX_MEMBERS}명까지예요. 자리를 줄여 주세요`, at: 'add' };
   return first ? { msg: first.err, at: `r${first.uid}${first.errAt}` } : {};
 }
 // 서버로 보낼 이름: 불러온 이름에서 바꾼 줄만 보내요(안 보내면 서버가 그 줄의 이름을 그대로 둬요. 비워서 보내면 기본 이름으로 되돌려요)
@@ -6457,6 +6746,7 @@ async function openEdit(id, rec) {
     e.rows = rowsFromMembers(ms, names);
     e.kept = hiddenRows(ms);   // 보여 줄 수 없어서 그대로 두는 줄의 이름들
     e.held = heldSessions(ms);   // 그 줄들에 앉은 세션(다른 자리에 또 앉히지 않아요)
+    e.staff = ms.map(skRole).filter(Boolean);   // 직원 자리의 역할 이름(여기서 고치지 않고 서버가 그대로 둬요. 그 이름으로 세션 자리를 만들지 않아요)
     e.orig = rowsSig(e.rows);
     e.loaded = e.rows.map(r => ({ role: r.role, sid: r.sid, cx: r.cx || '' }));   // 불러온 그대로(이름을 바꾼 자리를 알아보려고)
   } catch (err) { e.loadErr = '팀원 정보(team.json)를 읽지 못했어요: ' + (err.message || '알 수 없는 오류'); }
@@ -6542,8 +6832,8 @@ function editorOf(el) {
 const rowOf = (e, el) => { const box = el.closest('.su-mrow'); return box ? e.rows.find(r => String(r.uid) === box.dataset.uid) || null : null; };
 function addRow(b) {
   const x = editorOf(b);
-  if (!x || x.e.rows.length >= MAX_MEMBERS) return;
-  const role = b.dataset.role ? uniqueRole(b.dataset.role, x.e.rows) : '', r = newRow(role, '', '', '');
+  if (!x || x.e.rows.length >= seatMax(x.e)) return;
+  const role = b.dataset.role ? uniqueRole(b.dataset.role, [...x.e.rows, ...(x.e.staff || []).map(role => ({ role }))]) : '', r = newRow(role, '', '', '');   // 직원 역할 이름과도 겹치지 않게
   x.e.seatSnap = null;
   x.e.rows.push(r);
   renderSetup(`#${x.pre}r${r.uid}${role ? 's' : 'n'}`);
@@ -6706,6 +6996,10 @@ $('#setup').addEventListener('click', e => {
     renderSetup(`#suO${up ? 'u' : 'd'}${ix('floor|' + f.id)}`);
     if (note) suSay(note);
   }
+  else if (a === 'sk-open') { const k = skState(b.dataset.team); k.open = !k.open; if (!k.open) { k.text = ''; k.restart = false; k.err = ''; } renderSetup('#' + b.id); }   // 직원 스킬 묶음 펼치기·접기
+  else if (a === 'sk-hire') { const p = b.closest('.su-staff'); suRun(b, () => skHire(b.dataset.team, p ? p.id : '')); }
+  else if (a === 'sk-fire') { const p = b.closest('.su-staff'); suRun(b, () => skFire(b.dataset.team, b.dataset.role, p ? p.id : '')); }
+  else if (a === 'sk-rebuild') { const p = b.closest('.su-staff'); skRebuild(b.dataset.team, b.dataset.role, [`#${b.id}`, p ? `#${p.id}on` : '#suHead']); }
   else if (a === 'edit-open') openEdit(b.dataset.team, b.dataset.rec ? recByKey(b.dataset.rec) : null);
   else if (a === 'edit-cancel') closeEdit(b.dataset.team);
   else if (a === 'edit-save') suRun(b, () => editSave(b.dataset.team));
@@ -6735,6 +7029,8 @@ function suInput(e) {
   if (kind === 'usg-lim') { USG.draft = Object.assign(USG.draft || {}, { [t.dataset.w]: t.value }); return; }   // 한도 칸(다시 그리지 않아요)
   if (kind === 'mt-auto') { mtAuto(t); return; }        // 도시 묶음: 자동으로 올리기(1시간마다)
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
+  if (kind === 'sk-on') { skEnable(t); return; }   // 직원 스킬(시험 기능) 켜기
+  if (kind === 'sk' || kind === 'sk-tool' || kind === 'sk-skill') { skInput(t, kind); return; }   // 직원 들이기 폼
   if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 처음 화면: 팀 규칙 한 줄을 [사무실 열기] 때 넣을지
   if (kind === 'first-msg') {   // [첫 메시지도 읽기]: 바꾸는 순간 서버에 적고 그 기준으로 다시 추천해요
     const yes = t.checked;
@@ -6900,7 +7196,7 @@ function roleBlur(t) {
   showRowErr(t.closest('.su-mrow'), r, v ? roleErr(v, new Set(x.e.rows.filter(y => y !== r).map(y => roleKey(y.role)))) : '');
 }
 $('#setup').addEventListener('toggle', e => { const d = e.target; if (d && d.matches && d.matches('details[data-fold]')) SU.fold[d.dataset.fold] = d.open; }, true);
-$('#setup').addEventListener('input', e => { if (e.target.type === 'text' || e.target.type === 'search') suInput(e); });
+$('#setup').addEventListener('input', e => { if (e.target.type === 'text' || e.target.type === 'search' || e.target.tagName === 'TEXTAREA') suInput(e); });
 $('#setup').addEventListener('change', e => {
   if (e.target.type !== 'text' && e.target.type !== 'search') suInput(e);
   else if (e.target.dataset.suIn === 'mrole') roleBlur(e.target);
@@ -7808,6 +8104,7 @@ document.addEventListener('click', e => {
       return;
     }
     if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
+    if (act.dataset.act === 'sk-rebuild') { if (!act.disabled && API) skRebuild(act.dataset.team, act.dataset.role); return; }   // 직원 서랍의 [명찰 다시 만들기]
     if (act.dataset.act === 'edit-team') { editTeam(act.dataset.team); return; }
     if (act.dataset.act === 'rules-all') { rulesAll(); return; }
     if (act.dataset.act === 'rules-tell') { rulesTell(); return; }

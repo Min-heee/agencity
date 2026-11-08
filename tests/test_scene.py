@@ -99,7 +99,7 @@ class SceneFrame(unittest.TestCase):
     SEAT = """
 const seats = {}, seatGet = k => seats[k], seatKey = (t, r) => t + '/' + r, isCx = m => !!m.codexId && !m.sessionId, exampleTeam = t => t === 'demo';
 const liveFake = {}, seatLive = (t, r) => liveFake[r] || null;
-""" + page_js("LIVE_TAIL", "liveOn") + """
+""" + page_js("LIVE_TAIL", "liveOn", "STAFF_RE", "skOn", "isSk", "skView") + """
 const cxInfo = (t, m) => ({ state: m.cxState || '대기', title: 'Codex 일', missing: !!m.cxMissing, at: 5 });
 const NOW = Date.parse('2026-10-31T12:00:00Z'), ago = min => new Date(NOW - min * 60000).toISOString();
 """
@@ -597,7 +597,7 @@ const l = (who, role, cx, chip, nw, when, task) => rowAria({ who, role, cx, chip
 console.log(JSON.stringify([l('보안', '보안', false, '대기', false, '3분 전', '다음 일'), l('민수', '개발자', false, '일하는 중', true, '방금', 'TO-1 고치기'), l('봇', '코덱스', true, '대기', false, '', 'Codex 세션'), ]));
 """
         self.assertEqual(self.node(code), ["보안, 대기, 3분 전, 다음 일. 대화 열기", "민수, 개발자, 일하는 중, 방금, 새 답, TO-1 고치기. 대화 열기", "봇, 코덱스, Codex, 대기, Codex 세션. 자세히 보기"])
-        self.assertIn('aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, chip, nw: newReply, when, task }))}"', SRC)    # 명단 줄이 이 글을 써요
+        self.assertIn('aria-label="${esc(rowAria({ who, role: m.role, cx: cxm, sk: skm, chip, nw: newReply, when, task }))}"', SRC)    # 명단 줄이 이 글을 써요
         self.assertIn('aria-label="${esc(floorAria(label, blocked, fresh))}"', SRC)
         self.assertIn("STAGE.box.setAttribute('aria-label', stageAria(v))", SRC)
 
@@ -978,7 +978,7 @@ console.log(JSON.stringify(out));
         self.assertLess(drawer, view)
         self.assertNotIn(">세션 창 열기<", SRC)
         self.assertEqual(SRC.count(">Claude 창 열기</a>"), 1)                               # 사진 확인 대기 줄
-        self.assertEqual(SRC.count(">Claude 창 열기 ↗</a>"), 1)                             # 서랍 머리(dHead) 하나를 팀원·총괄 서랍이 같이 써요
+        self.assertEqual(SRC.count("'Claude 창 열기 ↗'"), 1)                                # 서랍 머리(dHead) 하나를 팀원·총괄 서랍이 같이 써요(직원 서랍은 같은 자리에 [팀장 창 열기])
         self.assertIn("picClose()", page_js("closeDrawer"))
 
     def test_paste_takes_only_what_the_owner_meant(self):
@@ -1322,7 +1322,7 @@ console.log(JSON.stringify(out));
 
     def test_select_opens_same_drawer(self):
         """사람이나 책상을 누르면 책상과 같은 서랍(memberDrawer), Codex도 같아요. 빈자리는 명단의 [세션 만들기]로."""
-        code = page_js("stageSelect") + """
+        code = page_js("stageSelect", "STAFF_RE", "skOn", "isSk") + """
 const calls = [], isCx = m => !!m.codexId, stageStill = { matches: true };
 const row = id => ({ dataset: { member: id }, focus() { calls.push(['focus', 'row', id]); }, scrollIntoView() { calls.push(['scroll', id]); } });
 const seatBtn = { focus() { calls.push(['focus', 'seat']); } };
@@ -1970,6 +1970,9 @@ let state = { relay: null, org: { boss: { sessionId: 'local_b' } }, teams: { t: 
   team: { team: '가짜층', members: [{ role: '팀장', sessionId: 'local_x', title: '시험 팀장' }, { role: 'c', codexId: 'cx1' }] }, status: {},
   metas: [{ id: 'M-1', status: '진행 중', mode: '참석', topic: '단추 크기', participants: ['팀장', '개발자'] }] } } };
 const isCx = m => !!m.codexId && !m.sessionId, customName = () => '', teamNames = () => [], seatHTML = (t, r) => esc(r), chatLink = id => 'claude://' + id, hm = s => String(s).slice(11, 16), ago = () => '방금';
+const SID_RE = /^local_[0-9a-f-]{8,64}$/, exampleTeam = () => ex, cut = (s, n) => String(s).slice(0, n), skInfo = () => null;
+""" + page_js("STAFF_RE", "skOn", "isSk", "skName", "skRole", "skLead", "SK_WHERE", "SK_VIA", "SK_NO_LEAD", "SK_BAD_NAME", "SK_RESTART", "SK_MUST", "SK_AGENT", "SKR", "skResult", "skAgentHTML",
+               "skHeadText", "SK_DIFF", "skHeadHTML", "skFactsHTML") + """
 const exampleSeat = () => ex, EX_NO_TALK = '예시 팀이에요. 설정에서 내 층을 만들면 말을 걸 수 있어요.', realBoss = () => true, LEAD = '팀장', CX_NO_TALK = '말 걸기는 아직 안 돼요';
 const cxInfo = () => ({ state: '대기', title: 'Codex 일', at: 0, missing: false });
 const drawerFacts = () => ({ state: '일하는 중 · 4분 전', task: 'TO-9 맞춰 보기', say: '거의', dot: 'd-work' });
@@ -2138,7 +2141,7 @@ console.log(JSON.stringify(out));
         self.assertIn("아직 주고받은 말이 없어요.<br>보낸 말은 총괄이 받아서 이 세션에 전해요. 답은 여기에 올라와요.", r["team"])
         self.assertIn("아직 주고받은 말이 없어요.<br>보낸 말은 총괄이 받아서 받는 사람에게 전해요. 답은 여기에 올라와요.", r["meet"])   # 회의는 받는 사람이 여럿이에요
         self.assertNotIn("총괄이 받아서", r["boss"])                                         # 총괄 대화는 총괄이 받는 사람이에요
-        self.assertIn("threadHTML(lines, cur.tid, cur.seat)", page_js("refreshThread"))
+        self.assertIn("threadHTML(lines, cur.tid, cur.seat, cur.sk)", page_js("refreshThread"))   # sk: 직원 대화는 팀장 세션을 거친다고 알려요(U-31)
         self.assertNotIn("총괄이 받아서", r["snap"])
         self.assertNotIn("바로 대화</h3>", SRC)
 

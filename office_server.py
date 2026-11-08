@@ -61,6 +61,11 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
   10분에 한 번까지 세요(최근 5시간·오늘·이번 주, 층별). 숫자는 /api/state의 usage로만 내고 어디에도 보내지 않아요. 기억은 .usage/cache.json뿐이에요.
 - 규칙 줄 넣기(/api/floor/link-rules): 층 폴더의 CLAUDE.local.md에 '@.office/RULES.md' 한 줄을 (없을 때만) 더하고,
   git 저장소면 .git/info/exclude에 CLAUDE.local.md를 (아직 무시되지 않을 때만) 더해요. 다른 글은 지우거나 순서를 바꾸지 않아요.
+- 직원 스킬(U-31, 시험 기능, 층마다 org.json의 "staff": true로 켜요): team.json의 직원 줄({role, staff: "ag-…", sessionId: null})은 세션이 없고,
+  그 층 팀장 세션이 Agent 도구로 띄운 일꾼이 그 직원이에요. 직원이 일하는지는 팀장 세션의 일꾼 기록(subagents/agent-*.meta.json의 agentType·finished와
+  agent-*.jsonl의 고친 시각만)으로 보고, 바뀔 때만 status/<역할>.json을 서버가 써요(staff_live). /api/staff/*(켜기·들이기·퇴근·명찰 다시 만들기)는
+  팀 사무실의 staff/<명찰 이름>/(SKILL.md·기억.md·.agent.sha256·retired/)과 팀장 폴더의 .claude/agents/ag-*.md, .claude/skills/ 링크,
+  git 저장소면 .git/info/exclude 한 줄에만 써요(직원 스킬을 켠 층만). 지우지 않아요(퇴근한 명찰은 retired/로 옮겨요).
 """
 import glob
 import hashlib
@@ -181,6 +186,9 @@ CODEX_DIR = os.environ.get("AGENCITY_CODEX_DIR") or os.path.join(HOME_RAW, ".cod
 # Claude Code가 세션마다 쓰는 실행 상태 파일(<숫자>.json). 사람이 지금 일하는지 볼 때만 읽고, 어디에도 쓰지 않아요
 RUN_DIR = os.environ.get("AGENCITY_CLAUDE_RUN_DIR") or os.path.join(HOME_RAW, ".claude", "sessions")
 CODEX_ID = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\Z")   # Codex 세션 id(uuid 모양)
+STAFF_RE = re.compile(r"^ag-[a-z0-9][a-z0-9-]{0,23}\Z")   # 직원 명찰 이름(team.json 직원 줄의 staff 칸). 일꾼 종류 이름이자 .claude/agents/<이름>.md 파일 이름이에요
+STAFF_NO_SEAT = "직원 자리는 세션을 앉히지 않아요"
+STAFF_NO_LEAD = "이 층에 팀장이 없어서 직원에게 전할 수 없어요"
 TOKEN_FILE = os.path.join(CONFIG_DIR, "github-token.json")
 # 서버를 끌 때 아직 outbox에 있는 항목의 id·해시를 다음 서버에 넘기는 파일(0600, 설치 폴더마다 하나). 다음 서버가 한 번 읽고 지워요
 HANDOFF = os.path.join(CONFIG_DIR, f"outbox-{HOME_ID}.json")
@@ -225,6 +233,44 @@ def now():
 def load_json(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def read_small(path, limit):
+    """작은 일반 파일 하나의 바이트(limit 바이트까지). 없으면 None, 링크·FIFO·폴더처럼 일반 파일이 아니거나 limit보다 크면 ValueError, 못 읽으면 OSError.
+    링크를 따라가지 않고(O_NOFOLLOW) FIFO에서 기다리지 않게(O_NONBLOCK) 연 뒤, 연 파일을 한 번 더 봐요(본 때와 연 때 사이에 바뀌어도).
+    명찰·.agent.sha256·SKILL.md·세션 기록은 일꾼(Bash)이 FIFO로 바꿀 수 있어요. 그걸 잠금을 쥔 채 읽다 멈추면 그 잠금을 기다리는 /api/state가 모두 멈춰요."""
+    try:
+        st = os.lstat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    if not stat.S_ISREG(st.st_mode):
+        raise ValueError("일반 파일이 아니에요(링크·FIFO 등)")
+    if st.st_size > limit:
+        raise ValueError("파일이 너무 커요")
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("일반 파일이 아니에요(링크·FIFO 등)")
+        out = b""
+        while len(out) <= limit:
+            got = os.read(fd, limit + 1 - len(out))
+            if not got:
+                break
+            out += got
+    finally:
+        os.close(fd)
+    if len(out) > limit:
+        raise ValueError("파일이 너무 커요")
+    return out
+
+
+def session_json(path):
+    """Claude 앱 세션 기록 파일 하나(4MB까지)의 JSON 값. 일반 파일이 아니거나(FIFO 등) 크거나 못 읽으면 None이에요(멈추지 않아요, read_small)."""
+    try:
+        raw = read_small(path, 4 * 1024 * 1024)
+        return json.loads(raw.decode("utf-8")) if raw is not None else None
+    except (OSError, ValueError, RecursionError):
+        return None
 
 
 def write_json(path, obj):
@@ -292,9 +338,44 @@ def is_role(r):
     return isinstance(r, str) and bool(ROLE_RE.match(r)) and r not in NOT_ROLES
 
 
+def is_staff_row(m):
+    """팀원 줄이 직원 줄(U-31 '스킬이 곧 직원')인지: staff 칸이 비어 있지 않으면 True예요. 이름 꼴이 틀려도 True예요.
+    직원 줄은 빈자리로 보지 않아요. 세션을 앉히거나 sessionId를 써 넣지 않아요(그 직원의 일은 팀장 세션이 일꾼으로 띄워요)."""
+    v = m.get("staff") if isinstance(m, dict) else None
+    if isinstance(v, str):
+        return bool(v.strip())
+    return v not in (None, False) and v != [] and v != {}
+
+
+def staff_of(m):
+    """직원 줄이면 그 명찰 이름(ag-…, 일꾼 종류 이름), 아니면 None. 이름 꼴이 틀린 직원 줄도 None이에요(그래도 빈자리는 아니에요)."""
+    v = m.get("staff") if isinstance(m, dict) else None
+    return v if isinstance(v, str) and STAFF_RE.match(v) else None
+
+
+def staff_role(m):
+    """직원 줄의 역할 이름(NFC). 직원 줄이 아니거나 역할 이름이 글이 아니면 None이에요.
+    팀장 자리는 직원 줄이 될 수 없어서, 역할이 팀장인 직원 줄도 None이에요(그 줄은 깨진 줄로 그대로 둬요)."""
+    if not is_staff_row(m) or not isinstance(m.get("role"), str):
+        return None
+    r = unicodedata.normalize("NFC", m["role"])
+    return None if r == LEAD else r
+
+
+def staff_keys(raw):
+    """team.json 팀원 줄 중 직원 줄의 역할 이름들(NFC·대소문자 무시). 그 이름은 직원 자리라 세션 자리로 보여 주거나 앉히지 않아요."""
+    return {r.casefold() for r in map(staff_role, raw) if r} if isinstance(raw, list) else set()
+
+
+def staff_index(raw, role_in):
+    """team.json 팀원 줄 중 그 역할(NFC·앞뒤 빈칸 뗌·대소문자 무시)의 첫 직원 줄 번호. 없으면 None."""
+    want = unicodedata.normalize("NFC", role_in).strip().casefold() if isinstance(role_in, str) else None
+    return next((i for i, m in enumerate(raw if isinstance(raw, list) else []) if (staff_role(m) or "").casefold() == want), None) if want else None
+
+
 def codex_of(m):
-    """팀원 줄이 Codex 자리(읽기 전용)면 그 Codex 세션 id(소문자), 아니면 None. Claude 세션(local_…)이 앉은 줄은 Codex 자리가 아니에요."""
-    if not isinstance(m, dict) or SESSION_ID.match(str(m.get("sessionId") or "")):
+    """팀원 줄이 Codex 자리(읽기 전용)면 그 Codex 세션 id(소문자), 아니면 None. Claude 세션(local_…)이 앉은 줄과 직원 줄은 Codex 자리가 아니에요."""
+    if not isinstance(m, dict) or SESSION_ID.match(str(m.get("sessionId") or "")) or is_staff_row(m):
         return None
     v = m.get("codexId")
     return v.lower() if isinstance(v, str) and CODEX_ID.match(v) else None
@@ -320,12 +401,13 @@ SHOWN_MAX = 50   # 이미 있는 팀 사무실에서 설정 화면이 불러오�
 def shown_rows(ms):
     """team.json 팀원 중 설정 화면이 불러와 보여 주는 줄: [(줄 번호, NFC로 맞춘 역할 이름)]. bin/new_team.py의 shown_rows와 같은 기준이에요:
     줄이 {…}이고, 역할 이름이 글이고, NFC로 맞추면 쓸 수 있는 이름(is_role)이고, 대소문자만 다른 이름은 앞의 줄만, SHOWN_MAX줄까지예요.
-    나머지 줄(다른 도구가 쓴 '프론트 개발'·'UI/UX' 같은 이름 등)은 팀원 목록을 바꿀 때도 손대지 않고 그대로 둬요."""
-    out, seen = [], set()
+    나머지 줄(다른 도구가 쓴 '프론트 개발'·'UI/UX' 같은 이름 등)은 팀원 목록을 바꿀 때도 손대지 않고 그대로 둬요.
+    직원 줄(is_staff_row)과 직원과 같은 역할 이름의 줄도 보여 주지 않아요. 깨진 줄이 아니라 세션 자리가 아니어서예요(팀원 목록을 바꿀 때 그대로 둬요)."""
+    out, seen = [], staff_keys(ms)
     for i, m in enumerate(ms if isinstance(ms, list) else []):
         if len(out) >= SHOWN_MAX:
             break
-        if not isinstance(m, dict) or not isinstance(m.get("role"), str):
+        if not isinstance(m, dict) or not isinstance(m.get("role"), str) or is_staff_row(m):
             continue
         r = unicodedata.normalize("NFC", m["role"])
         if is_role(r) and r.casefold() not in seen:
@@ -514,7 +596,9 @@ def write_like(path, obj, text):
 def team_info(tid):
     """(org.json의 층, 팀 사무실 실제 경로, {역할: 세션이 앉은 팀원}). 팀원은 팀장이 먼저, 그다음 team.json 순서예요.
     팀원 줄에는 '_custom'(따로 정한 이름, 없으면 '')이 더해져 있어요(전달 항목의 label용).
-    예시 팀은 둘러보기만 해서 409예요. 자리 표시용 세션 id(local_00000000…)는 앉지 않은 자리로 봐요(전할 세션이 없어요)."""
+    예시 팀은 둘러보기만 해서 409예요. 자리 표시용 세션 id(local_00000000…)는 앉지 않은 자리로 봐요(전할 세션이 없어요).
+    직원 줄(is_staff_row)도 넣어요: '_staff'(명찰 이름, 꼴이 틀리면 None)와 '_via'(그 층 팀장 세션 id, 팀장이 없으면 None)가 더해지고,
+    sessionId는 None이에요(줄에 무엇이 적혀 있어도). 직원에게 가는 말은 팀장 세션이 받아요(deliver_sid). 같은 역할이면 직원 줄이 먼저예요."""
     t = next((t for t in org().get("teams", []) if t.get("id") == tid and t.get("office")), None)
     if not t:
         raise ApiError(404, "그런 팀(층)이 없어요")
@@ -523,12 +607,37 @@ def team_info(tid):
     base = os.path.realpath(os.path.join(HERE, t["office"]))
     team = load_json(os.path.join(base, "team.json"))
     names = [team.get("team"), t.get("name")]
+    rows = [m for m in (team.get("members", []) if isinstance(team.get("members"), list) else []) if isinstance(m, dict) and is_role(m.get("role"))]
+    staff = {m["role"] for m in rows if staff_role(m)}
+    lead = next((m["sessionId"] for m in rows if m["role"] == LEAD and not is_staff_row(m) and real_sid(m.get("sessionId"))), None)
     seated = {}
-    for m in team.get("members", []) if isinstance(team.get("members"), list) else []:
-        if isinstance(m, dict) and is_role(m.get("role")) and m["role"] not in seated and real_sid(m.get("sessionId")):
+    for m in rows:
+        if m["role"] in seated:
+            continue
+        if staff_role(m):
+            seated[m["role"]] = dict(m, sessionId=None, _custom=custom_name(m, names), _staff=staff_of(m), _via=lead)
+        elif m["role"] not in staff and not is_staff_row(m) and real_sid(m.get("sessionId")):
             seated[m["role"]] = dict(m, _custom=custom_name(m, names))
     members = {r: seated[r] for r in lead_first(seated)}
     return t, base, members
+
+
+def deliver_sid(m):
+    """team_info 팀원 줄에 보내는 말을 받을 세션 id: 세션 자리면 그 sessionId, 직원 줄이면 그 층 팀장 세션(_via, 팀장이 없으면 None)."""
+    return m.get("_via") if "_staff" in m else m.get("sessionId")
+
+
+def reachable(m):
+    """team_info 팀원 줄에 지금 말을 전할 수 있는지: 세션 자리는 늘, 직원 줄은 명찰 이름 꼴이 맞고 팀장이 있을 때만."""
+    return "_staff" not in m or bool(m["_staff"] and m["_via"])
+
+
+def staff_ready(m, role):
+    """직원 줄에 말을 전할 수 있는지 봐요(파일을 쓰기 전에). 명찰 이름 꼴이 틀렸거나 팀장이 없으면 409예요."""
+    if not m.get("_staff"):
+        raise ApiError(409, f"‘{role}’ 직원의 명찰 이름(team.json의 staff 칸)이 ag-… 꼴이 아니라서 전할 수 없어요. team.json을 고친 뒤 다시 해 주세요", {"why": "staff"})
+    if not m.get("_via"):
+        raise ApiError(409, STAFF_NO_LEAD, {"why": "staff"})
 
 
 def text_of(body, key="text", limit=MAX_TEXT, required=True):
@@ -578,7 +687,9 @@ def check_rate(n):
 
 
 def enqueue(session_id, label, text, thread):
-    """총괄이 SendMessage로 전할 메시지를 outbox/에 남겨요."""
+    """총괄이 SendMessage로 전할 메시지를 outbox/에 남겨요. 받는 이가 세션 id(local_…) 꼴이 아니면 남기지 않고 409예요(직원 줄의 빈 sessionId 등)."""
+    if not (isinstance(session_id, str) and SESSION_ID.match(session_id)):
+        raise ApiError(409, "전할 세션이 없어요(받는 세션 id가 local_… 꼴이 아니에요)")
     item = {"id": f"{int(time.time() * 1000)}-{secrets.token_hex(3)}", "t": now(), "to": session_id, "label": label,
             "thread": thread, "text": text}
     with LOCK:
@@ -634,7 +745,8 @@ def options_of(a):
 # ---------- API ----------
 
 def say_target(team, thread, to=None):
-    """말을 받을 자리. 말 걸기와 사진 올리기가 같은 검사를 써요. 파일을 쓰기 전에 Codex, 예시 층, 빈자리, 끝난 회의를 막아요."""
+    """말을 받을 자리. 말 걸기와 사진 올리기가 같은 검사를 써요. 파일을 쓰기 전에 Codex, 예시 층, 빈자리, 끝난 회의를 막아요.
+    직원 줄에 가는 말은 그 층 팀장 세션이 받아요. 팀장이 없으면 409예요(staff_ready)."""
     if thread == "boss":
         boss = boss_sid()   # 자리 표시용 총괄(예시)은 빼요
         if not boss:
@@ -649,6 +761,8 @@ def say_target(team, thread, to=None):
             raise ApiError(409, CODEX_NO_TALK, {"why": "codex"})
         if not m:
             raise ApiError(404, "그 자리에 사람이 없어요")
+        if "_staff" in m:
+            staff_ready(m, role)
         return dict(goal, kind="chat", role=role, m=m)
     if isinstance(thread, str) and thread.startswith("meeting:"):
         meta_path, chat = meeting_paths(base, thread[8:])
@@ -658,11 +772,15 @@ def say_target(team, thread, to=None):
         if meta.get("mode") != "참석":
             raise ApiError(409, "먼저 회의에 참석해야 말할 수 있어요")
         parts = [r for r in meta.get("participants", []) if r in members]
-        to = to or parts
+        if not to:   # 안 정하면 참석자 모두예요. 지금 전할 수 없는 직원(팀장 없음·명찰 이름 꼴 틀림)은 빼요(아무도 안 남으면 아래에서 409)
+            to = [r for r in parts if reachable(members[r])] or parts
         if isinstance(to, list) and any(isinstance(r, str) and r.casefold() in codex_roles(base) for r in to):
             raise ApiError(409, CODEX_NO_TALK, {"why": "codex"})
         if not isinstance(to, list) or not to or any(r not in parts for r in to):
             raise ApiError(400, "받는 사람이 회의 참석자가 아니에요")
+        for r in to:
+            if "_staff" in members[r]:
+                staff_ready(members[r], r)
         return dict(goal, kind="meeting", meta=meta, chat=chat, to=[r for r in members if r in to])   # 중복 없애고 자리 순서(팀장 먼저)로
     raise ApiError(400, "어디에 말할지 모르겠어요")
 
@@ -724,22 +842,65 @@ def api_say(body):
         out_ready(path)
         append_line(path, said_line(text, names))
         log(base, role, "말", logged)
-        enqueue(m["sessionId"], f"{t['name']} · {seat_label(members, role)}",
+        if "_staff" in m:   # 직원: 팀장 세션이 받아 그 직원의 일꾼에게 맡겨요. 대화 파일은 그대로 chat/<역할>.jsonl이에요
+            enqueue(deliver_sid(m), f"{t['name']} · {seat_label(members, role)}",
+                    f"[대표·사이트] {t['name']} {role}에게 (직원 {m['_staff']}) 바로 말 걸기{pics_mark(names)}\n{said_body(base, names, text)}{reply_hint(path, role)}\n"
+                    f"일을 시킨 거면 끝난 뒤 결과도 같은 방법으로 한 줄 남겨요.\n{staff_todo(m['_staff'], role)}\n\n{NOTE}", path)
+            return {"ok": True}
+        enqueue(deliver_sid(m), f"{t['name']} · {seat_label(members, role)}",
                 f"[대표·사이트] {t['name']} {role}에게 바로 말 걸기{pics_mark(names)}\n{said_body(base, names, text)}{reply_hint(path, role)}\n"
                 f"일을 시킨 거면 끝난 뒤 결과도 같은 방법으로 한 줄 남겨요.\n\n{NOTE}", path)
         return {"ok": True}
     meta, chat, to = goal["meta"], goal["chat"], goal["to"]
-    check_rate(len(to))
+    staff = [r for r in to if "_staff" in members[r]]   # 직원 참석자와 팀장은 팀장에게 한 통으로 묶어요
+    lead_box = bool(staff) or "팀장" in to
+    check_rate(sum(1 for r in to if r != "팀장" and r not in staff) + (1 if lead_box else 0))
     out_ready(chat)
     append_line(chat, said_line(text, names, to=to))
     log(base, "회의", "회의", f"{meta['id']} {logged}")
     note = pics_note(base, names) + "\n" if names else ""
+    head = (f"[대표·사이트] 회의 {meta['id']} (대표 참석 중) · 주제: {one_line(meta.get('topic'), 200)}{pics_mark(names)}\n받는 사람: {', '.join(to)}\n{note}대표: {text or '(글 없음)'}\n\n"
+            f"앞의 대화는 회의 파일에서 읽어요: {chat}\n")
+    sent = False
     for r in to:
+        if r == "팀장" or r in staff:
+            if sent:
+                continue
+            sent = True
+            if staff:
+                ask = ("팀장은 늘 답하고 진행을 이끌어요." if "팀장" in to else "이 말은 직원 참석자에게 온 거예요. 팀장은 할 말이 없으면 답하지 않아도 돼요.")
+                enqueue(deliver_sid(members[staff[0]]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+                        f"{head}{ask}\n{staff_meeting(members, staff, chat)}{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
+                continue
         ask = "팀장은 늘 답하고 진행을 이끌어요." if r == "팀장" else "이름이 불렸거나 자기 분야일 때만 3문장 안으로 답해요. 할 말이 없으면 답하지 않아도 돼요."
-        enqueue(members[r]["sessionId"], f"{t['name']} 회의 · {seat_label(members, r)}",
-                f"[대표·사이트] 회의 {meta['id']} (대표 참석 중) · 주제: {one_line(meta.get('topic'), 200)}{pics_mark(names)}\n받는 사람: {', '.join(to)}\n{note}대표: {text or '(글 없음)'}\n\n"
-                f"앞의 대화는 회의 파일에서 읽어요: {chat}\n{ask}{reply_hint(chat, r)}\n\n{NOTE}", chat)
+        enqueue(deliver_sid(members[r]), f"{t['name']} 회의 · {seat_label(members, r)}", f"{head}{ask}{reply_hint(chat, r)}\n\n{NOTE}", chat)
     return {"ok": True}
+
+
+def staff_todo(staff, role):
+    """직원에게 온 바로 대화를 받은 팀장이 할 일(전달 글 끝에 붙여요)."""
+    return (f"팀장 할 일: 이 직원의 일꾼이 돌고 있으면 SendMessage로 이어 쓰고, 아니면 Agent(subagent_type: {staff})로 띄워요. "
+            f"답은 그 직원 이름으로 남겨요(Bash가 없는 직원은 .out/{role}.txt에 쓰게 하고, 끝 알림을 받을 때 팀장이 say.sh로 올려요).")
+
+
+def staff_meeting(members, staff, chat):
+    """회의 말을 묶어 받은 팀장이 직원 참석자에게 할 일. staff: 받는 사람 중 직원 역할들(자리 순서)."""
+    out = os.path.join(os.path.dirname(chat), ".out")
+    who = ", ".join(r + "(" + members[r]["_staff"] + ")" for r in staff)
+    return (f"직원 참석자: {who}\n"
+            "직원 일꾼은 이름이 불렸거나 그 분야일 때만 3문장 안으로, 회의 파일에 그 역할 이름으로 답해요. 할 말이 없는 직원은 띄우지 않아도 돼요. "
+            "그 직원의 일꾼이 돌고 있으면 SendMessage로 이어 쓰고, 아니면 Agent(subagent_type: 명찰 이름)로 띄워요.\n"
+            f"직원 답 남기기: Write로 {out}{os.sep}<역할>.txt에 쓰고 {shlex.quote(SAY)} {shlex.quote(chat)} <역할> --file {shlex.quote(out + os.sep)}<역할>.txt "
+            "(Bash가 없는 직원은 그 파일만 쓰게 하고, 끝 알림을 받을 때 팀장이 실행해요).")
+
+
+def staff_result_note(members, parts):
+    """회의 끝 순서('참석자에게 [회의 결과]')를 적은 글 뒤에 붙이는 한 줄: 직원 참석자는 세션이 아니라서 [회의 결과]를 보내지 않아요.
+    parts: 회의 참석자(meta의 participants). 직원 참석자가 없으면 빈 글이라 옛 층과 세션만 있는 회의의 글은 한 글자도 그대로예요."""
+    staff = [r for r in members if isinstance(parts, list) and r in parts and "_staff" in members[r]]
+    if not staff:
+        return ""
+    return f"\n직원 참석자({', '.join(staff)})는 세션이 아니라서 [회의 결과]를 보내지 않아요(직원 status는 서버가 써요)."
 
 
 def api_meeting_start(body):
@@ -750,11 +911,14 @@ def api_meeting_start(body):
     mode = body.get("mode")
     if mode not in ("참석", "위임"):
         raise ApiError(400, "회의 방식은 참석 또는 위임이에요")
-    parts = body.get("participants") or list(members)   # 안 보내면 세션이 앉은 팀원 모두(Codex 자리는 빼요)
+    parts = body.get("participants") or [r for r in members if reachable(members[r])]   # 안 보내면 세션이 앉은 팀원과 전할 수 있는 직원 모두(Codex 자리는 빼요)
     if isinstance(parts, list) and any(isinstance(r, str) and r.casefold() in codex_roles(base) for r in parts):
         raise ApiError(409, "Codex 자리는 아직 회의에 부를 수 없어요(읽기 전용 자리예요)", {"why": "codex"})
     if not isinstance(parts, list) or "팀장" not in parts or any(not isinstance(r, str) or r not in members for r in parts):
         raise ApiError(400, "참석자에는 팀장이 있어야 하고, 팀에 있는 사람만 넣을 수 있어요")
+    staff = [r for r in members if r in parts and "_staff" in members[r]]   # 직원 참석자(그 일꾼은 팀장이 띄워요)
+    for r in staff:
+        staff_ready(members[r], r)
     note = text_of(body, "note", 2000, required=False)
     aid = str(body.get("approval") or "")
     if aid and not SAFE_ID.match(aid):
@@ -792,11 +956,17 @@ def api_meeting_start(body):
     how = ("대표가 회의실에 들어와 있어요. 대표 말은 참석자에게 하나씩 전해져요. 팀장이 먼저 안건을 정리해 회의 파일에 남기고 진행을 이끌어요."
            if mode == "참석" else
            "대표 없이 진행하는 위임 회의예요. 팀 규칙의 위임 회의처럼 의견을 모으되, 오가는 말과 의견 요약을 회의 파일에 남겨 대표가 사이트에서 볼 수 있게 해요.")
-    enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+    if staff:   # 직원 참석자가 있는 회의만 한 줄 더해요(옛 층의 글은 그대로예요)
+        who = ", ".join(r + "(" + members[r]["_staff"] + ")" for r in staff)
+        how += (f"\n직원 참석자: {who}. 직원 일꾼은 팀장이 Agent(subagent_type: 명찰 이름)로 띄워요. "
+                + ("대표 말 중 직원에게 온 것은 팀장에게 한 통으로 묶어 와요. 이름이 불렸거나 그 분야일 때만 3문장 안으로, 회의 파일에 그 역할 이름으로 답하게 해요."
+                   if mode == "참석" else
+                   f"직원 의견은 일꾼을 한 응답에 묶어 띄워 {os.path.join(d, mid)}{os.sep}<역할>.md로 받아요."))
+    enqueue(deliver_sid(members["팀장"]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
             f"[대표·사이트] 회의 시작 {mid} ({mode})\n주제: {topic}\n" + (f"대표 메모: {note}\n" if note else "") +
             f"참석: {', '.join(meta['participants'])}\n회의 정보: {os.path.join(d, mid + '.json')}\n회의 파일: {chat}\n\n{how}\n"
             f"끝나면 팀 규칙의 회의 끝 순서대로: 회의록 {os.path.join(d, mid + '.md')} → 회의 정보 status '끝' → 참석자에게 [회의 결과] → 대표가 정할 게 있으면 결재."
-            f"{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
+            f"{staff_result_note(members, meta['participants'])}{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
     return {"ok": True, "id": mid}
 
 
@@ -822,7 +992,7 @@ def api_meeting_mode(body):
     log(base, "회의", "회의", f"{meta['id']} {line}")
     if "팀장" in members:
         check_rate(1)
-        enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+        enqueue(deliver_sid(members["팀장"]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']} · {msg}\n회의 파일: {chat}{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
     return {"ok": True}
 
@@ -841,9 +1011,9 @@ def api_meeting_end(body):
     log(base, "회의", "회의", f"{meta['id']} 끝내기")
     if "팀장" in members:
         check_rate(1)
-        enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+        enqueue(deliver_sid(members["팀장"]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']}를 대표가 끝냈어요. 팀 규칙의 회의 끝 순서로: 회의록 {os.path.join(base, 'meetings', meta['id'] + '.md')} → "
-                f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.\n"
+                f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.{staff_result_note(members, meta.get('participants'))}\n"
                 f"회의 파일: {chat}\n마지막으로 회의 파일에 결론 한 줄을 남겨요.{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
     return {"ok": True}
 
@@ -920,10 +1090,10 @@ def meeting_nudge_floor(t, t0):
             write_json(meta_path, meta)
         mid = meta.get("id") or n[:-5]
         append_line(chat, {"t": now(), "from": "사이트", "kind": "알림", "text": "위임 회의가 30분 넘게 조용해서 팀장에게 마무리를 알렸어요."})
-        enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+        enqueue(deliver_sid(members["팀장"]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[사이트 알림] 위임 회의 {mid}가 30분 넘게 조용해요. 사이트가 저절로 보내는 알림이에요(대표가 쓴 말은 아니에요).\n"
                 f"남은 안건이 있으면 마무리하고, 팀 규칙의 회의 끝 순서대로 닫아요: 회의록 {os.path.join(base, 'meetings', mid + '.md')} → "
-                f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.\n"
+                f"회의 정보 status '끝' → 참석자에게 [회의 결과](status 되돌리기) → 대표가 정할 게 있으면 결재.{staff_result_note(members, meta.get('participants'))}\n"
                 f"회의 파일: {chat}{reply_hint(chat, '팀장')}", chat)
         sent.append(mid)
     return sent
@@ -961,7 +1131,7 @@ def api_meeting_close(body):
     log(base, "회의", "회의", f"{meta['id']} 닫기")
     if "팀장" in members:
         check_rate(1)
-        enqueue(members["팀장"]["sessionId"], f"{t['name']} 회의 · {seat_label(members, '팀장')}",
+        enqueue(deliver_sid(members["팀장"]), f"{t['name']} 회의 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 회의 {meta['id']}는 대표가 닫았어요. 회의록·결재 등 남은 정리가 있으면 이어서 하되, 회의 정보 status는 다시 바꾸지 말아요.\n\n{NOTE}", chat)
     return {"ok": True}
 
@@ -999,7 +1169,7 @@ def api_decide(body):
                  "실행할 세션과 할 말을 대표에게 다시 알려 주세요.") if a.get("risky") else ""
         chat = os.path.join(base, "chat", "팀장.jsonl")
         append_line(chat, {"t": now(), "from": "대표", "kind": "결재", "text": f"결재 {aid} «{one_line(a.get('title'))}» {status}{picked}" + (f" · {comment}" if comment else "")})
-        enqueue(members["팀장"]["sessionId"], f"{t['name']} 결재 · {seat_label(members, '팀장')}",
+        enqueue(deliver_sid(members["팀장"]), f"{t['name']} 결재 · {seat_label(members, '팀장')}",
                 f"[대표·사이트] 결재 {aid} «{one_line(a.get('title'))}»\n결과: {status}{picked}" +
                 (f"\n대표 메모: {comment}" if comment else "") + f"\n결재 파일: {path}\n이어서 진행하고, 진행 결과를 아래 방법으로 사이트에 남긴 뒤 총괄에게 보고해요.{risky}"
                 f"{reply_hint(chat, '팀장')}\n\n{NOTE}", chat)
@@ -1220,8 +1390,9 @@ def is_example(t):
 
 # 세션 실행 상태 -------------------------------------------------------------
 # 상태 파일이 대기여도 세션이 일하는 동안은 사람이 책상에 앉아요(U-27). 페이지가 /api/state의 live로 판정해요.
-# 숫자 이름의 .json만 열어요. 같은 폴더의 .key는 열지 않아요. 쓰는 칸은 hostSessionId, pid, status, statusUpdatedAt, startedAt, sessionId뿐이고,
-# 답에는 층, 역할, 상태 낱말, 시각만 내요. 쓰지 않는 칸(제목, 폴더, 소켓 등)은 어디로도 내보내지 않아요.
+# 숫자 이름의 .json만 열어요. 같은 폴더의 .key는 열지 않아요. 쓰는 칸은 hostSessionId, pid, status, statusUpdatedAt, startedAt, sessionId,
+# cwd(직원 층의 팀장 폴더 찾기에만, run_file의 keep_idle)뿐이고, 답에는 층, 역할, 상태 낱말, 시각만 내요. cwd도 답에 내지 않고,
+# 쓰지 않는 칸(제목, 소켓 등)은 어디로도 내보내지 않아요.
 RUN_FILE = re.compile(r"^\d{1,10}\.json\Z")
 RUN_UUID = re.compile(r"^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\Z")
 RUN_MAX = 64 * 1024
@@ -1233,8 +1404,9 @@ RUN_QUIET_EVERY = 60    # 세션마다 이 간격으로만 기록의 고친 시�
 RUN_SEEN = {}           # 세션 id → (본 때, 조용한지)
 
 
-def run_file(name, now):
-    """pid 파일 하나에서 쓸 값만 꺼내요. 쓸 수 없는 파일이면 None이에요."""
+def run_file(name, now, keep_idle=False):
+    """pid 파일 하나에서 쓸 값만 꺼내요. 쓸 수 없는 파일이면 None이에요.
+    keep_idle: 오래 쉬는 중이거나 막 켜진 세션도 프로세스가 살아 있으면 넣고 폴더(cwd)도 담아요. 직원 신호와 팀장 폴더 찾기만 써요(답에는 내지 않아요)."""
     path = os.path.join(RUN_DIR, name)
     st = os.lstat(path)
     if not stat.S_ISREG(st.st_mode) or st.st_size > RUN_MAX:
@@ -1251,7 +1423,7 @@ def run_file(name, now):
     ms = rec.get("statusUpdatedAt")
     since = ms if type(ms) in (int, float) and ms > 0 else st.st_mtime * 1000
     started = rec.get("startedAt")
-    if status == "idle":
+    if status == "idle" and not keep_idle:
         if now - since > RUN_IDLE * 1000:
             return None
         if type(started) in (int, float) and since - started < RUN_FRESH_START:
@@ -1263,7 +1435,11 @@ def run_file(name, now):
     except PermissionError:
         pass
     sid = rec.get("sessionId")
-    return {"host": host, "s": status, "since": int(since), "sid": sid if isinstance(sid, str) and RUN_UUID.match(sid) else None}
+    out = {"host": host, "s": status, "since": int(since), "sid": sid if isinstance(sid, str) and RUN_UUID.match(sid) else None}
+    if keep_idle:
+        cwd = rec.get("cwd")
+        out["cwd"] = cwd if isinstance(cwd, str) and cwd.startswith("/") and "\0" not in cwd and not SURROGATE.search(cwd) else None
+    return out
 
 
 def run_log_quiet(sid, now):
@@ -1324,18 +1500,19 @@ def run_states():
 
 
 def run_seats(t):
-    """층의 {역할: 세션 id}. 명단은 team.json의 모든 줄을 그리니, 말 걸기와 달리 역할 이름 규칙 밖의 줄도 이어요. 역할 글은 JSON 키로만 쓰고 경로에 넣지 않아요."""
+    """층의 {역할: 세션 id}. 명단은 team.json의 모든 줄을 그리니, 말 걸기와 달리 역할 이름 규칙 밖의 줄도 이어요. 역할 글은 JSON 키로만 쓰고 경로에 넣지 않아요.
+    직원 줄은 세션 자리가 아니라 빼요(줄에 sessionId가 적혀 있어도)."""
     ms = load_json(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json")).get("members")
-    return {m["role"]: m["sessionId"] for m in ms if isinstance(m, dict) and isinstance(m.get("role"), str) and real_sid(m.get("sessionId"))} if isinstance(ms, list) else {}
+    return {m["role"]: m["sessionId"] for m in ms if isinstance(m, dict) and isinstance(m.get("role"), str) and not is_staff_row(m)
+            and real_sid(m.get("sessionId"))} if isinstance(ms, list) else {}
 
 
 def run_live():
-    """/api/state의 live: {층 id: {역할: {s, since}}}. 앉은 자리만 이어요. 예시 층, Codex, 빈자리는 없어요."""
+    """/api/state의 live: {층 id: {역할: {s, since}}}. 앉은 자리만 이어요. 예시 층, Codex, 빈자리는 없어요.
+    직원 줄이 있는 층은 직원 자리도 더해요(staff_live: {s, since, staff: true, n}). 직원 신호가 깨져도 세션 자리는 그대로 내요."""
     runs = run_states()
     live = {}
-    if not runs:
-        return live
-    for t in org().get("teams", []):
+    for t in org().get("teams", []) if runs else []:
         if not isinstance(t, dict) or not t.get("office") or is_example(t):
             continue
         try:
@@ -1344,7 +1521,297 @@ def run_live():
             continue
         if seats:
             live[t["id"]] = seats
+    try:
+        for tid, seats in staff_live().items():
+            live.setdefault(tid, {}).update(seats)   # 같은 역할의 세션 줄이 섞인 깨진 파일이면 직원 줄이 그 역할을 가져요(team_info와 같게)
+    except Exception:  # noqa: BLE001
+        pass
     return live
+
+
+# 직원 일꾼 신호 (U-31) -------------------------------------------------------
+# 직원 줄(team.json의 staff 칸)에는 세션이 없어요. 그 층 팀장 세션이 Agent 도구로 띄운 일꾼이 그 직원이에요.
+# 팀장 pid 파일의 sessionId(CLI 세션 id)로 PROJECTS_DIR/*/<CLI 세션 id>/subagents/agent-*.meta.json만 봐요(그 아래 workflows 폴더는 안 봐요).
+# meta.json에서는 agentType(명찰 이름)과 finished(끝 표시)만 꺼내고, 나머지 칸(작업 설명 description 등)은 읽는 즉시 버려요.
+# agent-*.jsonl(일꾼 기록)은 열지 않고 고친 시각만 봐요. 답에는 층, 역할, 상태 낱말, 시각, 돌고 있는 일꾼 수만 내요.
+STAFF_RUN = 30 * 60        # 끝 표시가 없는 일꾼은 기록이 이만큼(초) 안에 바뀌었으면 일하는 중
+STAFF_TAIL = 20            # 끝 표시가 있어도 기록이 이만큼 안에 바뀌었으면 일하는 중(이어 쓰기)
+STAFF_RECENT = 2 * 3600    # 이보다 오래 그대로인 일꾼 파일은 열지 않아요
+STAFF_OLD_EVERY = 30       # 오래된 일꾼은 기록 시각(stat 하나)만 늘 재고, meta.json까지 다시 재는 건 이 간격(초)마다예요
+STAFF_WATCH_EVERY = 20     # 페이지가 닫혀 있어도 이 간격(초)으로 직원 status를 맞춰요
+STAFF_AGENT = re.compile(r"^agent-([A-Za-z0-9_-]{1,80})\.meta\.json\Z")
+BOARD_OPEN = re.compile(r"^\s*[-*]\s*\[ \]\s*(.+)$")   # 업무판의 열린 줄: - [ ] 번호 | 담당 | 내용 | 상태
+STAFF_LOCK = threading.Lock()   # 직원 신호 캐시와 직원 status 쓰기는 한 번에 하나씩
+STAFF_DIRS = {}    # CLI 세션 id → (프로젝트 기록 폴더 또는 None, 찾아본 때)
+STAFF_SCAN = {}    # subagents 폴더 → {"m": 폴더 고친 시각, "files": {일꾼 id: staff_worker 값 또는 None}}
+STAFF_SINCE = {}   # (층 id, 역할) → (s, since): 그 상태가 된 때
+BOARD_SEEN = {}    # board.md 경로 → ((고친 시각, 크기), 열린 줄들)
+
+
+def run_hosts():
+    """{세션 id(local_…): pid 기록 {s, since, sid, cwd}}. 프로세스가 살아 있으면 오래 쉬는 중이어도 넣어요(run_file의 keep_idle).
+    폴더가 없으면 빈 값이고, 폴더를 못 읽으면 예외예요(run_states와 같아요)."""
+    try:
+        names = os.listdir(RUN_DIR)
+    except FileNotFoundError:
+        return {}
+    now, out = time.time() * 1000, {}
+    for name in names:
+        if not RUN_FILE.match(name):
+            continue
+        try:
+            rec = run_file(name, now, keep_idle=True)
+        except Exception:  # noqa: BLE001  파일 하나가 이상해도 다른 세션은 봐요
+            continue
+        if rec and (rec["host"] not in out or rec["since"] >= out[rec["host"]]["since"]):
+            out[rec["host"]] = rec
+    return out
+
+
+def staff_floors():
+    """직원 줄이 있는 층 [(층, 팀 사무실 실제 경로, 팀장 세션 id 또는 None, {역할: 명찰 이름(꼴이 틀리면 None)}, 세션 줄 역할들(대소문자 무시))].
+    예시 층과 못 읽는 층은 빼요. 역할마다 첫 직원 줄만이에요. 역할과 팀장은 team_info와 같은 기준이에요."""
+    out = []
+    for t in real_teams():
+        if is_example(t):
+            continue
+        try:
+            base = os.path.realpath(os.path.join(HERE, t["office"]))
+            ms = load_json(os.path.join(base, "team.json")).get("members")
+        except Exception:  # noqa: BLE001  층 하나가 깨져도 다른 층은 봐요
+            continue
+        if not isinstance(ms, list) or not any(is_staff_row(m) for m in ms):
+            continue
+        rows = [m for m in ms if isinstance(m, dict) and is_role(m.get("role"))]
+        lead = next((m["sessionId"] for m in rows if m["role"] == LEAD and not is_staff_row(m) and real_sid(m.get("sessionId"))), None)
+        staff, seen = {}, set()
+        for m in rows:
+            if staff_role(m) and m["role"] not in seen:
+                seen.add(m["role"])
+                staff[m["role"]] = staff_of(m)
+        seated = {unicodedata.normalize("NFC", m["role"]).casefold() for m in rows if not is_staff_row(m) and real_sid(m.get("sessionId"))}
+        if staff:
+            out.append((t, base, lead, staff, seated))
+    return out
+
+
+def staff_dir(sid, now):
+    """그 CLI 세션의 subagents 폴더 경로(PROJECTS_DIR/<프로젝트>/<sid>/subagents). 대화 기록(<sid>.jsonl)이나 <sid> 폴더로 프로젝트를 찾아 두고,
+    못 찾으면 STAFF_OLD_EVERY 뒤에 다시 찾아요. 일꾼을 아직 안 띄웠으면 그 폴더는 없어요(부르는 쪽이 빈 폴더로 봐요)."""
+    hit = STAFF_DIRS.get(sid)
+    if hit:
+        p, at = hit
+        if p and (os.path.isdir(os.path.join(p, sid)) or os.path.exists(os.path.join(p, sid + ".jsonl"))):
+            return os.path.join(p, sid, "subagents")
+        if not p and now - at < STAFF_OLD_EVERY:
+            return None
+    found = None
+    try:
+        with os.scandir(PROJECTS_DIR) as it:
+            for d in it:
+                if os.path.isdir(os.path.join(d.path, sid)) or os.path.exists(os.path.join(d.path, sid + ".jsonl")):
+                    found = d.path
+                    break
+    except OSError:
+        pass
+    if len(STAFF_DIRS) > 64:
+        STAFF_DIRS.clear()
+    STAFF_DIRS[sid] = (found, now)
+    return os.path.join(found, sid, "subagents") if found else None
+
+
+def staff_meta(path):
+    """meta.json에서 (명찰 이름 꼴의 agentType 또는 None, finished가 true인지)만 꺼내요. 다른 칸은 읽는 즉시 버려요(남기지 않아요).
+    링크는 따라가지 않아요. 못 읽으면 (None, False)."""
+    keep = lambda kv: {k: v for k, v in kv if k in ("agentType", "finished")}
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, encoding="utf-8") as f:
+            rec = json.load(f, object_pairs_hook=keep)
+    except (OSError, ValueError):
+        return None, False
+    if not isinstance(rec, dict):
+        return None, False
+    t = rec.get("agentType")
+    return (t if isinstance(t, str) and STAFF_RE.match(t) else None), rec.get("finished") is True
+
+
+def staff_log_time(sub, aid):
+    """일꾼 기록(agent-<id>.jsonl)을 고친 때(초). 열지 않고 시각만 재요. 없거나 못 재면 None."""
+    try:
+        return os.stat(os.path.join(sub, f"agent-{aid}.jsonl")).st_mtime
+    except OSError:
+        return None
+
+
+def staff_worker(sub, aid, f, now):
+    """일꾼 하나: {m·n: meta.json 고친 시각·크기, type: 명찰 이름, fin: 끝 표시, p: 읽었는지, j: 기록을 고친 때(초), old: 오래됐는지, at: 잰 때,
+    hit: 앞서 잰 뒤로 기록이 바뀐 걸 알아챈 때(초, 없으면 0)}.
+    meta.json이 그대로면 다시 열지 않고, STAFF_RECENT 넘게 그대로인 일꾼은 열지 않아요. 기록(jsonl)은 시각만 재요(없으면 막 띄운 일꾼이라 meta 시각). 못 쓰면 None.
+    hit: 재는 사이에 끝난 짧은 이어 쓰기(S0 ⑦은 6초)도 놓치지 않게, 기록이 앞서 잰 것보다 늦어졌으면 알아챈 때부터 STAFF_TAIL 동안 일하는 중으로 봐요."""
+    meta = os.path.join(sub, f"agent-{aid}.meta.json")
+    try:
+        st = os.lstat(meta)
+    except OSError:
+        return None
+    if not stat.S_ISREG(st.st_mode) or st.st_size > RUN_MAX:
+        return None
+    j = staff_log_time(sub, aid)
+    j = st.st_mtime if j is None else j
+    old = now - max(j, st.st_mtime) > STAFF_RECENT
+    same = bool(f) and f["p"] and f["m"] == st.st_mtime_ns and f["n"] == st.st_size
+    typ, fin, p = (f["type"], f["fin"], True) if same else (None, False, False)
+    if not same and not old:
+        typ, fin = staff_meta(meta)
+        p = True
+    hit = now if f and j > f["j"] else f.get("hit", 0) if f and j == f["j"] else 0
+    return {"m": st.st_mtime_ns, "n": st.st_size, "type": typ, "fin": fin, "p": p, "j": j, "old": old, "at": now, "hit": hit}
+
+
+def staff_workers(sub, now):
+    """subagents 폴더의 최근 일꾼 [(명찰 이름, 끝 표시, 기록을 고친 때 또는 그 바뀜을 알아챈 때 중 늦은 것)]. 명찰 이름 꼴(ag-…)인 일꾼만이에요.
+    폴더 목록은 폴더 고친 시각이 그대로면 다시 읽지 않아요. 오래된 일꾼은 기록 시각(stat 하나)만 늘 재고, 그 시각이 바뀌었거나
+    STAFF_OLD_EVERY가 지났을 때만 meta.json까지 다시 재요(파일이 수천 개여도 가볍게, 오래된 일꾼에게 이어 써도 바로 알아채게)."""
+    try:
+        m = os.stat(sub).st_mtime_ns
+    except OSError:
+        STAFF_SCAN.pop(sub, None)
+        return []
+    c = STAFF_SCAN.get(sub)
+    if c is None or c["m"] != m:
+        try:
+            names = os.listdir(sub)
+        except OSError:
+            return []
+        prev = c["files"] if c else {}
+        c = {"m": m, "files": {g.group(1): prev.get(g.group(1)) for g in map(STAFF_AGENT.match, names) if g}}
+        if len(STAFF_SCAN) > 32:
+            STAFF_SCAN.clear()
+        STAFF_SCAN[sub] = c
+    out = []
+    for aid, f in c["files"].items():
+        if not (f and f["old"] and now - f["at"] < STAFF_OLD_EVERY and staff_log_time(sub, aid) in (None, f["j"])):
+            f = c["files"][aid] = staff_worker(sub, aid, f, now)
+        if f and not f["old"] and f["type"]:
+            out.append((f["type"], f["fin"], max(f["j"], f["hit"])))
+    return out
+
+
+def staff_busy(fin, j, now):
+    """일꾼 하나가 일하는 중인지(설계 결정 2): 끝 표시가 없고 기록이 30분 안에 바뀌었거나, 끝 표시가 있어도 기록이 20초 안에 바뀌었을 때(이어 쓰기)."""
+    age = now - j
+    return (not fin and age <= STAFF_RUN) or age <= STAFF_TAIL
+
+
+def board_tasks(base):
+    """업무판(board.md)의 열린 줄 [(번호, 담당, 내용)](번호·담당은 NFC). 고친 시각·크기가 그대로면 다시 읽지 않아요. 못 읽으면 []."""
+    p = os.path.join(base, "board.md")
+    try:
+        st = os.lstat(p)
+    except OSError:
+        return []
+    if not stat.S_ISREG(st.st_mode) or st.st_size > RULES_MAX:
+        return []
+    key = (st.st_mtime_ns, st.st_size)
+    hit = BOARD_SEEN.get(p)
+    if hit and hit[0] == key:
+        return hit[1]
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError:
+        return []
+    rows = []
+    for line in text.splitlines():
+        m = BOARD_OPEN.match(line)
+        cells = [c.strip() for c in m.group(1).split("|")] if m else []
+        if len(cells) >= 3:
+            rows.append((unicodedata.normalize("NFC", cells[0]), unicodedata.normalize("NFC", cells[1]), cells[2]))
+    if len(BOARD_SEEN) > 64:
+        BOARD_SEEN.clear()
+    BOARD_SEEN[p] = (key, rows)
+    return rows
+
+
+def staff_task(tasks, role):
+    """직원 status의 task: 업무판에서 그 역할이 담당인 열린 줄 중 번호가 '-<역할>'로 끝나는 줄(없으면 그 역할의 열린 줄)의 마지막 줄 '번호 내용'(80자). 없으면 ''."""
+    mine = [x for x in tasks if x[1] == role]
+    pick = [x for x in mine if x[0].endswith("-" + role)] or mine
+    return clean_name(f"{pick[-1][0]} {pick[-1][2]}", 80) if pick else ""
+
+
+def staff_status(base, role, busy, task):
+    """직원 status/<역할>.json을 서버가 써요. 상태(일하는 중·대기)나 할 일이 바뀔 때만 쓰고, '회의 중'은 쓰지 않아요.
+    name·role 칸은 그대로 두고 state·task·say('')·updated를 새로 써요. 링크이거나 파일이 아니면 건드리지 않아요. 썼으면 True."""
+    d = os.path.join(base, "status")
+    sp = os.path.join(d, role + ".json")
+    state = "일하는 중" if busy else "대기"
+    try:
+        if os.path.islink(d) or os.path.islink(sp) or (os.path.lexists(sp) and not os.path.isfile(sp)):
+            return False
+        try:
+            old = load_json(sp)
+        except (FileNotFoundError, ValueError):
+            old = None
+        old = old if isinstance(old, dict) else {}
+        if old.get("state") == state and old.get("task") == task:
+            return False
+        new = {k: old[k] for k in ("name", "role") if k in old}
+        new.update(state=state, task=task, say="", updated=now())
+        write_json(sp, new)
+        return True
+    except OSError:
+        return False
+
+
+def staff_live():
+    """/api/state의 live에 더할 직원 자리: {층 id: {역할: {s: busy|idle, since, staff: True, n: 돌고 있는 일꾼 수}}}. 직원 줄이 있는 층만이에요.
+    팀장 pid 기록이 없으면(팀장 프로세스가 없어요) 그 층 직원은 모두 대기예요. 상태가 바뀐 직원은 status/<역할>.json도 고쳐 써요(staff_status).
+    같은 역할에 세션이 앉은 줄이 함께 있는 깨진 파일이면 그 상태 파일은 쓰지 않아요(세션 자리의 status는 쓰지 않아요)."""
+    floors = staff_floors()
+    if not floors:
+        return {}
+    hosts = run_hosts()
+    now, roots, out = time.time(), office_roots(), {}
+    with STAFF_LOCK:
+        for t, base, lead, rows, seated in floors:
+            rec = hosts.get(lead) if lead else None
+            sub = staff_dir(rec["sid"], now) if rec and rec["sid"] else None
+            workers = staff_workers(sub, now) if sub else []
+            tasks = board_tasks(base) if base in roots else []
+            seats = {}
+            for role, name in rows.items():
+                if not name:   # 명찰 이름 꼴이 틀린 직원은 띄울 수 없어요(신호도 status도 없어요)
+                    continue
+                mine = [(fin, j) for typ, fin, j in workers if typ == name]
+                n = sum(1 for fin, j in mine if staff_busy(fin, j, now))
+                s = "busy" if n else "idle"
+                prev = STAFF_SINCE.get((t["id"], role))
+                if prev and prev[0] == s:
+                    since = prev[1]
+                elif prev or n:
+                    since = int(now * 1000)
+                else:   # 서버를 켜고 처음 본 대기: 마지막 일꾼이 대기가 된 때(모르면 0)
+                    since = int(min(now, max([j + (STAFF_TAIL if fin else STAFF_RUN) for fin, j in mine], default=0)) * 1000)
+                if len(STAFF_SINCE) > 2000:
+                    STAFF_SINCE.clear()
+                STAFF_SINCE[(t["id"], role)] = (s, since)
+                seats[role] = {"s": s, "since": since, "staff": True, "n": n}
+                if base in roots and role.casefold() not in seated:
+                    staff_status(base, role, bool(n), staff_task(tasks, role))
+            if seats:
+                out[t["id"]] = seats
+    return out
+
+
+def staff_watch():
+    """페이지가 닫혀 있어도 직원 status를 맞춰요(STAFF_WATCH_EVERY마다 staff_live). 직원 줄이 없는 설치본은 층 파일만 읽어요."""
+    while True:
+        time.sleep(STAFF_WATCH_EVERY)
+        try:
+            staff_live()
+        except Exception:  # noqa: BLE001 — 신호가 안 돼도 서버는 계속 돌아요
+            pass
 
 
 # GitHub 로그인 -------------------------------------------------------------
@@ -1601,12 +2068,7 @@ def claude_sessions(include_archived=False):
     files.sort(key=mtime, reverse=True)
     seen = {}
     for p in files[:MAX_SESSIONS]:
-        try:
-            if os.path.getsize(p) > 4 * 1024 * 1024:
-                continue
-            rec = load_json(p)
-        except (OSError, ValueError):
-            continue
+        rec = session_json(p)   # FIFO에서 멈추지 않아요: 팀장 폴더 찾기(session_map)가 잠금을 쥔 채 이 기록을 읽어요
         if not isinstance(rec, dict) or not isinstance(rec.get("sessionId"), str) or not SESSION_ID.match(rec["sessionId"]):
             continue
         archived = rec.get("isArchived") is True
@@ -1831,17 +2293,33 @@ def existing_team(folder):
         sid = raw[i].get("sessionId")
         ms.append(seat_row(r, sid if isinstance(sid, str) and SESSION_ID.match(sid) else None, raw[i]))
     seen = {i for i, _ in shown}
-    kept = [hidden_label(m) for i, m in enumerate(raw) if i not in seen]
+    kept = [hidden_label(m) for i, m in enumerate(raw) if i not in seen and not staff_role(m)]   # 직원 줄은 깨진 줄이 아니에요(아래 staff)
     held = {}   # 그대로 두는 줄에 앉은 세션 → 그 줄 이름(그 세션은 다른 자리에 또 앉히지 않게. 보여 주는 자리에도 앉아 있던 세션은 빼요)
     on = {m["sessionId"] for m in ms if m["sessionId"]}
     for i, m in enumerate(raw):
-        if (i not in seen and isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_ID.match(m["sessionId"])
+        if (i not in seen and isinstance(m, dict) and not staff_role(m) and isinstance(m.get("sessionId"), str) and SESSION_ID.match(m["sessionId"])
                 and m["sessionId"] not in on and len(held) < 50):
             held.setdefault(m["sessionId"], hidden_label(m))
     name, prefix = team.get("team"), team.get("prefix")
-    return {"name": clean_name(name, 60) if isinstance(name, str) else "",
-            "prefix": clean_name(prefix, 20) if isinstance(prefix, str) else "", "members": ms,
-            "kept": kept[:20], "keptCount": len(kept), "keptSessions": held}
+    out = {"name": clean_name(name, 60) if isinstance(name, str) else "",
+           "prefix": clean_name(prefix, 20) if isinstance(prefix, str) else "", "members": ms,
+           "kept": kept[:20], "keptCount": len(kept), "keptSessions": held}
+    staff = staff_list(raw)
+    if staff:   # 직원 줄이 있는 사무실만(옛 사무실의 답은 그대로예요)
+        out["staff"] = staff
+    return out
+
+
+def staff_list(raw):
+    """team.json의 직원 줄을 화면에 알려 줄 모양 [{role, staff, name}]: 역할 이름으로 쓸 수 있는 줄만, 역할마다 처음 줄만이에요.
+    staff는 명찰 이름 꼴(ag-…)일 때만, 아니면 null이에요. 이 줄들은 층을 만들 때도 팀원 목록을 바꿀 때도 그대로 둬요."""
+    out, seen = [], set()
+    for m in raw if isinstance(raw, list) else []:
+        r = staff_role(m)
+        if r and is_role(r) and r.casefold() not in seen and len(out) < MAX_MEMBERS:
+            seen.add(r.casefold())
+            out.append({"role": r, "staff": staff_of(m), "name": clean_name(m.get("name"), 60)})
+    return out
 
 
 def seat_row(role, sid, m):
@@ -1901,7 +2379,7 @@ def taken_ids():
 
 
 def floor_members():
-    """내 층(예시 팀 빼고)의 team.json에 앉힌 세션 id → 팀 id."""
+    """내 층(예시 팀 빼고)의 team.json에 앉힌 세션 id → 팀 id. 직원 줄은 세션 자리가 아니라 빼요."""
     out = {}
     for t in real_teams():
         if is_example(t):
@@ -1909,7 +2387,7 @@ def floor_members():
         try:
             team = load_json(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json"))
             for m in team.get("members", []):
-                if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_ID.match(m["sessionId"]):
+                if isinstance(m, dict) and not is_staff_row(m) and isinstance(m.get("sessionId"), str) and SESSION_ID.match(m["sessionId"]):
                     out.setdefault(m["sessionId"], t["id"])
         except (OSError, ValueError, AttributeError, TypeError):
             continue
@@ -2359,8 +2837,11 @@ def rec_guess(title, text, codex=False, no_lead=False):
 def rec_rows(pool, ex, titles, busy=()):
     """추천 팀의 팀원 줄과 (자리가 모자라 못 넣은 수). pool: 이 층에 넣을 세션들 [{tool, id, title, act, guess, why, alt, altWhy}].
     이미 팀 사무실이 있는 폴더(ex)면 그 팀원(지금 자리·세션 그대로)이 먼저이고, 새 세션은 그 뒤에 겹치지 않는 이름으로 더해요.
-    busy: 다른 층에 앉은 세션과 총괄. 이미 있던 팀원 줄이 그 세션이면 그 자리는 비워 둬요(층을 만들 수 있게)."""
+    busy: 다른 층에 앉은 세션과 총괄. 이미 있던 팀원 줄이 그 세션이면 그 자리는 비워 둬요(층을 만들 수 있게).
+    직원 줄(ex의 staff)은 추천하지 않고 그대로 둬요. 그 역할 이름은 쓰지 않고, 한 층의 자리 수(MAX_MEMBERS)에는 세요."""
     rows, used, on = [], set(), set()
+    staff = (ex or {}).get("staff") or []
+    used.update(s["role"].casefold() for s in staff)
     for m in (ex or {}).get("members") or []:
         cid = m.get("codexId")
         sid = m.get("sessionId")
@@ -2394,7 +2875,7 @@ def rec_rows(pool, ex, titles, busy=()):
         return (g if g in GUESS_ROLES and g != LEAD else MEMBER), why
     left = 0
     for p in sorted(pool, key=lambda p: (rank[base(p)[0]], p["tool"] == "codex", -p["act"])):
-        if len(rows) >= MAX_MEMBERS:
+        if len(rows) + len(staff) >= MAX_MEMBERS:
             left += 1
             continue
         b, why = base(p)
@@ -2705,12 +3186,15 @@ def away_of(members, office, where):
     """층에 앉힌 세션 중 층 폴더 밖에서 연 세션(폴더 없이 만든 세션, 새 폴더로 만든 층 등).
     Claude Code는 세션 폴더와 그 위 폴더의 CLAUDE.local.md만 읽어서, 이 세션들은 층 폴더의 CLAUDE.local.md를 읽지 않아요.
     members: [{role, sessionId}]. {rules: 절대 경로로 가져오는 한 줄(@~/…/.office/RULES.md), rulesFile: 그 파일 경로, away: [{role, sessionId, title}]}
-    팀 사무실에 RULES.md가 없으면(이미 있던 사무실이라 만들지 않았어요) rules·rulesFile은 None이고 noRules: true예요."""
+    팀 사무실에 RULES.md가 없으면(이미 있던 사무실이라 만들지 않았어요) rules·rulesFile은 None이고 noRules: true예요.
+    직원 줄은 세션이 아니라서 건너뛰어요(직원 일꾼은 팀장 세션 안에서 돌아요)."""
     if members is None or not office:
         return {}
     home = os.path.realpath(os.path.dirname(office))
     away = []
     for m in members:
+        if is_staff_row(m):
+            continue
         s = where.get(m.get("sessionId") or "")
         if s and not under(os.path.realpath(s["cwd"]), home):
             away.append({"role": m["role"], "sessionId": s["sessionId"], "title": s["title"]})
@@ -2738,7 +3222,9 @@ def check_members(raw):
     name(표시 이름)은 보냈을 때만 담아요(null은 안 보낸 것): 1~20자·제어/서식 문자 없이·대표/총괄 아님, 빈 글('')은 기본 이름으로 되돌린다는 뜻이에요.
     이번에 보낸 이름끼리, 그리고 다른 팀원의 역할과 겹치면 안 돼요(대소문자 무시). 이미 있는 줄의 이름과 겹치는지는 호출한 쪽이 이어서 봐요.
     Codex 자리(읽기 전용): {role, codexId}(sessionId는 비워요). codexId는 Codex 세션 id(uuid 모양, 소문자로 맞춰요)이고, 한 층에 한 번씩,
-    팀장 자리에는 못 앉혀요. 그 줄은 {role, sessionId: None, codexId, tool: "codex"}로 돌려줘요."""
+    팀장 자리에는 못 앉혀요. 그 줄은 {role, sessionId: None, codexId, tool: "codex"}로 돌려줘요.
+    직원 줄(staff 칸이 있는 줄, 설정 화면이 team.json에서 그대로 돌려준 줄)은 깨진 줄로 보지 않아요: {role, sessionId: None, staff}로 돌려주고,
+    부르는 쪽이 team.json의 직원 줄을 그대로 둬요. 직원 줄에 세션·Codex를 앉히면 409, 팀장 자리는 직원 줄이 될 수 없어요."""
     if not isinstance(raw, list) or not raw:
         raise ApiError(400, "팀원(members)은 목록으로 보내 주세요. 맨 앞은 팀장이에요")
     if len(raw) > MAX_MEMBERS:
@@ -2751,6 +3237,13 @@ def check_members(raw):
         if r.casefold() in names:
             raise ApiError(400, f"이 층에 '{r}' 자리가 둘이에요. 역할 이름을 다르게 해 주세요(예: {r}2)")
         names[r.casefold()] = r
+        if is_staff_row(m):
+            if r == LEAD:
+                raise ApiError(400, "팀장 자리는 직원 줄이 될 수 없어요. 팀장은 세션 자리예요")
+            if m.get("sessionId") not in (None, "") or m.get("codexId") not in (None, ""):
+                raise ApiError(409, f"‘{r}’ 자리: {STAFF_NO_SEAT}", {"why": "staff", "role": r})
+            out.append({"role": r, "sessionId": None, "staff": m["staff"]})
+            continue
         sid = m.get("sessionId")
         if sid in (None, ""):
             sid = None
@@ -3139,7 +3632,9 @@ def api_setup_members(body):
     name(표시 이름)은 보냈을 때만 그 줄의 name 칸을 바꿔요(빈 글이면 기본 이름 '<팀 이름> <역할>'로, 다른 칸은 그대로). 안 보내면 그대로 둬요
     (역할 이름을 바꾼 자리는 예전 기본 이름이었을 때만 새 기본 이름으로). 이름을 바꾸면 status/<역할>.json의 name 칸도 맞춰요.
     화면이 보여 주지 않는 team.json 줄(shown_rows 밖: 역할 이름으로 못 쓰는 이름 등)은 그대로 둬요(keep_hidden). 12자리에도 세지 않아요.
-    자리 이름을 바꾸면(was: 그 자리의 예전 이름, 없으면 같은 세션이 앉아 있던 예전 자리) 대화·상태 파일도 새 이름으로 옮겨요."""
+    자리 이름을 바꾸면(was: 그 자리의 예전 이름, 없으면 같은 세션이 앉아 있던 예전 자리) 대화·상태 파일도 새 이름으로 옮겨요.
+    직원 줄은 지우지도 고치지도 않아요: 보내지 않아도 그 자리에 그대로 있고, 화면이 그 역할 줄을 돌려보내면 건너뛰어요.
+    직원 역할에 세션·Codex를 앉히면 409예요. 직원 줄은 12자리에 세요. 새 직원 줄은 여기서 만들지 않아요."""
     tid = body.get("team")
     if not isinstance(tid, str) or not SAFE_ID.match(tid):
         raise ApiError(400, "층(team) id가 이상해요")
@@ -3167,6 +3662,19 @@ def api_setup_members(body):
         cur = boss_sid()
         check_seats(members, seated, {}, {cur} if cur else ())
         raw = team.get("members", [])
+        skeys = staff_keys(raw)   # 직원 줄: 화면에 보여 주지 않고 그대로 살려 둬요(keep_hidden). 돌려보낸 그 역할 줄은 건너뛰어요
+        keep = []
+        for i, m in enumerate(members):
+            if m["role"].casefold() in skeys:
+                if m["sessionId"] or m.get("codexId"):
+                    raise ApiError(409, f"‘{m['role']}’ 자리는 직원 자리예요. {STAFF_NO_SEAT}", {"why": "staff", "role": m["role"]})
+                continue
+            if "staff" in m:
+                raise ApiError(400, f"‘{m['role']}’ 직원 줄이 이 층에 없어요. 직원은 설정의 ‘직원 들이기’로만 들여요", {"why": "staff", "role": m["role"]})
+            keep.append(i)
+        members, hints = [members[i] for i in keep], [hints[i] for i in keep]
+        if len(members) + len(skeys) > MAX_MEMBERS:
+            raise ApiError(400, f"팀원은 한 층에 {MAX_MEMBERS}명까지예요(팀장·직원 포함). 지금 {len(members) + len(skeys)}명이에요")
         shown = shown_rows(raw)   # 화면(팀원 고치기)이 보여 준 줄. 나머지 줄은 손대지 않고 그대로 살려 둬요(keep_hidden)
         old = {r.casefold(): raw[i] for i, r in shown}
         at = {id(raw[i]): i for i, _ in shown}
@@ -3200,12 +3708,13 @@ def api_setup_members(body):
         # 이번에 정한 이름이 이 층의 다른 줄(그대로 두는 줄 포함)의 이름·역할과 겹치지 않는지(바꾸고 난 뒤의 이름끼리 견줘서, 서로 바꾸기는 돼요)
         where_ = {id(r): k for k, r in enumerate(out_rows)}
         check_name_clash(out_rows, [where_[id(r)] for r in named if r["name"] and id(r) in where_])
-        # 그대로 두는 줄에 앉은 세션을 다른 자리에 또 앉히지 않아요(예전부터 겹쳐 있던 건 그대로 봐줘요)
-        count = lambda ms: Counter(m["sessionId"] for m in ms if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and m["sessionId"])
+        # 그대로 두는 줄에 앉은 세션을 다른 자리에 또 앉히지 않아요(예전부터 겹쳐 있던 건 그대로 봐줘요).
+        # 직원 줄에 적힌 sessionId(0.12.0 서버가 잘못 써 넣은 것 등)는 쓰지 않는 값이라 세지 않아요(existing_team·화면의 heldSessions와 같아요)
+        count = lambda ms: Counter(m["sessionId"] for m in ms if isinstance(m, dict) and not staff_role(m) and isinstance(m.get("sessionId"), str) and m["sessionId"])
         was_n, now_n = count(raw), count(out_rows)
         clash = next((m for m in members if m["sessionId"] and now_n[m["sessionId"]] > max(1, was_n[m["sessionId"]])), None)
         if clash:
-            held = next((hidden_label(m) for i, m in enumerate(raw) if i not in seen and isinstance(m, dict) and m.get("sessionId") == clash["sessionId"]), "다른")
+            held = next((hidden_label(m) for i, m in enumerate(raw) if i not in seen and isinstance(m, dict) and not staff_role(m) and m.get("sessionId") == clash["sessionId"]), "다른")
             raise ApiError(400, f"{clash['role']} 세션은 이 층의 그대로 두는 ‘{held}’ 줄에 이미 앉아 있어요. 한 세션은 한 자리에만 앉혀요")
         team["members"] = out_rows
         write_json(tj, team)
@@ -3265,6 +3774,10 @@ def api_setup_member_name(body):
             raise ApiError(409, "이 층의 team.json 모양이 이상해요(members가 목록이어야 해요)")
         raw = team.get("members", [])
         hit = next(((i, r) for i, r in shown_rows(raw) if r.casefold() == want), None)
+        if hit is None:   # 직원 줄도 표시 이름(name 칸)만은 바꿀 수 있어요. staff·역할·다른 칸은 그대로예요
+            j = staff_index(raw, role_in)
+            r = staff_role(raw[j]) if j is not None else None
+            hit = (j, r) if r and is_role(r) else None
         if hit is None:
             raise ApiError(404, "그 역할의 자리가 이 층에 없어요")
         i, role = hit
@@ -3575,8 +4088,11 @@ def api_setup_state(body):
     # 알 수 없으면(예시 팀·링크·너무 큰 파일 등) 둘 다 null. talkRules는 0.8.x 이름이라 한 판만 남겨요(outdated의 반대)
     for f, t in zip(floors, teams):
         f["rules"] = floor_rules(t, roots)
-        f["outdated"] = rules_outdated(f["rules"], cur)
+        f["outdated"] = rules_outdated(f["rules"], cur, staff_rules(t))
         f["talkRules"] = None if f["outdated"] is None else not f["outdated"]
+        if staff_on(t) and not is_example(t):   # 직원 스킬을 켠 층만: 직원 들이기 화면이 고를 것(옛 층의 답은 그대로예요)
+            f["staffOn"] = True
+            f["staffForm"] = staff_form(os.path.realpath(os.path.join(HERE, t["office"])))
     return {"ok": True, "done": done, "platform": platform_name(), "version": VERSION, "intro": intro,
             "github": github_state(s), "deviceFlow": bool(client_id()), "ghAvailable": bool(shutil.which("gh")),
             "claude": {"app": claude_app(), "sessions": len(claude_sessions())},
@@ -5005,7 +5521,9 @@ SEAT_RUN = {"alive": False, "active": False, "last": 0.0}
 PLACEHOLDER_SID = "local_00000000"   # 예시·자리 표시용 세션 id
 # 층 RULES.md에서 에이전시티가 맞추는 부분: docs/TEAM_RULES.md의 '<!-- agencity:<이름> v<판> -->' … '<!-- /agencity:<이름> -->'(판이 없으면 1판).
 # 글과 판은 docs/TEAM_RULES.md 한 곳에만 있어요(새 층은 bin/new_team.py가 그 문서를 그대로 복사해요). (이름, 화면·기록에 쓰는 이름), 더하는 순서
-RULE_BLOCKS = (("team-talk", "팀 간 대화"), ("handoff", "일 맡기기"))
+# '직원 일꾼'(staff)은 직원 스킬을 켠 층(org.json 층의 "staff": true)이나 직원 줄이 남은 층에만 두고, 그 밖의 층에서는 빼요(staff_rules).
+RULE_BLOCKS = (("team-talk", "팀 간 대화"), ("handoff", "일 맡기기"), ("staff", "직원 일꾼"))
+STAFF_BLOCK = "staff"
 RULES_MAX = 1024 * 1024   # 이보다 큰 RULES.md는 읽지도 고치지도 않아요
 
 
@@ -5074,8 +5592,8 @@ def seat_index(raw, role_in):
 
 
 def seat_empty(row):
-    """세션이 앉지 않은 빈자리인지. Codex 자리(읽기 전용)는 빈자리가 아니에요."""
-    return not (isinstance(row.get("sessionId"), str) and SESSION_ID.match(row["sessionId"])) and not codex_of(row)
+    """세션이 앉지 않은 빈자리인지. Codex 자리(읽기 전용)와 직원 줄(is_staff_row)은 빈자리가 아니에요."""
+    return not is_staff_row(row) and not (isinstance(row.get("sessionId"), str) and SESSION_ID.match(row["sessionId"])) and not codex_of(row)
 
 
 def seat_prompt(fname, role, name, marker, base, report):
@@ -5184,6 +5702,8 @@ def seat_url(tid, role_in, marker):
         raise ApiError(409, "이 층의 폴더 경로에 줄바꿈이나 눈에 보이지 않는 글자가 있어서 첫 메시지에 쓸 수 없어요. 폴더 이름을 바꾼 뒤 해 주세요")
     _, team = read_team_text(base)
     raw = team["members"]
+    if staff_index(raw, role_in) is not None:   # 직원 줄은 빈자리가 아니에요(0.12.0 서버가 세션을 앉히던 함정)
+        raise ApiError(409, STAFF_NO_SEAT, {"why": "staff"})
     hit = seat_index(raw, role_in)
     if hit is None:
         raise ApiError(404, "그 역할의 자리가 이 층에 없어요")
@@ -5195,7 +5715,7 @@ def seat_url(tid, role_in, marker):
     fname = floor_name(t)
     tname = prompt_safe(team.get("team"), 60) or fname
     name = prompt_name(raw[i].get("name")) or f"{tname} {role}"
-    lead = next((m.get("sessionId") for m in raw if isinstance(m, dict) and m.get("role") == LEAD), None)
+    lead = next((m.get("sessionId") for m in raw if isinstance(m, dict) and m.get("role") == LEAD and not is_staff_row(m)), None)
     boss = boss_sid()
     report = ("팀장", lead) if role != LEAD and real_sid(lead) else ("총괄", boss) if boss else None
     prompt = seat_prompt(fname, role, name, marker, base, report)
@@ -5343,6 +5863,8 @@ def seat_write(tid, role, sid):
         raise ApiError(409, "이 층의 팀 사무실 폴더를 쓸 수 없어요", {"why": "seat"})
     text, team = read_team_text(base)
     raw = team["members"]
+    if staff_index(raw, role) is not None:   # 직원 줄에는 sessionId를 써 넣지 않아요(그사이 직원 자리가 됐어도)
+        raise ApiError(409, STAFF_NO_SEAT, {"why": "seat"})
     hit = seat_index(raw, role)
     if hit is None:
         raise ApiError(409, f"‘{role}’ 자리가 없어졌어요(이름을 바꿨거나 뺐어요). 다시 열어 주세요", {"why": "seat"})
@@ -5360,7 +5882,7 @@ def seat_write(tid, role, sid):
         check_seats([{"role": role, "sessionId": sid}], seated, {}, {cur} if cur else ())
     except ApiError as e:
         raise ApiError(409, e.msg, {"why": "session"})
-    if any(isinstance(m, dict) and m.get("sessionId") == sid for m in raw):
+    if any(isinstance(m, dict) and not staff_role(m) and m.get("sessionId") == sid for m in raw):   # 직원 줄에 적힌 sessionId는 앉은 게 아니에요
         raise ApiError(409, "이 세션은 이 층의 다른 자리에 이미 앉아 있어요. 한 세션은 한 자리에만 앉혀요", {"why": "session"})
     raw[i]["sessionId"] = sid
     out = set_member_text(text, i, "sessionId", sid)
@@ -5427,7 +5949,9 @@ def seat_check_live(lst):
         if raw is False:
             continue
         hit = seat_index(raw, p["role"]) if raw is not None else None
-        if hit is None:
+        if raw is not None and staff_index(raw, p["role"]) is not None:   # 그사이 직원 자리가 됐어요
+            out[p["marker"]] = ("failed", f"‘{p['role']}’ 자리: {STAFF_NO_SEAT}")
+        elif hit is None:
             out[p["marker"]] = ("failed", f"‘{p['role']}’ 자리가 없어졌어요(이름을 바꿨거나 뺐어요). 다시 열어 주세요")
         elif codex_of(raw[hit[0]]):
             out[p["marker"]] = ("failed", f"‘{p['role']}’ 자리에 Codex 세션을 앉혔어요. 다른 빈자리에서 다시 열어 주세요")
@@ -5710,7 +6234,7 @@ def fill_floors():
 
 def fill_seats(tids):
     """층들(tids)의 채울 빈자리 [(층 id, 자리 이름)]: 층 순서대로, 층 안에서는 팀장 먼저, 그다음 책상 순서(team.json 순서)예요.
-    세션이나 Codex가 앉은 자리는 빼요. 팀 사무실을 읽지 못하는 층은 건너뛰어요."""
+    세션이나 Codex가 앉은 자리와 직원 줄은 빼요(shown_rows·seat_empty). 팀 사무실을 읽지 못하는 층은 건너뛰어요."""
     out, roots = [], office_roots()
     for t in fill_floors():
         base = os.path.realpath(os.path.join(HERE, t["office"]))
@@ -5726,7 +6250,8 @@ def fill_seats(tids):
 
 
 def seat_now(tid, role):
-    """층 tid의 role 자리가 지금 어떤지: 'empty'(빈자리) · 'filled'(세션이나 Codex가 앉음) · 'gone'(층이나 자리가 없어짐) · None(잠깐 못 읽음)."""
+    """층 tid의 role 자리가 지금 어떤지: 'empty'(빈자리) · 'filled'(세션이나 Codex가 앉음) · 'staff'(직원 자리, 세션을 앉히지 않아요) ·
+    'gone'(층이나 자리가 없어짐) · None(잠깐 못 읽음)."""
     t = next((t for t in real_teams() if t["id"] == tid and not is_example(t)), None)
     if t is None:
         return "gone"
@@ -5734,6 +6259,8 @@ def seat_now(tid, role):
         raw = read_team_text(os.path.realpath(os.path.join(HERE, t["office"])))[1]["members"]
     except ApiError:
         return None
+    if staff_index(raw, role) is not None:
+        return "staff"
     hit = seat_index(raw, role)
     return "gone" if hit is None else "empty" if seat_empty(raw[hit[0]]) else "filled"
 
@@ -5836,8 +6363,8 @@ def fill_step(by="server", qid=None, want=None):
                 p = fill_entry(lst, cur)
                 live = bool(p and p["state"] in SEAT_LIVE)
                 st = None if live else seat_now(cur["team"], cur["role"])
-                if st == "filled":   # 그사이 다른 방법(팀원 고치기 등)으로 채웠어요
-                    cur.update(state="seated", done=now())
+                if st in ("filled", "staff"):   # 그사이 다른 방법(팀원 고치기 등)으로 채웠거나, 직원 자리가 됐어요(건너뛰어요)
+                    cur.update(state="seated" if st == "filled" else "skipped", done=now())
                     cur.pop("error", None)
                     fill_save(s, q)
                     continue
@@ -6316,10 +6843,12 @@ def git_dirs(folder):
             gd = os.path.normpath(os.path.join(d, m.group(1))) if m else None
             if not gd or not os.path.isdir(gd):
                 return None, None
+            cd = os.path.join(gd, "commondir")
             try:
-                with open(os.path.join(gd, "commondir"), encoding="utf-8", errors="replace") as f:
-                    common = os.path.normpath(os.path.join(gd, f.read(4096).strip()))
-                gd = common if os.path.isdir(common) else gd
+                if os.path.isfile(cd):   # FIFO처럼 일반 파일이 아닌 것은 열지 않아요(TEAM_LOCK을 쥔 채 불러서, 기다리면 다른 층 일까지 멈춰요)
+                    with open(cd, encoding="utf-8", errors="replace") as f:
+                        common = os.path.normpath(os.path.join(gd, f.read(4096).strip()))
+                    gd = common if os.path.isdir(common) else gd
             except OSError:
                 pass
             return d, gd
@@ -6399,7 +6928,7 @@ def floor_sidebar(t, base):
     if not boss:
         raise ApiError(409, "총괄 세션이 아직 없어요. 설정에서 총괄을 정한 뒤 해 주세요")
     _, _, members = team_info(t["id"])
-    seats = [(r, m["sessionId"]) for r, m in members.items() if real_sid(m["sessionId"]) and m["sessionId"] != boss]
+    seats = [(r, m["sessionId"]) for r, m in members.items() if "_staff" not in m and real_sid(m["sessionId"]) and m["sessionId"] != boss]   # 직원 줄은 세션이 아니에요
     if not seats:
         raise ApiError(409, "이 층에는 아직 앉은 세션이 없어요")
     name = floor_name(t)
@@ -6429,12 +6958,14 @@ def rule_block(text, name):
     return hits[0].start(), j + len(close), int(hits[0].group(1) or 1)
 
 
-def rule_versions(text):
-    """RULES.md 글의 표시 부분 판: {이름: 판, 없으면 None}. 표시가 깨졌으면 ValueError(이름)."""
+def rule_versions(text, staff=False):
+    """RULES.md 글의 표시 부분 판: {이름: 판, 없으면 None}. 표시가 깨졌으면 ValueError(이름).
+    '직원 일꾼'(staff) 칸은 그 부분을 둘 층(staff=True, staff_rules)이거나 그 부분이 글에 있을 때만 넣어요(옛 층의 답은 그대로예요)."""
     out = {}
     for name, _ in RULE_BLOCKS:
         hit = rule_block(text, name)
-        out[name] = hit[2] if hit else None
+        if hit or name != STAFF_BLOCK or staff:
+            out[name] = hit[2] if hit else None
     return out
 
 
@@ -6459,24 +6990,32 @@ def rule_doc(tid=None):
     return out
 
 
-def sync_rules_text(text, blocks):
-    """RULES.md 글을 blocks(rule_doc)에 맞춘 (새 글, 맨 끝에 더한 이름들, 새 판으로 바꾼 이름들).
+def sync_rules_text(text, blocks, staff=False):
+    """RULES.md 글을 blocks(rule_doc)에 맞춘 (새 글, 맨 끝에 더한 이름들, 새 판으로 바꾼 이름들, 뺀 이름들).
     없는 부분은 맨 끝에 더하고, 예전 판은 여는 줄부터 닫는 줄까지만 바꾸고, 같거나 새 판은 그대로 둬요. 표시 밖의 글은 한 글자도 바꾸지 않아요.
+    '직원 일꾼'(staff)은 그 부분을 둘 층(staff=True: 직원 스킬을 켰거나 직원 줄이 남은 층, staff_rules)에만 두고, 그 밖의 층에 있으면 그 부분과 더할 때 붙인 빈 줄만 빼요.
     줄바꿈은 그 파일을 따라요(\\r\\n이 있으면 \\r\\n). 표시가 깨졌으면 ValueError(이름)."""
     nl = "\r\n" if "\r\n" in text else "\n"
-    appended, updated = [], []
+    appended, updated, removed = [], [], []
     for name, _ in RULE_BLOCKS:
         ver, body = blocks[name]
         body = body.replace("\n", nl)
         hit = rule_block(text, name)
-        if hit is None:
+        if name == STAFF_BLOCK and not staff:
+            if hit:
+                a, b = hit[0], hit[1]
+                b = b + len(nl) if text.startswith(nl, b) else b
+                a = a - len(nl) if text[:a].endswith(nl + nl) else a
+                text = text[:a] + text[b:]
+                removed.append(name)
+        elif hit is None:
             sep = "" if not text else nl if text.endswith("\n") else nl + nl
             text = text + sep + body + nl
             appended.append(name)
         elif hit[2] < ver:
             text = text[:hit[0]] + body + text[hit[1]:]
             updated.append(name)
-    return text, appended, updated
+    return text, appended, updated, removed
 
 
 def floor_rules(t, roots):
@@ -6490,23 +7029,28 @@ def floor_rules(t, roots):
         if base not in roots or os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > RULES_MAX:
             return None
         with open(path, encoding="utf-8", newline="") as f:
-            return rule_versions(f.read())
+            return rule_versions(f.read(), staff_rules(t))
     except (OSError, UnicodeDecodeError, ValueError):
         return None
 
 
-def rules_outdated(have, cur):
-    """규칙 맞추기가 필요한지: 하나라도 없거나 예전 판이면 True. 층(have)이나 문서(cur)를 모르면 None."""
+def rules_outdated(have, cur, staff=False):
+    """규칙 맞추기가 필요한지: 하나라도 없거나 예전 판이면 True. 층(have)이나 문서(cur)를 모르면 None.
+    '직원 일꾼'은 그 부분을 둘 층(staff=True, staff_rules)만 견주고, 그 밖의 층에 그 부분이 있으면 빼야 해서 True예요."""
     if have is None or not cur:
         return None
-    return any((have.get(k) or 0) < v for k, v in cur.items())
+    if not staff and have.get(STAFF_BLOCK) is not None:
+        return True
+    return any((have.get(k) or 0) < v for k, v in cur.items() if k != STAFF_BLOCK or staff)
 
 
 def api_floor_rules_sync(body):
     """층 RULES.md의 에이전시티 부분(RULE_BLOCKS)을 docs/TEAM_RULES.md에 맞춰요(sync_rules_text). 이미 맞으면 쓰지 않고,
     고칠 때는 임시 파일을 쓰고 바꿔치기해요. 예전 판을 바꿀 때는 바꾸기 전 파일을 RULES.md.bak에 먼저 남겨요(표시 사이를 고쳐 썼어도 되찾게).
-    {ok, changed, added(changed와 같아요, 0.8.x 이름), appended: [이름], updated: [이름], rules: {이름: 판}, backup: 'RULES.md.bak' 또는 None}."""
+    {ok, changed, added(changed와 같아요, 0.8.x 이름), appended: [이름], updated: [이름], removed: [이름], rules: {이름: 판}, backup: 'RULES.md.bak' 또는 None}.
+    '직원 일꾼' 부분은 직원 스킬을 켰거나 직원 줄이 남은 층(staff_rules)에만 두고, 그 밖의 층에서는 빼요(removed, 빼기 전 파일도 RULES.md.bak에 남겨요)."""
     t, base = floor_of(body.get("team"), "예시 팀의 규칙은 고칠 수 없어요")
+    staff = staff_rules(t)
     blocks = rule_doc(t["id"])
     path = os.path.join(base, "RULES.md")
     bak = path + ".bak"
@@ -6525,10 +7069,10 @@ def api_floor_rules_sync(body):
         if big:
             raise ApiError(409, "이 층의 RULES.md가 너무 커요(1MB 넘게). 고치지 않았어요")
         try:
-            new, appended, updated = sync_rules_text(text, blocks)
+            new, appended, updated, removed = sync_rules_text(text, blocks, staff)
         except ValueError as e:
             raise ApiError(409, f"이 층 RULES.md의 ‘{dict(RULE_BLOCKS).get(str(e), str(e))}’ 표시가 깨졌어요(여는 줄이 둘이거나 닫는 줄이 없어요). 고치지 않았어요")
-        if updated:   # 표시 사이를 바꾸면 그 안에 써 둔 글이 사라져요: 바꾸기 전 파일을 그대로 남겨요(링크·폴더면 고치지 않아요)
+        if updated or removed:   # 표시 사이를 바꾸거나 빼면 그 안에 써 둔 글이 사라져요: 바꾸기 전 파일을 그대로 남겨요(링크·폴더면 고치지 않아요)
             if os.path.islink(bak) or os.path.isdir(bak):
                 raise ApiError(409, "이 층의 RULES.md.bak이 링크나 폴더라 예전 글을 남길 수 없어요. 고치지 않았어요")
             try:
@@ -6540,13 +7084,14 @@ def api_floor_rules_sync(body):
                 write_text(path, new)
             except OSError as e:
                 raise ApiError(409, f"이 층의 RULES.md를 쓰지 못했어요({e.strerror or type(e).__name__})")
-    changed = bool(appended or updated)
+    changed = bool(appended or updated or removed)
     if changed:
         lab = dict(RULE_BLOCKS)
-        log(base, "팀 전체", "설정", "팀 규칙(RULES.md)을 맞췄어요: " + ", ".join([f"‘{lab[n]}’ 더함" for n in appended] + [f"‘{lab[n]}’ 새 판" for n in updated])
-            + (" (바꾸기 전 글은 RULES.md.bak)" if updated else ""))
-    return {"ok": True, "changed": changed, "added": changed, "appended": appended, "updated": updated, "rules": rule_versions(new),
-            "backup": "RULES.md.bak" if updated else None}
+        log(base, "팀 전체", "설정", "팀 규칙(RULES.md)을 맞췄어요: " + ", ".join([f"‘{lab[n]}’ 더함" for n in appended] + [f"‘{lab[n]}’ 새 판" for n in updated]
+                                                                     + [f"‘{lab[n]}’ 뺌" for n in removed])
+            + (" (바꾸기 전 글은 RULES.md.bak)" if updated or removed else ""))
+    return {"ok": True, "changed": changed, "added": changed, "appended": appended, "updated": updated, "removed": removed, "rules": rule_versions(new, staff),
+            "backup": "RULES.md.bak" if updated or removed else None}
 
 
 CHAT_MOD = []   # 읽어 둔 bin/chat_image.py
@@ -6626,6 +7171,924 @@ def api_talk_allow(body):
     return {"ok": True, "thread": r["thread"], "n": r["n"], "cap": r["cap"], "rounds": r["cap"] // 2}
 
 
+# 직원 들이기·퇴근·명찰 (U-31 '스킬이 곧 직원') ------------------------------------
+# 직원 스킬 원본은 <팀 사무실>/staff/<명찰 이름>/SKILL.md(대표가 읽고 고쳐요), 기억은 같은 폴더의 기억.md(팀장이 고쳐요)예요.
+# 서버가 그 스킬로 일꾼 명찰(<팀장 폴더>/.claude/agents/<명찰 이름>.md)을 지어 복사해 두고(링크가 아니에요), 그 해시를 .agent.sha256에 적어요.
+# 명찰의 tools는 늘 적어요(비우면 일꾼이 모든 도구를 받아요). 도구와 모델은 아래 목록 안에서만 받아요.
+STAFF_TOOLS = ("Read", "Grep", "Glob", "Write", "Edit", "Bash", "WebFetch", "WebSearch")
+STAFF_BASE_TOOLS = ("Read", "Grep", "Glob", "Write", "Edit")   # 화면의 기본 도구(셸 없이)
+STAFF_MODELS = ("inherit", "opus", "sonnet", "haiku")
+SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}\Z")   # 쓸 스킬 이름(폴더 이름)
+STAFF_DESC_MAX, STAFF_WORK_MAX, STAFF_MAX_SKILLS = 300, 4000, 20
+STAFF_SKILL_MAX = 64 * 1024   # 이보다 큰 SKILL.md·명찰은 읽지 않아요
+STAFF_EXCLUDE = ".claude/agents/ag-*.md"   # 팀장 폴더가 git 저장소면 info/exclude에 더하는 줄
+STAFF_RULES_TELL = "[규칙] RULES.md를 다시 읽어 주세요. ‘직원 일꾼’ 장이 들어갔어요(직원 스킬을 켰어요). 직원 일꾼을 띄우기 전에 그 장을 따라요."
+# 끌 때인데 그 장이 들어갔으면(남은 직원이 있는데 RULES.md에 그 장이 없던 층: org.json을 손으로 고쳤거나, 켤 때 맞추기가 실패했거나, 장을 손으로 지운 층) 이 글이에요
+STAFF_RULES_TELL_OFF = "[규칙] RULES.md를 다시 읽어 주세요. 직원 스킬은 껐지만 남은 직원이 있어서 ‘직원 일꾼’ 장이 들어갔어요. 남은 직원의 일꾼을 띄우기 전에 그 장을 따라요."
+# 위 알림을 보낼 때 팀장 대화 파일에 남기는 알림 줄(from '사이트', meeting_nudge_floor와 같은 꼴)
+STAFF_RULES_SAID = "직원 스킬을 켜서 RULES.md에 ‘직원 일꾼’ 장이 들어갔어요. 팀장에게 다시 읽으라고 알렸어요."
+STAFF_RULES_SAID_OFF = "직원 스킬은 껐지만 남은 직원이 있어서 RULES.md에 ‘직원 일꾼’ 장이 들어갔어요. 팀장에게 다시 읽으라고 알렸어요."
+STAFF_INFO = {"at": 0.0, "val": None}       # /api/state의 staff(staff_info) 캐시
+# 서버가 마지막으로 지은 명찰의 해시·도구·모델(설치 폴더마다 하나, 0700 설정 폴더의 0600 파일). 직원 폴더의 .agent.sha256과 팀장 폴더의 명찰은
+# 일꾼(Write·Edit, cwd는 팀장 폴더)이 닿는 곳이라 함께 고칠 수 있어요. 명찰 상태 '맞음'은 이 기록으로 견줘요
+STAFF_RECORD = os.path.join(CONFIG_DIR, f"staff-agents-{HOME_ID}.json")
+STAFF_RECORD_LOCK = threading.Lock()
+STAFF_WIDE = ("Bash", "WebFetch", "WebSearch")   # 셸·인터넷 도구. 명찰 다시 만들기가 이 도구를 새로 주면 확인 창에 따로 알려요(409의 wide)
+SESSION_MAP = {"at": 0.0, "val": {}}        # Claude 앱 세션 기록 {세션 id: 기록} 캐시(팀장 폴더 찾기)
+STAFF_INFO_TTL = 15
+STAFF_INFO_LOCK = threading.Lock()
+
+
+def staff_on(t):
+    """층(org.json의 줄)에 직원 스킬(시험 기능)을 켰는지: "staff": true일 때만이에요."""
+    return isinstance(t, dict) and t.get("staff") is True
+
+
+def staff_rules(t):
+    """그 층 RULES.md에 '직원 일꾼' 부분을 둘지: 직원 스킬을 켠 층(staff_on)이거나, 꺼진 층이어도 team.json에 직원 줄(명찰 이름 꼴)이 남아 있을 때예요.
+    끄면 '직원 들이기'만 숨겨요. 남은 직원은 팀장이 여전히 일꾼으로 띄울 수 있어서, 일꾼이 지킬 규칙(1장 그물)을 빼지 않아요(설계 결정 7).
+    직원 줄이 없는 옛 층은 지금처럼 False예요. team.json을 못 읽으면 False예요."""
+    if staff_on(t):
+        return True
+    if not isinstance(t, dict) or not isinstance(t.get("office"), str) or is_example(t):
+        return False
+    try:
+        ms = load_json(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json")).get("members")
+    except (OSError, ValueError, AttributeError, RecursionError):
+        return False
+    return isinstance(ms, list) and any(staff_role(m) and staff_of(m) for m in ms)
+
+
+def staff_forget():
+    """직원 줄·명찰·켜기를 바꾼 뒤 /api/state 직원 정보와 세션 기록 캐시를 비워요(다음에 새로 읽어요)."""
+    STAFF_INFO["at"] = SESSION_MAP["at"] = 0.0
+
+
+def yaml_scalar(v, nested=False):
+    """머리말 값 하나: "글"(JSON과 같은 이스케이프), '글'('' 은 '), [가, 나] 목록, 그 밖은 뒤 주석(' #…')을 뗀 글이에요.
+    목록 안의 목록([[…]])은 읽지 않아요(ValueError). 깊게 겹친 목록으로 재귀가 끝없이 깊어지지 않게 해요. nested: 목록 안의 값인지."""
+    v = v.strip()
+    if v.startswith("[") and v.endswith("]"):
+        if nested:
+            raise ValueError("목록 안에 목록이 있어요([a, b]처럼 한 겹으로 써요)")
+        inner = v[1:-1].strip()
+        return [yaml_scalar(x, True) for x in inner.split(",")] if inner else []
+    if len(v) >= 2 and v[0] == v[-1] == '"':
+        return json.loads(v)
+    if len(v) >= 2 and v[0] == v[-1] == "'":
+        return v[1:-1].replace("''", "'")
+    return re.sub(r"\s+#.*\Z", "", v)
+
+
+def yaml_text(s):
+    """머리말 한 줄 값으로 쓸 글: 그대로 YAML 글로 읽히면 그대로, 아니면 큰따옴표로 감싸요(JSON 이스케이프)."""
+    plain = (bool(s) and s == s.strip() and s[0] not in "-?:,[]{}#&*!|>'\"%@`" and ": " not in s and " #" not in s and not s.endswith(":")
+             and not re.match(r"[-+.0-9]", s) and s.lower() not in ("true", "false", "yes", "no", "on", "off", "null", "y", "n", "~"))
+    return s if plain else json.dumps(s, ensure_ascii=False)
+
+
+def front_matter(text):
+    """SKILL.md를 (머리말 dict, 본문)으로 나눠요. 머리말은 맨 위 '---' 줄 사이의 간단한 YAML이에요: 'key: 값' 줄, 들여 쓴 아래 칸(표나 '- 값' 목록),
+    값은 yaml_scalar, 여러 줄 글('|'·'>'). 탭 들여쓰기·목록 안의 표 같은 다른 꼴은 읽지 못해서 ValueError(까닭)예요."""
+    lines = text.replace("\r\n", "\n").split("\n")
+    if not lines or lines[0].strip() != "---":
+        raise ValueError("맨 위에 머리말(---)이 없어요")
+    end = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), None)
+    if end is None:
+        raise ValueError("머리말을 닫는 --- 줄이 없어요")
+    root = {}
+    stack, pending, block = [(0, root)], None, None   # stack: (칸들의 들여쓰기, 담는 곳). pending: 값이 빈 칸. block: 모으는 여러 줄 글
+    item = lambda s: s == "-" or s.startswith("- ")
+    for raw in lines[1:end] + [None]:
+        ind = len(raw) - len(raw.lstrip(" ")) if raw is not None else -1
+        if block:   # 여러 줄 글: 더 들여 쓴 줄과 빈 줄을 모아요
+            if raw is not None and (not raw.strip() or ind > block[0]):
+                block[4].append(raw)
+                continue
+            got = [x for x in block[4]]
+            cut = min((len(x) - len(x.lstrip(" ")) for x in got if x.strip()), default=0)
+            got = [x[cut:] for x in got]
+            block[1][block[2]] = ("\n".join(got) if block[3] == "|" else " ".join(x.strip() for x in got if x.strip())).strip()
+            block = None
+        if raw is None:
+            break
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if "\t" in raw[:len(raw) - len(raw.lstrip())]:
+            raise ValueError("탭으로 들여 쓴 줄이 있어요(빈칸으로 들여 써요)")
+        s = raw.strip()
+        if pending:   # 값이 빈 칸: 다음 줄이 더 깊으면(목록은 같은 깊이도) 그 칸의 표나 목록이에요
+            pind, box, key = pending
+            pending = None
+            if ind > pind or (ind == pind and item(s)):
+                box[key] = [] if item(s) else {}
+                stack.append((ind, box[key]))
+        while len(stack) > 1 and (stack[-1][0] > ind or (stack[-1][0] == ind and isinstance(stack[-1][1], list) and not item(s))):
+            stack.pop()
+        cind, box = stack[-1]
+        if cind != ind:
+            raise ValueError(f"들여쓰기가 맞지 않는 줄이 있어요: {one_line(s, 40)}")
+        if isinstance(box, list):
+            box.append(yaml_scalar(s[1:], True))
+            continue
+        k, sep, v = s.partition(":")
+        if item(s) or not sep or not k.strip():
+            raise ValueError(f"읽지 못한 줄이 있어요: {one_line(s, 40)}")
+        k, v = k.strip(), v.strip()
+        if v in ("|", ">", "|-", ">-", "|+", ">+"):
+            block = (ind, box, k, v[0], [])
+        else:
+            box[k] = yaml_scalar(v) if v else ""
+            pending = (ind, box, k) if not v else None
+    return root, "\n".join(lines[end + 1:])
+
+
+def name_list(v):
+    """머리말의 이름 목록: [a, b] 목록이나 'a, b' 글. 빈 값은 []. 글이 아닌 항목이 있으면 ValueError."""
+    if v in (None, ""):
+        return []
+    if isinstance(v, str):
+        v = v.split(",")
+    if not isinstance(v, list) or not all(isinstance(x, str) for x in v):
+        raise ValueError("목록 칸(tools·skills) 모양이 이상해요")
+    return [x.strip() for x in v if x.strip()]
+
+
+def staff_skill(base, staff):
+    """직원 스킬(staff/<이름>/SKILL.md): {description, role, tools, model, skills, body}. 도구·모델·스킬 이름은 정해진 목록과 꼴 안에서만 받아요.
+    없거나 링크이거나 못 읽으면 ValueError(까닭)."""
+    sdir = os.path.join(base, "staff", staff)
+    path = os.path.join(sdir, "SKILL.md")
+    if any(os.path.islink(p) for p in (os.path.dirname(sdir), sdir, path)) or not os.path.isfile(path):
+        raise ValueError("SKILL.md가 없거나 링크예요")
+    if os.path.getsize(path) > STAFF_SKILL_MAX:
+        raise ValueError("SKILL.md가 너무 커요(64KB까지)")
+    raw = read_small(path, STAFF_SKILL_MAX)   # 본 뒤에 FIFO로 바뀌어도 멈추지 않아요
+    if raw is None:
+        raise ValueError("SKILL.md가 없거나 링크예요")
+    try:   # 글 모드로 읽던 것과 같게 줄바꿈(\r\n·\r)은 \n으로 봐요
+        front, body = front_matter(raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n"))
+    except RecursionError:
+        raise ValueError("머리말이 너무 깊게 겹쳐 있어요")
+    if front.get("name") not in (None, "", staff):
+        raise ValueError(f"머리말의 name이 폴더 이름({staff})과 달라요")
+    desc = clean_name(front.get("description"), 1000)
+    if not desc:
+        raise ValueError("머리말의 description(한 줄 설명)이 비었어요")
+    office = front.get("office") or {}
+    if not isinstance(office, dict):
+        raise ValueError("머리말의 office 칸이 표가 아니에요")
+    tools, skills = name_list(office.get("tools")), name_list(office.get("skills"))
+    bad = [x for x in tools if x not in STAFF_TOOLS]
+    if bad:
+        raise ValueError(f"tools에 쓸 수 없는 도구가 있어요: {one_line(', '.join(bad[:3]), 60)}. 쓸 수 있는 것: {', '.join(STAFF_TOOLS)}")
+    if not tools:
+        raise ValueError("tools(쓸 도구)가 비었어요. 비우면 일꾼이 모든 도구를 받아서 적어야 해요")
+    model = office.get("model") or "inherit"
+    if model not in STAFF_MODELS:
+        raise ValueError(f"model은 {', '.join(STAFF_MODELS)} 중 하나예요")
+    bad = [x for x in skills if not SKILL_NAME.match(x)]
+    if bad or len(skills) > STAFF_MAX_SKILLS:
+        raise ValueError(f"skills에 쓸 수 없는 이름이 있어요(영문 소문자·숫자·-, {STAFF_MAX_SKILLS}개까지)")
+    role = office.get("role")
+    return {"description": desc, "role": role if isinstance(role, str) else "", "tools": [x for x in STAFF_TOOLS if x in tools],
+            "model": model, "skills": list(dict.fromkeys(skills)), "body": body}
+
+
+def floor_label(base):
+    """명찰 첫 줄의 층 이름: 그 사무실의 org.json 층 이름(floor_name), 없으면 team.json의 팀 이름, 그것도 없으면 폴더 이름이에요."""
+    t = next((t for t in real_teams() if os.path.realpath(os.path.join(HERE, t["office"])) == base), None)
+    if t:
+        return floor_name(t)
+    try:
+        name = prompt_safe(load_json(os.path.join(base, "team.json")).get("team"), 60)
+    except (OSError, ValueError, AttributeError):
+        name = ""
+    return name or os.path.basename(os.path.dirname(base))
+
+
+def floor_word(name):
+    """'<층 이름> 층'. 층 이름이 이미 '층'으로 끝나면 '층'을 또 붙이지 않아요('시험층', '3층')."""
+    return name if name.endswith("층") else f"{name} 층"
+
+
+def staff_row_role(base, staff):
+    """team.json에서 그 명찰 이름의 직원 줄 역할. 없으면 None."""
+    try:
+        ms = load_json(os.path.join(base, "team.json")).get("members")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return next((m["role"] for m in ms if staff_of(m) == staff and staff_role(m) and is_role(m["role"])), None) if isinstance(ms, list) else None
+
+
+def staff_agent(base, staff):
+    """(명찰 글, staff_skill 값). SKILL.md를 쓸 수 없으면 ApiError(409)."""
+    try:
+        sk = staff_skill(base, staff)
+    except (OSError, ValueError, RecursionError) as e:
+        raise ApiError(409, f"직원 스킬({show_path(os.path.join(base, 'staff', staff, 'SKILL.md'))})을 쓸 수 없어요: {e if not isinstance(e, RecursionError) else '머리말이 너무 깊게 겹쳐 있어요'}", {"why": "skill"})
+    role = staff_row_role(base, staff) or (sk["role"] if is_role(sk["role"]) else staff)
+    memory = os.path.join(base, "staff", staff, "기억.md")
+    head = ["---", f"name: {staff}", f"description: {yaml_text(sk['description'])}", f"tools: {', '.join(sk['tools'])}", f"model: {sk['model']}"]
+    if sk["skills"]:
+        head.append(f"skills: [{', '.join(sk['skills'])}]")
+    body = sk["body"].strip("\n")
+    text = ("\n".join(head) + "\n---\n"
+            f"너는 {floor_word(floor_label(base))} 직원 '{role}'의 일꾼이에요. 팀장이 준 [일 맡기기] 범위까지만 해요. RULES.md의 '직원 일꾼' 장을 따라요.\n\n"
+            + (body + "\n\n" if body.strip() else "") + f"시작하면 `{memory}`를 읽어요.\n")
+    return text, sk
+
+
+def staff_agent_text(base, staff):
+    """직원 스킬로 지은 일꾼 명찰 글. 머리말은 name·description(SKILL.md의 것)·tools(쉼표로)·model·skills(있을 때만)이고,
+    본문은 일꾼 첫 줄 → SKILL.md 본문 → '시작하면 <절대 경로>/staff/<이름>/기억.md를 읽어요' 차례예요. SKILL.md를 쓸 수 없으면 ApiError(409)."""
+    return staff_agent(base, staff)[0]
+
+
+def text_sha(text):
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def agent_head(raw):
+    """명찰 글(바이트)의 (도구 목록, 모델): 머리말의 tools·model 줄 그대로예요(손으로 고친 값도). tools 줄이 없거나 비면 ['*']
+    (그러면 일꾼이 모든 도구를 받아요), model이 없으면 'inherit'. 못 읽으면 None."""
+    try:
+        front, _ = front_matter(raw.decode("utf-8"))
+        tools = name_list(front.get("tools"))
+    except (ValueError, UnicodeDecodeError, RecursionError):
+        return None
+    model = front.get("model")
+    return [clean_name(x, 40) for x in tools[:20]] or ["*"], clean_name(model, 40) if isinstance(model, str) and model.strip() else "inherit"
+
+
+def staff_key(base, staff):
+    """설정 폴더 기록의 열쇠(팀 사무실 경로와 명찰 이름의 해시). 경로는 적지 않아요."""
+    return hashlib.sha256(f"{base}\0{staff}".encode("utf-8")).hexdigest()[:32]
+
+
+def staff_records():
+    """설정 폴더의 명찰 기록 {열쇠: {sha, tools, model, at}}. 내 파일(일반 파일)이 아니거나 못 읽으면 {}."""
+    try:
+        st = os.lstat(STAFF_RECORD)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_size > 1024 * 1024:
+            return {}
+        d = load_json(STAFF_RECORD)
+    except (OSError, ValueError, RecursionError):
+        return {}
+    a = d.get("agents") if isinstance(d, dict) else None
+    return a if isinstance(a, dict) else {}
+
+
+def staff_record(base, staff):
+    """서버가 그 직원에게 마지막으로 지은 명찰 {sha, tools, model}. 기록이 없거나 모양이 틀리면 None."""
+    r = staff_records().get(staff_key(base, staff))
+    if not isinstance(r, dict) or not isinstance(r.get("sha"), str):
+        return None
+    tools, model = r.get("tools"), r.get("model")
+    return {"sha": r["sha"], "tools": [x for x in tools if isinstance(x, str)] if isinstance(tools, list) else None,
+            "model": model if isinstance(model, str) else None}
+
+
+def save_staff_record(base, staff, text, sk):
+    """지은 명찰의 해시·도구·모델을 설정 폴더 기록에 적어요(0700 폴더의 0600 파일, 임시 파일을 쓰고 바꿔치기). 못 쓰면 OSError."""
+    with STAFF_RECORD_LOCK:
+        os.makedirs(CONFIG_DIR, mode=0o700, exist_ok=True)
+        st = os.lstat(CONFIG_DIR)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid():
+            raise OSError("설정 폴더가 내 폴더가 아니거나 링크예요")
+        cur = staff_records()
+        cur[staff_key(base, staff)] = {"sha": text_sha(text), "tools": list(sk["tools"]), "model": sk["model"], "at": now()}
+        tmp = f"{STAFF_RECORD}.tmp{os.getpid()}{threading.get_ident()}"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump({"v": 1, "agents": cur}, f)
+            os.replace(tmp, STAFF_RECORD)
+        except BaseException:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
+
+
+def read_agent(folder, staff):
+    """팀장 폴더 명찰의 바이트. 없으면 None, 링크·FIFO처럼 일반 파일이 아니거나 너무 크면 ValueError, 못 읽으면 OSError
+    (agent_file이 .claude·agents·명찰 링크를 막아요: ApiError). FIFO에서 멈추지 않아요(read_small)."""
+    return read_small(agent_file(folder, staff), STAFF_SKILL_MAX)
+
+
+def agent_ours(base, staff, raw):
+    """팀장 폴더의 명찰(raw: 바이트)이 이 층이 지은 명찰인지: 해시가 설정 폴더 기록(서버가 이 층 그 직원에게 마지막으로 지은 것)과 같거나,
+    본문에 이 층의 기억.md 경로(`<팀 사무실>/staff/<이름>/기억.md`)가 있으면 이 층 것이에요(손으로 고친 이 층 명찰도요).
+    두 층의 팀장이 같은 폴더에서 일하면 같은 이름의 명찰이 다른 층 것일 수 있어요."""
+    rec = staff_record(base, staff)
+    if rec and hashlib.sha256(raw).hexdigest() == rec["sha"]:
+        return True
+    return f"`{os.path.join(base, 'staff', staff, '기억.md')}`".encode("utf-8") in raw
+
+
+def agent_other(folder, base, staff):
+    """지금 팀장 폴더의 그 명찰이 이 층 것이 아니면(다른 층이나 손으로 만든 명찰) 그 경로, 없거나 이 층 것이면 None.
+    읽지 못한 명찰(FIFO·너무 큼)도 이 층 것인지 몰라서 아닌 것으로 봐요. 다시 만들기는 덮지 않고, 퇴근은 옮기지 않아요. 링크면 agent_file이 ApiError(409)."""
+    p = agent_file(folder, staff)
+    try:
+        raw = read_agent(folder, staff)
+    except (OSError, ValueError):
+        return p
+    return None if raw is None or agent_ours(base, staff, raw) else p
+
+
+def staff_widen(base, staff, sk):
+    """다시 지을 명찰(sk: staff_skill 값)이 서버가 마지막으로 지은 명찰보다 도구를 늘리거나 모델을 바꾸는지: (새로 받는 도구들, [예전 모델, 새 모델] 또는 None).
+    견주는 쪽은 설정 폴더의 기록이에요. 팀장 폴더의 명찰과 SKILL.md는 일꾼이 함께 고쳤을 수 있어서 견주지 않아요. 기록이 없으면 기본 도구(Bash 없이)와 inherit이에요."""
+    rec = staff_record(base, staff)
+    tools, model = (rec["tools"], rec["model"]) if rec and rec["tools"] and rec["model"] else (list(STAFF_BASE_TOOLS), "inherit")
+    return [x for x in sk["tools"] if x not in tools], [model, sk["model"]] if model != sk["model"] else None
+
+
+def staff_confirmed(body, sk, model):
+    """명찰 다시 만들기의 확인이 지금 지을 명찰에 맞는지: confirm이 true이고, expect(확인 창에 보인 409의 tools·model)가
+    지금 SKILL.md로 지을 도구 목록(sk["tools"])·모델 바뀜(staff_widen의 [예전, 새] 또는 None)과 같을 때만 True예요.
+    확인 창이 뜬 사이에 SKILL.md가 더 넓어지면(도구가 더 늘거나 모델이 또 바뀌면) False라서 새 차이로 다시 물어요."""
+    exp = body.get("expect")
+    return body.get("confirm") is True and isinstance(exp, dict) and exp.get("tools") == sk["tools"] and exp.get("model") == model
+
+
+def session_map():
+    """{세션 id: Claude 앱 세션 기록}(claude_sessions, 보관한 것까지). away_of가 쓰는 것과 같은 기록이에요. 무거워서 30초 캐시이고,
+    session_cwd가 그 세션 파일을 못 찾았을 때만 써요."""
+    t = time.time()
+    if t - SESSION_MAP["at"] > 30:
+        SESSION_MAP.update(at=t, val={s["sessionId"]: s for s in claude_sessions(True)})
+    return SESSION_MAP["val"]
+
+
+def team_lead(raw):
+    """team.json 팀원 줄에서 팀장 세션 id(team_info와 같은 기준). 없으면 None."""
+    return next((m["sessionId"] for m in raw if isinstance(m, dict) and m.get("role") == LEAD and not is_staff_row(m) and real_sid(m.get("sessionId"))), None)
+
+
+def session_cwd(sid):
+    """Claude 앱 세션 기록에서 그 세션의 cwd(claude_sessions의 cwd와 같은 값, away_of가 쓰는 것). 모든 기록을 읽으면 무거워서
+    그 세션 파일(<세션 폴더>/*/*/<세션 id>.json)만 먼저 읽고, 못 찾으면 모든 기록(session_map)을 봐요. 없으면 None."""
+    best = None
+    for p in glob.glob(os.path.join(glob.escape(SESSIONS_DIR), "*", "*", sid + ".json")):
+        rec = session_json(p)
+        if not isinstance(rec, dict) or rec.get("sessionId") != sid:
+            continue
+        cwd, origin = (rec.get(k) if isinstance(rec.get(k), str) and rec[k].startswith("/") and not SURROGATE.search(rec[k]) else ""
+                       for k in ("cwd", "originCwd"))
+        if cwd or origin:
+            at = epoch_ms(rec.get("lastActivityAt")) or 0
+            if best is None or at > best[0]:
+                best = (at, os.path.normpath(cwd) if cwd else WORKTREE.sub("", os.path.normpath(origin)) or "/")
+    if best:
+        return best[1]
+    s = session_map().get(sid)
+    return s["cwd"] if s else None
+
+
+def lead_folder(sid):
+    """팀장 세션의 작업 폴더(실제 경로): Claude 앱 세션 기록의 cwd(session_cwd), 없으면 살아 있는 pid 기록의 cwd예요.
+    못 찾았거나, 폴더가 아니거나, 홈·/·설치 폴더·설정 폴더(또는 그것을 품은 폴더)면 None이에요."""
+    if not real_sid(sid):
+        return None
+    cwd = session_cwd(sid)
+    if not cwd:
+        try:
+            cwd = (run_hosts().get(sid) or {}).get("cwd")
+        except OSError:
+            cwd = None
+    if not cwd:
+        return None
+    real = os.path.realpath(cwd)
+    if (not os.path.isdir(real) or real in (HOME, "/") or under(real, HERE) or under(HERE, real)
+            or any(under(real, d) or under(d, real) for d in SECRET_DIRS)):
+        return None
+    return real
+
+
+def agent_file(folder, staff):
+    """팀장 폴더의 명찰 경로(.claude/agents/<이름>.md). .claude·agents·명찰이 링크이거나 폴더·파일 모양이 아니면 ApiError(409)예요."""
+    c = os.path.join(folder, ".claude")
+    a = os.path.join(c, "agents")
+    p = os.path.join(a, staff + ".md")
+    for x, folder_kind in ((c, True), (a, True), (p, False)):
+        if os.path.islink(x):
+            raise ApiError(409, f"{show_path(x)} 가 링크예요. 명찰을 건드리지 않았어요", {"why": "link"})
+        if os.path.lexists(x) and os.path.isdir(x) != folder_kind:
+            raise ApiError(409, f"{show_path(x)} 가 {'폴더' if folder_kind else '파일'}가 아니에요. 명찰을 건드리지 않았어요", {"why": "link"})
+    return p
+
+
+def write_agent(folder, staff, text, made):
+    """명찰을 써요(임시 파일을 쓰고 바꿔치기). 새로 만든 폴더·파일은 made에 적어요(실패하면 되돌리게). (경로, agents 폴더를 새로 만들었는지)."""
+    p = agent_file(folder, staff)
+    a = os.path.dirname(p)
+    restart = not os.path.isdir(a)   # 팀장 세션은 켤 때 없던 .claude/agents를 보지 않아요: 한 번 다시 켜야 해요
+    for d in (os.path.dirname(a), a):
+        if not os.path.isdir(d):
+            os.mkdir(d)
+            made.append(("dir", d))
+    if not os.path.lexists(p):
+        made.append(("file", p))
+    write_text(p, text)
+    return p, restart
+
+
+def skill_where(folder, base, name):
+    """쓸 스킬이 있는 곳: 'lead'(팀장 폴더 .claude/skills에 이미 있음) · 'floor'(층 .office/skills, 팀장 폴더에 링크를 걸어요) ·
+    'personal'(~/.claude/skills, 링크 없이도 보여요) · None(없음)."""
+    if folder and os.path.isfile(os.path.join(folder, ".claude", "skills", name, "SKILL.md")):
+        return "lead"
+    if os.path.isfile(os.path.join(base, "skills", name, "SKILL.md")):
+        return "floor"
+    if os.path.isfile(os.path.join(HOME_RAW, ".claude", "skills", name, "SKILL.md")):
+        return "personal"
+    return None
+
+
+def skills_ready(folder, base, skills):
+    """쓸 스킬을 모두 찾을 수 있는지 봐요(파일을 쓰기 전에). 못 찾으면 ApiError(409)."""
+    for name in skills:
+        if skill_where(folder, base, name) is None:
+            raise ApiError(409, f"쓸 스킬 ‘{name}’을 이 층 스킬(.office/skills)과 개인 스킬(~/.claude/skills)에서 찾지 못했어요", {"why": "skill", "skill": name})
+
+
+def link_skills(folder, base, skills, made):
+    """명찰 skills:에 적은 층 스킬이 팀장 폴더 .claude/skills/에 없으면 링크를 걸어요(층 .office/skills/<스킬>만 링크해요). 건 링크 [경로]."""
+    skills_ready(folder, base, skills)
+    out = []
+    for name in skills:
+        if skill_where(folder, base, name) != "floor":
+            continue
+        c = os.path.join(folder, ".claude")
+        s = os.path.join(c, "skills")
+        dst = os.path.join(s, name)
+        for x in (c, s):
+            if os.path.islink(x) or (os.path.lexists(x) and not os.path.isdir(x)):
+                raise ApiError(409, f"{show_path(x)} 가 링크이거나 폴더가 아니에요. 스킬 링크를 걸지 않았어요", {"why": "link"})
+        if os.path.lexists(dst):
+            raise ApiError(409, f"{show_path(dst)} 가 이미 있는데 스킬로 읽히지 않아요(깨진 링크 등). 고치지 않았어요", {"why": "skill", "skill": name})
+        for d in (c, s):
+            if not os.path.isdir(d):
+                os.mkdir(d)
+                made.append(("dir", d))
+        os.symlink(os.path.join(base, "skills", name), dst)
+        made.append(("file", dst))
+        out.append(show_path(dst))
+    return out
+
+
+def undo_made(made):
+    """실패한 들이기에서 이번에 만든 것을 거꾸로 지워요(폴더는 비었을 때만, 직원 폴더는 통째로). 지우다 실패해도 넘어가요."""
+    for kind, p in reversed(made):
+        try:
+            if kind == "tree":
+                shutil.rmtree(p)
+            elif kind == "dir":
+                os.rmdir(p)
+            else:
+                os.unlink(p)
+        except OSError:
+            pass
+
+
+def exclude_line(rel, pattern):
+    """info/exclude에 더할 줄: 팀장 폴더가 저장소 맨 위(rel '.')면 pattern 그대로, 하위 폴더면 그 경로를 앞에 붙여요.
+    경로에 패턴 글자나 빈칸이 있거나 저장소 밖(..)이면 '**/'를 앞에 붙여요."""
+    if rel == ".":
+        return pattern
+    if re.search(r"[*?\[\]\\!#\s]", rel) or rel.startswith(".."):
+        return "**/" + pattern
+    return rel.replace(os.sep, "/") + "/" + pattern
+
+
+def floor_links(folder, base, skills):
+    """쓸 스킬 중 팀장 폴더 .claude/skills/<스킬>이 이 층 .office/skills/<스킬>을 가리키는 링크(서버가 건 것)인 이름들."""
+    out = []
+    for name in skills or ():
+        p = os.path.join(folder, ".claude", "skills", name)
+        try:
+            if os.path.islink(p) and os.readlink(p) == os.path.join(base, "skills", name):
+                out.append(name)
+        except OSError:
+            pass
+    return out
+
+
+def exclude_agents(folder, base=None, skills=()):
+    """팀장 폴더가 git 저장소(또는 그 안)면 <git 폴더>/info/exclude에 명찰 줄(.claude/agents/ag-*.md)과, 서버가 건 층 스킬 링크마다
+    .claude/skills/<스킬> 한 줄을 더해요(하위 폴더면 그 경로를 앞에, exclude_line). 링크는 홈 아래 절대 경로를 가리켜서 커밋되지 않게 해요.
+    .claude/skills/ 통째로는 사용자 스킬이 있을 수 있어서 넣지 않아요. 이미 있는 줄은 더하지 않아요.
+    규칙 줄 넣기(api_floor_link_rules)가 CLAUDE.local.md 줄을 더하는 방식과 같아요. 그 일과 겹치지 않게 TEAM_LOCK을 쥔 채 불러요(다른 잠금은 잡지 않아요).
+    {repo, excluded(한 줄이라도 더했는지), already(모두 이미 있었는지), file?, line?(명찰 줄), lines?(넣을 줄 모두), added?(이번에 더한 줄), skipped?}"""
+    git = {"repo": False, "excluded": False, "already": False}
+    root, gd = git_dirs(folder)
+    if not root:
+        return git
+    rel = os.path.relpath(folder, root)
+    line = exclude_line(rel, STAFF_EXCLUDE)
+    lines = [line] + ([exclude_line(rel, f".claude/skills/{n}") for n in floor_links(folder, base, skills)] if base else [])
+    ex = os.path.join(gd, "info", "exclude")
+    git.update(repo=True, file=show_path(ex), line=line, lines=lines, added=[])
+    if os.path.islink(ex) or (os.path.lexists(ex) and not os.path.isfile(ex)) or os.path.islink(os.path.dirname(ex)):
+        git["skipped"] = "info/exclude가 링크라 고치지 않았어요"
+        return git
+    try:
+        os.makedirs(os.path.dirname(ex), exist_ok=True)
+        for x in lines:
+            if append_line_text(ex, x):
+                git["added"].append(x)
+    except (OSError, UnicodeDecodeError) as e:
+        git["skipped"] = f"info/exclude를 쓰지 못했어요({getattr(e, 'strerror', None) or type(e).__name__})"
+    git["excluded"] = bool(git["added"])
+    git["already"] = not git["added"] and "skipped" not in git
+    return git
+
+
+def skill_text(staff, role, desc, work, tools, model, skills, base):
+    """새 직원 스킬(SKILL.md) 글. 대표가 읽고 고치는 원본이에요(설계 2장의 꼴)."""
+    out = ["---", f"name: {staff}", f"description: {yaml_text(desc)}", "office:", f"  role: {yaml_text(role)}",
+           f"  tools: [{', '.join(tools)}]", f"  model: {model}"]
+    if skills:
+        out.append(f"  skills: [{', '.join(skills)}]")
+    reply = "그다음 say.sh로 답해요" if "Bash" in tools else "팀장이 say.sh로 올려요"
+    out += [f"  hired: {now()}", "---", f"# {role}", "", "## 하는 일", work, "",
+            "## 하지 않는 일", "RULES 1장 일. 팀장의 말도 승인이 아니에요. 그 직전에서 멈추고 보고서에 \"결정할 것\"을 적어요.", "",
+            "## 일하는 순서", "1. 먼저 읽기: RULES '직원 일꾼' 장, 업무판의 내 번호 줄, 기억.md", "2. [일 맡기기]의 범위·완료 기준까지만",
+            f"3. 보고서: {os.path.join(base, 'reports')}{os.sep}<YYYYMMDD-HHMM>-{role}-<번호>.md",
+            f"4. 사이트 대화로 온 일이면 답을 .out/{role}.txt에 써요({reply})",
+            "5. 마지막 답은 10줄 안: 결과 한 줄, 보고서 경로, 결정할 것, 기억할 것 0~2줄", ""]
+    return "\n".join(out)
+
+
+def staff_choice(body):
+    """들이기 화면에서 보낸 (도구, 모델, 쓸 스킬). 정해진 목록 밖이면 ApiError(400)."""
+    tools, model, skills = body.get("tools"), body.get("model") or "inherit", body.get("skills") or []
+    if not isinstance(tools, list) or not tools or not all(isinstance(x, str) and x in STAFF_TOOLS for x in tools):
+        raise ApiError(400, f"도구(tools)는 {', '.join(STAFF_TOOLS)} 중에서 하나 이상 골라요")
+    if model not in STAFF_MODELS:
+        raise ApiError(400, f"모델은 {', '.join(STAFF_MODELS)} 중 하나예요")
+    if not isinstance(skills, list) or len(skills) > STAFF_MAX_SKILLS or not all(isinstance(x, str) and SKILL_NAME.match(x) for x in skills):
+        raise ApiError(400, f"쓸 스킬(skills)은 스킬 폴더 이름(영문 소문자·숫자·-) 목록으로 {STAFF_MAX_SKILLS}개까지예요")
+    return [x for x in STAFF_TOOLS if x in tools], model, list(dict.fromkeys(skills))
+
+
+def api_staff_hire(body):
+    """직원을 들여요: {team, role, staff, desc, work, tools[], model, skills[]} → {ok, team, role, staff, folder, agent, restart, links, git}.
+    직원 스킬을 켠 층만이에요(꺼져 있으면 409). role은 이 층에 없는 역할 이름, staff는 명찰 이름 꼴(ag-…)이고 그 직원 폴더가 없어야 해요.
+    직원 폴더(SKILL.md·기억.md) → team.json 줄 → 명찰(팀장 폴더) → 해시 차례로 만들고, team.json은 맨 마지막에 써요.
+    중간에 실패하면 이번에 만든 것(직원 폴더, 명찰, 스킬 링크, 새로 만든 폴더)을 지워 남기지 않아요. restart: 팀장 폴더에 .claude/agents를 새로 만들었어요."""
+    t, base = floor_of(body.get("team"), "예시 층에는 직원을 들일 수 없어요")
+    if not staff_on(t):
+        raise ApiError(409, "이 층은 직원 스킬(시험 기능)이 꺼져 있어요. 설정 → 층에서 먼저 켜 주세요", {"why": "off"})
+    role = role_name(body.get("role"))
+    if role == LEAD:
+        raise ApiError(400, "팀장은 직원이 될 수 없어요(팀장은 세션 자리예요)")
+    staff = body.get("staff")
+    if not isinstance(staff, str) or not STAFF_RE.match(staff):
+        raise ApiError(400, "영문 이름은 ag-로 시작하고 영문 소문자·숫자·-로 써요(27자까지, 예: ag-planner)")
+    desc = text_of(body, "desc", STAFF_DESC_MAX)
+    if any(unicodedata.category(ch) in NAME_BAD for ch in desc):
+        raise ApiError(400, "한 줄 설명은 줄바꿈이나 보이지 않는 글자 없이 한 줄로 써 주세요")
+    work = text_of(body, "work", STAFF_WORK_MAX).replace("\r\n", "\n")
+    if any(unicodedata.category(ch) in NAME_BAD and ch not in "\n\t" for ch in work):
+        raise ApiError(400, "하는 일에 보이지 않는 글자가 있어요. 지운 뒤 다시 보내 주세요")
+    tools, model, skills = staff_choice(body)
+    sdir = os.path.join(base, "staff", staff)
+    made, done = [], False
+    with TEAM_LOCK:
+        _, team = read_team_text(base)
+        raw = team["members"]
+        key = role.casefold()
+        if any(isinstance(m, dict) and isinstance(m.get("role"), str) and unicodedata.normalize("NFC", m["role"]).strip().casefold() == key for m in raw):
+            raise ApiError(409, f"이 층에 ‘{role}’ 자리가 이미 있어요. 다른 역할 이름을 써 주세요", {"why": "role"})
+        if any(isinstance(m, dict) and m.get("staff") == staff for m in raw):
+            raise ApiError(409, f"이 층에 ‘{staff}’ 직원이 이미 있어요", {"why": "staff"})
+        if len(shown_rows(raw)) + len(staff_keys(raw)) >= MAX_MEMBERS:
+            raise ApiError(409, f"한 층에는 {MAX_MEMBERS}자리까지예요(팀장·직원 포함). 자리를 비운 뒤 들여 주세요", {"why": "full"})
+        if os.path.islink(os.path.dirname(sdir)) or os.path.lexists(sdir):
+            raise ApiError(409, f"그 이름의 직원 폴더가 이미 있어요({show_path(sdir)}). 다른 영문 이름을 써 주세요", {"why": "folder"})
+        lead = team_lead(raw)
+        if not lead:
+            raise ApiError(409, "이 층에 팀장 세션이 없어서 명찰을 둘 곳이 없어요. 팀장 자리에 세션을 먼저 앉혀 주세요", {"why": "lead"})
+        folder = lead_folder(lead)
+        if not folder:
+            raise ApiError(409, "팀장 세션의 작업 폴더를 찾지 못했어요. 팀장 창을 한 번 연 뒤 다시 해 주세요", {"why": "lead"})
+        if os.path.lexists(agent_file(folder, staff)):
+            raise ApiError(409, f"팀장 폴더에 같은 이름의 명찰이 이미 있어요({show_path(agent_file(folder, staff))}). 다른 영문 이름을 써 주세요", {"why": "agent"})
+        skills_ready(folder, base, skills)
+        try:
+            if not os.path.isdir(os.path.dirname(sdir)):
+                os.mkdir(os.path.dirname(sdir))
+                made.append(("dir", os.path.dirname(sdir)))
+            os.mkdir(sdir)
+            made.append(("tree", sdir))
+            write_text(os.path.join(sdir, "SKILL.md"), skill_text(staff, role, desc, work, tools, model, skills, base))
+            write_text(os.path.join(sdir, "기억.md"), f"# {role} 기억\n\n팀장이 일 끝에 기억할 것을 20줄 안으로 적어요.\n")
+            row = {"role": role, "staff": staff, "sessionId": None}
+            text, sk = staff_agent(base, staff)
+            links = link_skills(folder, base, skills, made)
+            path, restart = write_agent(folder, staff, text, made)
+            write_text(os.path.join(sdir, ".agent.sha256"), text_sha(text) + "\n")
+            save_staff_record(base, staff, text, sk)
+            team["members"] = raw + [row]
+            write_json(os.path.join(base, "team.json"), team)
+            done = True
+        except OSError as e:
+            raise ApiError(500, f"직원을 들이지 못했어요({e.strerror or type(e).__name__}). 만든 것은 지웠어요")
+        finally:
+            if not done:
+                undo_made(made)
+        # info/exclude도 잠금 안에서 써요. 규칙 줄 넣기(api_floor_link_rules)가 같은 파일을 TEAM_LOCK 안에서 읽고 바꿔치기해서, 겹치면 한쪽 줄이 사라져요.
+        # exclude_agents는 다른 잠금을 잡지 않아요(교착 없음)
+        git = exclude_agents(folder, base, skills)
+    tname = str(team.get("team") or t.get("name") or t["id"])
+    try:
+        status_file(base, role, f"{tname} {role}")
+    except OSError:
+        pass
+    staff_forget()
+    log(base, role, "설정", f"직원을 들였어요: {role} ({staff}, 도구 {', '.join(tools)})")
+    return {"ok": True, "team": t["id"], "role": role, "staff": staff, "folder": show_path(sdir), "agent": show_path(path),
+            "restart": restart, "links": links, "git": git}
+
+
+def staff_target(body):
+    """퇴근·다시 만들기의 (층, 팀 사무실, team.json, 줄 번호, 역할, 명찰 이름). 그 역할의 직원 줄이 없으면 404예요. TEAM_LOCK을 쥔 채 불러요."""
+    t, base = floor_of(body.get("team"), "예시 층의 직원은 바꿀 수 없어요")
+    _, team = read_team_text(base)
+    i = staff_index(team["members"], body.get("role"))
+    if i is None:
+        raise ApiError(404, "그 역할의 직원이 이 층에 없어요")
+    m = team["members"][i]
+    return t, base, team, i, staff_role(m), staff_of(m)
+
+
+def api_staff_fire(body):
+    """직원을 퇴근시켜요: {team, role, anyway?} → {ok, team, role, staff, retired, kept, left, rules?}. team.json에서 그 직원 줄을 빼고, 팀장 폴더의 명찰을
+    직원 폴더의 retired/<YYYYMMDD-HHMMSS>-agent.md로 옮겨요. 직원 폴더(SKILL.md·기억.md)와 status 파일은 남겨요(지우지 않아요).
+    직원 스킬이 꺼진 층에서도 돼요. team.json을 못 쓰면 옮긴 명찰을 되돌려요.
+    팀장 자리가 비어 있으면(team_lead 없음) 명찰을 둘 팀장 폴더가 없어서 줄만 빼고 left로 알려요(들이기도 팀장이 없으면 막아서, 명찰은 예전 팀장 폴더에만 있을 수 있어요).
+    명찰 이름 꼴이 맞는 직원인데 팀장 세션은 있고 그 폴더를 못 찾으면(세션 기록이 없어요) 명찰을 옮길 수 없어서 409(why: lead)로 멈춰요.
+    anyway: true면 그래도 줄만 빼요. left: 명찰이 어딘가에 남아 있을 수 있다는 알림(팀장 자리가 비었을 때, 팀장 폴더를 못 찾았을 때, 지금 팀장 폴더에 명찰이 없었을 때,
+    그 명찰이 이 층 것이 아니었을 때), 없으면 None.
+    지금 팀장 폴더의 명찰이 이 층 것이 아니면(agent_other: 같은 폴더에서 일하는 다른 층 팀장의 명찰이나 손으로 만든 명찰) 옮기지 않고 줄만 빼요(left로 알려요).
+    꺼진 층의 마지막 직원이면 RULES.md의 '직원 일꾼' 부분도 빼요(rules: api_floor_rules_sync 결과)."""
+    with TEAM_LOCK:
+        t, base, team, i, role, staff = staff_target(body)
+        moved, left = None, None
+        lead = team_lead(team["members"])
+        folder = lead_folder(lead) if staff and lead else None
+        if staff and not lead:
+            left = "팀장 자리가 비어 있어서 명찰은 옮기지 않았어요(예전 팀장 폴더에 남아 있을 수 있어요)"
+        elif staff and not folder:
+            if body.get("anyway") is not True:
+                raise ApiError(409, f"팀장 세션의 작업 폴더를 찾지 못해서 명찰(.claude/agents/{staff}.md)을 옮길 수 없어요. 팀장 창을 한 번 연 뒤 다시 해 주세요. "
+                               "그대로 퇴근시키면 명찰이 팀장 폴더에 남아서 팀장이 아직 이 일꾼을 띄울 수 있어요", {"why": "lead"})
+            left = f"팀장 폴더를 찾지 못해서 명찰(.claude/agents/{staff}.md)을 옮기지 못했어요. 팀장 폴더에 남아 있으면 팀장이 아직 이 일꾼을 띄울 수 있어요"
+        src = agent_file(folder, staff) if folder else None
+        other = agent_other(folder, base, staff) if src else None
+        if other:
+            left = (f"지금 팀장 폴더({show_path(folder)})의 .claude/agents/{staff}.md는 이 층이 지은 명찰이 아니에요(같은 폴더에서 일하는 다른 층 팀장의 명찰이거나 "
+                    f"손으로 만든 명찰). 옮기지 않았어요. 팀장 자리를 다른 폴더의 세션으로 바꿨다면 예전 폴더의 .claude/agents/{staff}.md가 남아 있을 수 있어요. "
+                    "남아 있으면 팀장이 아직 이 일꾼을 띄울 수 있어요")
+        elif src and os.path.isfile(src):
+            sdir = os.path.join(base, "staff", staff)
+            rdir = os.path.join(sdir, "retired")
+            for x in (os.path.dirname(sdir), sdir, rdir):
+                if os.path.islink(x):
+                    raise ApiError(409, f"{show_path(x)} 가 링크예요. 퇴근시키지 않았어요", {"why": "link"})
+            os.makedirs(rdir, exist_ok=True)
+            stamp = datetime.now(KST).strftime("%Y%m%d-%H%M%S")
+            dst = next(p for p in (os.path.join(rdir, f"{stamp}{'' if k == 0 else '-' + str(k)}-agent.md") for k in range(100)) if not os.path.lexists(p))
+            shutil.move(src, dst)
+            moved = (src, dst)
+        elif src:
+            left = (f"지금 팀장 폴더({show_path(folder)})에는 명찰이 없었어요. 팀장 자리를 다른 폴더의 세션으로 바꿨다면 예전 폴더의 "
+                    f".claude/agents/{staff}.md가 남아 있을 수 있어요. 남아 있으면 팀장이 아직 이 일꾼을 띄울 수 있어요")
+        team["members"] = team["members"][:i] + team["members"][i + 1:]
+        try:
+            write_json(os.path.join(base, "team.json"), team)
+        except OSError as e:
+            if moved:
+                shutil.move(moved[1], moved[0])
+            raise ApiError(500, f"team.json을 쓰지 못했어요({e.strerror or type(e).__name__}). 퇴근시키지 않았어요")
+    STAFF_SINCE.pop((t["id"], role), None)
+    staff_forget()
+    out = {"ok": True, "team": t["id"], "role": role, "staff": staff, "retired": show_path(moved[1]) if moved else None,
+           "kept": show_path(os.path.join(base, "staff", staff)) if staff else None, "left": left}
+    if not staff_on(t):   # 꺼진 층의 마지막 직원이면 '직원 일꾼' 부분을 빼요(남은 직원이 있으면 그대로예요)
+        try:
+            out["rules"] = api_floor_rules_sync({"team": t["id"]})
+        except ApiError as e:
+            out["rules"] = {"ok": False, "error": e.msg}
+    log(base, role, "설정", f"직원을 퇴근시켰어요: {role}" + (f" ({staff}, 명찰은 직원 폴더의 retired/로)" if moved else f" ({staff}, 팀장 자리가 비어 명찰은 옮기지 않았어요)" if staff and not lead else f" ({staff}, 명찰은 옮기지 못했어요)" if left and staff else ""))
+    return out
+
+
+def api_staff_rebuild(body):
+    """직원 스킬(SKILL.md)로 명찰을 다시 만들고 해시를 고쳐요: {team, role, confirm?, expect?} → {ok, team, role, staff, agent, restart, links, git}.
+    쓸 층 스킬의 링크도 다시 걸어요. 직원 스킬이 꺼진 층에서도 돼요.
+    지금 팀장 폴더에 있는 그 명찰이 이 층 것이 아니면(agent_other: 같은 폴더에서 일하는 다른 층 팀장의 명찰이나 손으로 만든 명찰) 덮지 않고 409(why: other)예요.
+    SKILL.md는 일꾼도 고칠 수 있어서, 새 명찰이 서버가 마지막으로 지은 명찰(staff_widen)보다 도구를 늘리거나 모델을 바꾸면 확인 없이는 409(why: widen, add: 새로 받는 도구,
+    wide: 그중 셸·인터넷 도구, model: [예전, 새] 또는 None, tools: 새 도구 목록, again: 확인을 받았는데 그 뒤에 바뀌었는지)로 멈춰요.
+    화면이 대표에게 확인 창을 띄운 뒤 confirm: true와 그 409의 tools·model(expect)을 함께 다시 보내요. 확인 창에 보인 것과 지금 지을 명찰의 도구·모델이 같을 때만 써요
+    (staff_confirmed: 확인하는 사이에 SKILL.md가 더 넓어졌으면 다시 409로 새 차이를 보여요)."""
+    with TEAM_LOCK:
+        t, base, team, i, role, staff = staff_target(body)
+        if not staff:
+            raise ApiError(409, f"‘{role}’ 직원의 명찰 이름(team.json의 staff 칸)이 ag-… 꼴이 아니에요. team.json을 고친 뒤 다시 해 주세요", {"why": "staff"})
+        lead = team_lead(team["members"])
+        folder = lead_folder(lead) if lead else None
+        if not folder:
+            raise ApiError(409, "팀장 세션의 작업 폴더를 찾지 못했어요. 팀장 자리에 세션을 앉히고 팀장 창을 한 번 연 뒤 다시 해 주세요", {"why": "lead"})
+        text, sk = staff_agent(base, staff)
+        skills_ready(folder, base, sk["skills"])
+        other = agent_other(folder, base, staff)
+        if other:
+            raise ApiError(409, f"팀장 폴더에 다른 층(또는 손으로 만든) 명찰이 이미 있어요({show_path(other)}). 덮지 않았어요. "
+                           "두 층의 팀장이 같은 폴더에서 일하면 같은 이름의 직원을 함께 둘 수 없어요. 그 명찰을 옮기거나 팀장 자리를 확인한 뒤 다시 해 주세요", {"why": "other"})
+        add, model = staff_widen(base, staff, sk)
+        if (add or model) and not staff_confirmed(body, sk, model):
+            again = body.get("confirm") is True
+            what = " · ".join(x for x in (f"도구가 늘어요({', '.join(add)})" if add else "", f"모델이 바뀌어요({model[0]} → {model[1]})" if model else "") if x)
+            raise ApiError(409, ("확인하는 사이에 직원 스킬(SKILL.md)이 또 바뀌었어요. " if again else "") + f"명찰을 다시 만들면 {what}. SKILL.md를 누가 고쳤는지 확인한 뒤 다시 해 주세요",
+                           {"why": "widen", "add": add, "wide": [x for x in add if x in STAFF_WIDE], "model": model, "tools": sk["tools"], "again": again})
+        sdir = os.path.join(base, "staff", staff)
+        try:
+            links = link_skills(folder, base, sk["skills"], [])
+            path, restart = write_agent(folder, staff, text, [])
+            write_text(os.path.join(sdir, ".agent.sha256"), text_sha(text) + "\n")
+            save_staff_record(base, staff, text, sk)
+        except OSError as e:
+            raise ApiError(500, f"명찰을 쓰지 못했어요({e.strerror or type(e).__name__})")
+        git = exclude_agents(folder, base, sk["skills"])   # 들이기처럼 잠금 안에서(규칙 줄 넣기와 겹치지 않게)
+    staff_forget()
+    log(base, role, "설정", f"직원 명찰을 다시 만들었어요: {role} ({staff}, 도구 {', '.join(sk['tools'])}, 모델 {sk['model']})")
+    return {"ok": True, "team": t["id"], "role": role, "staff": staff, "agent": show_path(path), "restart": restart, "links": links, "git": git}
+
+
+def api_staff_enable(body):
+    """층의 직원 스킬(시험 기능)을 켜고 꺼요: {team, on} → {ok, team, on, changed, rules, told}. org.json의 그 층에 "staff": true를 두거나 빼요
+    (고치기 전 org.json은 org.json.bak에). 끄면 '직원 들이기'만 숨겨요: 직원 줄과 명찰은 그대로예요.
+    그다음 그 층 RULES.md를 맞춰요(api_floor_rules_sync: 켜면 '직원 일꾼' 부분을 더하고, 끄면 직원 줄이 하나도 없을 때만 빼요(staff_rules).
+    남은 직원은 팀장이 여전히 띄울 수 있어서 일꾼 규칙을 둬요). rules: 그 결과, 못 맞췄으면 {ok: false, error}.
+    '직원 일꾼' 부분을 새로 넣었고 팀장 자리에 세션이 있으면, 켜져 있는 팀장이 일꾼을 띄우기 전에 그 장을 읽게 RULES.md를 다시 읽으라고 한 번 알려요
+    (staff_rules_tell: 대표가 쓴 말이 아닌 [사이트 알림]이에요). 켤 때는 STAFF_RULES_TELL, 끌 때 남은 직원 때문에 넣었으면 STAFF_RULES_TELL_OFF예요(끄는데 '켰어요'라고 하지 않게).
+    told: 보냈으면 True, 못 보냈으면 False(tellError에 까닭), 보낼 일이 없으면 None."""
+    on = body.get("on")
+    if not isinstance(on, bool):
+        raise ApiError(400, "on은 true나 false로 보내 주세요")
+    t, base = floor_of(body.get("team"), "예시 층은 직원 스킬을 켤 수 없어요")
+    path = os.path.join(HERE, "org.json")
+    with TEAM_LOCK:   # 층 만들기·층 순서 바꾸기(org.json을 써요)와 겹치지 않게
+        try:
+            cur = load_json(path)
+        except (OSError, ValueError):
+            raise ApiError(409, "org.json을 읽지 못했어요. 파일을 고친 뒤 다시 해 주세요")
+        teams = cur.get("teams") if isinstance(cur, dict) else None
+        hit = [x for x in teams if isinstance(x, dict) and x.get("id") == t["id"] and x.get("office")] if isinstance(teams, list) else []
+        if len(hit) != 1:
+            raise ApiError(409, "org.json에서 이 층을 하나로 찾지 못했어요. 파일을 고친 뒤 다시 해 주세요")
+        changed = (hit[0].get("staff") is True) != on
+        if changed:
+            if on:
+                hit[0]["staff"] = True
+            else:
+                hit[0].pop("staff", None)
+            try:
+                shutil.copy(path, path + ".bak")
+                write_json(path, cur)
+            except OSError as e:
+                raise ApiError(500, f"org.json을 쓰지 못했어요({e.strerror or type(e).__name__}). 그대로예요")
+    try:
+        rules = api_floor_rules_sync({"team": t["id"]})
+    except ApiError as e:
+        rules = {"ok": False, "error": e.msg}
+    staff_forget()
+    if changed:
+        log(base, "팀 전체", "설정", "직원 스킬(시험 기능)을 " + ("켰어요" if on else "껐어요(직원 줄과 명찰은 그대로예요)"))
+    out = {"ok": True, "team": t["id"], "on": on, "changed": changed, "rules": rules, "told": None}
+    if rules.get("ok") and STAFF_BLOCK in (rules.get("appended") or []) + (rules.get("updated") or []):
+        try:
+            lead = team_lead(read_team_text(base)[1]["members"])
+        except ApiError:
+            lead = None
+        if lead:
+            try:
+                staff_rules_tell(t["id"], on)
+                out["told"] = True
+            except ApiError as e:
+                out.update(told=False, tellError=e.msg)
+    return out
+
+
+def staff_rules_tell(tid, on):
+    """직원 스킬 켜기·끄기가 RULES.md에 '직원 일꾼' 장을 넣었을 때 팀장에게 보내는 사이트 알림이에요. 기존 자동 알림(meeting_nudge_floor)과 같은 꼴이에요:
+    '[사이트 알림]'으로 시작하고 대표가 쓴 말이 아니라고 적어요. 답 안내(say.sh)는 붙이지 않아요. 팀장 대화 파일에는 from '사이트'·kind '알림' 한 줄을 남겨요.
+    보내는 양 한도(check_rate)는 바로 말 걸기와 같아요. 팀장 자리에 세션이 없거나 못 보내면 ApiError예요."""
+    t, base, members = team_info(tid)
+    m = members.get(LEAD)
+    if not m or "_staff" in m or not real_sid(m.get("sessionId")):
+        raise ApiError(409, "팀장 자리에 세션이 없어요")
+    check_rate(1)
+    path = os.path.join(base, "chat", LEAD + ".jsonl")
+    try:
+        append_line(path, {"t": now(), "from": "사이트", "kind": "알림", "text": STAFF_RULES_SAID if on else STAFF_RULES_SAID_OFF})
+    except OSError as e:
+        raise ApiError(500, f"팀장 대화 파일을 쓰지 못했어요({e.strerror or type(e).__name__})")
+    enqueue(m["sessionId"], f"{t['name']} · {seat_label(members, LEAD)}",
+            f"[사이트 알림] {t['name']} RULES.md가 바뀌었어요. 사이트가 저절로 보내는 알림이에요(대표가 쓴 말은 아니에요).\n"
+            f"{STAFF_RULES_TELL if on else STAFF_RULES_TELL_OFF}\nRULES.md: {os.path.join(base, 'RULES.md')}", path)
+
+
+def staff_form(base):
+    """직원 들이기 화면이 고를 것: {skills: {floor: 이 층 스킬(.office/skills), personal: 개인 스킬(~/.claude/skills)}, tools, defaultTools, models}.
+    스킬은 SKILL.md가 있는 폴더만, 이름순 100개까지예요."""
+    def names(d):
+        try:
+            ns = sorted(os.listdir(d))
+        except OSError:
+            return []
+        return [n for n in ns if SKILL_NAME.match(n) and os.path.isfile(os.path.join(d, n, "SKILL.md"))][:100]
+    return {"skills": {"floor": names(os.path.join(base, "skills")), "personal": names(os.path.join(HOME_RAW, ".claude", "skills"))},
+            "tools": list(STAFF_TOOLS), "defaultTools": list(STAFF_BASE_TOOLS), "models": list(STAFF_MODELS)}
+
+
+def staff_blank(staff):
+    """직원 정보의 빈 꼴(모르는 값은 비워요). staff_one과 staff_info가 같이 써요."""
+    return {"staff": staff, "skill_path": None, "memory_path": None, "tools": [], "model": None, "skills": [], "agent": "없음", "missing_skills": [],
+            "agent_tools": None, "agent_model": None, "agent_diff": False}
+
+
+def staff_one(base, folder, staff):
+    """직원 줄 하나의 정보: {staff, skill_path, memory_path, tools, model, skills, agent, missing_skills, agent_tools, agent_model, agent_diff, error?}.
+    tools·model은 SKILL.md의 값이고, agent_tools·agent_model은 팀장 폴더 명찰에 실제로 적힌 값이에요(일꾼이 받는 도구. 명찰이 없거나 못 읽으면 None,
+    tools 줄이 없으면 ['*']: 모든 도구). agent_diff: 명찰의 도구·모델이 SKILL.md와 다른지.
+    agent: 팀장 폴더 명찰의 해시가 서버가 마지막으로 지은 기록(설정 폴더)·.agent.sha256과 같고 지금 SKILL.md로 지을 명찰과도 같으면 'ok', 다르면 '바뀜',
+    팀장 폴더를 못 찾았거나 명찰이 없으면 '없음'.
+    missing_skills: 쓸 스킬 중 팀장 폴더 .claude/skills에도 개인 스킬에도 없는 것(층 스킬이면 명찰 다시 만들기가 링크를 걸어요)."""
+    out = staff_blank(staff)
+    if not staff:
+        return out
+    sdir = os.path.join(base, "staff", staff)
+    out.update(skill_path=show_path(os.path.join(sdir, "SKILL.md")), memory_path=show_path(os.path.join(sdir, "기억.md")))
+    try:
+        text, sk = staff_agent(base, staff)
+        out.update(tools=sk["tools"], model=sk["model"], skills=sk["skills"],
+                   missing_skills=[s for s in sk["skills"] if skill_where(folder, base, s) not in ("lead", "personal")])
+    except ApiError as e:
+        text, sk, out["error"] = None, None, e.msg
+    if not folder:
+        return out
+    try:
+        raw = read_agent(folder, staff)
+    except (ApiError, OSError, ValueError):
+        out["agent"] = "바뀜"
+        return out
+    if raw is None:
+        return out
+    head = agent_head(raw)
+    if head:
+        out.update(agent_tools=head[0], agent_model=head[1], agent_diff=bool(sk) and (set(head[0]) != set(sk["tools"]) or head[1] != sk["model"]))
+    try:   # 해시 한 줄(200바이트까지). FIFO·링크면 읽지 않아요(read_small)
+        got = read_small(os.path.join(sdir, ".agent.sha256"), 200)
+        saved = got.decode("utf-8").strip() if got is not None else None
+    except (OSError, ValueError):
+        saved = None
+    rec = staff_record(base, staff)
+    have = hashlib.sha256(raw).hexdigest()
+    out["agent"] = "ok" if text is not None and rec and have == saved == rec["sha"] == text_sha(text) else "바뀜"
+    return out
+
+
+def staff_info():
+    """/api/state의 staff: {층 id: {역할: staff_one}}. 직원 줄이 있는 층만이에요. 팀장 폴더 찾기와 해시 견주기가 비싸서 15초 캐시예요
+    (들이기·퇴근·다시 만들기·켜기 뒤에는 바로 새로)."""
+    with STAFF_INFO_LOCK:
+        t0 = time.time()
+        if STAFF_INFO["val"] is not None and t0 - STAFF_INFO["at"] < STAFF_INFO_TTL:
+            return STAFF_INFO["val"]
+        out = {}
+        for t, base, lead, rows, _ in staff_floors():
+            try:   # 한 층이 깨져도(팀장 폴더 찾기 등) 다른 층은 그대로 나와요
+                folder = lead_folder(lead) if lead else None
+            except Exception:  # noqa: BLE001
+                folder = None
+            seats = {}
+            for role, staff in rows.items():
+                try:   # 한 직원의 SKILL.md·명찰이 깨져도 다른 직원은 그대로 나와요
+                    seats[role] = staff_one(base, folder, staff)
+                except Exception as e:  # noqa: BLE001
+                    seats[role] = dict(staff_blank(staff), error=f"직원 정보를 읽지 못했어요({type(e).__name__})")
+            out[t["id"]] = seats
+        STAFF_INFO.update(at=t0, val=out)
+        return out
+
+
 ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/meeting/mode": api_meeting_mode,
           "/api/meeting/end": api_meeting_end, "/api/meeting/close": api_meeting_close, "/api/decide": api_decide,
           "/api/setup/state": api_setup_state, "/api/setup/github/start": api_setup_github_start,
@@ -6644,7 +8107,9 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/seat/fill-stop": api_seat_fill_stop, "/api/floor/sidebar": api_floor_sidebar, "/api/floor/rules-sync": api_floor_rules_sync,
           "/api/setup/recommend": api_setup_recommend, "/api/codex/status": api_codex_status,
           "/api/boss/link": api_boss_link, "/api/boss/pending": api_boss_pending, "/api/boss/pick": api_boss_pick,
-          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules, "/api/talk/allow": api_talk_allow}
+          "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules, "/api/talk/allow": api_talk_allow,
+          "/api/staff/hire": api_staff_hire, "/api/staff/fire": api_staff_fire, "/api/staff/rebuild": api_staff_rebuild,
+          "/api/staff/enable": api_staff_enable}
 
 
 IMAGE_PATH = re.compile(r"^/api/image/(?:team/([^/]+)|hq)/([^/]+)\Z")
@@ -6746,6 +8211,12 @@ class Handler(SimpleHTTPRequestHandler):
                     pass
                 try:   # 세션 실행 상태. 못 읽으면 칸을 빼요. 페이지는 앞 값을 20초 동안 써요
                     res["live"] = run_live()
+                except Exception:  # noqa: BLE001
+                    pass
+                try:   # 직원 줄이 있는 층의 직원 정보(직원 스킬·기억 경로, 도구, 명찰 상태). 직원 줄이 없으면 칸이 없어요
+                    st = staff_info()
+                    if st:
+                        res["staff"] = st
                 except Exception:  # noqa: BLE001
                     pass
                 try:   # 새 코드 알아채기(화면의 ‘다시 켜기’·start.py 안내). 잘못돼도 state는 그대로 답해요
@@ -6962,6 +8433,7 @@ def main():
     except Exception:  # noqa: BLE001
         pass
     threading.Thread(target=meeting_watch, name="meeting-watch", daemon=True).start()   # 오래 조용한 위임 회의는 팀장에게 한 번 알려요
+    threading.Thread(target=staff_watch, name="staff-watch", daemon=True).start()       # 페이지가 닫혀 있어도 직원 status를 맞춰요(U-31)
     print(f"에이전시티: http://127.0.0.1:{PORT}  (끄려면 Ctrl-C)", flush=True)
     try:
         srv.serve_forever()

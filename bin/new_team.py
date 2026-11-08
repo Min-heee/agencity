@@ -38,6 +38,9 @@ python3 bin/new_team.py --spec -             # 명세를 표준 입력으로 받
   빠진 팀원의 대화·상태 파일은 지우지 않고, 이름을 바꾼 자리의 파일도 옮기지 않아요. 옮기기는 설정 화면의 ‘팀원 고치기’가 해요).
   Codex 자리(읽기 전용): {"role": "개발자2", "codexId": "<Codex 세션 id(uuid)>"}(sessionId는 비워요). 그 줄은 team.json에
   "sessionId": null, "codexId", "tool": "codex"로 적어요. 한 층에 한 번씩, 팀장 자리에는 못 앉혀요(office_server.py와 같아요).
+  직원 줄(team.json에 "staff" 칸이 있는 줄, U-31)은 세션 자리가 아니라서 손대지 않고 그 자리에 그대로 둬요(세션 자리로 바꾸거나 sessionId를 넣지 않아요).
+  보낸 목록에 직원 줄({"role", "staff"})이나 직원과 같은 역할의 빈 줄이 있으면 건너뛰어요. 그 역할에 세션·Codex를 앉히면 멈춰요.
+  직원 줄은 12자리에 세요. 새 직원 줄은 여기서 만들지 않아요(사무실 설정의 ‘직원 들이기’로 해요).
 - roles: 예전 모양({"팀장": "local_…", "개발자": null, "디자이너": null, "기획": null}). members가 없을 때만 봐요.
   네 자리를 늘 만들고, 이미 있던 팀 사무실이면 다른 자리는 두고 새로 적은 세션 id만 고쳐요.
 - boss: 총괄 세션 id. 적으면 org.json의 총괄을 바꾸고, 비우면 그대로 둬요.
@@ -199,6 +202,28 @@ def role_ok(v):
 
 
 ROLE_HINT = "역할 이름은 한글·영문·숫자로 12자까지예요(빈칸·/·. 없이, _ · - 는 돼요). 대표·총괄은 못 써요."
+STAFF_NO_SEAT = "직원 자리는 세션을 앉히지 않아요"
+
+
+def is_staff_row(m):
+    """팀원 줄이 직원 줄(U-31)인지: staff 칸이 비어 있지 않으면 True예요(이름 꼴이 틀려도). office_server.py의 is_staff_row와 같아요."""
+    v = m.get("staff") if isinstance(m, dict) else None
+    if isinstance(v, str):
+        return bool(v.strip())
+    return v not in (None, False) and v != [] and v != {}
+
+
+def staff_role(m):
+    """직원 줄의 역할 이름(NFC). 직원 줄이 아니거나, 역할 이름이 글이 아니거나, 팀장이면 None(office_server.py와 같아요)."""
+    if not is_staff_row(m) or not isinstance(m.get("role"), str):
+        return None
+    r = unicodedata.normalize("NFC", m["role"])
+    return None if r == LEAD else r
+
+
+def staff_keys(ms):
+    """팀원 줄 중 직원 줄의 역할 이름들(NFC·대소문자 무시)."""
+    return {r.casefold() for r in map(staff_role, ms) if r} if isinstance(ms, list) else set()
 
 
 def display_name(v):
@@ -240,7 +265,9 @@ def check_name_clash(rows, mine):
 
 
 def parse_members(raw):
-    """명세의 members 목록 → [{role, sessionId, name?}]. office_server.py의 검사와 같아요. name(표시 이름)은 보냈을 때만 담아요(null은 안 보낸 것)."""
+    """명세의 members 목록 → [{role, sessionId, name?}]. office_server.py의 검사와 같아요. name(표시 이름)은 보냈을 때만 담아요(null은 안 보낸 것).
+    직원 줄({role, staff})은 깨진 줄로 보지 않고 {role, sessionId: "", staff}로 돌려줘요(merged_rows가 team.json의 그 줄을 그대로 둬요).
+    직원 줄에 세션·Codex를 앉히거나 팀장 자리를 직원 줄로 보내면 멈춰요."""
     if not isinstance(raw, list) or not raw:
         raise TeamError("members는 목록이어야 하고, 맨 앞은 팀장이에요.")
     if len(raw) > MAX_MEMBERS:
@@ -255,6 +282,13 @@ def parse_members(raw):
         if r.casefold() in names:
             raise TeamError(f"이 층에 '{r}' 자리가 둘이에요. 역할 이름을 다르게 해 주세요.")
         names.add(r.casefold())
+        if is_staff_row(m):
+            if r == LEAD:
+                raise TeamError("팀장 자리는 직원 줄이 될 수 없어요. 팀장은 세션 자리예요.")
+            if m.get("sessionId") not in (None, "") or m.get("codexId") not in (None, ""):
+                raise TeamError(f"‘{r}’ 자리: {STAFF_NO_SEAT}.", field="sessionId", role=r)
+            out.append({"role": r, "sessionId": "", "staff": m["staff"]})
+            continue
         v = m.get("sessionId")
         if v in (None, ""):
             v = ""
@@ -301,8 +335,8 @@ def seated_sessions(org):
         try:
             with open(os.path.join(os.path.realpath(os.path.join(HERE, t["office"])), "team.json"), encoding="utf-8") as f:
                 ms = json.load(f).get("members", [])
-            for m in ms:
-                if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_RE.match(m["sessionId"]):
+            for m in ms:   # 직원 줄은 세션 자리가 아니라 빼요(office_server.py의 floor_members와 같아요)
+                if isinstance(m, dict) and not is_staff_row(m) and isinstance(m.get("sessionId"), str) and SESSION_RE.match(m["sessionId"]):
                     out.setdefault(m["sessionId"], str(t.get("name") or t.get("id")))
         except (OSError, ValueError, AttributeError, TypeError):
             continue
@@ -345,12 +379,13 @@ def shown_rows(ms):
     """이미 있던 team.json 팀원 중 설정 화면이 불러와 보여 주는 줄: [(줄 번호, NFC로 맞춘 역할 이름)].
     office_server.py의 shown_rows와 같은 기준이에요: 줄이 {…}이고, 역할 이름이 글이고, NFC로 맞추면 쓸 수 있는 이름(ROLE_RE, 대표·총괄 아님)이고,
     대소문자만 다른 이름은 앞의 줄만, SHOWN_MAX줄까지예요(앞뒤 빈칸은 떼지 않아요: ' 개발자'는 보여 주지 않는 줄이에요).
-    나머지 줄은 팀원 목록을 바꿀 때도 손대지 않고 그 자리에 그대로 둬요(다른 도구가 쓰는 줄일 수 있어요)."""
-    out, seen = [], set()
+    나머지 줄은 팀원 목록을 바꿀 때도 손대지 않고 그 자리에 그대로 둬요(다른 도구가 쓰는 줄일 수 있어요).
+    직원 줄과 직원과 같은 역할 이름의 줄도 보여 주지 않고 그대로 둬요(세션 자리가 아니에요)."""
+    out, seen = [], staff_keys(ms)
     for i, m in enumerate(ms if isinstance(ms, list) else []):
         if len(out) >= SHOWN_MAX:
             break
-        if not isinstance(m, dict) or not isinstance(m.get("role"), str):
+        if not isinstance(m, dict) or not isinstance(m.get("role"), str) or is_staff_row(m):
             continue
         r = unicodedata.normalize("NFC", m["role"])
         if ROLE_RE.match(r) and r not in NOT_ROLES and r.casefold() not in seen:
@@ -365,8 +400,21 @@ def merged_rows(old_team, name, members, replace):
     보낸 자리는 그 줄을 살려(name·title 같은 다른 칸, 순서, NFC로 같은 역할 이름의 글자까지) 세션 id만 맞추고,
     화면이 보여 준 줄(shown_rows)인데 보내지 않은 자리만 빼고, 보여 줄 수 없던 줄은 그대로 둬요. 새 자리는 끝에(새 팀장 자리는 맨 앞에) 넣어요.
     아니면(예전 방식) 다른 자리는 두고, 없는 자리만 더하고, 새로 적은 세션 id만 고쳐요.
-    members에 name(표시 이름)이 있으면 그 줄의 name 칸만 그 이름으로 바꿔요(""이면 '<팀 이름> <역할>'로). 없으면 그대로 둬요."""
+    members에 name(표시 이름)이 있으면 그 줄의 name 칸만 그 이름으로 바꿔요(""이면 '<팀 이름> <역할>'로). 없으면 그대로 둬요.
+    직원 줄(staff 칸)은 손대지 않고 그 자리에 그대로 둬요: members에 그 역할이 있으면(직원 줄이나 같은 역할의 빈 줄) 건너뛰고,
+    그 역할에 세션·Codex를 앉히려 하거나 team.json에 없는 직원 줄을 보내면 TeamError예요(세션 자리로 바꾸거나 sessionId를 넣지 않아요)."""
     old = old_team.get("members") if isinstance(old_team, dict) and isinstance(old_team.get("members"), list) else []
+    skeys = staff_keys(old)
+
+    def staff_skip(m):
+        if m["role"].casefold() in skeys:
+            if m["sessionId"] or m.get("codexId"):
+                raise TeamError(f"‘{m['role']}’ 자리는 직원 자리예요. {STAFF_NO_SEAT}.", field="sessionId", role=m["role"])
+            return True
+        if "staff" in m:
+            raise TeamError(f"‘{m['role']}’ 직원 줄이 이 팀 사무실에 없어요. 직원은 사무실 설정의 ‘직원 들이기’로만 들여요.", role=m["role"])
+        return False
+    members = [m for m in members if not staff_skip(m)]
 
     def row_for(m, p):
         row = dict(p) if p else member_row(name, m["role"], m["sessionId"])
@@ -395,7 +443,7 @@ def merged_rows(old_team, name, members, replace):
         return [r for r in new if r["role"] == LEAD] + rows + [r for r in new if r["role"] != LEAD]
     rows = [dict(m) if isinstance(m, dict) else m for m in old]
     for m in members:
-        cur = next((x for x in rows if isinstance(x, dict) and x.get("role") == m["role"]), None)
+        cur = next((x for x in rows if isinstance(x, dict) and x.get("role") == m["role"] and not is_staff_row(x)), None)   # 직원 줄에는 세션을 넣지 않아요
         if cur is None:
             rows.append(member_row(name, m["role"], m["sessionId"]))
         elif m["sessionId"]:
@@ -405,11 +453,12 @@ def merged_rows(old_team, name, members, replace):
 
 
 def more_seats(old, rows):
-    """rows에서 예전 team.json 팀원(old)보다 더 여러 자리에 앉게 된 세션 id들(없으면 빈 set). 예전부터 겹쳐 있던 건 그대로 봐줘요."""
+    """rows에서 예전 team.json 팀원(old)보다 더 여러 자리에 앉게 된 세션 id들(없으면 빈 set). 예전부터 겹쳐 있던 건 그대로 봐줘요.
+    직원 줄에 적힌 sessionId(0.12.0 서버가 잘못 써 넣은 것 등)는 쓰지 않는 값이라 세지 않아요(office_server.py와 화면도 같아요)."""
     def count(ms):
         c = {}
         for m in ms if isinstance(ms, list) else []:
-            v = m.get("sessionId") if isinstance(m, dict) else None
+            v = m.get("sessionId") if isinstance(m, dict) and not staff_role(m) else None
             if isinstance(v, str) and v:
                 c[v] = c.get(v, 0) + 1
         return c
@@ -498,6 +547,8 @@ def make_office(office, name, prefix, members, boss_sid, old_team, replace=False
         # 그 부분 안에서는 <에이전시티>와 <내 층 id>만 채워요(office_server.py의 rule_doc과 같게). 다른 바꾸기는 그 부분 밖의 글에만 닿아요
         with open(os.path.join("docs", "TEAM_RULES.md"), encoding="utf-8") as f:
             text = f.read()
+        # '직원 일꾼' 부분은 직원 스킬을 켠 층에만 둬요(새 층은 꺼져 있어요. 켜면 서버의 규칙 맞추기가 더해요)
+        text = re.sub(r"\n\n<!-- agencity:staff(?: v[1-9][0-9]{0,5})? -->.*?<!-- /agencity:staff -->\n", "\n", text, count=1, flags=re.S)
         text = text.replace("`$O`(팀 사무실 폴더의 절대경로)", f"`$O`(= {office})").replace("`XX-`", f"`{prefix}`").replace("XX-n", f"{prefix}n")
         # 명령 줄의 '<에이전시티>/…'(따옴표 안)는 설치 폴더에 빈칸·따옴표가 있어도 되게 셸 따옴표로 감싸요(office_server.py의 fill_here와 같아요)
         text = re.sub(r"'<에이전시티>([^'\s]*)'", lambda x: shlex.quote(HERE + x.group(1)), text).replace("<에이전시티>", HERE)
@@ -573,9 +624,10 @@ def main():
     # 물어볼 지금 자리: 설정 화면이 보여 주는 줄(shown_rows). 역할 이름은 team.json의 글자 그대로 써요(예전 방식 합치기가 그 글자로 자리를 찾아요).
     # 나머지 줄은 묻지 않고 그대로 둬요(예전 방식 합치기라 지우지 않아요)
     old_ok = [old_ms[i] for i, _ in shown_rows(old_ms)]
+    old_staff = [m for m in old_ms if staff_role(m)]   # 직원 줄: 묻지 않고 그대로 둬요(세션을 앉히지 않아요)
     cur_of, held, ok_ids = {}, {}, {id(m) for m in old_ok}   # 이미 있던 팀: 역할 → 지금 세션, 세션 → 그 역할(묻지 않는 줄의 세션은 어느 자리에도 못 옮겨요)
     for m in old_ms:
-        sid = m.get("sessionId") if isinstance(m, dict) and isinstance(m.get("sessionId"), str) and SESSION_RE.match(m["sessionId"]) else ""
+        sid = m.get("sessionId") if isinstance(m, dict) and not is_staff_row(m) and isinstance(m.get("sessionId"), str) and SESSION_RE.match(m["sessionId"]) else ""
         key = m["role"].casefold() if id(m) in ok_ids else "\0"
         if key != "\0":
             cur_of[key] = sid
@@ -587,8 +639,10 @@ def main():
               "team.json의 팀 이름과 업무 번호 머리글은 그대로 둬요.")
         now_ms = [f"{m['role']}({cur_of[m['role'].casefold()] or '빈자리'})" for m in old_ok]
         print(f"  지금 팀원: {' · '.join(now_ms) if now_ms else '(없음)'}")
-        if len(old_ms) > len(old_ok):
-            print(f"  역할 이름으로 보여 줄 수 없는 줄 {len(old_ms) - len(old_ok)}개는 묻지 않고 그대로 둬요.")
+        if old_staff:
+            print(f"  직원 {len(old_staff)}명({' · '.join(shown(staff_role(m)) for m in old_staff)})은 세션 자리가 아니라서 묻지 않고 그대로 둬요.")
+        if len(old_ms) > len(old_ok) + len(old_staff):
+            print(f"  역할 이름으로 보여 줄 수 없는 줄 {len(old_ms) - len(old_ok) - len(old_staff)}개는 묻지 않고 그대로 둬요.")
         print()
         name = ask("층 이름(에이전시티 화면에 보일 이름, team.json의 팀 이름은 그대로예요)", default=floor_default(old_team) or tid,
                    check=lambda v: 0 < len(v) <= 30)
@@ -613,7 +667,7 @@ def main():
     is_lead = lambda r: unicodedata.normalize("NFC", r) == LEAD
     asked = [r for r in asked if is_lead(r)] + [r for r in asked if not is_lead(r)]
     if not asked:
-        asked = list(CLASSIC_ROLES)
+        asked = [r for r in CLASSIC_ROLES if r.casefold() not in staff_keys(old_ms)]   # 직원 자리는 묻지 않아요
     elif not any(is_lead(r) for r in asked):
         asked.insert(0, LEAD)
     for role in asked:
@@ -624,7 +678,7 @@ def main():
         members.append({"role": role, "sessionId": v})
     have = {r.casefold() for r in asked} | role_keys(old_team)   # 겹치면 안 되는 이름(그대로 두는 줄의 이름도)
     # 이미 있던 팀 사무실이면 그 자리들도 세요(보여 줄 수 없어서 그대로 두는 줄은 빼고)
-    room = max(MAX_MEMBERS - len({unicodedata.normalize("NFC", r).casefold() for r in asked}), 0)
+    room = max(MAX_MEMBERS - len({unicodedata.normalize("NFC", r).casefold() for r in asked}) - len(staff_keys(old_ms)), 0)   # 직원 줄도 자리를 차지해요
 
     def extra(v):
         """쉼표로 적은 더 둘 역할들(없으면 []). 못 쓰는 이름·겹치는 이름·너무 많으면 None."""
@@ -754,9 +808,12 @@ def plan_floor(f, org, taken, folders, seated, seats, boss="", rooms=0):
     rows = merged_rows(old_team, kept_name(old_team) or name, members, replace)
     if replace and any(m.get("name") for m in members):   # 이번에 정한 이름이 이 층의 다른 줄(그대로 두는 줄 포함)의 이름·역할과 겹치지 않는지
         at_row = {r.casefold(): i for i, r in shown_rows(rows)}
-        check_name_clash(rows, [at_row[m["role"].casefold()] for m in members if m.get("name")])
-    if not replace and len(shown_rows(rows)) > MAX_MEMBERS:
+        check_name_clash(rows, [at_row[m["role"].casefold()] for m in members if m.get("name") and m["role"].casefold() in at_row])   # 건너뛴 직원 줄은 빼요
+    staff_n = len(staff_keys(rows))   # 그대로 둔 직원 줄도 자리를 차지해요(옛 팀 사무실은 0)
+    if not replace and len(shown_rows(rows)) + staff_n > MAX_MEMBERS:
         raise TeamError(f"이미 있던 팀 사무실의 자리와 합치면 {MAX_MEMBERS}자리가 넘어요. members로 팀원 목록을 보내 주세요.")
+    if replace and staff_n and len(shown_rows(rows)) + staff_n > MAX_MEMBERS:
+        raise TeamError(f"직원 {staff_n}명과 합치면 {MAX_MEMBERS}자리가 넘어요. 팀원을 줄여 주세요.")
     if old_team is not None:   # 그대로 두는 줄(보여 줄 수 없던 줄 등)에 이미 앉은 세션을 다른 자리에 또 앉히지 않아요
         dup = more_seats(old_team.get("members"), rows)
         if dup:

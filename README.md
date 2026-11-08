@@ -23,6 +23,7 @@ Claude Code 세션들이 팀이 되어 사무실 한 층에서 움직여요.<br>
 - **회의**: 내가 같이 하거나(참석), 팀에 맡기고 회의록으로 받아요(위임).
 - **결재**: 팀장이 올린 결재를 결재함에서 고르면 그 팀장에게 바로 전해져요.
 - **팀끼리**: 팀장끼리 다른 층과 이야기해요. 주고받은 말은 화면의 **팀 간 대화**에 남아요.
+- **직원 스킬 (시험 기능)**: 층마다 켜면 세션 없는 직원을 둬요. 직원 스킬(`SKILL.md`) 하나가 직원 하나이고, 팀장 세션이 일꾼으로 띄워요. 기본은 꺼져 있어요. [자세히](docs/GUIDE.md#직원-스킬-시험-기능)
 
 Claude Code와 함께 써요. Codex 세션은 읽기 전용 자리로 앉혀 하는 일을 봐요(말 걸기는 아직 안 돼요). Gemini CLI는 앞으로 지원해요.
 
@@ -65,7 +66,7 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인·도시 공개·알
 
 ## 안전하게
 
-- 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude·Codex에서는 세션 목록(제목·폴더·그룹·마지막 활동)과 Claude 세션의 실행 상태만 읽어요. 세션이 30분 넘게 일하는 상태면 대화 기록(`~/.claude/projects`)의 고친 시각도 봐요. 이때 글은 꺼내지 않아요. 허락하면 추천 팀을 위해 세션마다 첫 메시지 앞부분에서 역할 낱말만 찾아요. 세션 만들기·총괄 만들기로 기다리는 동안(30분까지)은 그사이 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 이 맥 안에서만 보고, 저장하거나 AI에 보내지 않아요.
+- 내 컴퓨터(`127.0.0.1`)에서만 열려요. Claude·Codex에서는 세션 목록(제목·폴더·그룹·마지막 활동)과 Claude 세션의 실행 상태만 읽어요. 세션이 30분 넘게 일하는 상태면 대화 기록(`~/.claude/projects`)의 고친 시각도 봐요. 이때 글은 꺼내지 않아요. 직원을 둔 층은 팀장 세션의 일꾼 기록에서 종류 이름·끝 표시·고친 시각만 꺼내요. 허락하면 추천 팀을 위해 세션마다 첫 메시지 앞부분에서 역할 낱말만 찾아요. 세션 만들기·총괄 만들기로 기다리는 동안(30분까지)은 그사이 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 이 맥 안에서만 보고, 저장하거나 AI에 보내지 않아요.
 - 대화에 붙인 사진은 세션이 열면 Claude로 보내지고 세션 기록에 남아요. 지워도 그 사본은 남아요. 위치 정보는 지우지 않아요.
 - 화면에서 보낸 말은 승인으로 쓰이지 않아요. 커밋·배포·결제는 그 세션 창에서 내가 직접 확인해요.
 - 도시에는 내가 확인한 것만 올라가요. 대화·결재·보고서 원문은 올리지 않아요.
@@ -94,6 +95,7 @@ On first run it skims your session list (Claude Code and Codex) and recommends a
 From one page you can message any session, trade images with it, run meetings, and approve what team leads file. An image a session opens goes to Claude and stays in the session record, even if you delete your copy. Location data in an image is not removed.
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
+An experimental staff skill option, off by default and turned on per floor, lets a floor keep staff without sessions of their own: each staff member is a `SKILL.md` that the floor lead's session runs as a subagent, and the office takes only the agent type, finish flag and file times from those subagent records.
 The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed). Buildings stand in the country each member picks, with a total-token leaderboard, and the city page is in Korean and English.
 You can join from the setup screen without Node or gh, or without installing anything through a one-line command from the city page (macOS or Linux terminal): it counts usage numbers (tokens, counts, cost estimate) by model and date, without extracting chat text, and uploads them with your time zone to your public usage gist only after you confirm. In the app you can also turn on hourly auto upload, which posts only when the numbers changed.
 Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The app UI is in Korean. Formerly Claude Office (until v0.3.1).
