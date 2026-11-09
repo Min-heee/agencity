@@ -6,7 +6,9 @@ python3 -m unittest discover -s tests -p test_staff.py      (저장소 맨 위�
 저장소를 /private/tmp/agencity-u31-… 임시 폴더에 복사해 그 폴더를 설치 폴더로 써요. HOME도 임시 폴더라 진짜 층과 세션은 건드리지 않아요.
 가짜 pid 폴더(AGENCITY_CLAUDE_RUN_DIR)와 가짜 기록 폴더(AGENCITY_CLAUDE_PROJECTS_DIR)만 써요.
 서버를 켜는 시험은 9700번대 포트를 써요. 직원 줄이 없는 옛 층의 결과가 그대로인지도 봐요.
+(U-34 v0.15.0 바깥에서 찾기): 가짜 skills.sh·GitHub(FakeOutside, 127.0.0.1의 9700~9719번)만 써요. 진짜 skills.sh·GitHub에는 닿지 않아요.
 """
+import gzip
 import hashlib
 import http.client
 import importlib.util
@@ -24,6 +26,8 @@ import time
 import unicodedata
 import unittest
 import urllib.parse
+from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -66,7 +70,7 @@ def make_install(tmp):
            "AGENCITY_CLAUDE_PROJECTS_DIR": os.path.join(home, ".claude", "projects"),
            "AGENCITY_CLAUDE_SESSIONS_DIR": os.path.join(home, "sessions"),
            "AGENCITY_UPDATE_BASE": "http://127.0.0.1:9", "AGENCITY_UPDATE_RAW": "http://127.0.0.1:9",
-           "AGENCITY_GITHUB_API": "http://127.0.0.1:9", "AGENCITY_GITHUB_BASE": "http://127.0.0.1:9"}
+           "AGENCITY_GITHUB_API": "http://127.0.0.1:9", "AGENCITY_GITHUB_BASE": "http://127.0.0.1:9", "AGENCITY_SKILLS_BASE": "http://127.0.0.1:9"}
     return d, env
 
 
@@ -2877,6 +2881,1171 @@ class SkillHire(SkillBase):
             self.assertEqual(os.listdir(os.path.join(base, "staff", "ag-lc", "원본")), ["SKILL.md"])
 
 
+# U-34 v0.15.0 바깥에서 찾기: 가짜 skills.sh·GitHub(FakeOutside) --------------------------------------------------------------
+# 진짜 skills.sh·api.github.com·raw.githubusercontent.com에는 닿지 않아요. 가짜 서버 하나가 세 곳 몫을 해요(127.0.0.1, 9700~9719번).
+GH_A = "a" * 40      # 가짜 저장소 acme/skills의 기본 가지(main) 커밋
+GH_B = "b" * 40      # solo/one(맨 위 SKILL.md뿐)
+FAKE_TOKEN = "gho_" + "F" * 36   # 가짜 설정 폴더의 GitHub 로그인 토큰: 바깥 요청 어디에도 나오면 안 돼요
+CR_SKILL = """---
+name: code-review
+description: Review a diff for bugs and risky changes.
+---
+# Code Review
+
+Look at the change with care before you say anything.
+
+1. Run `git diff` to see the change.
+2. Check each item in [the checklist](references/checklist.md).
+3. Write what you found.
+"""
+CR_LIST = "# Checklist\n- tests pass\n"
+CR_KEY = f"gh:acme/skills@{GH_A}:skills/eng/code-review"
+FLOOR_PIN = "6d9a070fea60b92580d8b3384351fa86cbd64978f452862dd2d7635a19b7cb43"   # v0.14.1(ae45d47) source_read로 잰 층 스킬 pinme의 묶은 해시
+
+
+def sha(text):
+    return hashlib.sha256(text.encode("utf-8") if isinstance(text, str) else text).hexdigest()
+
+
+def git_blob(data):
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def search_doc():
+    """오늘 search.json과 같은 칸 이름·꼴의 찾기 답: 앞 줄들 + 지은 줄(설치 999, 제어 문자가 든 이름, 글로 된 설치 수, ../x, 공식 저장소의 같은 이름 사본)."""
+    rows = [("mattpocock/skills", "code-review", 868252), ("obra/superpowers", "requesting-code-review", 275892),
+            ("obra/superpowers", "receiving-code-review", 234422), ("coderabbitai/skills", "code-review", 15914),
+            ("anthropics/knowledge-work-plugins", "code-review", 10101), ("getsentry/skills", "code-review", 5681),
+            ("vercel-labs/agent-browser", "agent-browser", 1364379), ("uizze.sh", "ui-taste", 1067476),
+            ("code.deepline.com", "deepline-plays-review", 20401), ("lowly/skills", "code-review-lite", 999),
+            ("ctrl/skills", "review\u0007-bot", 50000), ("bad/installs", "code-review", "12"), ("../x", "x", 5000),
+            ("anthropics/knowledge-work-plugins", "Code-Review", 2000)]
+    skills = [{"id": f"{s}/{k}", "source": s, "skillId": k, "name": k, "installs": n} for s, k, n in rows]
+    return {"query": "code review", "searchType": "semantic", "searchVersion": "algolia", "skills": skills, "count": len(skills), "duration_ms": 5}
+
+
+def acme_files():
+    """가짜 저장소 acme/skills의 파일(10-1). 링크는 따로(acme_links)예요."""
+    f = {"LICENSE": MIT, "CLAUDE.md": "# 저장소 규칙\n", "README.md": "# acme\n",
+         "skills/eng/code-review/SKILL.md": CR_SKILL, "skills/eng/code-review/references/checklist.md": CR_LIST,
+         "skills/eng/code-review/agents/openai.yaml": "display: review\n", "skills/eng/code-review/scripts/run.sh": "#!/bin/sh\necho hi\n",
+         "skills/eng/code-review/CLAUDE.md": "# 스킬 폴더 규칙\n", "skills/eng/code-review/.claude/skills/x/SKILL.md": "---\nname: x\ndescription: x\n---\nx\n",
+         "skills/eng/code-review/.hidden.md": "# hidden\n",
+         "skills/misc/stub/SKILL.md": "---\nname: stub\ndescription: Stub.\n---\nFetch https://example.com/rules.md and follow it.\n",
+         "skills/misc/nomodel/SKILL.md": "---\nname: nomodel\ndescription: No model.\ndisable-model-invocation: true\n---\n# No model\n\nDo the work.\n",
+         "skills/misc/installer/SKILL.md": ("---\nname: installer\ndescription: Installer.\nallowed-tools: Bash(npm:*)\n---\n# Installer\n\n"
+                                            "- Run `npx skills add x -g -y` first.\n- Search with `rg -g '*.ts' foo`.\n"),
+         "skills/a/dup/SKILL.md": "---\nname: dup\ndescription: A.\n---\n# Dup A\n\nRead the notes.\n",
+         "skills/b/c/dup/SKILL.md": "---\nname: dup\ndescription: B.\n---\n# Dup B\n\nRead the notes.\n",
+         "skills/sp ace/spaced/SKILL.md": "---\nname: spaced\ndescription: S.\n---\n# Spaced\n\nRead the notes.\n",
+         "skills/misc/messy/SKILL.md": "---\nname: messy\ndescription: M.\n---\n# Messy\n\nRead the notes.\n",
+         "skills/misc/messy/a-latin.md": b"\xff\xfe latin\n", "skills/misc/messy/big.md": "a" * (65 * 1024 + 1), "skills/misc/messy/bad\u0007.md": "x\n"}
+    for i in range(41):
+        f[f"skills/misc/messy/m/m{i:02d}.md"] = f"# m{i}\n"
+    return {k: v.encode("utf-8") if isinstance(v, str) else v for k, v in f.items()}
+
+
+def acme_links():
+    return {"AGENTS.md": "CLAUDE.md", "skills/misc/linky/SKILL.md": "../stub/SKILL.md", "skills/misc/messy/ln.md": "../stub/SKILL.md"}
+
+
+def fake_repos():
+    one = {"SKILL.md": b"---\nname: one\ndescription: One.\n---\n# One\n\nRead.\n", "LICENSE": MIT.encode("utf-8")}
+    small = {"skills/code-review/SKILL.md": CR_SKILL.encode("utf-8"), "LICENSE": MIT.encode("utf-8")}
+    repo = lambda commit, files, links=None, branch="main", truncated=False, **info: {   # noqa: E731
+        "commit": commit, "branch": branch, "files": files, "links": links or {}, "truncated": truncated, "info": info}
+    return {"acme/skills": repo(GH_A, acme_files(), acme_links()), "solo/one": repo(GH_B, one),
+            "anthropics/kit": repo("d" * 40, small), "forky/skills": repo("e" * 40, {"code-review/SKILL.md": CR_SKILL.encode("utf-8")}, fork=True,
+                                                                         archived=True, license=None),
+            "acme/private": repo("f" * 40, small, private=True), "acme/branchy": repo("f" * 40, small, branch="feat/x"),
+            "acme/big": repo("f" * 40, small, truncated=True)}
+
+
+def fake_tree(r):
+    """저장소 표 → git trees(recursive) 답의 tree: 폴더는 type tree, blob sha는 git blob 해시, 링크는 mode 120000."""
+    items, dirs = [], set()
+    for p in list(r["files"]) + list(r["links"]):
+        parts = p.split("/")
+        dirs.update("/".join(parts[:i]) for i in range(1, len(parts)))
+    items += [{"path": d, "mode": "040000", "type": "tree", "sha": hashlib.sha1(d.encode("utf-8")).hexdigest()} for d in dirs]
+    items += [{"path": p, "mode": "100644", "type": "blob", "sha": git_blob(b), "size": len(b)} for p, b in r["files"].items()]
+    items += [{"path": p, "mode": "120000", "type": "blob", "sha": git_blob(t.encode("utf-8")), "size": len(t.encode("utf-8"))} for p, t in r["links"].items()]
+    return sorted(items, key=lambda x: x["path"])
+
+
+class FakeOutside:
+    """가짜 skills.sh·GitHub 한 곳(127.0.0.1, 9700~9719번의 빈 포트). 요청마다 {path, headers(소문자 열쇠), head(요청 줄·머리글 글)}를 적어요.
+    길: GET /api/search?q=…, /repos/{o}/{r}, /repos/{o}/{r}/commits/{가지}(Accept: application/vnd.github.sha), /repos/{o}/{r}/git/trees/{sha}?recursive=1,
+    /raw/{o}/{r}/{sha}/{경로}. rules[길 종류](search·repo·commits·tree·raw)로 답을 바꿔요: (상태, 머리글, 몸), ('delay', 초, 답 또는 None), ('trickle', 초)."""
+
+    def __init__(self):
+        self.port = free_port(9700, 9719)
+        self.url = f"http://127.0.0.1:{self.port}"
+        self.lock = threading.Lock()
+        self.repos = fake_repos()
+        self.log, self.rules, self.raw_over = [], {}, {}
+        self.httpd = None
+        self.start()
+
+    def reset(self):
+        with self.lock:
+            self.log = []
+        self.rules, self.raw_over = {}, {}
+        self.repos = fake_repos()
+
+    def reqs(self):
+        with self.lock:
+            return list(self.log)
+
+    def paths(self):
+        return [x["path"] for x in self.reqs()]
+
+    def answer(self, path, headers):
+        u = urllib.parse.urlsplit(path)
+        if u.path == "/api/search":
+            q = urllib.parse.parse_qs(u.query).get("q", [""])[0]
+            got = self.rules["search"](q) if "search" in self.rules else None
+            if got is None or (got[0] == "delay" and got[2] is None):
+                body = (200, {"Content-Type": "application/json"}, json.dumps(dict(search_doc(), query=q)).encode("utf-8"))
+                return ("delay", got[1], body) if got else body
+            return got
+        m = re.match(r"^/repos/([^/]+)/([^/]+)(?:/(commits|git/trees)/(.+))?\Z", u.path) or re.match(r"^/raw/([^/]+)/([^/]+)/([0-9a-f]{40})/(.+)\Z", u.path)
+        if not m:
+            return 404, {}, b"{}"
+        kind = "raw" if u.path.startswith("/raw/") else {None: "repo", "commits": "commits", "git/trees": "tree"}[m.group(3)]
+        name = next((k for k in self.repos if k.casefold() == f"{m.group(1)}/{m.group(2)}".casefold()), None)
+        got = self.rules[kind](urllib.parse.unquote(m.group(4)) if kind == "raw" else name) if kind in self.rules else None
+        if got is not None:
+            return got
+        r = self.repos.get(name)
+        if r is None or (kind != "repo" and name != f"{m.group(1)}/{m.group(2)}"):
+            return 404, {}, b'{"message": "Not Found"}'
+        if kind == "repo":
+            doc = {"full_name": name, "default_branch": r["branch"], "private": False, "disabled": False, "archived": False, "fork": False,
+                   "stargazers_count": 42, "license": {"key": "mit", "spdx_id": "MIT"}}
+            doc.update(r["info"])
+            return 200, {"Content-Type": "application/json"}, json.dumps(doc).encode("utf-8")
+        if kind == "commits":
+            if headers.get("Accept") != "application/vnd.github.sha" or urllib.parse.unquote(m.group(4)) != r["branch"]:
+                return 415, {}, b"{}"
+            return 200, {"Content-Type": "text/plain"}, r["commit"].encode("ascii")
+        if kind == "tree":
+            if m.group(4) != r["commit"] or u.query != "recursive=1":
+                return 404, {}, b"{}"
+            doc = {"sha": r["commit"], "url": "x", "tree": fake_tree(r), "truncated": r["truncated"]}
+            return 200, {"Content-Type": "application/json"}, json.dumps(doc).encode("utf-8")
+        rel = urllib.parse.unquote(m.group(4))
+        if m.group(3) != r["commit"]:
+            return 404, {}, b"404: Not Found"
+        if rel in self.raw_over:
+            return 200, {}, self.raw_over[rel]
+        if rel in r["links"]:
+            return 200, {}, r["links"][rel].encode("utf-8")
+        return (200, {}, r["files"][rel]) if rel in r["files"] else (404, {}, b"404: Not Found")
+
+    def start(self):
+        fake = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                with fake.lock:
+                    fake.log.append({"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()},
+                                     "head": self.requestline + "\r\n" + str(self.headers)})
+                got = fake.answer(self.path, self.headers)
+                if got[0] == "trickle":   # 머리글을 0.3초마다 한 바이트씩 흘려요(정해진 초가 지나면 끊어요)
+                    end = time.time() + got[1]
+                    for ch in b"HTTP/1.0 200 OK\r\nX-Slow: " + b"a" * 200:
+                        if time.time() > end:
+                            break
+                        try:
+                            self.wfile.write(bytes([ch]))
+                            self.wfile.flush()
+                        except OSError:
+                            break
+                        time.sleep(0.3)
+                    self.close_connection = True
+                    return
+                if got[0] == "delay":
+                    time.sleep(got[1])
+                    got = got[2]
+                status, headers, body = got
+                self.send_response(status)
+                for k, v in headers.items():
+                    self.send_header(k, v)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except OSError:
+                    pass
+
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", self.port), H)
+        self.httpd.daemon_threads = True
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def stop(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+class OutsideSkills(SkillBase):
+    """U-34 v0.15.0 서버: ‘스킬 찾기에 skills.sh 쓰기’ 스위치, 찾기(skills.sh), GitHub 읽기, gh 원천 열쇠, 묶음·승인 상태·들이기의 gh 갈래.
+    바깥 요청은 모두 가짜 서버(FakeOutside)로 가요. 모듈은 묶음마다 한 번 읽어서, 시험마다 skill_out_reset()으로 캐시·한도 창을 비우고(서버를 다시 켠 것과 같아요)
+    한도는 10**6으로 둬요(한도를 보는 시험만 그 안에서 진짜 값). 가짜 설정 폴더에 가짜 GitHub 토큰을, PATH 맨 앞에 부르면 적는 가짜 gh를 둬요."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        o = cls.o
+        cls.fake = FakeOutside()
+        cls.saved = {k: getattr(o, k) for k in ("SKILLS_BASE", "SKILL_GH_API", "SKILL_GH_RAW", "SKILL_GH_WEB", "SKILL_SEARCH_PER_MIN", "SKILL_READ_PER_MIN")}
+        o.SKILLS_BASE, o.SKILL_GH_API, o.SKILL_GH_RAW, o.SKILL_GH_WEB = cls.fake.url, cls.fake.url, cls.fake.url + "/raw", cls.fake.url + "/web"
+        cls.bin = os.path.join(cls.tmp, "fakebin")
+        cls.gh_called = os.path.join(cls.tmp, "gh-called")
+        os.makedirs(cls.bin)
+        with open(os.path.join(cls.bin, "gh"), "w", encoding="utf-8") as f:
+            f.write(f"#!/bin/sh\necho \"$@\" >> {shlex.quote(cls.gh_called)}\n")
+        os.chmod(os.path.join(cls.bin, "gh"), 0o755)
+        cls.path_patch = mock.patch.dict(os.environ, {"PATH": cls.bin + os.pathsep + os.environ.get("PATH", "")})
+        cls.path_patch.start()
+        with open(o.TOKEN_FILE, "w", encoding="utf-8") as f:
+            json.dump({"login": "tester", "token": FAKE_TOKEN, "scope": "gist"}, f)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.path_patch.stop()
+        cls.fake.stop()
+        for k, v in cls.saved.items():
+            setattr(cls.o, k, v)
+        super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+        o = self.o
+        o.skill_out_reset()
+        o.SKILL_SEARCH_PER_MIN = o.SKILL_READ_PER_MIN = 10 ** 6
+        for p in (o.STAFF_RECORD, o.STAFF_REQUESTS):   # 설정 폴더의 명찰·묶음 기록도 시험마다 비워요(층 파일처럼)
+            if os.path.lexists(p):
+                os.remove(p)
+        self.fake.reset()
+
+    def on(self, team="t1", on=True):
+        return self.o.api_staff_outside_enable({"team": team, "on": on})
+
+    def search(self, words, team="t1"):
+        return self.o.api_staff_outside_search({"team": team, "words": words})
+
+    def pick(self, repo="acme/skills", skill="code-review", fresh=None, team="t1"):
+        body = {"team": team, "outside": {"repo": repo, "skill": skill}}
+        if fresh is not None:
+            body["fresh"] = fresh
+        return self.o.api_staff_preview(body)
+
+    def sent(self):
+        return self.fake.paths()
+
+    def gh_form(self, **over):
+        body = {"team": "t1", "role": "코드리뷰", "staff": "ag-code-review", "desc": "층 코드리뷰. 팀장이 업무 번호와 함께 띄워요.",
+                "note": "", "tools": ["Read", "Grep", "Glob", "Write"], "model": "inherit", "skills": []}
+        body.update(over)
+        return body
+
+    def gh_request(self, card, **over):
+        return self.o.api_staff_request(dict(self.gh_form(**over), source=card["source"]["key"], sha=card["source"]["sha"]))
+
+    def approve(self, r, said=None):
+        """팀장이 쓰는 승인 표시를 시험이 써요(SkillHire.approve와 같아요)."""
+        path = os.path.join(self.office("t1"), "staff-requests", r["request"] + ".json")
+        with open(path, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()
+        ok = {"request": r["request"], "sha256": digest, "said": r["said"] if said is None else said, "at": "2026-11-10T14:10:00+09:00"}
+        self.put(os.path.dirname(path), r["request"] + ".ok.json", json.dumps(ok, ensure_ascii=False))
+
+    def org_row(self, tid):
+        with open(os.path.join(self.dir, "org.json"), encoding="utf-8") as f:
+            return next(t for t in json.load(f)["teams"] if t["id"] == tid)
+
+    def floor_log(self, tid="t1"):
+        p = os.path.join(self.office(tid), "log.jsonl")
+        if not os.path.isfile(p):
+            return []
+        with open(p, encoding="utf-8") as f:
+            return [json.loads(x)["text"] for x in f if x.strip()]
+
+    def files_under(self, top):
+        out = set()
+        for root, dirs, names in os.walk(top):
+            out.update(os.path.relpath(os.path.join(root, n), top) for n in dirs + names)
+        return out
+
+    def snapshot(self):
+        """임시 폴더 전체의 파일 이름·크기·고친 때(층 기록 log.jsonl과 가짜 gh 기록은 빼요)."""
+        out = {}
+        for root, dirs, names in os.walk(self.tmp):
+            for n in dirs + names:
+                p = os.path.join(root, n)
+                if n == "log.jsonl" or p.startswith(self.bin):
+                    continue
+                st = os.lstat(p)
+                out[p] = (st.st_mode, st.st_size, st.st_mtime_ns)
+        return out
+
+    def clean_reqs(self, reqs):
+        """바깥 요청마다: 로그인 정보·쿠키·Referer 없음, 가짜 토큰 없음, 머리글은 ASCII뿐, User-Agent는 agencity/<버전>."""
+        for x in reqs:
+            h = x["headers"]
+            for k in ("authorization", "cookie", "referer"):
+                self.assertNotIn(k, h, x["path"])
+            self.assertEqual(h["user-agent"], "agencity/" + self.o.VERSION)
+            self.assertNotIn(FAKE_TOKEN, x["head"])
+            self.assertTrue(x["head"].isascii(), x["head"])
+        self.assertFalse(os.path.exists(self.gh_called))
+
+    def test_outside_off_sends_nothing(self):
+        """스위치가 꺼진 층(직원 스킬만 켬)은 찾기·줄 누르기·gh 열쇠 미리 보기·묶음·들이기 모두 409 outside-off이고 바깥 요청이 0번이에요(out_get을 바꿔 끼워 세요).
+        설정 상태·원천 목록도 0번이에요. 직원 스킬이 꺼진 층은 409 off. 손으로 적은 {"on": true}는 켜짐이 아니에요(odd)."""
+        o = self.o
+        with mock.patch.object(o, "out_get", side_effect=AssertionError("바깥 요청")) as got:
+            calls = ((o.api_staff_outside_search, {"words": "code review"}), (o.api_staff_preview, {"outside": {"repo": "acme/skills", "skill": "code-review"}}),
+                     (o.api_staff_preview, {"source": CR_KEY}), (o.api_staff_request, dict(self.gh_form(), source=CR_KEY, sha="0" * 64)),
+                     (o.api_staff_hire, {"source": CR_KEY, "request": "20261110-1"}))
+            for fn, body in calls:
+                e = self.refused(409, fn, dict(body, team="t1"))
+                self.assertEqual(e.extra.get("why"), "outside-off", fn.__name__)
+                self.assertEqual(e.msg, "‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요. ‘바깥에서 찾기’의 [켜기]나 위 스위치로 켜 주세요")
+            for fn, body in calls:
+                self.assertEqual(self.refused(409, fn, dict(body, team="t3")).extra.get("why"), "off", fn.__name__)   # 직원 스킬이 꺼진 층
+            o.api_setup_state({})
+            src = o.api_staff_sources({"team": ["t1"]})
+            self.assertEqual((src["outside"]["base"], src["outside"]["min_installs"], src["outside"]["rows"]), (self.fake.url, 1000, 20))
+            with open(os.path.join(self.dir, "org.json"), encoding="utf-8") as f:
+                org = json.load(f)
+            for odd in ({"on": True}, {"on": True, "at": "2026-11-10T14:02:11", "by": "사이트"}, {"on": True, "at": "2026-11-10T14:02:11+09:00", "by": "대표"},
+                        {"on": "true", "at": "2026-11-10T14:02:11+09:00", "by": "사이트"}, [True], "on"):
+                next(t for t in org["teams"] if t["id"] == "t1")["skillSearch"] = odd
+                with open(os.path.join(self.dir, "org.json"), "w", encoding="utf-8") as f:
+                    json.dump(org, f, ensure_ascii=False)
+                self.assertEqual(self.refused(409, self.search, "code review").extra["why"], "outside-off", odd)
+                t = next(t for t in o.real_teams() if t["id"] == "t1")
+                self.assertFalse(o.skill_search_on(t))
+                self.assertTrue(o.skill_search_view(t)["odd"], odd)
+                self.assertFalse(o.skill_search_view(t)["on"])
+            self.assertEqual(got.call_count, 0)
+        self.assertEqual(self.sent(), [])
+
+    def test_switch_record(self):
+        """켜기: org.json 그 층 줄의 skillSearch == {on: true, at: 시간대 있는 ISO, by: '사이트'}, org.json.bak, 층 기록 한 줄. 같은 값은 쓰지 않아요(changed: false).
+        끄면 칸을 지우지 않고 on: false. 직원 스킬이 꺼진 층은 켤 수 없고(409 off) 끌 수는 있어요. 예시 층 409. 설정 상태에 그 층 skillSearch. 다른 층 줄은 그대로."""
+        o = self.o
+        orgp = os.path.join(self.dir, "org.json")
+        others = [self.org_row("t2"), self.org_row("t3")]
+        self.refused(400, o.api_staff_outside_enable, {"team": "t1", "on": "yes"})
+        r = self.on()
+        row = self.org_row("t1")["skillSearch"]
+        self.assertEqual((r["ok"], r["team"], r["on"], r["changed"], r["at"], r["by"]), (True, "t1", True, True, row["at"], "사이트"))
+        self.assertEqual((set(row), row["on"], row["by"]), ({"on", "at", "by"}, True, "사이트"))
+        self.assertIsNotNone(datetime.fromisoformat(row["at"]).tzinfo)
+        with open(orgp + ".bak", encoding="utf-8") as f:
+            bak = next(t for t in json.load(f)["teams"] if t["id"] == "t1")
+        self.assertEqual((bak.get("staff"), "skillSearch" in bak), (True, False))           # 고치기 전 org.json
+        self.assertEqual(self.floor_log()[-1], "스킬 찾기에 skills.sh 쓰기를 켰어요(누를 때만 검색 낱말이 나가요)")
+        with open(orgp, "rb") as f:
+            before = f.read()
+        st = os.stat(orgp).st_mtime_ns
+        n = len(self.floor_log())
+        r = self.on()
+        self.assertEqual((r["changed"], r["on"], r["at"]), (False, True, row["at"]))
+        with open(orgp, "rb") as f:
+            self.assertEqual((f.read(), os.stat(orgp).st_mtime_ns, len(self.floor_log())), (before, st, n))   # 같은 값은 쓰지 않아요
+        r = self.on(on=False)
+        row = self.org_row("t1")["skillSearch"]
+        self.assertEqual((r["changed"], r["on"], row["on"], row["by"], set(row)), (True, False, False, "사이트", {"on", "at", "by"}))
+        self.assertEqual(self.floor_log()[-1], "스킬 찾기에 skills.sh 쓰기를 껐어요")
+        f1 = next(f for f in o.api_setup_state({})["floors"] if f["id"] == "t1")
+        self.assertEqual(f1["skillSearch"], {"on": False, "at": row["at"], "by": "사이트", "odd": False})
+        self.on()
+        f1 = next(f for f in o.api_setup_state({})["floors"] if f["id"] == "t1")
+        self.assertEqual((f1["skillSearch"]["on"], f1["skillSearch"]["odd"]), (True, False))
+        self.assertTrue(o.skill_search_on(next(t for t in o.real_teams() if t["id"] == "t1")))
+        e = self.refused(409, self.on, "t3")
+        self.assertEqual((e.extra, e.msg), ({"why": "off"}, "직원 스킬을 먼저 켜 주세요"))
+        self.assertEqual(self.on("t3", False)["changed"], False)                             # 끄기는 늘 돼요
+        self.assertNotIn("skillSearch", next(f for f in o.api_setup_state({})["floors"] if f["id"] == "t3"))
+        self.assertEqual([self.org_row("t2"), self.org_row("t3")], others)
+        o.api_staff_enable({"team": "t1", "on": False})                                     # 직원 스킬을 끄면 바깥 기능도 멈추고 끄기는 돼요
+        self.assertEqual(self.refused(409, self.search, "code review").extra["why"], "off")
+        self.assertEqual(self.on(on=False)["changed"], True)
+        with open(orgp, encoding="utf-8") as f:
+            org = json.load(f)
+        org["teams"].append({"id": "ex", "name": "예시", "office": "examples/x", "floor": 9})
+        with open(orgp, "w", encoding="utf-8") as f:
+            json.dump(org, f, ensure_ascii=False)
+        self.assertEqual(self.refused(409, self.on, "ex").msg, "예시 층에는 스킬 찾기를 켤 수 없어요")
+        self.assertEqual(self.sent(), [])
+
+    def test_words_validation(self):
+        """보낼 낱말: 영문 소문자로 시작하는 낱말 1~4개(낱말마다 숫자 2개까지), 빈칸 하나씩, 3~40자. 서버는 고치지 않고 검사만 해요. 어기면 400 words, 바깥 요청 0번."""
+        o = self.o
+        self.on()
+        for w in ("code review", "design", "seo", "a1 b2", "python3 testing", "one two three four", "a" * 20 + " " + "b" * 19, "x-ray tool"):
+            self.assertTrue(o.skill_words_ok(w), w)
+        for w in ("ab", "one two three four five", "Code review", "code  review", " code review", "code review ", "code_review", "code.review",
+                  "코드 리뷰", " ".join(["abcdefghij"] * 4), "a" * 21, "-x y", "4111 1111 1111 1111", "010 1234 5678", "abc1234", "a@b.com", "x/y", "x:y",
+                  "1password", "code\nreview", "", None, 7, ["code"]):
+            self.assertFalse(o.skill_words_ok(w), w)
+            e = self.refused(400, self.search, w)
+            self.assertEqual((e.extra, e.msg), ({"why": "words"}, "영어 낱말 1~4개로 적어 주세요(예: code review). 보내지 않았어요"))
+        self.assertEqual(self.sent(), [])
+
+    def test_search_request_shape(self):
+        """찾기 요청: 경로 /api/search?q=code%20review 그대로(q 하나뿐), User-Agent agencity/<버전>, Accept application/json, 쿠키·로그인·Referer 없음.
+        요청 줄·머리글에 층·역할 이름·한국어가 없어요. 응답 url이 보낸 주소와 같고, 보낸 q를 풀면 보낸 words와 글자 하나까지 같아요."""
+        o = self.o
+        self.on()
+        r = self.search("code review")
+        [req] = self.fake.reqs()
+        self.assertEqual(req["path"], "/api/search?q=code%20review")
+        self.assertEqual(urllib.parse.parse_qs(urllib.parse.urlsplit(req["path"]).query, keep_blank_values=True), {"q": ["code review"]})
+        self.clean_reqs([req])
+        h = req["headers"]
+        self.assertEqual((h["accept"], h.get("accept-encoding")), ("application/json", "identity"))
+        self.assertNotIn("x-github-api-version", h)
+        for word in ("팀장", "기획", "개발자", "층", "t1", "코드"):
+            self.assertNotIn(word, req["head"])
+        self.assertEqual(r["url"], self.fake.url + req["path"])
+        self.assertEqual(urllib.parse.unquote(r["url"].split("?q=", 1)[1]), r["words"])
+        self.assertEqual((r["words"], r["sent"], r["cached"], r["fallback"], r["team"]), ("code review", True, False, None, "t1"))
+        self.assertIsNotNone(datetime.fromisoformat(r["at"]).tzinfo)
+        self.assertEqual(self.floor_log()[-1], "스킬 찾기: skills.sh에 ‘code review’를 보냈어요(결과 6줄)")
+        r = self.search("a1 b2")
+        self.assertEqual(self.sent()[-1], "/api/search?q=a1%20b2")
+        self.assertEqual(o.skills_search_url("x-ray tool"), self.fake.url + "/api/search?q=x-ray%20tool")
+
+    def test_search_filters(self):
+        """거르기(4-3): 맞는 낱말이 있는 공식 줄 → 맞는 줄(낱말 수·설치 수) → 맞는 낱말 없는 공식 줄. 설치 999·글로 된 설치 수·../x는 빠지고, 제어 문자는 지워요.
+        같은 이름은 설치가 가장 많은 하나만 남기고 뺀 줄은 twins(설치 차례), 공식 사본은 남아요. GitHub 밖은 맞는 낱말이 있는 것만 링크로. 20줄 상한, role은 그 층 역할과 겹치지 않게."""
+        o = self.o
+        self.on()
+        r = self.search("code review")
+        self.assertEqual([(x["repo"], x["skill"]) for x in r["rows"]],
+                         [("anthropics/knowledge-work-plugins", "code-review"), ("mattpocock/skills", "code-review"), ("obra/superpowers", "requesting-code-review"),
+                          ("obra/superpowers", "receiving-code-review"), ("ctrl/skills", "review-bot"), ("vercel-labs/agent-browser", "agent-browser")])
+        top, matt, last = r["rows"][0], r["rows"][1], r["rows"][-1]
+        self.assertEqual((top["org"], top["hits"], top["installs"], top["twins"], top["role"]), ("Anthropic", 2, 10101, [], "코드리뷰"))
+        self.assertEqual(matt["twins"], [{"repo": "coderabbitai/skills", "installs": 15914}, {"repo": "getsentry/skills", "installs": 5681}])
+        self.assertEqual((matt["org"], matt["hits"], matt["role"]), (None, 2, "코드리뷰"))
+        self.assertEqual(set(matt), {"repo", "skill", "installs", "org", "hits", "twins", "role"})   # 결과 줄에는 link가 없어요
+        self.assertEqual((last["org"], last["hits"]), ("Vercel", 0))
+        self.assertEqual(r["others"], [{"source": "code.deepline.com", "skill": "deepline-plays-review", "installs": 20401,
+                                        "link": self.fake.url + "/code.deepline.com/deepline-plays-review"}])
+        self.assertEqual(r["counts"], {"got": 14, "github": 10, "other": 2, "low": 1, "dup": 3, "kept": 6, "shown": 6})
+        self.assertNotIn("code-review-lite", json.dumps(r))
+        self.assertNotIn("\\u0007", json.dumps(r))
+        rows = self.team("t1")["members"] + [{"role": "코드리뷰", "sessionId": None}]
+        with open(os.path.join(self.office("t1"), "team.json"), "w", encoding="utf-8") as f:
+            json.dump({"team": "층", "members": rows}, f, ensure_ascii=False)
+        again = self.search("code review")
+        self.assertEqual((again["cached"], again["rows"][1]["role"]), (True, "코드리뷰2"))  # 역할은 캐시에 넣지 않고 그 층 역할로 지어요
+        self.assertNotIn("role", o.SKILL_SEARCHES["code review"]["rows"][0])
+        doc = {"skills": [{"source": f"fill{i:02d}/skills", "skillId": f"code-tool-{i:02d}", "installs": 5000 + i} for i in range(30)]
+               + [{"source": f"site{i}.example", "skillId": f"review-{i}", "installs": 3000 + i} for i in range(8)]}
+        got = o.skills_rows(doc, "code review")
+        self.assertEqual((len(got["rows"]), got["counts"]["kept"], got["counts"]["shown"], got["rows"][0]["skill"]), (20, 30, 20, "code-tool-29"))
+        self.assertEqual([x["source"] for x in got["others"]], [f"site{i}.example" for i in (7, 6, 5, 4, 3)])
+        for bad in ({"skills": {"a": 1}}, [], {"skill": []}, "x"):
+            with self.assertRaises(ValueError):
+                o.skills_rows(bad, "code review")
+        self.assertEqual(o.skills_rows({"skills": []}, "code review")["rows"], [])
+
+    def test_search_cache_and_rate(self):
+        """같은 낱말은 기억해 둔 답(바깥 요청 1번, sent false·cached true·처음 때). 1분에 6번(실제로 보낸 것만), 실패는 기억하지 않아요, 50개를 넘으면 가장 오래된 것부터,
+        두 찾기가 겹치면 하나는 429 busy이고 바깥 요청은 1번이에요."""
+        o = self.o
+        self.on()
+        a, b = self.search("code review"), self.search("code review")
+        self.assertEqual(len(self.sent()), 1)
+        self.assertEqual((b["sent"], b["cached"], b["at"], b["rows"], b["url"]), (False, True, a["at"], a["rows"], a["url"]))
+        o.skill_out_reset()
+        self.fake.reset()
+        o.SKILL_SEARCH_PER_MIN = 6
+        try:
+            words = ["alpha one", "beta two", "gamma three", "delta four", "epsilon five", "zeta six", "eta seven"]
+            for w in words[:6]:
+                self.assertTrue(self.search(w)["sent"], w)
+            e = self.refused(429, self.search, words[6])
+            self.assertEqual((e.extra, e.msg), ({"why": "rate"}, "1분에 6번까지 찾아요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요"))
+            self.assertEqual(len(self.sent()), 6)
+            self.assertTrue(self.search(words[0])["cached"])                                # 기억해 둔 낱말은 한도와 상관없어요
+        finally:
+            o.SKILL_SEARCH_PER_MIN = 10 ** 6
+        o.skill_out_reset()
+        self.fake.reset()
+        self.fake.rules["search"] = lambda q: (500, {}, b"oops")
+        self.assertEqual(self.search("broken one")["fallback"]["why"], "status")
+        self.fake.rules.clear()
+        r = self.search("broken one")
+        self.assertEqual((r["sent"], r["fallback"], len(self.sent())), (True, None, 2))       # 실패한 답은 기억하지 않았어요
+        o.skill_out_reset()
+        self.fake.reset()
+        many = [f"cache {chr(97 + i // 26)}{chr(97 + i % 26)}" for i in range(51)]
+        for w in many:
+            self.search(w)
+        self.assertEqual((len(o.SKILL_SEARCHES), len(self.sent())), (50, 51))
+        self.assertTrue(self.search(many[1])["cached"])
+        self.assertTrue(self.search(many[0])["sent"])                                        # 가장 오래된 것이 빠졌어요
+        o.skill_out_reset()
+        self.fake.reset()
+        self.fake.rules["search"] = lambda q: ("delay", 0.6, None)
+        box = {}
+        th = threading.Thread(target=lambda: box.update(r=self.search("slow one")))
+        th.start()
+        for _ in range(100):
+            if self.sent():
+                break
+            time.sleep(0.02)
+        e = self.refused(429, self.search, "fast two")
+        self.assertEqual((e.extra, e.msg), ({"why": "busy"}, "앞의 찾기가 아직 끝나지 않았어요"))
+        th.join(10)
+        self.assertEqual((box["r"]["sent"], box["r"]["fallback"], len(self.sent())), (True, None, 1))
+
+    def test_search_fallback(self):
+        """실패하면 링크로(4-6): 넘겨 주는 주소(302·308)는 따라가지 않고 moved, 느린 곳·머리글을 흘리는 곳은 기한 안에 timeout, 500 status, 429 limited,
+        HTML·꼴 바뀜·깊은 JSON·압축된 답·너무 큰 답·빈 답 shape. 모두 ok: true, rows [], fallback.link https://skills.sh/. 바로 다음 찾기는 busy가 아니에요."""
+        o = self.o
+        self.on()
+        saved = (o.SKILL_NET_TIMEOUT, o.SKILL_NET_DEADLINE)
+        o.SKILL_NET_TIMEOUT, o.SKILL_NET_DEADLINE = 0.5, 1
+        try:
+            away = self.fake.url + "/elsewhere"
+            cases = (("moved a", lambda q: (302, {"Location": away}, b""), "moved"), ("moved b", lambda q: (308, {"Location": away}, b""), "moved"),
+                     ("moved c", lambda q: (301, {"Location": away}, b""), "moved"), ("status a", lambda q: (503, {}, b"x"), "status"),
+                     ("html a", lambda q: (200, {"Content-Type": "text/html"}, b"<html>hi</html>"), "shape"),
+                     ("dict a", lambda q: (200, {}, json.dumps({"skills": {"a": 1}}).encode("utf-8")), "shape"),
+                     ("deep a", lambda q: (200, {}, b"[" * 100000 + b"]" * 100000), "shape"),
+                     ("gzip a", lambda q: (200, {"Content-Encoding": "gzip"}, gzip.compress(json.dumps(search_doc()).encode("utf-8"))), "shape"),
+                     ("limited a", lambda q: (429, {"Retry-After": "60"}, b"slow down"), "limited"),
+                     ("big a", lambda q: (200, {}, b" " * (600 * 1024)), "shape"), ("empty a", lambda q: (200, {}, b""), "shape"),
+                     ("latin a", lambda q: (200, {}, b"\xff\xfe"), "shape"))
+            for words, rule, why in cases:
+                self.fake.rules["search"] = rule
+                r = self.search(words)
+                self.assertEqual((r["ok"], r["rows"], r["others"], r["counts"], r["sent"], r["fallback"]["why"], r["fallback"]["link"]),
+                                 (True, [], [], None, True, why, "https://skills.sh/"), words)
+                self.assertEqual(r["fallback"]["text"], o.SKILL_FALLBACK[why].format(status=503), words)
+                self.assertEqual(self.floor_log()[-1], f"스킬 찾기: skills.sh에 ‘{words}’를 보냈지만 답을 쓰지 못했어요({why})")
+            self.fake.rules["search"] = lambda q: (503, {}, b"x")
+            self.assertEqual(self.search("status a")["fallback"]["text"], "skills.sh가 답하지 못했어요(상태 503). 이 맥에 있는 것만 보여요.")
+            self.assertNotIn("/elsewhere", self.sent())                                      # Location으로 가지 않아요
+            self.fake.rules["search"] = lambda q: ("delay", 2, None)
+            t0 = time.monotonic()
+            self.assertEqual(self.search("slow a")["fallback"]["why"], "timeout")
+            self.assertLess(time.monotonic() - t0, 2)
+            self.fake.rules["search"] = lambda q: ("trickle", 4)
+            t0 = time.monotonic()
+            r = self.search("trickle a")
+            self.assertEqual((r["fallback"]["why"], r["fallback"]["text"]), ("timeout", "skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요."))
+            self.assertLess(time.monotonic() - t0, o.SKILL_NET_DEADLINE + 1)
+            self.fake.rules.clear()
+            r = self.search("after a")                                                       # 바로 다음 찾기는 busy가 아니에요
+            self.assertEqual((r["sent"], r["fallback"], len(r["rows"])), (True, None, 6))
+            self.assertTrue(self.search("moved a")["sent"])                                  # 실패는 기억하지 않았어요
+        finally:
+            o.SKILL_NET_TIMEOUT, o.SKILL_NET_DEADLINE = saved
+        saved = o.SKILLS_BASE
+        o.SKILLS_BASE = None                                                                 # 시험용 주소 값이 이상해서 꺼졌어요
+        try:
+            self.fake.reset()
+            r = self.search("code review")
+            self.assertEqual((r["sent"], r["url"], r["fallback"]["why"], r["fallback"]["text"]),
+                             (False, None, "config", "시험용 주소 값이 이상해서 보내지 않았어요. 이 맥에 있는 것만 보여요."))
+            self.assertIsNone(o.api_staff_sources({"team": ["t1"]})["outside"]["base"])
+            self.assertEqual(self.sent(), [])
+        finally:
+            o.SKILLS_BASE = saved
+
+    def test_gh_read(self):
+        """줄 누르기(5-2~5-5): repo → 기본 가지의 커밋(Accept: application/vnd.github.sha) → 트리(recursive=1) → 그 커밋의 SKILL.md·딸린 md·맨 위 LICENSE만 받아요.
+        yaml·스크립트·CLAUDE.md·AGENTS.md·숨은 폴더·숨은 파일은 받지 않아요. 로그인 정보 없음, 가짜 gh 안 불림, 파일 안 씀. 같은 줄은 캐시, fresh는 다시."""
+        o = self.o
+        self.on()
+        before = self.snapshot()
+        r = self.pick()
+        raw = f"/raw/acme/skills/{GH_A}/"
+        self.assertEqual(self.sent(), ["/repos/acme/skills", "/repos/acme/skills/commits/main", f"/repos/acme/skills/git/trees/{GH_A}?recursive=1",
+                                       raw + "skills/eng/code-review/SKILL.md", raw + "skills/eng/code-review/references/checklist.md", raw + "LICENSE"])
+        reqs = self.fake.reqs()
+        self.clean_reqs(reqs)
+        self.assertEqual([x["headers"]["accept"] for x in reqs],
+                         ["application/vnd.github+json", "application/vnd.github.sha", "application/vnd.github+json", "*/*", "*/*", "*/*"])
+        self.assertEqual([x["headers"].get("x-github-api-version") for x in reqs], ["2022-11-28"] * 3 + [None] * 3)
+        self.assertEqual(self.snapshot(), before)                                            # 파일은 하나도 쓰지 않아요(층 기록 한 줄 밖에는)
+        self.assertEqual(self.floor_log()[-1], f"GitHub에서 읽었어요: acme/skills/code-review@{GH_A[:7]} (API 3번, 파일 3개)")
+        s = r["source"]
+        self.assertEqual((s["key"], s["kind"], s["name"], s["group"], s["src"], s["repo"], s["commit"], s["dir"], s["branch"]),
+                         (CR_KEY, "gh-skill", "code-review", "acme/skills", "acme/skills/code-review", "acme/skills", GH_A, "skills/eng/code-review", "main"))
+        self.assertEqual(s["files"], {"SKILL.md": sha(CR_SKILL), "references/checklist.md": sha(CR_LIST)})
+        self.assertEqual((s["license_files"], s["license"]), ({"LICENSE": sha(MIT)}, {"name": "MIT", "file": "LICENSE", "files": ["LICENSE"]}))
+        self.assertEqual((s["others"], s["others_more"], s["scripts"]), ([".claude/", ".hidden.md", "CLAUDE.md", "agents/openai.yaml", "scripts/run.sh"], 0,
+                                                                          ["scripts/run.sh"]))
+        self.assertEqual(s["info"], {"stars": 42, "archived": False, "fork": False, "org": None, "spdx": "MIT"})
+        self.assertEqual((s["path"], s["url"]), (self.fake.url + f"/web/acme/skills/blob/{GH_A}/skills/eng/code-review/SKILL.md",
+                                                 self.fake.url + f"/web/acme/skills/tree/{GH_A}/skills/eng/code-review"))
+        self.assertEqual((s["ver"], s["label"], s["from"], s["upstream"], s["gcs_sha"], s["adopted"]),
+                         (GH_A[:7], "acme/skills/code-review@" + GH_A[:7], f"gh-skill acme/skills@{GH_A}:skills/eng/code-review @{GH_A[:7]}",
+                          {"repo": "acme/skills", "sha": GH_A}, None, False))
+        for k in ("data", "blobs", "texts", "gh", "read_at"):
+            self.assertNotIn(k, s)
+        self.assertEqual(s["read"], o.gh_cached(CR_KEY)["src"]["read_at"])
+        ids = self.ids(r["check"])
+        for x in ("gh-license-up", "gh-skip", "script-file", "bash"):
+            self.assertIn(x, ids)
+        for x in ("license-none", "gh-license-none", "install", "gh-fork", "gh-archived", "gh-many"):
+            self.assertNotIn(x, ids)
+        say = {x["id"]: x["text"] for x in r["check"]}
+        self.assertEqual(say["gh-skip"], "글(.md)·라이선스가 아닌 파일과 다른 도구용 지시 파일 4개는 가져오지 않아요(.claude/, .hidden.md, CLAUDE.md, agents/openai.yaml).")
+        self.assertEqual(say["gh-license-up"], "스킬 폴더에 라이선스 파일이 없어서 저장소 맨 위의 LICENSE를 함께 가져와요.")
+        self.assertEqual((r["approval"], r["blocked"], r["block"], r["outside"]), ("lead", False, [], {"repo": "acme/skills", "skill": "code-review"}))
+        self.assertIn({"id": "pin", "text": "카드에서 읽은 그때 글만 옮겨요. 저장소가 바뀌어도 이 직원은 그대로예요."}, r["auto"])
+        self.assertEqual((r["suggest"]["staff"], r["suggest"]["role"], r["suggest"]["tools"]), ("ag-code-review", "코드리뷰", ["Read", "Grep", "Glob", "Write"]))
+        self.fake.reset()
+        again, case = self.pick(), self.pick(repo="ACME/Skills", skill="Code-Review")
+        self.assertEqual(self.sent(), [])                                                    # 같은 줄은 읽어 둔 것(바깥 요청 없음)
+        self.assertEqual((again["source"]["sha"], again["source"]["read"], case["source"]["key"], case["outside"]),
+                         (s["sha"], s["read"], CR_KEY, {"repo": "ACME/Skills", "skill": "Code-Review"}))
+        self.pick(fresh=True)
+        self.assertEqual(self.sent()[:3], ["/repos/acme/skills", "/repos/acme/skills/commits/main", f"/repos/acme/skills/git/trees/{GH_A}?recursive=1"])
+        self.assertEqual(len(self.sent()), 6)
+        k = self.pick(repo="Anthropics/Kit")                                                 # 공식 출처는 API full_name의 소유자로 정해요
+        self.assertEqual((k["source"]["key"], k["source"]["repo"], k["source"]["info"]["org"], k["source"]["license"]["file"]),
+                         (f"gh:anthropics/kit@{'d' * 40}:skills/code-review", "anthropics/kit", "Anthropic", "LICENSE"))
+        self.put(self.office("t1"), "skills/code-review/SKILL.md", "---\nname: code-review\ndescription: 층 스킬\n---\n# 층 리뷰\n")
+        self.assertEqual(self.pick()["suggest"]["staff"], "ag-acme-code-review")             # 이 맥 목록에 같은 이름이 있으면 소유자 이름을 앞에
+        self.assertFalse(os.path.exists(self.gh_called))
+
+    def test_gh_redirect_and_errors(self):
+        """GitHub 읽기 오류(5-6): 넘겨 주는 주소 안 따름(gh-moved), 404 gh-gone, 비공개 gh-closed, '/'가 든 가지·꼴이 틀린 폴더 gh-shape, 잘린 트리 gh-big,
+        폴더 없음 404 gh-notfound, 같은 이름 둘은 짧은 경로(gh-many), 맨 위 스킬 gh-root, raw 바이트가 다름 gh-mismatch, 링크 SKILL.md gh-link-main.
+        스킬 폴더 안 링크·이상한 이름·큰 md·md 41개·UTF-8 아님은 막아요. GitHub 밖 출처는 400 not-github, 시험용 주소가 이상하면 409 gh-net(요청 0번)."""
+        o = self.o
+        self.on()
+
+        def err(code, why, **kv):
+            e = self.refused(code, lambda: self.pick(**kv))
+            self.assertEqual(e.extra.get("why"), why, kv)
+            return e
+        self.fake.rules["repo"] = lambda name: (301, {"Location": self.fake.url + "/repos/acme/elsewhere"}, b"") if name == "acme/skills" else None
+        e = err(409, "gh-moved")
+        self.assertEqual((e.extra["link"], e.msg), (self.fake.url + "/web/acme/skills",
+                                                    "저장소가 다른 곳으로 옮겨졌어요(GitHub가 넘겨 주는 주소는 따라가지 않아요). GitHub에서 확인해 주세요"))
+        self.assertEqual(self.sent(), ["/repos/acme/skills"])
+        self.fake.reset()
+        self.assertEqual(err(409, "gh-gone", repo="acme/missing").msg, "그 저장소를 GitHub에서 찾지 못했어요(지웠거나 비공개예요)")
+        self.assertEqual(err(409, "gh-closed", repo="acme/private").msg, "비공개이거나 막힌 저장소라 읽지 않아요")
+        err(409, "gh-shape", repo="acme/branchy")
+        self.assertFalse(any("/commits/" in p for p in self.sent()))                          # '/'가 든 가지는 묻지도 않아요
+        err(409, "gh-big", repo="acme/big")
+        self.assertEqual(err(404, "gh-notfound", skill="nope").msg, "이 저장소에서 그 스킬 폴더(nope)를 찾지 못했어요. 이름이 바뀌었을 수 있어요")
+        d = self.pick(skill="dup")
+        self.assertEqual(d["source"]["dir"], "skills/a/dup")
+        self.assertIn("같은 이름의 스킬 폴더가 이 저장소에 2개 있어요. 경로가 가장 짧은 skills/a/dup를 읽었어요.", [x["text"] for x in d["check"]])
+        err(409, "gh-root", repo="solo/one", skill="one")
+        err(409, "gh-link-main", skill="linky")
+        err(409, "gh-shape", skill="spaced")                                                 # 폴더 이름에 빈칸(열쇠 꼴 밖)
+        self.fake.raw_over["skills/eng/code-review/SKILL.md"] = CR_SKILL.encode("utf-8") + b"x"
+        self.assertEqual(err(409, "gh-mismatch").msg, "GitHub에서 받은 파일이 그 커밋의 파일 목록과 달라서 쓰지 않았어요")
+        self.fake.raw_over["skills/eng/code-review/SKILL.md"] = CR_SKILL.encode("utf-8").replace(b"diff", b"DIFF")   # 길이는 같고 해시만 달라요
+        err(409, "gh-mismatch")
+        self.fake.raw_over.clear()
+        self.assertIsNone(o.gh_cached(CR_KEY))
+        m = self.pick(skill="messy")
+        self.assertTrue(m["blocked"])
+        block = {x["id"]: x["text"] for x in m["block"]}
+        self.assertEqual(block["outside"], "저장소 안 파일 이름이 이상하거나 링크라서 읽지 않은 파일이 있어요(bad.md, ln.md).")
+        self.assertEqual(block["big"], "읽지 못한 딸린 파일이 있어요(64KB 넘음: big.md).")
+        self.assertEqual(block["many"], "읽지 못한 딸린 파일이 있어요(md 40개 넘음: m/m39.md, m/m40.md).")
+        self.assertEqual(block["text"], "읽지 못한 딸린 파일이 있어요(UTF-8 아님: a-latin.md).")
+        self.assertNotIn("\\u0007", json.dumps(m))                                           # 이름의 제어 문자는 응답 어디에도 없어요
+        self.assertFalse(any("big.md" in p or "m39" in p or "ln.md" in p for p in self.sent()))   # 막은 파일은 받지 않아요
+        self.fake.reset()
+        e = self.refused(400, lambda: self.pick(repo="code.deepline.com", skill="deepline-plays-review"))
+        self.assertEqual((e.extra, e.msg), ({"why": "not-github"}, "GitHub 밖 출처라 읽지 않아요. 링크만 둬요"))
+        for bad in ({"repo": "acme/skills/x", "skill": "code-review"}, {"repo": "../x", "skill": "x"}, {"repo": "acme/x.git", "skill": "x"}, "acme/skills", ["acme/skills"]):
+            self.assertEqual(self.refused(400, o.api_staff_preview, {"team": "t1", "outside": bad}).extra["why"], "not-github", bad)
+        for skill in ("../x", "a b", "", 7, "-x"):
+            self.assertEqual(self.refused(400, lambda: self.pick(skill=skill)).extra["why"], "source", skill)
+        self.assertEqual(self.sent(), [])
+        saved = o.SKILL_GH_API
+        o.SKILL_GH_API = None                                                                # AGENCITY_GITHUB_API가 틀린 값이었어요
+        try:
+            self.assertEqual(err(409, "gh-net", fresh=True).msg, "시험용 주소 값이 이상해서 GitHub에 보내지 않았어요")
+        finally:
+            o.SKILL_GH_API = saved
+        self.assertEqual(self.sent(), [])
+
+    def test_gh_rate_limit(self):
+        """GitHub 한도: API 403 + remaining 0이면 reset까지(1시간까지) 보내지 않고 409 gh-limit(글에 HH:MM). raw 429는 Retry-After. 403만이면 gh-denied.
+        우리 한도는 1분에 4번(실제로 간 읽기만)이고 다섯째는 429 rate예요."""
+        o = self.o
+        self.on()
+        reset = int(time.time()) + 120
+        self.fake.rules["repo"] = lambda name: (403, {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(reset)}, b'{"message": "API rate limit exceeded"}')
+        e = self.refused(409, self.pick)
+        hm = datetime.fromtimestamp(reset, timezone(timedelta(hours=9))).strftime("%H:%M")
+        self.assertEqual((e.extra["why"], e.msg), ("gh-limit", f"GitHub가 잠깐 막았어요(로그인 없이 시간당 60번). {hm}쯤 다시 눌러 주세요"))
+        self.assertEqual(len(self.sent()), 1)
+        self.fake.rules.clear()
+        self.assertEqual(self.refused(409, lambda: self.pick(repo="solo/one", skill="one")).extra["why"], "gh-limit")
+        self.assertEqual(len(self.sent()), 1)                                                # 풀릴 때까지 묻지 않아요
+        o.skill_out_reset()
+        self.fake.reset()
+        self.fake.rules["repo"] = lambda name: (403, {"x-ratelimit-remaining": "0", "x-ratelimit-reset": str(int(time.time()) + 99999)}, b"{}")
+        self.refused(409, self.pick)
+        self.assertLessEqual(o.GH_LIMIT["until"], time.time() + 3601)                         # 1시간까지만 쉬어요
+        o.skill_out_reset()
+        self.fake.reset()
+        self.fake.rules["raw"] = lambda path: (429, {"Retry-After": "30"}, b"slow")
+        self.assertEqual(self.refused(409, self.pick).extra["why"], "gh-limit")
+        self.assertTrue(time.time() + 20 < o.GH_LIMIT["until"] <= time.time() + 31)
+        o.skill_out_reset()
+        self.fake.reset()
+        self.fake.rules["repo"] = lambda name: (403, {}, b"{}")
+        e = self.refused(409, self.pick)
+        self.assertEqual((e.extra["why"], e.msg), ("gh-denied", "GitHub가 거절했어요(상태 403). 조금 뒤 다시 눌러 주세요"))
+        self.assertEqual(o.GH_LIMIT["until"], 0.0)
+        o.skill_out_reset()
+        self.fake.reset()
+        o.SKILL_READ_PER_MIN = 4
+        try:
+            for _ in range(4):
+                self.pick(fresh=True)
+            e = self.refused(429, lambda: self.pick(fresh=True))
+            self.assertEqual((e.extra, e.msg), ({"why": "rate"}, "1분에 4번까지 읽어요. 이번엔 보내지 않았어요"))
+            self.assertEqual(len(self.sent()), 4 * 6)
+            self.pick()                                                                      # 읽어 둔 것은 한도와 상관없어요
+            self.assertEqual(len(self.sent()), 4 * 6)
+        finally:
+            o.SKILL_READ_PER_MIN = 10 ** 6
+
+    def test_gh_checks(self):
+        """점검표(6-3): stub은 막아요 remote, disable-model-invocation은 막아요 nomodel, 설치하라는 줄은 확인해요 install(npx skills add 줄만, rg -g는 아님)·wide(Bash).
+        포크·보관·라이선스 없는 저장소는 gh-fork·gh-archived·gh-license-none. 같은 npm install -g 줄이 든 이 맥 층 스킬 카드에는 install이 없어요."""
+        o = self.o
+        self.on()
+        self.assertIn("remote", self.ids(self.pick(skill="stub")["block"]))
+        self.assertIn("nomodel", self.ids(self.pick(skill="nomodel")["block"]))
+        r = self.pick(skill="installer")
+        self.assertEqual(r["block"], [])
+        inst = next(x for x in r["check"] if x["id"] == "install")
+        self.assertEqual(([h["n"] for h in inst["lines"]], inst["say"]), ([8], "설치하라는 줄이 있어요. 직원도 팀장도 설치하지 않아요. 설치는 대표가 정해요."))
+        self.assertIn("원본이 원해요: Bash.", next(x for x in r["check"] if x["id"] == "wide")["text"])
+        f = self.pick(repo="forky/skills")
+        ids = self.ids(f["check"])
+        for x in ("gh-fork", "gh-archived", "gh-license-none"):
+            self.assertIn(x, ids)
+        self.assertNotIn("license-none", ids)
+        self.assertEqual((f["source"]["info"]["spdx"], f["source"]["license"]), (None, {"name": "", "file": None, "files": []}))
+        say = {x["id"]: x["text"] for x in f["check"]}
+        self.assertEqual((say["gh-fork"], say["gh-archived"], say["gh-license-none"]),
+                         ("다른 저장소를 복사해 만든 저장소(포크)예요. 처음 만든 사람의 저장소가 아닐 수 있어요.", "보관된(더 고치지 않는) 저장소예요.",
+                          "라이선스 파일이 스킬 폴더에도 저장소 맨 위에도 없어요. 옮겨 쓸 권리가 분명하지 않아요. 출처만 남겨요."))
+        _, chk = self.skill_src("# X\n\n- Run `npm install -g x` first.\n- Run `npx skills add x` then.\n")
+        self.assertNotIn("install", self.ids(chk["check"]))                                  # 이 맥 카드의 점검 결과는 그대로예요
+        for line, want in (("npm install -g x", True), ("pip3 install x", True), ("Install it globally.", True), ("npx skills add owner/repo", True),
+                           ("rg -g '*.ts' foo", False), ("gcc -g main.c", False), ("git config --global user.name x", False), ("brew info x", False)):
+            self.assertEqual(any(p.search(line) for p in o.SIG["install"]), want, line)
+
+    def test_gh_bundle_and_hire(self):
+        """묶음(7-1): source에 repo·commit·dir·branch·files_sha256(상대 경로 차례)·license_sha256, 파일 이름·본문 글 없음, 만드는 동안 바깥 요청 0번, 한마디 꼴 그대로.
+        상태 보기 0번. 승인 뒤 들이기는 트리 1번 + raw 3번(repo·commits 없음)만 하고 원본/·LICENSE·출처.json을 써요. ~/.claude에는 아무것도 안 써요.
+        설정 폴더 기록 src는 gh 열쇠, ver는 커밋 7자, 명찰 확인 표시 줄, staff_from·staff_mark·원본 영역 되돌리기가 gh 열쇠로 돌아요."""
+        o = self.o
+        base = self.office("t1")
+        self.on()
+        card = self.pick()
+        claude = self.files_under(os.path.join(self.home, ".claude"))
+        self.fake.reset()
+        r = self.gh_request(card)
+        n = r["request"]
+        self.assertEqual(self.sent(), [])
+        self.assertEqual((r["state"], r["take"], r["skip"]), ("wait", ["SKILL.md", "references/checklist.md", "LICENSE"], card["source"]["others"]))
+        with open(os.path.join(base, "staff-requests", n + ".json"), "rb") as f:
+            raw = f.read()
+        digest = hashlib.sha256(raw).hexdigest()
+        self.assertEqual(r["said"], f"직원 들이기 승인 {n} · ag-code-review · Read Grep Glob Write · inherit · {digest[:7]}")
+        self.assertEqual(r["copy"], o.request_copy(os.path.join(base, "staff-requests", n + ".json"), n, r["said"]))
+        self.assertEqual(json.loads(raw.decode("utf-8"))["source"],
+                         {"key": CR_KEY, "kind": "gh-skill", "name": "code-review", "group": "acme/skills", "label": "acme/skills/code-review@" + GH_A[:7],
+                          "sha": card["source"]["sha"], "repo": "acme/skills", "commit": GH_A, "dir": "skills/eng/code-review", "branch": "main",
+                          "files_sha256": [sha(CR_SKILL), sha(CR_LIST)], "license_sha256": [sha(MIT)]})
+        for word in (b"references", b"checklist", b"Checklist", b"Look at the change", b"openai", b"CLAUDE"):
+            self.assertNotIn(word, raw)                                                      # 원문도 파일 이름도 없어요
+        v = o.api_staff_request({"team": "t1", "request": n})
+        self.assertEqual((v["state"], v["source"]["kind"], self.sent()), ("wait", "gh-skill", []))
+        self.approve(r)
+        self.assertEqual((o.api_staff_request({"team": "t1", "request": n})["state"], self.sent()), ("ok", []))
+        got = o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": n})
+        raw_at = f"/raw/acme/skills/{GH_A}/"
+        self.assertEqual(self.sent(), [f"/repos/acme/skills/git/trees/{GH_A}?recursive=1", raw_at + "skills/eng/code-review/SKILL.md",
+                                       raw_at + "skills/eng/code-review/references/checklist.md", raw_at + "LICENSE"])
+        self.clean_reqs(self.fake.reqs())
+        self.assertEqual((got["staff"], got["role"], got["request"], got["source"]["key"], got["source"]["kind"]), ("ag-code-review", "코드리뷰", n, CR_KEY, "gh-skill"))
+        sdir = os.path.join(base, "staff", "ag-code-review")
+        self.assertEqual(self.files_under(os.path.join(sdir, "원본")), {"SKILL.md", "references", "references/checklist.md"})
+        with open(os.path.join(sdir, "원본", "SKILL.md"), "rb") as f:
+            self.assertEqual(f.read(), CR_SKILL.encode("utf-8"))
+        with open(os.path.join(sdir, "원본", "references", "checklist.md"), "rb") as f:
+            self.assertEqual(f.read(), CR_LIST.encode("utf-8"))
+        self.assertEqual(self.read(os.path.join(sdir, "LICENSE")), MIT)
+        for name in os.listdir(sdir):
+            self.assertFalse(name.endswith((".yaml", ".sh")) or name in ("CLAUDE.md", ".claude", "AGENTS.md"), name)
+        with open(os.path.join(sdir, "출처.json"), encoding="utf-8") as f:
+            rec = json.load(f)
+        self.assertEqual({k: rec[k] for k in ("key", "kind", "name", "src", "label", "ver", "repo", "commit", "dir", "branch", "files", "blobs", "license_files",
+                                              "license", "license_file", "others", "others_more", "marketplace", "plugin", "path", "copy", "upstream",
+                                              "gcs_sha", "main", "request", "approval")},
+                         {"key": CR_KEY, "kind": "gh-skill", "name": "code-review", "src": "acme/skills/code-review", "label": "acme/skills/code-review@" + GH_A[:7],
+                          "ver": GH_A[:7], "repo": "acme/skills", "commit": GH_A, "dir": "skills/eng/code-review", "branch": "main",
+                          "files": {"SKILL.md": sha(CR_SKILL), "references/checklist.md": sha(CR_LIST)},
+                          "blobs": {"SKILL.md": git_blob(CR_SKILL.encode("utf-8")), "references/checklist.md": git_blob(CR_LIST.encode("utf-8"))},
+                          "license_files": {"LICENSE": sha(MIT)}, "license": "MIT", "license_file": "LICENSE",
+                          "others": [".claude/", ".hidden.md", "CLAUDE.md", "agents/openai.yaml", "scripts/run.sh"], "others_more": 0,
+                          "marketplace": None, "plugin": None, "path": "skills/eng/code-review/SKILL.md", "copy": None,
+                          "upstream": {"repo": "acme/skills", "sha": GH_A}, "gcs_sha": None, "main": "SKILL.md",
+                          "request": f"staff-requests/{n}.json", "approval": f"staff-requests/{n}.ok.json"})
+        self.assertEqual((rec["sha"], rec["others_sha"]), (card["source"]["sha"], sha("\n".join(rec["others"]))))
+        self.assertEqual(self.files_under(os.path.join(self.home, ".claude")), claude)        # ~/.claude에는 아무것도 쓰지 않아요
+        record = o.staff_record(base, "ag-code-review")
+        self.assertEqual((record["src"], record["ver"]), (CR_KEY, GH_A[:7]))
+        mark = f"확인 표시: ag-code-review · acme/skills/code-review@{GH_A[:7]} · {o.now()[:10]}. 마지막 답 첫 줄에 이 표시를 적어요."
+        self.assertEqual(got["mark_line"], mark)
+        self.assertIn("\n" + mark, self.read(os.path.join(self.lead, ".claude", "agents", "ag-code-review.md")))
+        sk = o.staff_skill(base, "ag-code-review")
+        self.assertEqual((sk["from"], o.from_key(sk["from"]), o.staff_main_key(base, "ag-code-review")), (card["source"]["from"], CR_KEY, CR_KEY))
+        o.staff_forget()
+        fr = o.staff_info()["t1"]["코드리뷰"]["from"]
+        self.assertEqual({k: fr[k] for k in ("key", "kind", "name", "group", "label", "record")},
+                         {"key": CR_KEY, "kind": "gh-skill", "name": "code-review", "group": "acme/skills", "label": "acme/skills/code-review@" + GH_A[:7], "record": True})
+        b = o.api_staff_body_reset({"team": "t1", "role": "코드리뷰"})
+        self.assertEqual((b["how"], b["changed"], b["lost"]), ("region", False, False))         # 원본/SKILL.md로 영역을 다시 지어요
+        self.assertIn(f"GitHub에서 읽었어요: acme/skills/code-review@{GH_A[:7]} (API 1번, 파일 3개)", self.floor_log())
+        self.assertFalse(os.path.exists(self.gh_called))
+
+    def test_gh_hire_refuses(self):
+        """들이기 거절(7-3): (가) 승인 뒤 GitHub 바이트가 바뀜 → changed, 아무것도 안 씀, 읽기 캐시에서 빠짐. (나) 가짜 서버를 끔 → gh-net, 아무것도 안 씀 →
+        서버를 다시 켠 것처럼 비워도 상태는 ok(요청 0번) → 다시 켜면 같은 묶음으로 들여요. (다) 스위치 끔 → outside-off. (라) 한마디 도구가 다름 → approval.
+        (마) 묶음 없음·모르는 번호·wait·stale·used. (다)~(마)는 바깥 요청 0번이에요."""
+        o = self.o
+        base = self.office("t1")
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        n = r["request"]
+        self.approve(r)
+        before = self.team_bytes("t1")
+        hire = lambda req=n: o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": req})   # noqa: E731
+
+        def nothing():
+            self.assertEqual(self.team_bytes("t1"), before)
+            self.assertFalse(os.path.lexists(os.path.join(base, "staff", "ag-code-review")))
+            self.assertFalse(os.path.lexists(os.path.join(self.lead, ".claude", "agents", "ag-code-review.md")))
+            self.assertIsNone(o.staff_record(base, "ag-code-review"))
+        self.fake.reset()
+        self.fake.raw_over["skills/eng/code-review/SKILL.md"] = CR_SKILL.encode("utf-8") + b"\nmore\n"
+        e = self.refused(409, hire)
+        self.assertEqual((e.extra["why"], e.msg), ("changed", "GitHub의 그 커밋이 카드에서 읽은 것과 달라요(없어졌거나 바뀌었어요). 들이지 않았어요. [다시 읽기]로 새로 읽어 주세요"))
+        nothing()
+        self.assertIsNone(o.gh_cached(CR_KEY))
+        self.assertEqual(o.api_staff_request({"team": "t1", "request": n})["state"], "ok")    # 캐시가 없으면 견주지 않아요(진짜 견주기는 들일 때)
+        self.fake.reset()
+        self.fake.repos["acme/skills"]["files"]["skills/eng/code-review/references/checklist.md"] += "- 바뀐 줄\n".encode("utf-8")   # 트리까지 바뀌었어요
+        self.assertEqual(self.refused(409, hire).extra["why"], "changed")
+        nothing()
+        self.fake.reset()
+        self.fake.stop()
+        try:
+            e = self.refused(409, hire)
+            self.assertEqual((e.extra["why"], e.msg), ("gh-net", "GitHub에 닿지 못해서 들이지 않았어요. 아무것도 쓰지 않았어요. 잠시 뒤 [직원 들이기]를 다시 눌러 주세요"))
+            nothing()
+            o.skill_out_reset()                                                              # 서버를 다시 켠 것과 같아요
+            v = o.api_staff_request({"team": "t1", "request": n})
+            self.assertEqual((v["state"], v["take"], v["skip"]), ("ok", [], []))
+        finally:
+            self.fake.start()
+        self.assertEqual(self.sent(), [])
+        got = hire()
+        self.assertEqual((got["staff"], len(self.sent())), ("ag-code-review", 4))
+        self.fake.reset()
+        e = self.refused(409, hire)
+        self.assertEqual((e.extra["why"], e.extra["request"]), ("used", n))
+        self.on(on=False)
+        self.assertEqual(self.refused(409, hire).extra["why"], "outside-off")
+        self.on()
+        self.assertEqual(self.sent(), [])
+        card = self.pick()
+        r2 = self.gh_request(card, role="리뷰어", staff="ag-reviewer")
+        self.approve(r2, said=r2["said"].replace("Read Grep Glob Write", "Read Grep Glob Write Edit"))
+        r3 = self.gh_request(card, role="검토", staff="ag-checker")
+        self.fake.reset()
+        e = self.refused(409, lambda: hire(r2["request"]))
+        self.assertEqual((e.extra["why"], e.extra["differs"]), ("approval", ["도구"]))
+        self.assertEqual(self.refused(409, lambda: o.api_staff_hire({"team": "t1", "source": CR_KEY})).extra["why"], "request")
+        self.assertEqual(self.refused(404, lambda: hire("20261110-99")).extra["why"], "request")   # 모르는 번호(지금 묶음 찾기와 같은 404)
+        self.assertEqual(self.refused(409, lambda: hire(r3["request"])).extra["why"], "wait")
+        e = self.refused(409, lambda: o.api_staff_hire({"team": "t1", "source": "gh:acme/skills@" + "c" * 40 + ":skills/eng/code-review", "request": r3["request"]}))
+        self.assertEqual(e.extra["why"], "wait")                                               # 승인 전 묶음은 열쇠를 보기 전에 막혀요
+        self.approve(r3)
+        e = self.refused(409, lambda: o.api_staff_hire({"team": "t1", "source": "gh:acme/skills@" + "c" * 40 + ":skills/eng/code-review", "request": r3["request"]}))
+        self.assertEqual(e.extra["why"], "request")                                            # 묶음 열쇠와 고른 열쇠가 달라요
+        with open(o.STAFF_REQUESTS, encoding="utf-8") as f:
+            d = json.load(f)
+        for x in d["requests"].values():
+            x["at"] -= 25 * 3600
+        with open(o.STAFF_REQUESTS, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        self.assertEqual(self.refused(409, lambda: hire(r3["request"])).extra["why"], "stale")
+        self.assertEqual(self.refused(400, lambda: o.api_staff_hire({"team": "t1", "source": "gh:acme/skills@" + "c" * 39 + ":x", "request": r3["request"]})).extra["why"],
+                         "source")
+        self.assertEqual(self.sent(), [])
+
+    def test_gh_reread_without_cache(self):
+        """페이지가 보낸 커밋은 읽지 않아요: 캐시에 없는 gh 열쇠로 미리 보기·묶음 → 409 gh-reread(바깥 요청 0번). 줄 누르기로 읽어 둔 열쇠는 둘 다 바깥 요청 없이 돌아요."""
+        o = self.o
+        self.on()
+        other = f"gh:acme/skills@{'c' * 40}:skills/eng/code-review"
+        for key in (other, CR_KEY):
+            e = self.refused(409, self.preview, key)
+            self.assertEqual((e.extra, e.msg), ({"why": "gh-reread"}, "읽어 둔 글이 없어요(서버를 다시 켰거나 오래됐어요). 바깥에 묻지 않았어요. 목록에서 그 줄을 다시 눌러 읽어 주세요"))
+            self.assertEqual(self.refused(409, o.api_staff_request, dict(self.gh_form(), source=key, sha="0" * 64)).extra["why"], "gh-reread")
+        self.assertEqual(self.sent(), [])
+        card = self.pick()
+        self.fake.reset()
+        p = self.preview(CR_KEY)
+        self.assertEqual((p["source"]["sha"], p["source"]["read"], p["outside"]), (card["source"]["sha"], card["source"]["read"], card["outside"]))
+        r = self.gh_request(p)
+        self.assertEqual((r["state"], self.sent()), ("wait", []))
+        self.assertEqual(self.refused(409, self.preview, other).extra["why"], "gh-reread")
+        self.refused(400, self.preview, "gh:acme/skills@" + "c" * 40 + ":.claude/x")             # 꼴이 틀린 열쇠는 400 source예요
+        o.skill_out_reset()
+        self.assertEqual(self.refused(409, self.preview, CR_KEY).extra["why"], "gh-reread")
+        self.assertEqual(self.sent(), [])
+
+    def test_source_key_forms(self):
+        """SOURCE_KEY: 옛 두 꼴 그대로, gh 꼴을 받고, 커밋 대문자·39자, ..·.claude 조각, 폴더 '.'·'/'로 시작·빈 폴더, 저장소 x.git·.·.., 181자는 거절.
+        180자 열쇠의 from은 staff_skill_parse가 자르지 않아요. 옛 열쇠의 staff_mark 글은 v0.14.1과 같아요."""
+        o = self.o
+        for key in ("floor:docs-guard", "plugin-agent:pr-review-toolkit/code-reviewer", CR_KEY, f"gh:a/b@{GH_A}:x", f"gh:A-1/b.c_d@{GH_A}:a/b_c/d.e",
+                    f"gh:a/b@{GH_A}:" + "/".join(["d"] * 8)):
+            self.assertTrue(o.SOURCE_KEY.match(key), key)
+        bad = [f"gh:acme/skills@{GH_A.upper()}:x", f"gh:acme/skills@{GH_A[:39]}:x", f"gh:acme/skills@{GH_A}:skills/../x", f"gh:acme/skills@{GH_A}:.claude/x",
+               f"gh:acme/skills@{GH_A}:x/.claude", f"gh:acme/skills@{GH_A}:.", f"gh:acme/skills@{GH_A}:/x", f"gh:acme/skills@{GH_A}:", f"gh:acme/x.git@{GH_A}:x",
+               f"gh:acme/.@{GH_A}:x", f"gh:acme/..@{GH_A}:x", f"gh:acme/skills@{GH_A}:a b", f"gh:-a/b@{GH_A}:x", f"gh:acme/skills@{GH_A}:x/",
+               f"gh:acme/skills@{GH_A}:" + "/".join(["d"] * 9), f"gh:acme@{GH_A}:x", "gh:acme/skills:x", "floor:Docs", "plugin-agent:x"]
+        k180 = f"gh:o/r@{GH_A}:" + "d" * 100 + "/" + "e" * 31
+        self.assertEqual(len(k180), 180)
+        self.assertTrue(o.SOURCE_KEY.match(k180))
+        bad.append(k180 + "e")
+        for key in bad:
+            self.assertFalse(o.SOURCE_KEY.match(key), key)
+            self.assertFalse(o.is_gh_key(key), key)
+        self.assertEqual(o.source_key_parts(CR_KEY), ("gh-skill", "code-review", "acme/skills"))
+        self.assertEqual(o.source_key_parts("floor:docs-guard"), ("floor", "docs-guard", None))
+        self.assertEqual(o.source_key_parts("plugin-agent:pr-review-toolkit/code-reviewer"), ("plugin-agent", "code-reviewer", "pr-review-toolkit"))
+        self.assertEqual(o.gh_key_parts(CR_KEY), ("acme", "skills", GH_A, "skills/eng/code-review"))
+        self.refused(400, o.gh_key_parts, "floor:docs-guard")
+        self.assertEqual([o.key_src(k) for k in ("floor:docs-guard", "plugin-agent:pr-review-toolkit/code-reviewer", CR_KEY, k180)],
+                         ["docs-guard", "pr-review-toolkit/code-reviewer", "acme/skills/code-review", "o/r/" + "e" * 31])
+        frm = "gh-skill " + k180[3:] + " @" + GH_A[:7]
+        self.assertEqual((len(frm), o.from_key(frm), o.from_key(f"gh-skill acme/skills@{GH_A}:skills/eng/code-review @aaaaaaa")), (195, k180, CR_KEY))
+        self.assertEqual((o.from_key("floor docs-guard @abcdef0"), o.from_key(f"gh acme/skills@{GH_A}:x @aaaaaaa"), o.from_key("gh-skill x")), ("floor:docs-guard", None, None))
+        text = f"---\nname: ag-x\ndescription: 시험\noffice:\n  role: 시험\n  tools: [Read]\n  from: {o.yaml_text(frm)}\n---\n# 시험\n"
+        self.assertEqual(o.staff_skill_parse(text, "ag-x")["from"], frm)                    # 200자에서 자르지 않아요
+        hired = "2026-11-10T14:02:11+09:00"
+        self.assertEqual(o.staff_mark("ag-x", {"src": "plugin-agent:pr-review-toolkit/code-reviewer", "ver": "abcdef0", "hired": hired}),
+                         "확인 표시: ag-x · pr-review-toolkit/code-reviewer@abcdef0 · 2026-11-10. 마지막 답 첫 줄에 이 표시를 적어요.")
+        self.assertEqual(o.staff_mark("ag-x", {"src": "floor:docs-guard", "ver": "abcdef0", "hired": hired}),
+                         "확인 표시: ag-x · docs-guard@abcdef0 · 2026-11-10. 마지막 답 첫 줄에 이 표시를 적어요.")
+        self.assertEqual(o.staff_mark("ag-x", {"src": CR_KEY, "ver": GH_A[:7], "hired": hired}),
+                         f"확인 표시: ag-x · acme/skills/code-review@{GH_A[:7]} · 2026-11-10. 마지막 답 첫 줄에 이 표시를 적어요.")
+        self.assertEqual(o.staff_mark("ag-x", None), "확인 표시: ag-x · 기록 없음 · 기록 없음. 마지막 답 첫 줄에 이 표시를 적어요.")
+
+    def test_outside_overrides(self):
+        """시험용 주소(5-1): AGENCITY_SKILLS_BASE가 없으면 https://skills.sh, https 어디든·127.0.0.1·localhost의 http는 받고, 꼴이 틀리면(빈 값 포함) None(진짜 주소로 돌아가지 않아요).
+        AGENCITY_GITHUB_API가 틀린 값이면 SKILL_GH_API는 None이고 로그인 흐름의 GITHUB_API는 지금처럼 그 값이에요."""
+        def load(**env):
+            e = dict(self.env)
+            e.update({k: v for k, v in env.items() if v is not None})
+            with mock.patch.dict(os.environ, e):
+                for k, v in env.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                spec = importlib.util.spec_from_file_location("agencity_u34_env", os.path.join(self.dir, "office_server.py"))
+                m = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(m)
+            return m
+        m = load(AGENCITY_SKILLS_BASE=None, AGENCITY_GITHUB_API=None, AGENCITY_UPDATE_RAW=None, AGENCITY_GITHUB_BASE=None)
+        self.assertEqual((m.SKILLS_BASE, m.SKILL_GH_API, m.SKILL_GH_RAW, m.SKILL_GH_WEB),
+                         ("https://skills.sh", "https://api.github.com", "https://raw.githubusercontent.com", "https://github.com"))
+        for v, want in (("https://localhost:9", "https://localhost:9"), ("http://127.0.0.1:9/x", "http://127.0.0.1:9/x"), ("http://localhost:9/", "http://localhost:9"),
+                        ("https://mirror.example/skills", "https://mirror.example/skills"), ("http://example.invalid", None), ("https://skills.sh/?q=1", None),
+                        ("https://skills.sh/#x", None), ("ftp://127.0.0.1:9", None), ("http://127.0.0.1:9 ", None), (" https://skills.sh", None),
+                        ("https://u:p@skills.sh", None), ("skills.sh", None), ("http://127.0.0.1.example:9", None), ("", None), (" ", None)):
+            self.assertEqual(load(AGENCITY_SKILLS_BASE=v).SKILLS_BASE, want, v)
+        m = load(AGENCITY_GITHUB_API="http://example.invalid")
+        self.assertEqual((m.SKILL_GH_API, m.GITHUB_API), (None, "http://example.invalid"))
+        self.assertIsNone(load(AGENCITY_UPDATE_RAW="http://example.invalid").SKILL_GH_RAW)
+        m = load(AGENCITY_SKILLS_BASE="", AGENCITY_GITHUB_API="", AGENCITY_UPDATE_RAW="")      # 막으려고 비워 둔 값도 진짜 곳으로 돌아가지 않아요
+        self.assertEqual((m.SKILLS_BASE, m.SKILL_GH_API, m.SKILL_GH_RAW), (None, None, None))
+        self.assertEqual(self.sent(), [])
+
+    def test_ask_words_table(self):
+        """낱말 표(3-2): 열쇠는 NFC 한글·빈칸만, 영어는 [a-z][a-z-]{0,19} 1~2개, 같은 열쇠는 한 번, 긴 열쇠가 그 안의 짧은 열쇠보다 앞 항목. 원천 목록 outside에 그대로 실어요."""
+        o = self.o
+        keys = [(i, k) for i, (ks, _) in enumerate(o.SKILL_ASK_WORDS) for k in ks]
+        for i, k in keys:
+            self.assertTrue(re.match(r"^[가-힣]+(?: [가-힣]+)*\Z", k) and unicodedata.normalize("NFC", k) == k, k)
+        for _, en in o.SKILL_ASK_WORDS:
+            self.assertTrue(re.match(r"^[a-z][a-z-]{0,19}(?: [a-z][a-z-]{0,19})?\Z", en), en)
+            self.assertTrue(o.skill_words_ok(en), en)
+        self.assertEqual(len({k for _, k in keys}), len(keys))
+        for i, a in keys:
+            for j, b in keys:
+                if a != b and b in a:
+                    self.assertLessEqual(i, j, (a, b))
+        self.assertEqual(o.SKILL_ASK_WORDS[0], (("코드 리뷰", "코드리뷰", "코드 검토"), "code review"))
+        out = o.api_staff_sources({"team": ["t1"]})["outside"]
+        self.assertEqual(out, {"ask_words": [[list(ks), en] for ks, en in o.SKILL_ASK_WORDS], "min_installs": 1000, "rows": 20, "base": self.fake.url})
+        self.assertEqual(json.loads(json.dumps(out))["ask_words"][0], [["코드 리뷰", "코드리뷰", "코드 검토"], "code review"])
+        self.assertEqual(self.sent(), [])
+
+    def test_floor_walk_skips_instruction_files(self):
+        """이 맥 층 스킬(6-2): CLAUDE.md·숨은 폴더·숨은 파일은 원본/에 옮기지 않고 others(숨은 폴더는 '폴더/' 한 줄). 그런 파일이 없는 층 스킬의 해시는 v0.14.1과 같아요."""
+        o = self.o
+        base = self.office("t1")
+        for rel, text in (("SKILL.md", "---\nname: pinme\ndescription: 고정값\n---\n# Pin\n\nSee [a](references/a.md).\n"), ("references/a.md", "# A\n"),
+                          ("LICENSE", MIT), ("run.sh", "#!/bin/sh\necho hi\n")):
+            self.put(base, "skills/pinme/" + rel, text)
+        src = o.source_read(base, "floor:pinme")
+        self.assertEqual((src["sha"], sorted(src["data"]), src["others"]), (FLOOR_PIN, ["SKILL.md", "references/a.md"], ["run.sh"]))
+        for rel, text in (("CLAUDE.md", "# 지시\n"), ("AGENTS.md", "# 지시\n"), ("sub/gemini.md", "# 지시\n"), ("Claude.Local.md", "# 지시\n"),
+                          (".claude/skills/x/SKILL.md", "---\nname: x\ndescription: x\n---\nx\n"), (".hidden.md", "# 숨은\n"), ("notes.md", "# 메모\n"),
+                          (".git/config", "x"), ("sub/.env", "x")):
+            self.put(base, "skills/pinme/" + rel, text)
+        src = o.source_read(base, "floor:pinme")
+        self.assertEqual(sorted(src["data"]), ["SKILL.md", "notes.md", "references/a.md"])
+        self.assertEqual(sorted(src["others"]), sorted([".claude/", ".git/", ".hidden.md", "AGENTS.md", "CLAUDE.md", "Claude.Local.md", "run.sh", "sub/.env", "sub/gemini.md"]))
+        self.assertNotEqual(src["sha"], FLOOR_PIN)
+        self.assertEqual(self.sent(), [])
+
+    def test_http_exception_is_network(self):
+        """github_call·latest_tag는 http.client.HTTPException(BadStatusLine 등)도 연결 실패로 봐요(새어 나가지 않아요)."""
+        o = self.o
+        with mock.patch.object(o.LOCAL, "open", side_effect=http.client.BadStatusLine("x")):
+            e = self.refused(502, o.github_call, "http://127.0.0.1:9/user")
+        self.assertEqual(e.msg, "GitHub에 연결하지 못했어요. 인터넷 연결을 확인해 주세요")
+        with mock.patch.object(o, "release_location", side_effect=http.client.IncompleteRead(b"")):
+            self.assertEqual(o.latest_tag(), (None, "network"))
+
+
+class OutsideServer(unittest.TestCase):
+    """서버를 켜고(바깥 주소는 가짜 skills.sh·GitHub) 새 POST 길의 Host·Origin·열쇠 검사와, 스위치를 켠 채 쉬는 화면이 바깥에 묻지 않는지 봐요(9700~9719번)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fake = FakeOutside()
+        cls.tmp = os.path.realpath(tempfile.mkdtemp(prefix="agencity-u34-srv-", dir=TMP_BASE))
+        cls.dir, env = make_install(cls.tmp)
+        reset_floors(cls.dir)
+        subprocess.run([sys.executable, "-I", "build.py"], cwd=cls.dir, check=True, capture_output=True)
+        cls.lead = os.path.join(cls.tmp, "lead-s")
+        os.makedirs(cls.lead)
+        d = os.path.join(env["AGENCITY_CLAUDE_SESSIONS_DIR"], "acct", "org")
+        os.makedirs(d)
+        with open(os.path.join(d, LEAD + ".json"), "w", encoding="utf-8") as f:
+            json.dump({"sessionId": LEAD, "cwd": cls.lead, "title": "팀장 창", "lastActivityAt": int(time.time() * 1000)}, f)
+        cls.port = free_port(9700, 9719)
+        full = {k: v for k, v in os.environ.items() if not k.upper().startswith(("AGENCITY_", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"))}
+        full.update(env, OFFICE_PORT=str(cls.port), AGENCITY_SKILLS_BASE=cls.fake.url, AGENCITY_GITHUB_API=cls.fake.url, AGENCITY_UPDATE_RAW=cls.fake.url + "/raw")
+        code = "import sys; sys.path.insert(0, '.'); import office_server as o; o.MAX_PER_MIN = 10 ** 6; o.MAX_PENDING = 10 ** 6; o.main()"
+        cls.proc = subprocess.Popen([sys.executable, "-I", "-c", code], cwd=cls.dir, env=full, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.base = f"http://127.0.0.1:{cls.port}"
+        cls.token = None
+        for _ in range(100):
+            try:
+                cls.token = re.search(r"const TOKEN = '([A-Za-z0-9_-]{20,})'", cls.fetch("/")[1].decode("utf-8")).group(1)
+                break
+            except (OSError, http.client.HTTPException, AttributeError):
+                time.sleep(.1)
+        if not cls.token:
+            cls.proc.terminate()
+            cls.fake.stop()
+            raise RuntimeError("서버가 켜지지 않았어요")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.proc.terminate()
+        cls.proc.wait(5)
+        cls.fake.stop()
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    @classmethod
+    def fetch(cls, path, method="GET", body=None, headers=None):
+        c = http.client.HTTPConnection("127.0.0.1", cls.port, timeout=20)
+        try:
+            c.request(method, path, body=body, headers=headers or {})
+            r = c.getresponse()
+            return r.status, r.read()
+        finally:
+            c.close()
+
+    def post(self, path, body):
+        status, raw = self.fetch(path, "POST", json.dumps(body).encode("utf-8"),
+                                 {"Origin": self.base, "X-Office-Token": self.token, "Content-Type": "application/json"})
+        return status, json.loads(raw.decode("utf-8"))
+
+    def test_new_posts_need_host_origin_and_token(self):
+        body = json.dumps({"team": "t1", "on": True, "words": "code review"}).encode("utf-8")
+        for headers in ({"Content-Type": "application/json", "X-Office-Token": self.token},
+                        {"Content-Type": "application/json", "Origin": self.base, "X-Office-Token": "틀린 열쇠".encode("utf-8").hex()},
+                        {"Content-Type": "application/json", "Origin": "http://127.0.0.1:9", "X-Office-Token": self.token},
+                        {"Content-Type": "application/json", "Origin": self.base, "X-Office-Token": self.token, "Host": "evil.example"}):
+            for path in ("/api/staff/outside/enable", "/api/staff/outside/search"):
+                status, _ = self.fetch(path, "POST", body, headers)
+                self.assertEqual(status, 403, (path, headers))
+        with open(os.path.join(self.dir, "org.json"), encoding="utf-8") as f:
+            self.assertNotIn("skillSearch", next(t for t in json.load(f)["teams"] if t["id"] == "t1"))
+        self.assertEqual(self.fake.paths(), [])
+
+    def test_switch_on_idle_sends_nothing(self):
+        """스위치를 켜고 gh 묶음 하나가 wait인 층에서 /, /api/state, /api/setup/state, /api/staff/sources, 묶음 상태 보기 → 가짜 서버 0건.
+        [찾기]·줄 누르기는 그때만 가짜 서버로 가요(ROUTES·응답이 이어졌는지)."""
+        status, j = self.post("/api/staff/enable", {"team": "t1", "on": True})
+        self.assertEqual(status, 200, j)
+        status, j = self.post("/api/staff/outside/enable", {"team": "t1", "on": True})
+        self.assertEqual((status, j["on"], j["changed"], j["by"]), (200, True, True, "사이트"), j)
+        self.assertEqual(self.fake.paths(), [])
+        status, j = self.post("/api/staff/outside/search", {"team": "t1", "words": "code review"})
+        self.assertEqual((status, j["sent"], j["rows"][0]["repo"], self.fake.paths()), (200, True, "anthropics/knowledge-work-plugins", ["/api/search?q=code%20review"]), j)
+        status, card = self.post("/api/staff/from-skill/preview", {"team": "t1", "outside": {"repo": "acme/skills", "skill": "code-review"}})
+        self.assertEqual((status, card["source"]["key"], len(self.fake.paths())), (200, CR_KEY, 7), card)
+        form = {"team": "t1", "role": "코드리뷰", "staff": "ag-code-review", "desc": "층 코드리뷰. 팀장이 업무 번호와 함께 띄워요.", "note": "",
+                "tools": ["Read", "Grep", "Glob", "Write"], "model": "inherit", "skills": []}
+        status, r = self.post("/api/staff/from-skill/request", dict(form, source=CR_KEY, sha=card["source"]["sha"]))
+        self.assertEqual((status, r["state"], len(self.fake.paths())), (200, "wait", 7), r)
+        self.fake.reset()
+        self.assertEqual(self.fetch("/")[0], 200)
+        self.assertEqual(self.fetch("/api/state")[0], 200)
+        status, s = self.post("/api/setup/state", {})
+        self.assertEqual((status, next(f for f in s["floors"] if f["id"] == "t1")["skillSearch"]["on"]), (200, True))
+        status, raw = self.fetch("/api/staff/sources?team=t1", headers={"X-Office-Token": self.token, "Origin": self.base})
+        self.assertEqual((status, json.loads(raw.decode("utf-8"))["outside"]["base"]), (200, self.fake.url))
+        status, v = self.post("/api/staff/from-skill/request", {"team": "t1", "request": r["request"]})
+        self.assertEqual((status, v["state"]), (200, "wait"))
+        self.assertEqual(self.fake.paths(), [])
+
+
 class Server(unittest.TestCase):
     """서버를 켜고 사진 올리기와 /api/state를 봐요(9700번대 포트)."""
 
@@ -3007,7 +4176,8 @@ class Server(unittest.TestCase):
                         {"Content-Type": "application/json", "Origin": self.base, "X-Office-Token": "틀린 열쇠".encode("utf-8").hex()},
                         {"Content-Type": "application/json", "Origin": "http://127.0.0.1:9", "X-Office-Token": self.token}):
             for path in ("/api/staff/enable", "/api/staff/hire", "/api/staff/fire", "/api/staff/rebuild", "/api/staff/from-skill/preview",
-                         "/api/staff/from-skill/request", "/api/staff/restore", "/api/staff/body-reset"):
+                         "/api/staff/from-skill/request", "/api/staff/restore", "/api/staff/body-reset", "/api/staff/outside/enable",
+                         "/api/staff/outside/search"):
                 status, _ = self.fetch(path, "POST", body, headers)
                 self.assertEqual(status, 403, (path, headers))
         with open(os.path.join(self.dir, "org.json"), encoding="utf-8") as f:

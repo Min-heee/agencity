@@ -526,7 +526,10 @@ console.log(JSON.stringify({ all, preset, noLead }));
                     "SK_AGENT", "SKR", "skResult", "SK_BASH", "SK_RESTART", "SK_HINT", "SK_TOOLS", "SK_NET", "floorWord", "skState", "skCount", "skDraft", "SKT", "skT", "skLang", "skTextFill", "skStrs", "skDay", "skGa", "skKB",
                     "skOpen", "skFold", "SK_TOOL_KO", "SK_CANT", "SK_FIXED", "SK_AUX", "skAdds", "skTitle", "skSum", "skGrpName", "skStepHTML", "skRetired", "skStop", "skPanelHTML", "skMarkText", "skHintHTML", "skHeadText", "SK_DIFF", "skHeadHTML", "skRowHTML", "skToolNote", "skRetiredHTML",
                     "skFormHTML", "skDirectHTML", "skSkillHTML", "skListHTML", "skSrcHTML", "SK_STALE", "SK_STALE_REQ", "skCardHTML", "skCardForm", "SK_REQ_STATE", "skRequestHTML", "skBytes", "skHas", "skRoom", "skSwap", "skWhere",
-                    "skPvNorm", "skReqNorm", "skInput", "skCheck", "skGitText") + "\n" + page_block("roleErr") + """
+                    "skPvNorm", "skReqNorm", "skInput", "skCheck", "skGitText",
+                    # U-34 v0.15.0 '바깥에서 찾기' 그리기(skPanelHTML·skListHTML·skSrcHTML·skCardHTML이 불러요)
+                    "SK_WORDS_RE", "skWordsOk", "skWordsNorm", "SK_ASK_STOP", "SK_ASK_EN", "skLink", "skExt", "skOutOn", "skPicked", "SK_REPO_RE", "SK_ORGS", "SK_OUT_NONE", "SK_OUT_STOP",
+                    "skAskWords", "skOutSend", "skOutReq", "skInst", "skWhen", "skOutNorm", "skOutHTML", "skOutAskHTML", "skOutFormHTML", "skOutResHTML", "skOutRowHTML", "SK_STALE_GH", "SK_STALE_REQ_GH") + "\n" + page_block("roleErr") + """
 let MAX_MEMBERS = 12;
 const SU = { sk: {} }, FORM = { tools: ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch'], defaultTools: ['Read', 'Grep', 'Glob', 'Write', 'Edit'], models: ['inherit', 'opus', 'sonnet', 'haiku'],
   skills: { floor: ['public-copy-check'], personal: ['public-copy-check', 'my-note'] } };
@@ -807,6 +810,46 @@ const fill = html => { const out = []; html.replace(/data-skt="(\\d+)"/g, (m, i)
 """
 
 
+# U-34 v0.15.0 '바깥에서 찾기' 가짜 서버 답: 원천 목록의 outside 칸(낱말 표는 서버의 진짜 표), 찾기 답(OUT: 줄 3개(twins 있는 줄, 공식 줄, 역할이 빈 줄) + GitHub 밖 1줄),
+# 실패 답(OUT_FB), gh 카드(PV_GH)와 그 묶음(REQ_GH). 페이지 시험의 SU에는 fold가 없어서 접기 값은 (SU.fold || (SU.fold = {}))로 써요
+ASK_TABLE = [[list(keys), en] for keys, en in server_ns("SKILL_ASK_WORDS")["SKILL_ASK_WORDS"]]
+GH_COMMIT = "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
+GH_KEY = f"gh:acme/skills@{GH_COMMIT}:skills/eng/code-review"
+OUTSKILL = """
+const SRCS_OUT = Object.assign({}, SRCS, { outside: { ask_words: """ + json.dumps(ASK_TABLE, ensure_ascii=False) + """, min_installs: 1000, rows: 20, base: 'https://skills.sh' } });
+const PAGE_VER = '0.15.0';
+const GHKEY = '""" + GH_KEY + """', GHC = '""" + GH_COMMIT + """';
+const OUT = { ok: true, team: 't1', words: 'code review', url: 'https://skills.sh/api/search?q=code%20review', sent: true, cached: false, at: '2026-11-10T14:02:11+09:00',
+  rows: [{ repo: 'acme/skills', skill: 'code-review', installs: 868252, org: null, hits: 2, twins: [{ repo: 'coderabbitai/skills', installs: 15914 }, { repo: 'getsentry/skills', installs: 5681 }], role: '코드리뷰' },
+    { repo: 'anthropics/knowledge-work-plugins', skill: 'code-review', installs: 10101, org: 'Anthropic', hits: 2, twins: [], role: '코드리뷰' },
+    { repo: 'obra/superpowers', skill: 'requesting-code-review', installs: 7261, org: null, hits: 2, twins: [], role: '' }],
+  others: [{ source: 'code.deepline.com', skill: 'deepline-plays-review', installs: 20401, link: 'https://skills.sh/code.deepline.com/deepline-plays-review' }],
+  counts: { got: 100, github: 98, other: 2, low: 0, dup: 4, kept: 94, shown: 20 }, fallback: null };
+const OUT_FB = Object.assign({}, OUT, { rows: [], others: [], counts: null, fallback: { why: 'network', text: 'skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.', link: 'https://skills.sh/' } });
+const PV_GH = Object.assign({}, PV, { outside: { repo: 'acme/skills', skill: 'code-review' },
+  source: { key: GHKEY, kind: 'gh-skill', name: 'code-review', group: 'acme/skills', src: 'acme/skills/code-review', main: 'SKILL.md', bytes: 900, adopted: false, upstream: { repo: 'acme/skills', sha: GHC }, gcs_sha: null,
+    files: { 'SKILL.md': 'd'.repeat(64), 'references/checklist.md': 'e'.repeat(64) }, license_files: { LICENSE: 'b'.repeat(64) }, license: { name: 'MIT', file: 'LICENSE', files: ['LICENSE'] },
+    others: ['agents/openai.yaml', 'CLAUDE.md', '.claude/', 'scripts/run.sh'], others_more: 0, scripts: ['scripts/run.sh'], sha: 'c'.repeat(64), ver: GHC.slice(0, 7), label: 'acme/skills/code-review@' + GHC.slice(0, 7),
+    from: 'gh-skill acme/skills@' + GHC + ':skills/eng/code-review @' + GHC.slice(0, 7), path: 'https://github.com/acme/skills/blob/' + GHC + '/skills/eng/code-review/SKILL.md',
+    repo: 'acme/skills', commit: GHC, dir: 'skills/eng/code-review', branch: 'main', url: 'https://github.com/acme/skills/tree/' + GHC + '/skills/eng/code-review',
+    info: { stars: 1234, archived: false, fork: true, org: 'Anthropic', spdx: 'MIT' }, read: '2026-11-10T14:03:00+09:00' },
+  check: [{ id: 'gh-license-up', text: '스킬 폴더에 라이선스 파일이 없어서 저장소 맨 위의 LICENSE를 함께 가져와요.', lines: [], add: null },
+    { id: 'gh-skip', text: '글(.md)·라이선스가 아닌 파일과 다른 도구용 지시 파일 2개는 가져오지 않아요(agents/openai.yaml, CLAUDE.md).', lines: [], add: null },
+    { id: 'install', text: '설치하라는 줄이 있어요(3행 npx skills add). 직원도 팀장도 설치하지 않아요. 설치는 대표가 정해요.', say: '설치하라는 줄이 있어요. 직원도 팀장도 설치하지 않아요. 설치는 대표가 정해요.', at: '3행 npx skills add', lines: [], add: null },
+    { id: 'gh-fork', text: '다른 저장소를 복사해 만든 저장소(포크)예요. 처음 만든 사람의 저장소가 아닐 수 있어요.', lines: [], add: null }, PV.check[0]],
+  auto: PV.auto.concat([{ id: 'pin', text: '카드에서 읽은 그때 글만 옮겨요. 저장소가 바뀌어도 이 직원은 그대로예요.' }]), approval: 'lead',
+  suggest: Object.assign({}, PV.suggest, { staff: 'ag-code-review', role: '코드리뷰', does: '' }),
+  where: { folder: '~/p/.office/staff/ag-code-review', agent: '~/lead/.claude/agents/ag-code-review.md' } });
+const SAID_GH = '직원 들이기 승인 20261110-1 · ag-code-review · Read Grep Glob Write · inherit · 9c1e0a2';
+const REQ_GH = s => Object.assign(REQ(s), { request: '20261110-1', said: SAID_GH, copy: SAID_GH + '\\n팀장에게: 묶음 파일을 견줘요', hash7: '9c1e0a2',
+  form: { role: '코드리뷰', staff: 'ag-code-review', desc: '일층 코드리뷰. 팀장이 업무 번호와 함께 띄워요.', note: '', tools: ['Read', 'Grep', 'Glob', 'Write'], model: 'inherit', skills: [] },
+  source: { key: GHKEY, kind: 'gh-skill', name: 'code-review', group: 'acme/skills', label: 'acme/skills/code-review@' + GHC.slice(0, 7) }, take: ['SKILL.md', 'references/checklist.md', 'LICENSE'], skip: ['agents/openai.yaml'] });
+const ON = () => { F.t1.skillSearch = { on: true, at: '2026-11-10T14:02:11+09:00', by: '사이트', odd: false }; };
+const OFF = () => { F.t1.skillSearch = { on: false, at: null, by: null, odd: false }; };
+SRCS.outside = SRCS_OUT.outside;
+"""
+
+
 @unittest.skipUnless(shutil.which("node"), "node가 없어요(화면 코드 시험은 node로 돌려요)")
 class SkillStaffPage(unittest.TestCase):
     """U-35 '스킬로 들이기' 페이지: 화면 1~6(설계 5장)과 다시 켜기 고정 글. 서버 답은 약속 파일(api.md)의 꼴 그대로예요."""
@@ -815,7 +858,7 @@ class SkillStaffPage(unittest.TestCase):
     DRAWER = StaffPage.DRAWER
     FLOW = SETUP + page_js("skGet", "skSources", "skMode", "skClose", "skPick", "skPreview", "skForm", "skEditOpen", "SK_WHY_AT", "skWhyAt", "skRequest", "skStale", "skReqCheck", "skReqKey", "skReqMemo", "skReqMemoGet",
                            "skHired", "skHire", "skHireSkill", "skFire", "SK_HINT_RE", "SK_KIND", "skWiden", "skWidenAsk", "skChangedAsk", "skAsk", "skRebuild", "skRepaint", "skRestore",
-                           "skBodyReset", "skVerify") + SKILL + """
+                           "skBodyReset", "skVerify", "skCardClose", "skOutEnable", "skOutInput", "skOutSearch", "skOutPick", "skOutOffSeen", "skOutOffCard") + SKILL + """
 const DF = null, $ = () => null, put = () => {}, API = true, exampleTeam = () => false, liveTake = () => {}, getText = async () => JSON.stringify(state.relay);
 let promptAns = [];
 const prompt = q => { asked.push(q); return promptAns.shift(); };
@@ -1751,6 +1794,533 @@ console.log(JSON.stringify({ skill, plain }));
         self.assertEqual(r["text"], "원본 영역을 원본/의 글로 되돌렸어요. ‘리뷰’ 직원(ag-pr-code-reviewer)을 복직했어요. 기억.md는 그대로 이어져요.")
         self.assertEqual(r["hint"]["mark"], "확인 표시: ag-pr-code-reviewer · pr-review-toolkit/code-reviewer@a7ba5b9 · 2026-11-09. 마지막 답 첫 줄에 이 표시를 적어요.")
 
+    # ---------- U-34 v0.15.0 '바깥에서 찾기' (명세 10-3) ----------
+    def test_outside_hidden_on_old_server(self):
+        """옛 서버(원천 목록 답에 outside 칸이 없음)면 '바깥에서 찾기' 묶음·바닥 안내 한 줄·스위치를 그리지 않아요. 지금 목록은 그대로예요."""
+        code = self.FLOW + """
+(async () => {
+  await skSources('t1');
+  const listed = skPanelHTML(F.t1, 3); SKT.length = 0;
+  console.log(JSON.stringify({ listed, outside: skState('t1').src.list.outside }));
+})();
+"""
+        r = self.node(code)
+        L = r["listed"]
+        self.assertIsNone(r["outside"])
+        for gone in ("su-skout", "바깥에서 찾기", "이 맥에 없는 스킬은", "sk-out-on", "skills.sh"):
+            self.assertNotIn(gone, L)
+        self.assertIn('이 목록에는 이 층 스킬과 Claude 공식 플러그인 일꾼만 나와요. 앱에서 켠 스킬(design·productivity 등)과 개인 스킬은 다음 버전에 나와요.', L)
+        self.assertEqual(L.count('<details class="su-skgrp"'), 3)
+        self.assertEqual(L.count('su-skh2'), 1)
+
+    def test_outside_switch_and_consent(self):
+        """패널 스위치(role="switch")와 늘 보이는 한 줄(#osh). 꺼지면 바깥 묶음은 접힌 켜기 안내 상자(7줄, [켜기]·[이 맥 안에서만]).
+        [켜기]는 켜기만 해요(찾기 요청 없음, 초점 #oa, just 줄). [이 맥 안에서만]은 아무것도 보내지 않고 접어요(초점 #og). [스킬 찾기 끄기]는 {on:false} 하나이고 결과를 비워요."""
+        code = self.FLOW + OUTSKILL + """
+(async () => {
+  OFF(); await skSources('t1');
+  const off = skPanelHTML(F.t1, 3); SKT.length = 0;
+  replies['api/staff/outside/enable'] = b => { F.t1.skillSearch = { on: b.on, at: '2026-11-10T14:02:11+09:00', by: '사이트', odd: false }; return { ok: true, team: 't1', on: b.on, changed: true, at: '2026-11-10T14:02:11+09:00', by: '사이트' }; };
+  calls.length = 0; renders.length = 0; said.length = 0;
+  await skOutEnable('t1', true, 'box');
+  const yes = { calls: calls.filter(Array.isArray), focus: renders.slice(-1)[0], just: skState('t1').out.just, fold: SU.fold['sk|t1|g|outside'], said: said.slice(), refresh: calls.includes('refresh') };
+  const onHtml = skPanelHTML(F.t1, 3); SKT.length = 0;
+  OFF(); calls.length = 0; renders.length = 0; said.length = 0; SU.fold['sk|t1|g|outside'] = true;
+  await skOutEnable('t1', false, 'no');
+  const no = { calls: calls.length, fold: SU.fold['sk|t1|g|outside'], focus: renders.slice(-1)[0], said: said.slice() };
+  ON(); skState('t1').out.res = skOutNorm(OUT); calls.length = 0; renders.length = 0; said.length = 0;
+  await skOutEnable('t1', false, 'box');
+  const offBox = { calls: calls.filter(Array.isArray), res: skState('t1').out.res, focus: renders.slice(-1)[0], said: said.slice(), on: F.t1.skillSearch.on };
+  F.t1.skillSearch = { on: false, at: null, by: null, odd: true }; const odd = skPanelHTML(F.t1, 3); SKT.length = 0;
+  replies['api/staff/outside/enable'] = refuse('직원 스킬을 먼저 켜 주세요', { why: 'off' });
+  const el = { checked: true, disabled: false, dataset: { team: 't1' }, id: 'suK3os' }; renders.length = 0;
+  await skOutEnable('t1', true, 'switch', el);
+  const failed = [el.checked, el.disabled, skState('t1').text, skState('t1').bad, renders.slice(-1)[0]];
+  replies['api/staff/outside/enable'] = b => ({ ok: true, team: 't1', on: b.on, changed: true, at: '2026-11-10T14:05:00+09:00', by: '사이트' });
+  const el2 = { checked: true, disabled: false, dataset: { team: 't1' }, id: 'suK3os' }; skState('t1').text = ''; said.length = 0;
+  await skOutEnable('t1', true, 'switch', el2);
+  const sw = [el2.checked, el2.disabled, skState('t1').text, skState('t1').out.just, said.slice(), F.t1.skillSearch];
+  console.log(JSON.stringify({ off, yes, onHtml, no, offBox, odd, failed, sw }));
+})();
+"""
+        r = self.node(code)
+        off = r["off"]
+        self.assertIn('<label class="su-check"><input type="checkbox" role="switch" id="suK3os" data-su-in="sk-out-on" data-team="t1" aria-describedby="suK3osh"> 스킬 찾기에 skills.sh 쓰기 <small>(누를 때만, 기본 꺼짐)</small></label>', off)
+        osh = re.search(r'<p class="hint" id="suK3osh" data-must>(.*?)</p>', off).group(1)
+        self.assertIn('[찾기]를 누를 때만', osh)
+        self.assertNotIn('[읽기]', off)
+        self.assertLess(off.index('직원 스킬(시험 기능) 켜기'), off.index('id="suK3os"'))          # 직원 스킬 스위치와 그 '자세히' 바로 아래
+        self.assertLess(off.index('<summary>자세히</summary>'), off.index('id="suK3os"'))
+        self.assertIn('<p class="hint">이 맥에 없는 스킬은 아래 ‘바깥에서 찾기’에서 찾아요.</p>', off)
+        self.assertLess(off.index('이 목록에는 이 층 스킬과'), off.index('이 맥에 없는 스킬은'))   # 바닥 안내 뒤(대표 결정 A)
+        self.assertLess(off.index('이 맥에 없는 스킬은'), off.index('<p class="su-skh2">바깥에서 찾기'))
+        self.assertIn('<details class="su-skgrp su-skout" data-fold="sk|t1|g|outside"><summary id="suK3og">skills.sh <small class="hint">(꺼져 있어요)</small></summary>', off)   # 처음엔 접혀 있어요
+        box = off[off.index('su-skoutask'):]
+        self.assertEqual(box[:box.index('</ul>')].count('<li>'), 7)
+        self.assertIn('id="suK3oh" tabindex="-1">스킬 찾기에 skills.sh를 쓸까요?</p>', off)
+        self.assertIn('data-su="sk-out-yes" data-team="t1">켜기</button>', off)
+        self.assertIn('data-su="sk-out-no" data-team="t1">이 맥 안에서만</button>', off)
+        self.assertNotIn('id="suK3oa"', off)
+        y = r["yes"]
+        self.assertEqual(y["calls"], [["api/staff/outside/enable", {"team": "t1", "on": True}]])   # 켜기만 해요(찾기 요청 없음)
+        self.assertEqual(y["focus"][0], "#suK3oa")
+        self.assertTrue(y["just"])
+        self.assertTrue(y["fold"])
+        self.assertTrue(y["refresh"])
+        self.assertEqual(y["said"], ["스킬 찾기에 skills.sh 쓰기를 켰어요. 맡길 일을 적고 [찾기]를 누르면 그때 낱말이 나가요."])
+        o = r["onHtml"]
+        for part in ('id="suK3os" data-su-in="sk-out-on" data-team="t1" checked aria-describedby="suK3osh">', '<p class="hint">켠 때: 11월 10일 14:02 · 사이트에서 켰어요</p>',
+                     '<details class="su-skgrp su-skout" data-fold="sk|t1|g|outside" open><summary id="suK3og">skills.sh <small class="hint">(켜져 있어요 · [찾기]를 누를 때만 물어요)</small></summary>',
+                     '<p class="hint" role="status">켰어요. 맡길 일을 적고 [찾기]를 누르면 그때 낱말이 나가요.</p>', 'id="suK3ooff" data-su="sk-out-off" data-team="t1">스킬 찾기 끄기</button>',
+                     'id="suK3oa" data-su-in="sk-out-ask"', 'id="suK3ow" data-su-in="sk-out-words"', 'id="suK3ogo" data-su="sk-out-go" data-team="t1" disabled>찾기</button>'):
+            self.assertIn(part, o)
+        self.assertNotIn('su-skoutask', o)
+        n = r["no"]
+        self.assertEqual((n["calls"], n["fold"], n["focus"]), (0, False, "#suK3og"))
+        self.assertEqual(n["said"], ["바깥에서 찾지 않아요. 이 맥에 있는 것만 보여요."])
+        b = r["offBox"]
+        self.assertEqual(b["calls"], [["api/staff/outside/enable", {"team": "t1", "on": False}]])
+        self.assertIsNone(b["res"])
+        self.assertEqual(b["focus"], "#suK3og")
+        self.assertFalse(b["on"])
+        self.assertEqual(b["said"], ["스킬 찾기에 skills.sh 쓰기를 껐어요. 이제 바깥에 묻지 않아요."])
+        self.assertIn('<p class="hint">켠 기록이 없어요(org.json 값의 꼴이 달라요). 꺼진 것으로 봐요.</p>', r["odd"])
+        self.assertEqual(r["failed"], [False, False, "직원 스킬을 먼저 켜 주세요", True, "#suK3os"])   # 실패면 서버 글 그대로, 스위치는 되돌려요
+        sw = r["sw"]
+        self.assertEqual(sw[:4], [True, False, "스킬 찾기에 skills.sh 쓰기를 켰어요. [찾기]를 누를 때만 낱말이 나가요.", False])   # 패널 스위치: 상태 줄에 쓰고 just 줄은 없어요
+        self.assertEqual(sw[5], {"on": True, "at": "2026-11-10T14:05:00+09:00", "by": "사이트", "odd": False})
+
+    def test_outside_words_and_preview(self):
+        """맡길 일(한국어) → 보낼 낱말은 이 브라우저 안에서만(진짜 낱말 표). 보낼 것 미리 보기 줄(#owp)은 따옴표 안에 보낼 글 그대로, 표에 없는 영문·숫자는 옮기지 않고 알려요.
+        낱말 칸은 소문자로 바꾸고 손으로 고치면 맡길 일이 덮지 않아요. [찾기]는 맞는 낱말일 때만 켜져요. #owp에 aria-live가 없어요."""
+        cases = [("코드 리뷰", "code review", [], []), ("코드를 리뷰해 줄 직원", "code review", [], []), ("문서 점검", "docs review", [], []), ("보안 점검", "security audit", [], []),
+                 ("리액트 화면 디자인", "react frontend design", [], []), ("기획서 쓰기", "spec writing", [], []), ("디자인", "design", [], []), ("번역", "translation", [], []),
+                 ("고양이 사진", "", ["고양이", "사진"], []), ("python 시험", "python testing", [], []), ("acme-payments 코드 리뷰", "code review", [], ["acme-payments"]),
+                 ("010-1234-5678 코드 리뷰", "code review", [], ["010-1234-5678"])]
+        code = self.FLOW + OUTSKILL + """
+const CASES = """ + json.dumps([c[0] for c in cases], ensure_ascii=False) + """;
+const els = {}; ['suK3ow', 'suK3owp', 'suK3owu', 'suK3ogo'].forEach(id => { els[id] = { id, value: '', textContent: '', disabled: true }; });
+const box = { querySelector: sel => els[sel.slice(1)] || null };
+const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, selectionStart: value.length, selectionEnd: value.length, setSelectionRange() {}, closest: () => box });
+const snap = () => ({ w: els.suK3ow.value, p: els.suK3owp.textContent, u: els.suK3owu.textContent, go: els.suK3ogo.disabled, touched: skState('t1').out.touched, words: skState('t1').out.words });
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  const table = skState('t1').src.list.outside.ask_words;
+  const asked = CASES.map(a => skAskWords(table, a));
+  const first = skPanelHTML(F.t1, 3); SKT.length = 0;
+  const empty = skOutSend(null, '');
+  skOutInput(inp('sk-out-ask', '코드를 리뷰해 줄 직원'), 'sk-out-ask'); const a1 = snap();
+  skOutInput(inp('sk-out-ask', '디자인'), 'sk-out-ask'); const a2 = snap();
+  skOutInput(inp('sk-out-ask', 'acme-payments 코드 리뷰'), 'sk-out-ask'); const a3 = snap();
+  const w = inp('sk-out-words', 'Code  Review'); skOutInput(w, 'sk-out-words'); const a4 = Object.assign(snap(), { field: w.value });
+  skOutInput(inp('sk-out-ask', '보안 점검'), 'sk-out-ask'); const a5 = snap();       // 손으로 고친 낱말은 맡길 일이 덮지 않아요
+  const shown = skPanelHTML(F.t1, 3); SKT.length = 0;
+  skOutInput(inp('sk-out-words', ''), 'sk-out-words'); skOutInput(inp('sk-out-ask', '고양이 사진'), 'sk-out-ask'); const a6 = snap();
+  console.log(JSON.stringify({ asked, first, empty, a1, a2, a3, a4, a5, a6, shown, table: table.length }));
+})();
+"""
+        r = self.node(code)
+        self.assertEqual(r["table"], len(ASK_TABLE))
+        for (ask, words, missing, english), got in zip(cases, r["asked"]):
+            self.assertEqual((got["words"], got["missing"], got["english"]), (words, missing, english), ask)
+        f = r["first"]
+        self.assertIn('<p class="hint su-skowp" id="suK3owp" data-must>맡길 일을 적으면 보낼 낱말이 여기 나와요. 아직 아무것도 보내지 않아요.</p>', f)
+        self.assertEqual(r["empty"], "맡길 일을 적으면 보낼 낱말이 여기 나와요. 아직 아무것도 보내지 않아요.")
+        owp = re.search(r'<p [^>]*id="suK3owp"[^>]*>', f).group(0)
+        self.assertNotIn("aria-live", owp)
+        for part in ('aria-describedby="suK3owp" value="">', 'maxlength="60" placeholder="예: 코드 리뷰"', 'maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false"',
+                     '무슨 일을 맡길까요? <small>한국어로 써도 돼요. 이 글은 이 맥 밖으로 나가지 않아요</small>', '보낼 낱말 (영어) <small>위에 쓴 일로 채워요. 고쳐도 돼요</small>',
+                     '<summary>보내는 요청 보기</summary>'):
+            self.assertIn(part, f)
+        self.assertEqual(f.count('aria-describedby="suK3owp"'), 2)
+        a1 = r["a1"]
+        self.assertEqual((a1["w"], a1["p"], a1["go"]), ("code review", "이 낱말만 skills.sh(Vercel)로 가요: ‘code review’", False))
+        self.assertIn("주소: https://skills.sh/api/search?q=code%20review · 함께 가는 것: 이 맥의 인터넷 주소(IP), 프로그램 이름(agencity/0.15.0) · 가지 않는 것: 맡길 일 글, 역할 이름, 팀 이름, 로그인 정보, 쿠키", a1["u"])
+        self.assertEqual((r["a2"]["w"], r["a2"]["go"]), ("design", False))                    # 한 낱말도 찾을 수 있어요
+        a3 = r["a3"]
+        self.assertEqual(a3["w"], "code review")
+        self.assertTrue(a3["p"].endswith("맡길 일 칸의 영문·숫자(acme-payments)는 보내지 않아요. 보내려면 보낼 낱말 칸에 직접 적어 주세요."), a3["p"])
+        a4 = r["a4"]
+        self.assertEqual((a4["field"], a4["touched"], a4["go"]), ("code  review", True, False))
+        self.assertEqual(a4["p"], "이 낱말만 skills.sh(Vercel)로 가요: ‘code review’" + " 맡길 일 칸의 영문·숫자(acme-payments)는 보내지 않아요. 보내려면 보낼 낱말 칸에 직접 적어 주세요.")
+        self.assertEqual(r["a5"]["words"], "code  review")
+        self.assertIn("‘code review’", r["a5"]["p"])
+        self.assertIn('주소: https://skills.sh/api/search?q=code%20review', r["shown"])          # 다시 그려도 보낼 글 그대로
+        self.assertIn('value="code  review"', r["shown"])
+        a6 = r["a6"]
+        self.assertEqual((a6["w"], a6["touched"], a6["go"]), ("", False, True))
+        self.assertEqual(a6["p"], "영어 낱말 1~4개로 적어 주세요(예: code review). 지금은 보내지 않아요. 영어로 바꾸지 못한 말(고양이, 사진)은 보낼 낱말 칸에 영어로 적어 주세요.")
+
+    def test_outside_search_sends_shown_words(self):
+        """[찾기]는 보낸 낱말이 미리 보기 따옴표 안 글과 같아요. 한국어 맡길 일 글과 표에 없는 영문(acme-payments)은 어떤 요청에도 없어요.
+        줄이 있으면 초점 #oc, 줄 0개·실패는 초점 그대로(#ogo)에 그 글을 읽어 줘요, 오류는 #oe, 꺼졌으면(outside-off) 켜기 안내 상자로 돌아가요."""
+        code = self.FLOW + OUTSKILL + """
+const els = {}; ['suK3ow', 'suK3owp', 'suK3owu', 'suK3ogo'].forEach(id => { els[id] = { id, value: '', textContent: '', disabled: true }; });
+const box = { querySelector: sel => els[sel.slice(1)] || null };
+const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, selectionStart: 0, selectionEnd: 0, setSelectionRange() {}, closest: () => box });
+(async () => {
+  ON(); await skSources('t1'); calls.length = 0; fetched.length = 0;
+  skOutInput(inp('sk-out-ask', 'acme-payments 코드 리뷰 해 줄 직원'), 'sk-out-ask');
+  const preview = els.suK3owp.textContent;
+  replies['api/staff/outside/search'] = OUT; renders.length = 0; said.length = 0;
+  await skOutSearch('t1');
+  const sent = calls.filter(Array.isArray), focus = renders.slice(-1)[0], fold = SU.fold['sk|t1|g|outside'], res = skState('t1').out.res, saidNow = said.slice();
+  const html = skPanelHTML(F.t1, 3); SKT.length = 0;
+  replies['api/staff/outside/search'] = Object.assign({}, OUT, { rows: [], others: [], counts: { got: 3, github: 3, other: 0, low: 3, dup: 0, kept: 0, shown: 0 } });
+  renders.length = 0; said.length = 0; await skOutSearch('t1'); const none = [renders.slice(-1)[0], said.slice(), skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  replies['api/staff/outside/search'] = OUT_FB; renders.length = 0; said.length = 0; await skOutSearch('t1'); const fb = [renders.slice(-1)[0], said.slice(), skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  replies['api/staff/outside/search'] = refuse('앞의 찾기가 아직 끝나지 않았어요', { why: 'busy' }); renders.length = 0; await skOutSearch('t1');
+  const busy = [renders.slice(-1)[0], skState('t1').out.err, skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  replies['api/staff/outside/search'] = refuse('‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요. ‘바깥에서 찾기’의 [켜기]나 위 스위치로 켜 주세요', { why: 'outside-off' });
+  renders.length = 0; calls.length = 0; await skOutSearch('t1');
+  const offd = [renders.slice(-1)[0], calls.includes('refresh'), F.t1.skillSearch.on, skState('t1').out.res, skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  ON(); skState('t1').out.words = 'Code_Review'; calls.length = 0; renders.length = 0; await skOutSearch('t1');
+  const bad = [calls.length, renders.slice(-1)[0], skState('t1').out.err];
+  console.log(JSON.stringify({ preview, sent, focus, fold, res, saidNow, html, none, fb, busy, offd, bad, fetched }));
+})();
+"""
+        r = self.node(code)
+        q = re.search("‘(.*?)’", r["preview"]).group(1)
+        self.assertEqual(r["sent"], [["api/staff/outside/search", {"team": "t1", "words": "code review"}]])
+        self.assertEqual(r["sent"][0][1]["words"], q)                                       # 보낸 낱말 = 미리 보기 따옴표 안 글
+        blob = json.dumps(r["sent"], ensure_ascii=False)
+        for gone in ("코드", "리뷰", "직원", "acme", "payments", "일층", "기획"):
+            self.assertNotIn(gone, blob)
+        self.assertEqual(r["fetched"], [])
+        self.assertEqual(r["focus"], "#suK3oc")
+        self.assertEqual(r["saidNow"], [])                                                 # 초점이 옮겨 가며 읽혀요
+        self.assertTrue(r["fold"])
+        self.assertEqual([x["repo"] for x in r["res"]["rows"]], ["acme/skills", "anthropics/knowledge-work-plugins", "obra/superpowers"])
+        self.assertIn('id="suK3oc" tabindex="-1">‘code review’로 찾은 100개 중 앞 20개예요(같은 이름 4개는 뺐어요) · 11월 10일 14:02 기준</p>', r["html"])
+        self.assertIn('(찾은 것 100개)', r["html"])                                           # 수 줄의 '찾은 100개'와 같은 수(보이는 줄 수가 아니에요)
+        focus, told, html = r["none"]
+        self.assertEqual(focus, "#suK3ogo")
+        self.assertEqual(told, ["맞는 스킬을 찾지 못했어요(설치 1천 이상만 보여요). 다른 낱말로 찾아 보세요."])
+        self.assertIn('<p class="hint">맞는 스킬을 찾지 못했어요(설치 1천 이상만 보여요). 다른 낱말로 찾아 보세요.</p>', html)
+        focus, told, html = r["fb"]
+        self.assertEqual(focus, "#suK3ogo")
+        self.assertEqual(told, ["skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요."])
+        self.assertIn('<p class="err" role="alert">skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.</p><p class="su-src-l"><a class="su-ext" href="https://skills.sh/" target="_blank" rel="noopener noreferrer">skills.sh 열기 ↗</a></p>', html)
+        focus, err, html = r["busy"]
+        self.assertEqual((focus, err), ("#suK3oe", "앞의 찾기가 아직 끝나지 않았어요"))
+        self.assertIn('<p class="err" id="suK3oe" role="alert" tabindex="-1">앞의 찾기가 아직 끝나지 않았어요</p>', html)
+        self.assertNotIn('skills.sh에 닿지 못했어요', html)                                   # 낱말을 적지 않는 앞 실패 줄이 새 오류 아래 남지 않아요
+        self.assertNotIn('맞는 스킬을 찾지 못했어요', html)
+        focus, refreshed, on, res, html = r["offd"]
+        self.assertEqual(focus, ["#suK3oe", "#suK3oh", "#suK3og"])
+        self.assertTrue(refreshed)
+        self.assertFalse(on)
+        self.assertIsNone(res)
+        self.assertIn("su-skoutask", html)                                                  # 켜기 안내 상자로 돌아가요
+        box = html[html.index('su-skoutask'):]
+        self.assertIn('id="suK3oh" tabindex="-1">스킬 찾기에 skills.sh를 쓸까요?</p>\n          <p class="err" id="suK3oe" role="alert" tabindex="-1">‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요.', box)   # 까닭이 상자 안에 보여요
+        self.assertEqual(r["bad"], [0, ["#suK3oe", "#suK3ow"], "영어 낱말 1~4개로 적어 주세요(예: code review). 지금은 보내지 않아요."])   # 틀린 낱말은 보내지 않아요
+
+    def test_outside_rows(self):
+        """결과 줄(8-5): 수 줄, 늘 보이는 안내 상자, 줄 세 층(역할·직원 / 원본 이름(역할이 있을 때만)·저장소·칩 / 설치 수와 상태), 같은 이름 다른 저장소 글, GitHub 밖 링크 줄.
+        칩은 색 없는 보통 칩이고 title이 없어요. 꼴이 틀린 줄은 그리지 않아요. 원천 글이 아닌 우리 글이라 esc예요."""
+        code = self.FLOW + OUTSKILL + """
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  state.relay.staff.t1['마케팅'] = Object.assign({}, state.relay.staff.t1['마케팅'], { from: { key: 'gh:Acme/Skills@' + GHC + ':skills/eng/code-review', kind: 'gh-skill', name: 'code-review', group: 'Acme/Skills', label: 'x' } });
+  SRCS.sources[1] = Object.assign({}, SRCS.sources[1]); skState('t1').src.list.sources.push({ key: 'floor:requesting-code-review', kind: 'floor', name: 'requesting-code-review', group: 'floor', desc: '', bytes: 1, adopted: true, upstream: '', used_by: [], main_by: [], same: 0, role: '', does: '', aux: false });
+  const bad = Object.assign({}, OUT, { rows: OUT.rows.concat([{ repo: '<b>x</b>/y', skill: 'z', installs: 5000, org: null, hits: 1, twins: [], role: '' }, { repo: 'a/b', skill: 'z', installs: '12' }]),
+    others: OUT.others.concat([{ source: 'evil.example', skill: 'x', installs: 5000, link: 'javascript:alert(1)' }]) });
+  skState('t1').out.res = skOutNorm(bad); const html = skPanelHTML(F.t1, 3); SKT.length = 0;
+  skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { cached: true, sent: false, counts: Object.assign({}, OUT.counts, { low: 3, kept: 20 }) })); const cached = skPanelHTML(F.t1, 3); SKT.length = 0;
+  skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { rows: [], others: [] })); const empty = skPanelHTML(F.t1, 3); SKT.length = 0;
+  skState('t1').out.res = skOutNorm(OUT_FB); const fb = skPanelHTML(F.t1, 3); SKT.length = 0;
+  console.log(JSON.stringify({ html, cached, empty, fb, inst: [868252, 10101, 7261, 136437900, 20401, 999].map(skInst) }));
+})();
+"""
+        r = self.node(code)
+        self.assertEqual(r["inst"], ["86.8만", "1만", "7,261", "1.4억", "2만", "999"])
+        h = r["html"]
+        res = h[h.index('id="suK3oc"'):]
+        for part in ('‘code review’로 찾은 100개 중 앞 20개예요(같은 이름 4개는 뺐어요) · 11월 10일 14:02 기준</p>', '<p class="hint">줄을 누르면 GitHub에서 읽어 카드를 열어요(로그인 없이 한 시간에 20번쯤까지).</p>',
+                     '<div class="su-box su-sknote" role="note">차례는 이름에 찾는 낱말이 든 것 → Anthropic·Vercel·Microsoft 저장소 → 설치 수예요. 설치 수와 차례는 참고일 뿐 안전하다는 뜻이 아니에요. 들일지는 카드의 점검을 보고 정해요.</div>',
+                     '<ul class="su-srcs su-skouts"><li class="su-srcl"><button type="button" class="su-src" id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="false">',
+                     '<span class="su-src-t"><b class="su-src-r">코드리뷰</b><span class="su-src-sfx">직원</span></span><span class="su-src-m"><code>code-review</code><span class="hint">acme/skills</span><span class="chip">팀장 창 승인 필요</span></span>',
+                     '<span class="hint su-src-st">설치 86.8만(참고) · 이미 ‘마케팅’ 직원으로 들였어요</span></button>',
+                     '<p class="hint su-src-tw">같은 이름 다른 저장소(설치 수가 적어 뺐어요): coderabbitai/skills 설치 1.6만 · getsentry/skills 설치 5,681</p>',
+                     '<span class="hint">anthropics/knowledge-work-plugins</span><span class="chip">팀장 창 승인 필요</span><span class="chip">Anthropic 저장소</span></span>',
+                     '<b class="su-src-r">requesting-code-review</b><span class="hint">역할 이름은 고른 뒤 정해요</span></span><span class="su-src-m"><span class="hint">obra/superpowers</span>',
+                     '설치 7,261(참고) · 같은 이름이 이 층 스킬에도 있어요</span>',
+                     '<p class="su-skxh">GitHub 밖 출처 <span class="hint">여기서는 읽거나 들일 수 없어요. 그 페이지의 설치 명령(npx …)은 점검과 팀장 창 승인 없이 깔아요.</span></p>',
+                     '<ul class="su-skolink"><li><code>deepline-plays-review</code> · code.deepline.com · 설치 2만(참고) · <a class="su-ext" href="https://skills.sh/code.deepline.com/deepline-plays-review" target="_blank" rel="noopener noreferrer">skills.sh에서 보기 ↗</a></li></ul>'):
+            self.assertIn(part, res)
+        self.assertEqual(res.count('data-su="sk-out-read"'), 3)                               # 꼴이 틀린 줄은 그리지 않아요
+        self.assertEqual(res.count('<li><code>'), 1)
+        for gone in ('&lt;b&gt;x', '<b>x</b>', 'javascript:', 'evil.example', '공식 출처', 'title=', 'chip wait', 'chip on', 'chip bad', '설치 1천 미만', '기억해 둔 결과', 'skills.sh/acme'):
+            self.assertNotIn(gone, res)                                                       # GitHub 줄 아래에는 링크 줄이 없어요
+        self.assertEqual(res.count('>Anthropic 저장소</span>'), 1)
+        self.assertEqual(res.count('<code>code-review</code>'), 2)                            # 원본 이름 <code>는 역할이 있을 때만
+        after = h[h.index('어떤 직원을 들일까요?'):]
+        for gone in ('판', 'sha256', 'inherit', '[읽기]'):
+            self.assertNotIn(gone, after)
+        for chip in re.findall(r'<span class="chip[^"]*"[^>]*>', res):
+            self.assertEqual(chip, '<span class="chip">', chip)
+        self.assertIn('‘code review’로 찾은 100개 중 20개예요(같은 이름 4개는 뺐어요 · 설치 1천 미만 3개는 뺐어요) · 11월 10일 14:02 기준 · 기억해 둔 결과라 이번엔 보내지 않았어요</p>', r["cached"])
+        self.assertIn('<p class="hint">맞는 스킬을 찾지 못했어요(설치 1천 이상만 보여요). 다른 낱말로 찾아 보세요.</p>', r["empty"])
+        self.assertNotIn('su-sknote" role="note">차례는', r["empty"])
+        self.assertNotIn('GitHub 밖 출처', r["empty"])
+        self.assertIn('<p class="err" role="alert">skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.</p><p class="su-src-l"><a class="su-ext" href="https://skills.sh/" target="_blank" rel="noopener noreferrer">skills.sh 열기 ↗</a></p>', r["fb"])
+
+    def test_outside_pick_and_card(self):
+        """줄 누르기(8-6): {team, outside: {repo, skill}}로 읽고(페이지는 커밋을 보내지 않아요), 읽는 동안에도 그 줄 단추가 남고 'GitHub에서 읽는 중이에요'예요. 답 뒤 d.source는 gh 열쇠.
+        고른 모양은 그 줄 하나와 카드(묶음·바깥 묶음 없음), 단계 칩은 하나. 카드(8-7): 원본 줄(GitHub 저장소, API 공식 칩, skills.sh 링크, 커밋 없음), 자세히의 커밋·GitHub 링크,
+        gh-skip·gh-license-up은 '이렇게 맞춰서 들여요', install·gh-fork는 '먼저 알아 둘 점'. [다시 읽기]는 fresh. 닫으면 결과 그대로이고 그 줄로 초점이 가요."""
+        code = self.FLOW + OUTSKILL + """
+const between = (html, a, b) => { const i = html.indexOf(a); return i < 0 ? '' : html.slice(i, b ? html.indexOf(b, i) : undefined); };
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  skState('t1').out.res = skOutNorm(OUT); calls.length = 0;
+  let release; replies['api/staff/from-skill/preview'] = new Promise(res => { release = () => res(PV_GH); });
+  const pending = skOutPick('t1', 0, 'suK3or0'); const reading = skPanelHTML(F.t1, 3); SKT.length = 0;
+  const firstFocus = renders.slice(-1)[0];
+  release(); await pending;
+  const d = skDraft(F.t1), src = d.source, card = skPanelHTML(F.t1, 3), cardFocus = renders.slice(-1)[0];
+  const chk = fill(between(card, '<p class="su-skxh">먼저 알아 둘 점', '<p class="su-skxh">직원이 못 하는 단계')), fixed = fill(between(card, '이렇게 맞춰서 들여요', '</details>')), texts = fill(card); SKT.length = 0;
+  const pv1 = calls.filter(x => x[0] === 'api/staff/from-skill/preview').map(x => x[1]);
+  replies['api/staff/from-skill/preview'] = PV_GH; calls.length = 0; d.again = true; await skPreview('t1');
+  const again = calls.filter(x => x[0] === 'api/staff/from-skill/preview').map(x => x[1]), againLeft = d.again; SKT.length = 0;
+  renders.length = 0; skCardClose('t1'); const closed = skPanelHTML(F.t1, 3), closeFocus = renders.slice(-1)[0]; SKT.length = 0;
+  replies['api/staff/from-skill/preview'] = refuse('GitHub가 잠깐 막았어요(로그인 없이 시간당 60번). 14:32쯤 다시 눌러 주세요', { why: 'gh-limit', link: 'https://github.com/acme/skills' });
+  await skOutPick('t1', 0, 'suK3or0'); const limited = skPanelHTML(F.t1, 3); SKT.length = 0;
+  calls.length = 0; d.again = true; replies['api/staff/from-skill/preview'] = PV_GH; await skPreview('t1'); const retry = calls.filter(x => x[0] === 'api/staff/from-skill/preview').map(x => x[1]);
+  await skOutPick('t1', 0, 'suK3or0'); const toggled = [d.want, d.source, renders.slice(-1)[0]];
+  console.log(JSON.stringify({ pv1, reading, firstFocus, src, card, cardFocus, chk, fixed, texts, again, againLeft, closed, closeFocus, want: d.want, limited, retry, toggled }));
+})();
+"""
+        r = self.node(code)
+        self.assertEqual(r["pv1"], [{"team": "t1", "outside": {"repo": "acme/skills", "skill": "code-review"}}])
+        g = r["reading"]
+        self.assertIn('id="suK3or0"', g)
+        self.assertIn('<p class="hint" role="status">GitHub에서 읽는 중이에요(몇 초 걸려요)…</p>', g)
+        self.assertNotIn('카드를 읽는 중이에요', g)
+        self.assertEqual(g.count('aria-current="step"'), 1)
+        self.assertIn('<b aria-current="step">2 확인</b> <span>3 팀장 창 승인</span> <span>4 들이기</span>', g)
+        self.assertEqual(r["firstFocus"], "#suK3or0")
+        self.assertEqual(r["src"], GH_KEY)
+        c = r["card"]
+        self.assertEqual(r["cardFocus"], "#suK3h2")
+        for gone in ('su-skgrp', 'su-skout', 'su-sknote', '이 목록에는', '이 맥에 없는 스킬은'):
+            self.assertNotIn(gone, c)
+        self.assertEqual(c.count('class="su-srcl on"'), 1)
+        self.assertEqual(c.count('class="su-srcl'), 1)
+        self.assertEqual(c.count('aria-current="step"'), 1)
+        self.assertIn('>다른 직원 고르기</button>', c)
+        self.assertIn('id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="true" aria-controls="suK3c">', c)
+        frm = re.search(r'<p class="su-skfrom">(.*?)</p>', c).group(1)
+        self.assertEqual(frm, '원본 <code>code-review</code> · GitHub <code>acme/skills</code> <span class="chip">Anthropic 저장소</span> · 남이 쓴 글이라 팀장 창 승인이 필요해요 · '
+                              '<a class="su-ext" href="https://skills.sh/acme/skills/code-review" target="_blank" rel="noopener noreferrer">skills.sh에서 보기 ↗</a>')
+        self.assertNotIn(GH_COMMIT[:7], frm)
+        self.assertIn('<span>1 고르기</span> <b aria-current="step">2 확인</b>', c)
+        for part in ('<dt>출처 주소</dt><dd><code>https://github.com/acme/skills/blob/' + GH_COMMIT + '/skills/eng/code-review/SKILL.md</code></dd>', '<dt>커밋</dt><dd><code>' + GH_COMMIT + '</code></dd>',
+                     '<dt>가지</dt><dd><code>main</code></dd>', '<dt>저장소 별</dt><dd>1,234(참고)</dd>', '<dt>라이선스 파일</dt><dd><code data-skt=',
+                     '<a class="su-ext" href="https://github.com/acme/skills/tree/' + GH_COMMIT + '/skills/eng/code-review" target="_blank" rel="noopener noreferrer">GitHub에서 보기 ↗</a> · <a class="su-ext" href="https://skills.sh/acme/skills/code-review"',
+                     '이렇게 맞춰서 들여요 2가지', '<p class="su-skxh">먼저 알아 둘 점 2</p>', '직원이 못 하는 단계 1', 'data-su="sk-req" data-team="t1">팀장 창 승인 받기</button>',
+                     '서버가 저절로 하는 것 3가지', '카드에서 읽은 그때 글만 옮겨요. 저장소가 바뀌어도 이 직원은 그대로예요.'):
+            self.assertIn(part, c)
+        seen = re.sub(r"<[^>]+>", "", c[c.index('어떤 직원을 들일까요?'):])                 # 화면에 보이는 글(태그를 뗀 것)
+        for gone in ('마켓플레이스 표시값', '위 원본', '출처 경로', '판', 'sha256', 'inherit', '[읽기]'):
+            self.assertNotIn(gone, seen)
+        for gone in ('<script', 'javascript:', '>inherit', 'inherit ('):
+            self.assertNotIn(gone, c)
+        self.assertTrue(any(t.startswith('설치하라는 줄이 있어요.') for t in r["chk"]), r["chk"])
+        self.assertTrue(any(t.startswith('다른 저장소를 복사해 만든 저장소(포크)') for t in r["chk"]), r["chk"])
+        self.assertTrue(any(t.startswith('스킬 폴더에 라이선스 파일이 없어서') for t in r["fixed"]), r["fixed"])
+        self.assertTrue(any(t.startswith('글(.md)·라이선스가 아닌 파일과') for t in r["fixed"]), r["fixed"])
+        self.assertIn("agents/openai.yaml, CLAUDE.md, .claude/, scripts/run.sh", r["texts"])     # 가져오지 않는 파일(글로만)
+        self.assertEqual(r["again"], [{"team": "t1", "outside": {"repo": "acme/skills", "skill": "code-review"}, "fresh": True}])   # [다시 읽기]는 새 커밋으로 다시 정해요
+        self.assertFalse(r["againLeft"])
+        cl = r["closed"]
+        self.assertEqual(r["closeFocus"][0], "#suK3or0")
+        self.assertIsNone(r["want"])
+        for part in ('su-skout', 'id="suK3oc"', '(찾은 것 100개)', 'id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="false">', '<details class="su-skgrp"'):
+            self.assertIn(part, cl)
+        self.assertNotIn('suK3cb', cl)
+        lim = r["limited"]
+        self.assertIn('GitHub가 잠깐 막았어요(로그인 없이 시간당 60번). 14:32쯤 다시 눌러 주세요', lim)
+        self.assertIn('<p class="su-src-l"><a class="su-ext" href="https://github.com/acme/skills" target="_blank" rel="noopener noreferrer">GitHub에서 보기 ↗</a></p>', lim)
+        self.assertIn('data-su="sk-src-again"', lim)
+        self.assertEqual(r["retry"], [{"team": "t1", "outside": {"repo": "acme/skills", "skill": "code-review"}, "fresh": True}])
+        self.assertEqual(r["toggled"], [None, "", ["#suK3or0", "#suK3h1"]])                    # 같은 줄을 다시 누르면 닫아요
+
+    def test_outside_request_and_hire(self):
+        """gh 승인 상자·확인 창·들이기 오류(8-8): 첫 단락·③ 줄·'들일 묶음에 든 것' gh 글, 한마디·[말 복사]는 같은 꼴, '사본' 글자 없음.
+        gh-net은 묶음 상태 ok 그대로([직원 들이기] 켜짐, #ce에 글), changed는 SK_STALE_REQ_GH와 묶음 기억 지움. 스위치를 끄면 [직원 들이기]가 잠기고 꺼짐 글이에요."""
+        code = self.FLOW + OUTSKILL + """
+const store = {}; globalThis.sessionStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true; skState('t1').out.res = skOutNorm(OUT);
+  replies['api/staff/from-skill/preview'] = PV_GH; await skOutPick('t1', 0, 'suK3or0');
+  const d = skDraft(F.t1); calls.length = 0;
+  replies['api/staff/from-skill/request'] = REQ_GH('wait'); await skRequest('t1');
+  const reqBody = calls.filter(x => x[0] === 'api/staff/from-skill/request')[0][1], memo = Object.assign({}, store), wait = skPanelHTML(F.t1, 3); SKT.length = 0;
+  replies['api/staff/from-skill/request'] = REQ_GH('ok'); await skReqCheck('t1', '', false); const ok = skPanelHTML(F.t1, 3); SKT.length = 0;
+  replies['api/staff/hire'] = refuse('GitHub에 닿지 못해서 들이지 않았어요. 아무것도 쓰지 않았어요. 잠시 뒤 [직원 들이기]를 다시 눌러 주세요', { why: 'gh-net', link: 'https://github.com/acme/skills' });
+  asked.length = 0; calls.length = 0; renders.length = 0; await skHire('t1', 'suK3');
+  const hireBody = calls.filter(x => x[0] === 'api/staff/hire')[0][1], net = [d.request.state, d.cerr, skPanelHTML(F.t1, 3), renders.slice(-1)[0]]; SKT.length = 0;
+  const ask = asked[0];
+  replies['api/staff/hire'] = refuse('GitHub의 그 커밋이 카드에서 읽은 것과 달라요(없어졌거나 바뀌었어요). 들이지 않았어요. [다시 읽기]로 새로 읽어 주세요', { why: 'changed' });
+  said.length = 0; await skHire('t1', 'suK3');
+  const changed = [d.request, d.stale, d.cerr, skPanelHTML(F.t1, 3), said.slice(-1)[0], Object.assign({}, store)]; SKT.length = 0;
+  d.stale = false; d.request = skReqNorm(REQ_GH('ok')); F.t1.skillSearch.on = false; const offReq = skPanelHTML(F.t1, 3); SKT.length = 0;
+  d.request = null; const offCard = skPanelHTML(F.t1, 3); SKT.length = 0;
+  ON(); d.request = skReqNorm(REQ_GH('changed')); d.request.error = ''; const dead = skPanelHTML(F.t1, 3); SKT.length = 0;
+  d.request = skReqNorm(REQ_GH('ok')); replies['api/staff/hire'] = refuse('‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요.', { why: 'outside-off' }); calls.length = 0;
+  renders.length = 0; await skHire('t1', 'suK3'); const offErr = [d.request.state, d.cerr, calls.includes('refresh'), F.t1.skillSearch.on, renders.slice(-1)[0], skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  console.log(JSON.stringify({ reqBody, memo, wait, ok, hireBody, net, ask, changed, offReq, offCard, dead, offErr }));
+})();
+"""
+        r = self.node(code)
+        self.assertEqual(r["reqBody"]["source"], GH_KEY)
+        self.assertEqual(r["reqBody"]["sha"], "c" * 64)
+        self.assertEqual(r["memo"], {"agencity-sk-req|t1|" + GH_KEY: "20261110-1"})
+        w = r["wait"]
+        for part in ('<p>바깥(GitHub)에서 읽은 남이 쓴 글이라 대표님이 팀장 창에서 직접 승인해야 들어와요(팀 규칙 1장: 사람 승인이 필요한 일).</p>',
+                     '<p>③ 팀장이 승인 표시를 쓰면 여기 [직원 들이기]가 켜져요. 누르면 GitHub에서 카드에서 읽은 그 글을 한 번 더 받아 같은지 본 뒤 들여요. 이 탭으로 돌아오면 저절로 다시 봐요.</p>',
+                     '<p>들일 묶음 20261110-1을 만들었어요(출처·커밋·파일마다의 해시·양식 값만 들어 있어요. 원문도 파일 이름도 없어요).</p>',
+                     '<p>가져오는 것: SKILL.md, references/checklist.md, LICENSE · 가져오지 않는 것: agents/openai.yaml</p>',
+                     '<p class="su-said" id="suK3csd">「직원 들이기 승인 20261110-1 · ag-code-review · Read Grep Glob Write · inherit · 9c1e0a2」</p>', '<p>① 아래 한 줄을 [말 복사]로 복사해요.</p>',
+                     'id="suK3cq" data-copy="직원 들이기 승인 20261110-1 · ag-code-review · Read Grep Glob Write · inherit · 9c1e0a2', '>말 복사</button>',
+                     'id="suK3cgo" data-su="sk-hire" data-team="t1" disabled>직원 들이기</button>'):
+            self.assertIn(part, w)
+        self.assertNotIn('사본', w[w.index('어떤 직원을 들일까요?'):])
+        self.assertIn('id="suK3cgo" data-su="sk-hire" data-team="t1">직원 들이기</button>', r["ok"])
+        self.assertEqual(r["hireBody"], {"team": "t1", "source": GH_KEY, "request": "20261110-1", "sha": "c" * 64})
+        self.assertEqual(r["ask"], "‘코드리뷰’ 직원(ag-code-review)을 code-review(GitHub acme/skills)로 들일까요?\n도구: 읽기·글 찾기·파일 찾기·파일 쓰기 · 모델: 팀장과 같게\n"
+                                   "[확인]을 누르면 GitHub에서 카드에서 읽은 그 글을 한 번 더 받아 같은지 본 뒤, 팀장 폴더에 명찰을 만들어요. 팀장 창을 한 번 다시 켜야 일할 수 있어요.")
+        st, cerr, html, focus = r["net"]
+        self.assertEqual(st, "ok")                                                           # 묶음은 그대로 써요(다시 누를 수 있어요)
+        self.assertEqual(cerr, "GitHub에 닿지 못해서 들이지 않았어요. 아무것도 쓰지 않았어요. 잠시 뒤 [직원 들이기]를 다시 눌러 주세요")
+        self.assertIn('id="suK3cgo" data-su="sk-hire" data-team="t1">직원 들이기</button>', html)
+        self.assertIn('<p class="err" role="alert" id="suK3ce" tabindex="-1">GitHub에 닿지 못해서 들이지 않았어요.', html)
+        self.assertEqual(focus, "#suK3ce")
+        req, stale, cerr, html, told, store = r["changed"]
+        stale_req = "GitHub의 글이 바뀌어서 이 묶음으로는 들일 수 없어요. [다시 읽기] 뒤 [팀장 창 승인 받기]로 묶음을 다시 만들어 승인을 다시 받아 주세요."
+        self.assertIsNone(req)
+        self.assertEqual((stale, cerr), ("request", ""))
+        self.assertEqual(err_lines(html), [stale_req])
+        self.assertEqual(told, stale_req)
+        self.assertEqual(store, {})                                                          # 묶음 기억을 지워요
+        self.assertNotIn('사본', html[html.index('어떤 직원을 들일까요?'):])
+        off_line = "‘스킬 찾기에 skills.sh 쓰기’가 꺼져서 이 스킬은 들일 수 없어요. 다시 켜면 이어서 해요."
+        for html in (r["offReq"], r["offCard"]):
+            self.assertIn(f'<p class="err" id="suK3cof" tabindex="-1">{off_line}</p>', html)
+            self.assertRegex(html, r'id="suK3cgo" data-su="sk-(hire|req)" data-team="t1" disabled>')
+            self.assertEqual(html.count(off_line), 1)
+            self.assertEqual(html.count('data-su="sk-out-card"'), 1)                           # 그 자리에서 켜요(고른 모양에는 ‘바깥에서 찾기’가 없어요)
+            self.assertIn('id="suK3con" data-su="sk-out-card" data-team="t1">켜기</button>', html)
+        self.assertIn('<b>상태:</b> GitHub의 글이 바뀌어서 이 묶음으로는 들일 수 없어요</p>', r["dead"])
+        self.assertEqual(r["offErr"][0], "ok")
+        self.assertEqual(r["offErr"][1], "")                                                  # 꺼짐 줄이 같은 까닭을 말해서 발의 오류 글은 비워요(빨간 줄 둘이 아니에요)
+        self.assertTrue(r["offErr"][2])
+        self.assertFalse(r["offErr"][3])
+        self.assertEqual(r["offErr"][4], ["#suK3cof", "#suK3ce"])
+        self.assertEqual(err_lines(r["offErr"][5]), [off_line])
+
+    def test_outside_switch_off_midway(self):
+        """도중에 스위치를 끄면(검토 반영): 끈 뒤에 온 찾기 답·오류는 버려요(다시 켜도 옛 결과가 돌아오지 않아요). 고른 줄은 결과가 비어도 다시 누르면 닫혀요.
+        GitHub 카드가 꺼짐으로 멈추면 그 자리에 [켜기](같은 API, 켜기만 해요)가 있고, 켜면 카드·묶음은 그대로 이어서 해요. 꺼짐 까닭은 빨간 줄 하나로만 보여요.
+        [이 맥 안에서만]은 켜기 안내 상자의 오류 글을 지워요. 낱말 칸을 비우고 떠나면 맡길 일로 다시 채워요."""
+        code = self.FLOW + OUTSKILL + """
+const OFFMSG = '‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요. ‘바깥에서 찾기’의 [켜기]나 위 스위치로 켜 주세요';
+const sw = on => ({ checked: on, disabled: false, dataset: { team: 't1' }, id: 'suK3os' });
+const els = {}; ['suK3ow', 'suK3owp', 'suK3owu', 'suK3ogo'].forEach(id => { els[id] = { id, value: '', textContent: '', disabled: true }; });
+const box = { querySelector: sel => els[sel.slice(1)] || null };
+const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, selectionStart: 0, selectionEnd: 0, setSelectionRange() {}, closest: () => box });
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  replies['api/staff/outside/enable'] = b => { F.t1.skillSearch = { on: b.on, at: '2026-11-10T14:02:11+09:00', by: '사이트', odd: false }; return { ok: true, team: 't1', on: b.on, changed: true, at: '2026-11-10T14:02:11+09:00', by: '사이트' }; };
+  const o = skState('t1').out, d = skDraft(F.t1); o.words = 'code review';
+  // 1. 찾는 사이 패널 스위치로 껐어요 → 늦게 온 답은 버려요
+  let release; replies['api/staff/outside/search'] = new Promise(res => { release = () => res(OUT); });
+  const pending = skOutSearch('t1');
+  await skOutEnable('t1', false, 'switch', sw(false));
+  const mid = o.busy; release(); await pending;
+  const late = [o.res, o.busy];
+  await skOutEnable('t1', true, 'box'); const back = skPanelHTML(F.t1, 3); SKT.length = 0;
+  // 2. 끈 뒤에 온 오류도 버려요
+  let fail; replies['api/staff/outside/search'] = new Promise((_, rej) => { fail = () => rej(refuse('1분에 6번까지 찾아요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요', { why: 'rate' })); });
+  const p2 = skOutSearch('t1'); await skOutEnable('t1', false, 'box'); fail(); await p2;
+  const lateErr = [o.err, o.busy];
+  // 3. 고른 줄: 스위치를 꺼서 결과가 비어도 다시 누르면 닫혀요
+  ON(); o.res = skOutNorm(OUT); replies['api/staff/from-skill/preview'] = PV_GH; await skOutPick('t1', 0, 'suK3or0');
+  await skOutEnable('t1', false, 'switch', sw(false));
+  const resOff = o.res; renders.length = 0; await skOutPick('t1', 0, 'suK3or0');
+  const closedOff = [d.want, renders.slice(-1)[0]];
+  // 4. 카드를 읽다가 꺼짐 → 그 자리 [켜기] → 켜기만 하고(GitHub에 묻지 않아요) [다시 읽기] 안내
+  ON(); o.res = skOutNorm(OUT); replies['api/staff/from-skill/preview'] = refuse(OFFMSG, { why: 'outside-off' });
+  renders.length = 0; await skOutPick('t1', 0, 'suK3or0');
+  const pvOff = [renders.slice(-1)[0], F.t1.skillSearch.on, skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  calls.length = 0; renders.length = 0; said.length = 0; await skOutEnable('t1', true, 'card');
+  const pvOn = [calls.filter(Array.isArray), renders.slice(-1)[0], said.slice(), skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  // 5. [팀장 창 승인 받기]가 꺼짐으로 막힘 → 빨간 줄 하나와 [켜기] → 켜면 카드 그대로 이어서
+  replies['api/staff/from-skill/preview'] = PV_GH; d.again = true; await skPreview('t1');
+  replies['api/staff/from-skill/request'] = refuse(OFFMSG, { why: 'outside-off' }); renders.length = 0; await skRequest('t1');
+  const reqOff = [d.cerr, renders.slice(-1)[0], skPanelHTML(F.t1, 3)]; SKT.length = 0;
+  renders.length = 0; await skOutEnable('t1', true, 'card');
+  const reqOn = [d.cerr, d.offErr, renders.slice(-1)[0], skPanelHTML(F.t1, 3), !!d.preview]; SKT.length = 0;
+  // 6. [이 맥 안에서만]은 켜기 안내 상자의 오류 글을 지워요
+  o.boxErr = OFFMSG; await skOutEnable('t1', false, 'no'); const noErr = o.boxErr;
+  // 7. 낱말 칸을 비운 채 떠나면 맡길 일로 다시 채워요(쓰는 도중에는 채우지 않아요)
+  ON(); Object.assign(o, { ask: '', words: '', touched: false, busy: '' });
+  skOutInput(inp('sk-out-ask', 'acme-payments 코드 리뷰'), 'sk-out-ask');
+  const w = inp('sk-out-words', ''); skOutInput(w, 'sk-out-words'); const typing = [w.value, o.touched, els.suK3ogo.disabled];
+  skOutInput(w, 'sk-out-words', true); const left = [w.value, o.words, o.touched, els.suK3ogo.disabled, els.suK3owp.textContent];
+  skOutInput(inp('sk-out-ask', '보안 점검'), 'sk-out-ask'); const follow = o.words;
+  console.log(JSON.stringify({ mid, late, back, lateErr, resOff, closedOff, pvOff, pvOn, reqOff, reqOn, noErr, typing, left, follow }));
+})();
+"""
+        r = self.node(code)
+        off_line = "‘스킬 찾기에 skills.sh 쓰기’가 꺼져서 이 스킬은 들일 수 없어요. 다시 켜면 이어서 해요."
+        offmsg = "‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요. ‘바깥에서 찾기’의 [켜기]나 위 스위치로 켜 주세요"
+        self.assertEqual(r["mid"], "")                                                         # 끄면 찾는 중 표시도 풀려요
+        self.assertEqual(r["late"], [None, ""])                                                # 끈 뒤에 온 답은 쓰지 않아요
+        self.assertNotIn('id="suK3oc"', r["back"])                                             # 다시 켜도 끄기 전 결과가 돌아오지 않아요
+        self.assertIn('(켜져 있어요 · [찾기]를 누를 때만 물어요)', r["back"])
+        self.assertIn('data-su="sk-out-go" data-team="t1">찾기</button>', r["back"])
+        self.assertEqual(r["lateErr"], ["", ""])
+        self.assertIsNone(r["resOff"])
+        self.assertEqual(r["closedOff"], [None, ["#suK3or0", "#suK3h1"]])                      # 같은 줄을 다시 누르면 닫혀요
+        focus, on, html = r["pvOff"]
+        self.assertEqual(focus, ["#suK3con", "#suK3cre", "#suK3ce"])
+        self.assertFalse(on)
+        self.assertEqual(err_lines(html), [offmsg])
+        self.assertIn('<div class="su-actions"><button type="button" class="btn" id="suK3con" data-su="sk-out-card" data-team="t1">켜기</button><button type="button" class="btn" id="suK3cre" data-su="sk-src-again"', html)
+        sent, focus, told, html = r["pvOn"]
+        self.assertEqual(sent, [["api/staff/outside/enable", {"team": "t1", "on": True}]])   # 켜기만 해요(GitHub 읽기는 [다시 읽기]를 누를 때)
+        self.assertEqual(focus, ["#suK3cgo:not([disabled])", "#suK3cre", "#suK3h3", "#suK3h2"])
+        self.assertEqual(told, ["스킬 찾기에 skills.sh 쓰기를 켰어요. 카드에서 이어서 해요."])
+        self.assertIn('<p class="hint" role="status" id="suK3ce" tabindex="-1">켰어요. [다시 읽기]를 누르면 GitHub에서 읽어요.</p>', html)
+        self.assertEqual(err_lines(html), [])
+        self.assertNotIn('sk-out-card', html)
+        cerr, focus, html = r["reqOff"]
+        self.assertEqual(cerr, "")
+        self.assertEqual(focus, ["#suK3cof", "#suK3ce"])
+        self.assertEqual(err_lines(html), [off_line])                                          # 빨간 줄 하나
+        self.assertIn('id="suK3cgo" data-su="sk-req" data-team="t1" disabled>팀장 창 승인 받기</button><button type="button" class="btn" id="suK3con" data-su="sk-out-card" data-team="t1">켜기</button>', html)
+        cerr, again, focus, html, kept = r["reqOn"]
+        self.assertEqual((cerr, again, kept), ("", False, True))                              # 카드는 그대로
+        self.assertEqual(focus[0], "#suK3cgo:not([disabled])")
+        self.assertEqual(err_lines(html), [])
+        self.assertIn('id="suK3cgo" data-su="sk-req" data-team="t1">팀장 창 승인 받기</button>', html)
+        self.assertNotIn('sk-out-card', html)
+        self.assertEqual(r["noErr"], "")
+        self.assertEqual(r["typing"], ["", False, True])
+        w, words, touched, locked, told = r["left"]
+        self.assertEqual((w, words, touched, locked), ("code review", "code review", False, False))
+        self.assertTrue(told.startswith("이 낱말만 skills.sh(Vercel)로 가요: ‘code review’"), told)
+        self.assertEqual(r["follow"], "security audit")                                         # 다시 채운 뒤에는 맡길 일을 따라가요
+
+    def test_read_info_mentions_search(self):
+        """첫 화면 '읽는 정보' 자세히: 처음 설정에서 나가는 것은 새 버전 확인뿐이고, 스킬 찾기 스위치를 켠 층만 누를 때 skills.sh·GitHub에 물어요."""
+        h = self.node(page_js("readInfoHTML") + "\nconsole.log(JSON.stringify(readInfoHTML()));")
+        self.assertIn("처음 설정에서 밖으로 나가는 건 하루 한 번 새 버전 확인뿐이에요(버전 번호만 물어요).", h)
+        self.assertIn("다만 직원 스킬을 켠 층에서 ‘스킬 찾기에 skills.sh 쓰기’(기본 꺼짐)를 켜면, [찾기]를 누르거나 찾은 줄을 눌러 카드를 열 때·[직원 들이기] 때만 skills.sh·GitHub에 물어요.", h)
+
     def test_wiring_and_text_only(self):
         """새 단추·칸이 이어져 있고, 원천 글은 그린 뒤 textContent로 채워요(renderSetup). 화면에 쓰지 않는 말(sha256·inherit)을 카드 글에 쓰지 않아요."""
         for act in ("a === 'sk-src'", "a === 'sk-src-reload'", "a === 'sk-src-again'", "a === 'sk-close'", "kind === 'skc-add'", "a === 'sk-req'", "a === 'sk-req-check'", "a === 'sk-req-edit'",
@@ -1779,6 +2349,20 @@ console.log(JSON.stringify({ skill, plain }));
         self.assertIn("skT(s.desc, 'span', '', skLang(s.desc))", page_js("skSrcHTML"))
         self.assertEqual(re.findall(r"lang=\"([^\"]*)\"", page_js("skT")), ["en"])               # lang 값은 우리 글자 'en'뿐
         self.assertEqual(page_js("SK_HINT"), "const SK_HINT = '팀장 창을 한 번 다시 켜야 새 직원이 일할 수 있어요. 일꾼이 일하는 중이면 끝난 뒤에 해요.';")
+        # U-34 v0.15.0 '바깥에서 찾기': 단추·칸이 이어져 있고, 새 그리기 함수는 innerHTML을 쓰지 않아요. 바깥 링크(href)는 모두 skLink를 거쳐요
+        for act in ("a === 'sk-out-yes'", "a === 'sk-out-no'", "a === 'sk-out-off'", "a === 'sk-out-go'", "a === 'sk-out-read'", "a === 'sk-out-card'", "kind === 'sk-out-on'", "kind === 'sk-out-ask'", "kind === 'sk-out-words'",
+                    "e.target.dataset.suIn === 'sk-out-words'"):
+            self.assertIn(act, SRC)
+        for name in ("skOutRowHTML", "skOutResHTML", "skOutHTML", "skOutAskHTML", "skOutFormHTML"):
+            body = page_js(name)
+            self.assertNotIn("innerHTML", body, name)
+            self.assertNotIn("href=", body, name)                                          # 링크는 skExt(skLink를 거쳐요)로만
+        self.assertIn("skLink(href)", page_js("skExt"))
+        self.assertNotIn('href="${', page_js("skCardHTML", "skCardForm", "skRequestHTML"))
+        self.assertIn("aria-describedby=\"${pre}owp\"", page_js("skOutFormHTML"))
+        self.assertNotIn("aria-live", page_js("skOutFormHTML", "skOutResHTML"))          # 글자마다·결과마다 읽히지 않게(초점이 옮겨 가며 읽혀요)
+        for name in ("skOutSearch", "skOutEnable", "skOutInput", "skOutPick"):
+            self.assertNotIn("ask:", page_js(name).replace("o.ask", ""), name)              # 맡길 일 글은 어느 요청에도 싣지 않아요
 
     @unittest.skipUnless(CHROME, "헤드리스 Chrome이 없어요")
     def test_skill_card_fits_a_phone(self):
@@ -1883,6 +2467,61 @@ document.getElementById('out').textContent = JSON.stringify(res);
             if width == 375:
                 self.assertGreaterEqual(r["check"], 44, r)
                 self.assertGreaterEqual(r["sums"], 44 - 0.5, r)
+        # U-34 v0.15.0 '바깥에서 찾기': 켜기 안내 상자, 찾기 칸·결과(줄 3개 + 긴 저장소 이름 줄 + twins + GitHub 밖 1줄, '보내는 요청 보기' 펼침), gh 카드(자세히 펼침)가
+        # 폰(375)과 넓은 창(1280)에서 가로로 넘치지 않아요. 줄 단추 44px 이상, 폰에서 [켜기]·[스킬 찾기 끄기]·[찾기]는 줄 전체 폭, 입력 칸·링크 줄은 44px 이상
+        code = self.FLOW + OUTSKILL + """
+(async () => {
+  OFF(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  const ask = skPanelHTML(F.t1, 3), askT = SKT.slice(); SKT.length = 0;
+  ON(); Object.assign(skState('t1').out, { ask: '코드 리뷰', words: 'code review' });
+  const long = { repo: 'acme/' + 'x'.repeat(100), skill: 'code-review', installs: 4321, org: 'Microsoft', hits: 2, twins: [{ repo: 'b/' + 'y'.repeat(100), installs: 1200 }], role: '' };
+  skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { rows: OUT.rows.concat([long]) }));
+  const res = skPanelHTML(F.t1, 3), resT = SKT.slice(); SKT.length = 0;
+  replies['api/staff/from-skill/preview'] = PV_GH; await skOutPick('t1', 3, 'suK3or3');
+  const card = skPanelHTML(F.t1, 3), cardT = SKT.slice(); SKT.length = 0;
+  console.log(JSON.stringify({ ask, askT, res, resT, card, cardT }));
+})();
+"""
+        out = self.node(code)
+        wrap = lambda h: f'<div class="setup" style="position:static"><section class="su-card"><ul class="su-floors"><li class="su-have">{h}</li></ul></section></div>'
+        probe = """
+document.querySelectorAll('details').forEach(d => { d.open = true; });
+skTextFill(document);
+const $id = x => document.getElementById(x), R = e => e ? e.getBoundingClientRect() : null, all = [...document.querySelectorAll('.su-staff *')].map(e => e.getBoundingClientRect().right);
+const inner = document.querySelector('.su-skoutb'), w = inner ? inner.getBoundingClientRect().width : 0, wd = id => { const r = R($id(id)); return r ? Math.round(r.width) : null; }, ht = id => { const r = R($id(id)); return r ? Math.round(r.height) : null; };
+document.getElementById('out').textContent = JSON.stringify({ over: document.documentElement.scrollWidth - innerWidth, right: Math.max(...all) - innerWidth, box: Math.round(w),
+  oy: wd('suK3oy'), ooff: wd('suK3ooff'), ogo: wd('suK3ogo'), oa: ht('suK3oa'), ow: ht('suK3ow'),
+  rows: [...document.querySelectorAll('.su-skouts .su-src, .su-skone .su-src')].map(e => Math.round(e.getBoundingClientRect().height)),
+  links: [...document.querySelectorAll('.su-src-l .su-ext, .su-skolink .su-ext, .su-skfrom .su-ext')].map(e => Math.round(e.getBoundingClientRect().height)),
+  rowRight: Math.max(0, ...[...document.querySelectorAll('.su-srcl, .su-src-tw, .su-skolink li, .su-skdl dd')].map(e => e.getBoundingClientRect().right)) - innerWidth,
+  left: document.querySelectorAll('[data-skt]').length });
+"""
+        for name in ("ask", "res", "card"):
+            script = "const SKT = " + json.dumps(out[name + "T"], ensure_ascii=False).replace("</", "<\\/") + ";\n" + page_js("skTextFill") + probe
+            for width in (375, 1280):
+                r = in_browser(wrap(out[name]), script, width)
+                self.assertLessEqual(r["over"], 0, (name, width))
+                self.assertLessEqual(r["right"], 1, (name, width))
+                self.assertLessEqual(r["rowRight"], 1, (name, width))                       # 긴 저장소 이름(100자)도 꺾여요
+                self.assertEqual(r["left"], 0, (name, width))
+                if r["rows"]:
+                    self.assertGreaterEqual(min(r["rows"]), 44, (name, width, r["rows"]))
+                if width == 375:
+                    for k in ("oy", "ooff", "ogo"):
+                        if r[k] is not None:
+                            self.assertGreaterEqual(r[k], r["box"] - 40, (name, k, r))     # 폰에서는 줄 전체 폭
+                    for k in ("oa", "ow"):
+                        if r[k] is not None:
+                            self.assertGreaterEqual(r[k], 44, (name, k, r))
+                    if r["links"]:
+                        self.assertGreaterEqual(min(r["links"]), 44, (name, r["links"]))
+            if name == "ask":
+                self.assertIsNotNone(r["oy"])
+            if name == "res":
+                self.assertEqual(len(r["rows"]), 4)
+                self.assertIsNotNone(r["ogo"])
+            if name == "card":
+                self.assertTrue(r["links"])
 
 
 if __name__ == "__main__":

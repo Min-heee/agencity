@@ -70,6 +70,7 @@ python3 -I office_server.py   -> http://127.0.0.1:8765
 import difflib
 import glob
 import hashlib
+import http.client
 import importlib.util
 import json
 import math
@@ -80,6 +81,7 @@ import secrets
 import shlex
 import shutil
 import signal
+import socket
 import ssl
 import stat
 import subprocess
@@ -167,7 +169,7 @@ SETUP = os.path.join(HERE, "setup.json")      # {done, github: {login, via}, vis
 PUBLIC = os.path.join(HERE, "public.json")    # bin/office_public.py가 읽는 공개 설정
 HOME_RAW = os.path.expanduser("~")
 HOME = os.path.realpath(HOME_RAW)
-# 아래 다섯은 시험용 가짜 서버·가짜 폴더·가짜 파일을 쓸 때만 바꿔요(주소는 http·https만)
+# 아래 다섯(과 새 버전 알림의 UPDATE_RAW 아래 바깥 읽기 주소)은 시험용 가짜 서버·가짜 폴더·가짜 파일을 쓸 때만 바꿔요(주소는 http·https만)
 GITHUB_BASE = (os.environ.get("AGENCITY_GITHUB_BASE") or "https://github.com").rstrip("/")
 GITHUB_API = (os.environ.get("AGENCITY_GITHUB_API") or "https://api.github.com").rstrip("/")
 GITHUB_BASE = GITHUB_BASE if re.match(r"^https?://[^/\s]+", GITHUB_BASE) else "https://github.com"
@@ -1914,7 +1916,7 @@ def github_call(url, form=None, token=None, method=None, body=None, limit=MAX_BO
             code, raw = e.code, e.read(limit)
         except OSError:
             code, raw = e.code, b""
-    except (urllib.error.URLError, OSError, ValueError) as e:
+    except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
         if isinstance(getattr(e, "reason", e), ssl.SSLCertVerificationError):
             raise ApiError(502, "GitHub 인증서를 확인하지 못했어요. python.org에서 받은 파이썬이면 'Install Certificates.command'를 한 번 실행해 주세요")
         raise ApiError(502, "GitHub에 연결하지 못했어요. 인터넷 연결을 확인해 주세요")
@@ -4094,6 +4096,7 @@ def api_setup_state(body):
         if staff_on(t) and not is_example(t):   # 직원 스킬을 켠 층만: 직원 들이기 화면이 고를 것(옛 층의 답은 그대로예요)
             f["staffOn"] = True
             f["staffForm"] = staff_form(os.path.realpath(os.path.join(HERE, t["office"])))
+            f["skillSearch"] = skill_search_view(t)   # ‘스킬 찾기에 skills.sh 쓰기’ 스위치(기본 꺼짐)
     return {"ok": True, "done": done, "platform": platform_name(), "version": VERSION, "intro": intro,
             "github": github_state(s), "deviceFlow": bool(client_id()), "ghAvailable": bool(shutil.which("gh")),
             "claude": {"app": claude_app(), "sessions": len(claude_sessions())},
@@ -4138,6 +4141,31 @@ def _update_url(name, default):
 
 UPDATE_BASE = _update_url("AGENCITY_UPDATE_BASE", "https://github.com")
 UPDATE_RAW = _update_url("AGENCITY_UPDATE_RAW", "https://raw.githubusercontent.com")
+
+
+def _outside_url(name, default):
+    """바깥 읽기(스킬 찾기·GitHub 읽기)용 시험 주소: env가 없으면 default, 있고 꼴이 맞으면(https, 또는 127.0.0.1·localhost의 http, 쿼리·조각·빈칸 없음) 그 값,
+    있는데 꼴이 틀리면 None이에요(그 바깥 요청을 아예 하지 않아요. _update_url처럼 진짜 주소로 돌아가지 않아요).
+    빈 값(NAME=)도 '있는데 꼴이 틀린 값'이에요. 막으려고 비워 둔 시험 환경이 진짜 skills.sh·GitHub로 가지 않게요."""
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    v = v.rstrip("/")
+    try:   # 빈칸·쿼리·조각·사용자 칸(user@)이 든 값은 받지 않아요(앞뒤 빈칸도 떼어 주지 않아요)
+        p = urlsplit(v)
+        ok = bool(p.hostname) and not p.query and not p.fragment and not re.search(r"[\s?#@]", v) and (
+            p.scheme == "https" or (p.scheme == "http" and p.hostname in ("127.0.0.1", "localhost")))
+    except ValueError:
+        ok = False
+    return v if ok else None
+
+
+# 스킬 찾기(‘스킬 찾기에 skills.sh 쓰기’를 켠 층만, 누를 때만). 새 env는 AGENCITY_SKILLS_BASE 하나이고, GitHub 쪽은 시험 환경이 이미 막는 두 이름을 같이 써요.
+# GITHUB_API(로그인·gist)의 느슨한 검사는 그대로 두고, 바깥 읽기는 아래 값만 써요. None이면 그 곳에는 보내지 않아요
+SKILLS_BASE = _outside_url("AGENCITY_SKILLS_BASE", "https://skills.sh")
+SKILL_GH_API = _outside_url("AGENCITY_GITHUB_API", "https://api.github.com")
+SKILL_GH_RAW = _outside_url("AGENCITY_UPDATE_RAW", "https://raw.githubusercontent.com")
+SKILL_GH_WEB = _update_url("AGENCITY_GITHUB_BASE", "https://github.com")    # 화면 링크만(서버는 이 주소로 요청하지 않아요)
 UPDATE_REPO = os.environ.get("AGENCITY_UPDATE_REPO") or "Min-heee/agencity"
 if not re.match(r"^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}\Z", UPDATE_REPO):
     UPDATE_REPO = "Min-heee/agencity"
@@ -4234,7 +4262,7 @@ def latest_tag():
     for _ in range(3):
         try:
             loc = release_location(opener, url)
-        except (urllib.error.URLError, OSError, ValueError) as e:
+        except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
             return None, "ssl" if isinstance(getattr(e, "reason", e), ssl.SSLCertVerificationError) else "network"
         if not loc:
             return None, "no-release"
@@ -7206,7 +7234,13 @@ STAFF_INFO_LOCK = threading.Lock()
 # 공식 플러그인 묶음 사본의 plugins/<플러그인>/agents/<이름>.md(그 플러그인 폴더의 LICENSE·NOTICE, 묶음 맨 위 .gcs-sha)예요.
 # external_plugins/, 다른 묶음, ~/.claude/plugins/synced/, 개인 스킬, 팀장 폴더 스킬, 세션 기록은 열지 않아요. 홈은 HOME_RAW(시험은 가짜 홈)예요
 STAFF_MARKET = os.path.join(HOME_RAW, ".claude", "plugins", "marketplaces", "claude-plugins-official")
-SOURCE_KEY = re.compile(r"^(?:(floor):([a-z0-9][a-z0-9-]{0,63})|(plugin-agent):([a-z0-9][a-z0-9-]{0,63})/([a-z0-9][a-z0-9-]{0,63}))\Z")
+# 원천 열쇠: floor:<스킬>, plugin-agent:<플러그인>/<이름>, gh:<owner>/<repo>@<커밋 40자>:<스킬 폴더>(바깥에서 찾기, v0.15.0). 이 정규식이 열쇠의 유일한 규칙이에요.
+# 앞 다섯 묶음 번호는 그대로이고 gh는 6~10번이에요. 폴더 조각은 '.'으로 시작할 수 없어서 . · .. · .claude가 들어갈 수 없어요. 180자까지(from이 200자에서 잘리지 않게)
+SOURCE_KEY = re.compile(
+    r"^(?=.{1,180}\Z)(?:(floor):([a-z0-9][a-z0-9-]{0,63})"
+    r"|(plugin-agent):([a-z0-9][a-z0-9-]{0,63})/([a-z0-9][a-z0-9-]{0,63})"
+    r"|(gh):([A-Za-z0-9][A-Za-z0-9-]{0,38})/(?!\.{1,2}@)(?![A-Za-z0-9._-]*\.git@)([A-Za-z0-9._-]{1,100})@([0-9a-f]{40})"
+    r":([A-Za-z0-9_-][A-Za-z0-9._-]{0,99}(?:/[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}){0,7}))\Z")
 STAFF_AGENT_LIMIT = 60 * 1024   # 지을 명찰이 이보다 크면 막아요(명찰 64KB 한도, 여유 4KB)
 STAFF_SRC_FILES, STAFF_SRC_DEPTH, STAFF_SOURCES_MAX = 40, 3, 300   # 원천 하나에서 읽는 md 수·폴더 깊이, 목록에 싣는 원천 수
 STAFF_LICENSE_NAMES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "NOTICE", "NOTICE.md", "NOTICE.txt")
@@ -7524,7 +7558,7 @@ def staff_mark(staff, rec):
     m = SOURCE_KEY.match(rec.get("src") or "") if rec and isinstance(rec.get("src"), str) else None
     ver = rec.get("ver") if rec and isinstance(rec.get("ver"), str) and re.match(r"^[0-9a-f]{7}\Z", rec["ver"]) else None
     hired = rec.get("hired") if rec and isinstance(rec.get("hired"), str) and re.match(r"^\d{4}-\d{2}-\d{2}", rec["hired"]) else None
-    where = (m.group(2) or f"{m.group(4)}/{m.group(5)}") + (f"@{ver}" if ver else "") if m else "기록 없음"
+    where = key_src(m.group(0)) + (f"@{ver}" if ver else "") if m else "기록 없음"
     return f"확인 표시: {staff} · {where} · {hired[:10] if hired else '기록 없음'}. 마지막 답 첫 줄에 이 표시를 적어요."
 
 
@@ -8011,18 +8045,42 @@ def staff_mark_new():
 
 
 def source_key_parts(key):
-    """원천 열쇠('floor:<스킬>' 또는 'plugin-agent:<플러그인>/<이름>') → (종류, 이름, 묶음(층 스킬은 None)). 꼴이 틀리면 ApiError(400, why: source).
-    이름은 영문 소문자·숫자·-뿐이라 열쇠로 정해진 곳 밖(.., external_plugins, synced)을 가리킬 수 없어요."""
+    """원천 열쇠('floor:<스킬>', 'plugin-agent:<플러그인>/<이름>', 'gh:<owner>/<repo>@<커밋>:<폴더>') → (종류, 이름, 묶음(층 스킬은 None)). 꼴이 틀리면 ApiError(400, why: source).
+    이름은 영문 소문자·숫자·-뿐이라 열쇠로 정해진 곳 밖(.., external_plugins, synced)을 가리킬 수 없어요. gh는 ('gh-skill', 폴더 끝 조각, '<owner>/<repo>')예요."""
     m = SOURCE_KEY.match(key) if isinstance(key, str) else None
     if not m:
         raise ApiError(400, "원천(source) 꼴이 이상해요. 목록을 다시 불러 주세요", {"why": "source"})
-    return ("floor", m.group(2), None) if m.group(1) else ("plugin-agent", m.group(5), m.group(4))
+    if m.group(1):
+        return "floor", m.group(2), None
+    if m.group(3):
+        return "plugin-agent", m.group(5), m.group(4)
+    return "gh-skill", m.group(10).rsplit("/", 1)[-1], f"{m.group(7)}/{m.group(8)}"
+
+
+def gh_key_parts(key):
+    """gh 열쇠 → (owner, repo, 커밋 40자, 스킬 폴더). 정규식(SOURCE_KEY) 밖 검사는 없어요. gh 꼴이 아니면 ApiError(400, why: source)."""
+    m = SOURCE_KEY.match(key) if isinstance(key, str) else None
+    if not m or not m.group(6):
+        raise ApiError(400, "원천(source) 꼴이 이상해요. 목록을 다시 불러 주세요", {"why": "source"})
+    return m.group(7), m.group(8), m.group(9), m.group(10)
+
+
+def is_gh_key(key):
+    """맞는 꼴의 gh 열쇠인지."""
+    m = SOURCE_KEY.match(key) if isinstance(key, str) else None
+    return bool(m and m.group(6))
+
+
+def key_src(key):
+    """열쇠의 원천 글: 층 스킬은 이름, 플러그인은 '<묶음>/<이름>', gh는 '<owner>/<repo>/<이름>'(확인 표시 줄·직원 정보의 원본 칸)."""
+    kind, name, group = source_key_parts(key)
+    return name if kind == "floor" else f"{group}/{name}"
 
 
 def from_key(text):
-    """SKILL.md office.from 글('<종류> <원천> @<판7>')의 원천 열쇠. 꼴이 틀리면 None."""
+    """SKILL.md office.from 글('<종류> <원천> @<판7>')의 원천 열쇠. gh는 'gh-skill <owner>/<repo>@<커밋>:<폴더> @<판7>'이에요. 꼴이 틀리면 None."""
     parts = text.split() if isinstance(text, str) else []
-    key = f"{parts[0]}:{parts[1]}" if len(parts) >= 2 else ""
+    key = (f"gh:{parts[1]}" if parts[0] == "gh-skill" else f"{parts[0]}:{parts[1]}" if parts[0] != "gh" else "") if len(parts) >= 2 else ""
     return key if SOURCE_KEY.match(key) else None
 
 
@@ -8103,16 +8161,30 @@ def same_file(a, b):
         return False
 
 
+STAFF_TOOL_NOTES = ("claude.md", "claude.local.md", "agents.md", "gemini.md")   # 다른 도구가 지시·기억으로 읽는 파일 이름(casefold). 원본/에 옮기지 않아요
+
+
+def tool_note(rel):
+    """원본/에 옮기지 않는 파일인지: 조각 하나라도 '.'로 시작(숨은 파일·폴더)하거나 끝 이름이 CLAUDE.md·CLAUDE.local.md·AGENTS.md·GEMINI.md예요.
+    원본/ 아래에서 Claude Code가 이런 파일을 지시·스킬로 읽지 않게 해요."""
+    parts = rel.split("/")
+    return any(p.startswith(".") for p in parts) or parts[-1].casefold() in STAFF_TOOL_NOTES
+
+
 def source_walk(folder, out):
     """층 스킬 폴더를 훑어 out(source_read 값)에 md·LICENSE·NOTICE·출처.json·그 밖 파일을 나눠 담아요. 링크·이상한 이름·큰 파일은 refused예요.
     폴더는 STAFF_SRC_DEPTH까지, md는 STAFF_SRC_FILES개까지예요. 스크립트는 읽지 않고 이름만 둬요(가져오지 않아요).
-    맥이 만드는 파일(os_junk)은 아예 보지 않아요. 맨 위 주 파일은 대소문자를 가리지 않고 건너뛰어요(skill.md도 주 파일이에요)."""
+    맥이 만드는 파일(os_junk)은 아예 보지 않아요. 맨 위 주 파일은 대소문자를 가리지 않고 건너뛰어요(skill.md도 주 파일이에요).
+    숨은 폴더('.'로 시작)는 '폴더/' 한 줄로 others에 두고 들어가지 않아요. 숨은 파일과 CLAUDE.md·AGENTS.md 같은 지시 파일(tool_note)은 읽지 않고 others에 둬요."""
     for root, dirs, names in os.walk(folder, followlinks=False):
         rel_root = os.path.relpath(root, folder)
         depth = 0 if rel_root == "." else rel_root.count(os.sep) + 1
         dirs.sort()
         for d in list(dirs):
-            if os.path.islink(os.path.join(root, d)):
+            if d.startswith("."):
+                out["others"].append(f"{d}/" if rel_root == "." else f"{rel_root}/{d}/")
+                dirs.remove(d)
+            elif os.path.islink(os.path.join(root, d)):
                 out["refused"].append({"file": d if rel_root == "." else f"{rel_root}/{d}", "why": "link"})
                 dirs.remove(d)
         if depth >= STAFF_SRC_DEPTH:
@@ -8125,6 +8197,9 @@ def source_walk(folder, out):
             p = os.path.join(root, n)
             if SURROGATE.search(rel) or any(unicodedata.category(ch) in NAME_BAD for ch in rel) or "\\" in rel:
                 out["refused"].append({"file": clean_name(rel, 80), "why": "name"})
+                continue
+            if tool_note(n):
+                out["others"].append(rel)
                 continue
             if os.path.islink(p):
                 out["refused"].append({"file": rel, "why": "link"})
@@ -8163,6 +8238,8 @@ def source_read(base, key):
      record(층 스킬의 출처.json 값), adopted(이미 들인 것), upstream, gcs_sha, sha(모두 묶은 해시), ver(판 7자), label(<원천>@<판7>), from(<종류> <원천> @<판7>)}.
     주 파일이 없거나 링크·밖·64KB 넘음·UTF-8 아님이면 ApiError(404·409)예요. 딸린 파일의 문제(대소문자만 다른 이름 겹침 case 포함)는 refused에 두고 source_check가 막아요."""
     kind, name, group = source_key_parts(key)
+    if kind == "gh-skill":   # 바깥 원천은 이 맥에서 읽지 않아요(GitHub에서 읽어 둔 것만 써요: gh_cached)
+        raise gh_error("gh-reread")
     out = {"key": key, "kind": kind, "name": name, "group": group, "data": {}, "license_data": {}, "others": [], "refused": [],
            "record": None, "record_raw": None, "adopted": False, "upstream": None, "gcs_sha": None}
     if kind == "floor":
@@ -8247,6 +8324,12 @@ def source_public(src):
     keep = ("key", "kind", "name", "group", "src", "main", "bytes", "adopted", "upstream", "gcs_sha", "files", "license_files", "license",
             "others", "scripts", "sha", "ver", "label", "from")
     out = {k: src[k] for k in keep}
+    if src["kind"] == "gh-skill":   # 바깥(GitHub) 원천: 주소는 GitHub 주소 그대로, 가져오지 않는 파일은 앞 100개만
+        g = src["gh"]
+        out.update(path=src["path"], repo=src["repo"], commit=src["commit"], dir=src["dir"], branch=src["branch"], url=src["url"],
+                   info={"stars": g["stars"], "archived": g["archived"], "fork": g["fork"], "org": g["org"], "spdx": g["spdx"]},
+                   others=src["others"][:100], others_more=max(0, len(src["others"]) + src["others_more"] - 100))
+        return out
     out["path"] = show_path(src["path"])
     return out
 
@@ -8292,6 +8375,10 @@ SIG = {   # 4-2 신호 표와 6-3 확인해요 항목의 낱말. 모두 '확인�
     "other": (re.compile(r"~~[A-Za-z][\w-]*"), re.compile(r"(?<![\w/.~-])/[a-z][a-z0-9-]{2,}(?::[a-z0-9-]+)?(?=[\s`'\".,)]|\Z)"),
               re.compile(r"(?i)\b(?:use|invoke|run|call)\s+the\s+[\w:-]+\s+skill\b"), re.compile(r"\bSkill\s+tool\b"), re.compile(r"\bmcp__\w+")),
     "args": (re.compile(r"\$ARGUMENTS\b|\$[1-9]\b"),),
+    # 설치하라는 줄(gh 원천만 봐요). -g·--global 홀로는 보지 않아요(rg -g, gcc -g, git config --global이 걸려요). npm install -g x는 첫 꼴이 잡아요
+    "install": (re.compile(r"(?i)\b(?:npx|npm|pnpm|yarn|bun|pipx?|pip3|brew|cargo|gem|uv)\s+(?:install|add|i|tool\s+install)\b"),
+                re.compile(r"(?i)\binstall(?:ed|ing)?\s+(?:it\s+|this\s+|them\s+)?globally\b"),
+                re.compile(r"(?i)\bskills\s+add\b")),
 }
 SIG_ALL = ("call", "rules", "rule1", "ask")   # 머리말 줄도 보는 신호(나머지는 본문 단계만 봐요)
 SHELL_FENCE = ("bash", "sh", "shell", "console", "zsh", "terminal")
@@ -8377,7 +8464,7 @@ def source_check(src):
                     found["bash"].append(src_hit(rel, n, "```" + info.split()[0]))
                 continue
             for what, pats in SIG.items():
-                if what in SIG_ALL:
+                if what in SIG_ALL or (what == "install" and kind != "gh-skill"):   # 설치하라는 줄은 바깥 원천(gh)만 봐요(이 맥 카드는 그대로)
                     continue
                 for pat in pats:
                     m = pat.search(line)
@@ -8407,7 +8494,9 @@ def source_check(src):
         got = [r["file"] for r in src["refused"] if (r["why"] if r["why"] in say else "outside") == why]
         if got:
             more = f" 외 {len(got) - 5}개" if len(got) > 5 else ""
-            block.append(check_item(why, f"이 맥의 정해진 곳 밖 파일이에요(링크·이상한 이름·파일 모양이 아님: {', '.join(got[:5])}{more})." if why == "outside"
+            block.append(check_item(why, f"저장소 안 파일 이름이 이상하거나 링크라서 읽지 않은 파일이 있어요({', '.join(got[:5])}{more})."
+                                    if why == "outside" and kind == "gh-skill"
+                                    else f"이 맥의 정해진 곳 밖 파일이에요(링크·이상한 이름·파일 모양이 아님: {', '.join(got[:5])}{more})." if why == "outside"
                                     else f"대소문자만 다른 같은 이름의 파일이 있어요({', '.join(got[:5])}{more}). 직원 폴더에 옮기면 겹쳐요." if why == "case"
                                     else f"읽지 못한 딸린 파일이 있어요({say[why]}: {', '.join(got[:5])}{more}).", main=main))
     rows = (("hidden", "보이지 않는 글자가 들어 있어요{at}."), ("control", "제어 문자가 들어 있어요{at}."), ("base64", "긴 base64 글이 들어 있어요{at}."),
@@ -8450,7 +8539,8 @@ def source_check(src):
                                ("other", "다른 스킬·명령·연결 도구를 부르는 줄이 있어요{at}. 이 층에 없으면 건너뛰어요.", None),
                                ("outlink", "폴더 밖이나 없는 파일을 가리키는 링크가 있어요{at}. 그 파일은 가져오지 않아요.", None),
                                ("args", "$ARGUMENTS 같은 자리 글자가 있어요{at}. 명찰의 '이 층에서 지킬 것' 5번이 [일 맡기기]의 목표·범위로 읽게 해요.", None),
-                               ("piped", "바깥 스크립트를 받아 돌리는 말이 있어요{at}. 이 직원은 명령을 못 돌려요.", None)):
+                               ("piped", "바깥 스크립트를 받아 돌리는 말이 있어요{at}. 이 직원은 명령을 못 돌려요.", None),
+                               ("install", "설치하라는 줄이 있어요{at}. 직원도 팀장도 설치하지 않아요. 설치는 대표가 정해요.", None)):
         if found[kind_id]:
             check.append(check_item(kind_id, text, found[kind_id], main, add))
     model = (front or {}).get("model")
@@ -8471,7 +8561,10 @@ def source_check(src):
     if src["front_error"]:
         check.append(check_item("front-unread", f"원본 머리말을 읽지 못했어요({one_line(src['front_error'], 60)}). 설명은 틀 그대로 둬요."))
     if not src["license"]["files"]:
-        check.append(check_item("license-none", "라이선스 파일이 없어요. 출처만 남겨요."))
+        check.append(check_item("gh-license-none", "라이선스 파일이 스킬 폴더에도 저장소 맨 위에도 없어요. 옮겨 쓸 권리가 분명하지 않아요. 출처만 남겨요.")
+                     if kind == "gh-skill" else check_item("license-none", "라이선스 파일이 없어요. 출처만 남겨요."))
+    if kind == "gh-skill":
+        check += gh_check_items(src)
     if kind == "plugin-agent":
         check.append(check_item("plugin-on", "이 플러그인이 앱에서 켜져 있으면 팀장이 원본(모든 도구)을 바로 띄울 수 있어요. 들인 뒤 앱에서 끄길 권해요."))
     return {"block": block, "check": check, "tools": {k: v[:20] for k, v in tools.items() if v}, "wants_wide": wide, "listed": listed,
@@ -8703,21 +8796,36 @@ def staff_sources(base):
 
 def api_staff_sources(q):
     """GET /api/staff/sources?team=<층 id>: 직원 들이기 양식(스킬로 들이기)을 펼 때만 불러요(설정 상태 응답에는 싣지 않아요). 직원 스킬을 켠 층만이에요(꺼져 있으면 409 off).
-    → {ok, team, sources, groups, counts, market}(staff_sources). 파일은 쓰지 않아요."""
+    → {ok, team, sources, groups, counts, market}(staff_sources) + outside{ask_words, min_installs, rows, base}. 파일은 쓰지 않아요."""
     t, base = floor_of((q.get("team") or [None])[0], "예시 층에는 직원을 들일 수 없어요")
     if not staff_on(t):
         raise ApiError(409, "이 층은 직원 스킬(시험 기능)이 꺼져 있어요. 설정 → 층에서 먼저 켜 주세요", {"why": "off"})
-    return dict(staff_sources(base), ok=True, team=t["id"])
+    # outside: '바깥에서 찾기' 낱말 표와 기준(스위치와 상관없이 실어요. 바깥 요청은 없어요). base가 None이면 시험용 주소 값이 이상해서 찾기를 보내지 않아요
+    outside = {"ask_words": [[list(keys), en] for keys, en in SKILL_ASK_WORDS], "min_installs": SKILL_MIN_INSTALLS, "rows": SKILL_ROWS, "base": SKILLS_BASE}
+    return dict(staff_sources(base), ok=True, team=t["id"], outside=outside)
 
 
 def api_staff_preview(body):
-    """POST /api/staff/from-skill/preview {team, source}: 스킬로 들이기 카드. 원천을 읽어(source_read) 점검하고(source_check) 이름·역할·도구를 제안하고,
+    """POST /api/staff/from-skill/preview {team, source} 또는 {team, outside: {repo, skill}, fresh?}: 스킬로 들이기 카드.
+    원천을 읽어(source_read, 바깥은 gh_preview_read·읽어 둔 gh 열쇠) 점검하고(source_check) 이름·역할·도구를 제안하고,
     지을 SKILL.md·명찰의 바이트 수와 서버가 저절로 하는 일을 돌려줘요. 파일은 하나도 쓰지 않아요(설정 폴더 기록도요).
     지을 명찰이 STAFF_AGENT_LIMIT를 넘으면 막아요 항목(size)이에요. approval: 'adopted'(이미 들인 것: 사이트에서 바로) 또는 'lead'(남의 글: 팀장 창 승인)."""
     t, base = floor_of(body.get("team"), "예시 층에는 직원을 들일 수 없어요")
     if not staff_on(t):
         raise ApiError(409, "이 층은 직원 스킬(시험 기능)이 꺼져 있어요. 설정 → 층에서 먼저 켜 주세요", {"why": "off"})
-    src = source_read(base, body.get("source"))
+    pick = None
+    if body.get("outside") is not None:   # 바깥에서 찾은 줄: 서버가 기본 가지의 커밋을 정해 GitHub에서 읽어요(읽어 둔 것이 있으면 바깥에 묻지 않아요)
+        src, pick = gh_preview_read(t, body.get("outside"), body.get("fresh") is True)
+    elif is_gh_key(body.get("source")):   # gh 열쇠: 읽어 둔 것만 써요. 페이지가 보낸 커밋을 GitHub에 묻지 않아요
+        if not skill_search_on(t):
+            raise outside_off()
+        hit = gh_cached(body.get("source"))
+        if not hit:
+            raise gh_error("gh-reread")
+        src, pick = hit["src"], hit["outside"]
+    else:
+        src = source_read(base, body.get("source"))
+    gh = src["kind"] == "gh-skill"
     chk = source_check(src)
     try:
         raw = load_json(os.path.join(base, "team.json")).get("members")
@@ -8726,10 +8834,11 @@ def api_staff_preview(body):
     raw = raw if isinstance(raw, list) else []
     lead = team_lead(raw)
     folder = lead_folder(lead) if lead else None
-    same = sum(1 for _, _, n, _, _ in source_names(base) if n == src["name"]) > 1
+    names = [n for _, _, n, _, _ in source_names(base)]
+    same = src["name"] in names if gh else sum(1 for n in names if n == src["name"]) > 1   # gh는 이 맥 목록에 같은 이름이 하나라도 있으면 소유자 이름을 앞에 넣어요
     staff = staff_name_suggest(src["name"], src["group"], staff_taken(base, raw, folder), same)
     roles = floor_roles(base)
-    rs = role_suggest(src["name"], src["group"], roles)
+    rs = role_suggest(src["name"], None if gh else src["group"], roles)
     ko = source_ko(src["group"], src["name"], source_desc(src["front"])) if src["kind"] == "plugin-agent" else None
     floor = floor_label(base)
     desc = one_line(f"{floor} {rs['role'] or '직원'}. 팀장이 업무 번호와 함께 띄워요.", STAFF_DESC_MAX)
@@ -8759,9 +8868,13 @@ def api_staff_preview(body):
             {"id": "headings", "text": f"원본 머리글 {heads}개를 두 단계 내려요(# → ###)." if heads else "원본에 내릴 머리글이 없어요."},
             {"id": "desc", "text": "한 줄 설명은 틀로 채워요. 원문 설명은 넣지 않아요."},
             {"id": "agent", "text": "명찰에 '이 층에서 지킬 것' 8줄, 확인 표시, 앞 기억 줄을 넣어요."}]
+    if gh:
+        auto.append({"id": "pin", "text": "카드에서 읽은 그때 글만 옮겨요. 저장소가 바뀌어도 이 직원은 그대로예요."})
     model_orig = chk["model"]
     agent_at = os.path.join(folder, ".claude", "agents", f"{who}.md") if folder else os.path.join(".claude", "agents", f"{who}.md")
-    return {"ok": True, "team": t["id"], "source": dict(source_public(src), read=hired), "desc_orig": clean_name((src["front"] or {}).get("description"), 1000),
+    extra = {"outside": pick} if gh else {}   # gh: 고를 때 값 그대로({repo, skill}), read는 GitHub에서 읽은 때예요
+    return {"ok": True, "team": t["id"], "source": dict(source_public(src), read=src["read_at"] if gh else hired), **extra,
+            "desc_orig": clean_name((src["front"] or {}).get("description"), 1000),
             "body": src["body"], "block": chk["block"], "check": chk["check"], "blocked": bool(chk["block"]), "signals": chk["tools"],
             "wants_wide": chk["wants_wide"], "unknown_tools": chk["unknown"],
             "suggest": {"staff": staff, "role": rs["role"], "role_words": rs["missing"], "field": rs["field"], "desc": desc, "tools": tools,
@@ -8770,6 +8883,905 @@ def api_staff_preview(body):
             "fence_head": STAFF_FENCE_HEAD, "fence": staff_fence(base, who), "size": size, "auto": auto,
             "approval": "adopted" if src["kind"] == "floor" and src["adopted"] else "lead", "dup": dup,
             "where": {"folder": show_path(os.path.join(base, "staff", who)), "agent": show_path(agent_at)}}
+
+
+# 바깥에서 찾기(U-34 v0.15.0): 층마다 '스킬 찾기에 skills.sh 쓰기'(org.json 그 층의 skillSearch, 기본 꺼짐) ------------------------------------------
+# 켠 층에서 대표가 [찾기]를 누를 때만 skills.sh에 보이는 영어 낱말을 보내고(GET 한 번), 찾은 줄을 눌러 카드를 열 때·[다시 읽기]·[직원 들이기] 때만
+# GitHub에서 그 스킬 파일을 GET해요(로그인 없이). 읽는 커밋은 늘 서버가 그 저장소의 기본 가지에서 정해요. 페이지가 보낸 커밋은 읽지 않아요(gh-reread).
+# 바깥 요청은 모두 out_get 하나로만 해요(github_call은 토큰을 붙일 수 있어서 쓰지 않아요). 넘겨 주는 주소는 따라가지 않아요.
+# 결과와 읽은 글은 메모리에만 둬요(서버를 다시 켜면 비어요). 캐시·한도 창·GH_LIMIT·버린 일꾼 수는 SKILL_OUT_LOCK 하나가 지키고, 바깥 요청 동안에는 쥐지 않아요.
+# 잠금 차례: SKILL_SEARCH_NET·GH_READ_NET → SKILL_OUT_LOCK. 들이기는 GH_READ_NET을 놓은 뒤 TEAM_LOCK을 쥐어요
+# 맡길 일 → 영어 낱말 표(차례가 곧 우선순위, 긴 말이 먼저). 페이지(skAskWords)가 이 브라우저 안에서만 써요. 서버는 대표가 보고 고친 영어 낱말 문자열만 받아요.
+# 표는 짐작이에요. 고칠 때는 이 상수만 고쳐요(바깥 번역·AI는 쓰지 않아요). 영어는 모두 [a-z][a-z-]{0,19} 낱말 1~2개예요
+SKILL_ASK_WORDS = (
+    (("코드 리뷰", "코드리뷰", "코드 검토"), "code review"),
+    (("문서 점검", "문서 검토"), "docs review"),
+    (("기획서", "명세서", "스펙"), "spec writing"),
+    (("요구사항", "제품 기획"), "product requirements"),
+    (("릴리스 노트", "변경 기록"), "release notes"),
+    (("검색 노출", "검색엔진"), "seo"),
+    (("데이터 분석",), "data analysis"),
+    (("회의록",), "meeting notes"),
+    (("접근성",), "accessibility"),
+    (("보안",), "security"),
+    (("리뷰", "검토"), "review"),
+    (("코드",), "code"),
+    (("시험", "테스트"), "testing"),
+    (("문서",), "documentation"),
+    (("점검", "감사"), "audit"),
+    (("조사", "리서치"), "research"),
+    (("요약", "정리"), "summary"),
+    (("디자인",), "design"),
+    (("화면", "프론트엔드", "프런트엔드", "프론트"), "frontend"),
+    (("배포", "릴리스"), "release"),
+    (("문구", "카피"), "copywriting"),
+    (("마케팅",), "marketing"),
+    (("버그", "오류", "디버깅"), "debugging"),
+    (("성능",), "performance"),
+    (("데이터",), "data"),
+    (("글쓰기", "작문"), "writing"),
+    (("번역",), "translation"),
+    (("파이썬",), "python"),
+    (("타입스크립트",), "typescript"),
+    (("자바스크립트",), "javascript"),
+    (("리액트",), "react"),
+    (("모니터링", "감시"), "monitoring"),
+    (("기획",), "planning"),
+)
+# 보낼 낱말: 영문 소문자로 시작하는 낱말 1~4개(낱말마다 소문자·숫자·-, 숫자는 2개까지), 빈칸 하나씩, 모두 3~40자. 서버는 고치지 않고 검사만 해요(정리는 페이지가 보내기 전에)
+SKILL_WORDS = re.compile(r"^(?=.{3,40}\Z)[a-z][a-z0-9-]{0,19}(?: [a-z][a-z0-9-]{0,19}){0,3}\Z")
+SKILL_NET_TIMEOUT, SKILL_NET_DEADLINE = 5, 8           # 한 번 읽기 5초, 모두 합쳐 8초
+SKILL_SEARCH_MAX = 512 * 1024                           # 찾기 답은 이만큼까지(오늘 사본 15.8KB)
+OUT_ABANDON_MAX = 3                                     # 기한이 지나 버려 둔 일꾼이 이만큼이면 새로 보내지 않아요
+SKILL_SCAN, SKILL_MIN_INSTALLS, SKILL_ROWS, SKILL_OTHER_ROWS = 200, 1000, 20, 5   # 보는 줄, 설치 수 하한, 보내는 GitHub 줄·GitHub 밖 줄
+SKILL_SEARCH_TTL, SKILL_SEARCH_KEEP, SKILL_SEARCH_PER_MIN = 24 * 3600, 50, 6        # 찾기 캐시 수명·크기, 1분에 실제로 보내는 찾기 수(서버 전체)
+SKILL_OFFICIAL = {"anthropics": "Anthropic", "vercel-labs": "Vercel", "microsoft": "Microsoft"}   # 공식 출처(find-skills의 세 곳). 위로 올리고 같은 이름 거르기에서 빼요
+SKILL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
+GH_SOURCE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9-]{0,38})/([A-Za-z0-9._-]{1,100})\Z")
+OTHER_SOURCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,99}(?:/[A-Za-z0-9._-]{1,100})?\Z")   # GitHub 밖 출처(code.deepline.com 같은 것). 링크만 둬요
+GH_BRANCH = re.compile(r"^[A-Za-z0-9._-]{1,100}\Z")      # '/'가 든 기본 가지는 읽지 않아요(gh-shape)
+GH_SHA = re.compile(r"^[0-9a-f]{40}\Z")
+HEX64 = re.compile(r"^[0-9a-f]{64}\Z")
+GH_JSON_MAX, GH_TREE_MAX, GH_TREE_ITEMS, GH_READ_TOTAL = 256 * 1024, 4 * 1024 * 1024, 50000, 1024 * 1024
+GH_NET_TIMEOUT, GH_READ_DEADLINE = 10, 30              # 요청마다 10초(남은 기한보다 길지 않게), 읽기 전체 30초
+GH_READ_TTL, GH_READ_KEEP, SKILL_READ_PER_MIN = 24 * 3600, 8, 4   # 읽기 캐시 수명(묶음 수명과 같아요)·크기, 1분에 실제로 GitHub에 가는 읽기 수
+GH_OTHERS_KEEP, GH_LIMIT_MAX = 200, 3600                 # 캐시·출처.json에 두는 '가져오지 않는 파일' 수, GitHub 한도로 쉬는 가장 긴 때(초)
+SKILL_FALLBACK_LINK = "https://skills.sh/"              # 찾기에 실패하면 대표 브라우저가 여는 곳(낱말을 주소에 넣지 않아요)
+SKILL_OUT_LOCK = threading.Lock()
+SKILL_SEARCH_NET = threading.Lock()                      # 찾기는 한 번에 하나
+GH_READ_NET = threading.Lock()                           # GitHub 읽기는 한 번에 하나
+SKILL_SEARCHES = {}      # 낱말 → {t, at, rows(role 없이), others, counts}. 한 서버의 모든 층이 같이 써요(공개 자료라서요)
+SKILL_SENT = []          # 실제로 보낸 찾기 시각(1분 창)
+GH_SENT = []             # 실제로 GitHub에 간 읽기 시각(1분 창, 들이기의 다시 읽기도)
+GH_LIMIT = {"until": 0.0}   # GitHub 한도가 풀리는 때(그때까지 보내지 않아요)
+GH_READS = {}            # gh 열쇠 → {t, used, src, pick, outside}. 커밋에 묶인 글이라 낡지 않아요
+OUT_WORKERS = {"abandoned": 0}   # 기한이 지나 버려 둔 out_get 일꾼 수(살아 있는 것)
+STAFF_OFF_TEXT = "이 층은 직원 스킬(시험 기능)이 꺼져 있어요. 설정 → 층에서 먼저 켜 주세요"
+SKILL_FALLBACK = {
+    "network": "skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.",
+    "timeout": "skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.",
+    "ssl": "skills.sh 인증서를 확인하지 못했어요. python.org에서 받은 파이썬이면 'Install Certificates.command'를 한 번 실행해 주세요.",
+    "moved": "skills.sh가 다른 주소로 넘겨 줬어요. 따라가지 않았어요. 이 맥에 있는 것만 보여요.",
+    "limited": "skills.sh가 잠깐 막았어요. 조금 뒤 다시 찾아 주세요.",
+    "status": "skills.sh가 답하지 못했어요(상태 {status}). 이 맥에 있는 것만 보여요.",
+    "shape": "skills.sh 답의 꼴이 바뀌어서 읽지 못했어요. 이 맥에 있는 것만 보여요.",
+    "config": "시험용 주소 값이 이상해서 보내지 않았어요. 이 맥에 있는 것만 보여요."}
+# GitHub 읽기 오류: why → (상태 코드, 글). 글 속 값은 꼴 검사를 거친 값만 넣어요. extra.link(GitHub 저장소 주소)가 있으면 화면이 'GitHub에서 보기 ↗'를 붙여요
+GH_ERRORS = {
+    "gh-reread": (409, "읽어 둔 글이 없어요(서버를 다시 켰거나 오래됐어요). 바깥에 묻지 않았어요. 목록에서 그 줄을 다시 눌러 읽어 주세요"),
+    "not-github": (400, "GitHub 밖 출처라 읽지 않아요. 링크만 둬요"),
+    "gh-limit": (409, "GitHub가 잠깐 막았어요(로그인 없이 시간당 60번). {hm}쯤 다시 눌러 주세요"),
+    "gh-net": (409, "GitHub에 닿지 못했어요. 인터넷 연결을 확인한 뒤 다시 눌러 주세요"),
+    "gh-config": (409, "시험용 주소 값이 이상해서 GitHub에 보내지 않았어요"),
+    "gh-ssl": (409, "GitHub 인증서를 확인하지 못했어요. python.org에서 받은 파이썬이면 'Install Certificates.command'를 한 번 실행해 주세요"),
+    "gh-moved": (409, "저장소가 다른 곳으로 옮겨졌어요(GitHub가 넘겨 주는 주소는 따라가지 않아요). GitHub에서 확인해 주세요"),
+    "gh-gone": (409, "그 저장소를 GitHub에서 찾지 못했어요(지웠거나 비공개예요)"),
+    "gh-closed": (409, "비공개이거나 막힌 저장소라 읽지 않아요"),
+    "gh-notfound": (404, "이 저장소에서 그 스킬 폴더({skill})를 찾지 못했어요. 이름이 바뀌었을 수 있어요"),
+    "gh-root": (409, "저장소 맨 위에 스킬이 있는 꼴이라 아직 읽지 않아요(다음 버전). GitHub에서 확인해 주세요"),
+    "gh-link-main": (409, "그 스킬의 SKILL.md가 링크라서 읽지 않아요"),
+    "gh-big": (409, "저장소 파일 목록이 너무 크거나(다 받지 못했어요) 스킬 글이 1MB를 넘어서 읽지 않아요"),
+    "gh-mismatch": (409, "GitHub에서 받은 파일이 그 커밋의 파일 목록과 달라서 쓰지 않았어요"),
+    "gh-denied": (409, "GitHub가 거절했어요(상태 {status}). 조금 뒤 다시 눌러 주세요"),
+    "gh-shape": (409, "GitHub 답의 꼴이 이상하거나 스킬 폴더 이름에 쓸 수 없는 글자가 있어서 읽지 않았어요")}
+GH_HIRE_NET = "GitHub에 닿지 못해서 들이지 않았어요. 아무것도 쓰지 않았어요. 잠시 뒤 [직원 들이기]를 다시 눌러 주세요"
+GH_HIRE_CHANGED = "GitHub의 그 커밋이 카드에서 읽은 것과 달라요(없어졌거나 바뀌었어요). 들이지 않았어요. [다시 읽기]로 새로 읽어 주세요"
+
+
+def skill_out_reset():
+    """모든 찾기 캐시·읽기 캐시·한도 창·GH_LIMIT·버린 일꾼 수를 비워요(서버를 다시 켠 것과 같아요. 시험의 setUp이 불러요)."""
+    with SKILL_OUT_LOCK:
+        SKILL_SEARCHES.clear()
+        SKILL_SENT.clear()
+        GH_SENT.clear()
+        GH_READS.clear()
+        GH_LIMIT["until"] = 0.0
+        OUT_WORKERS["abandoned"] = 0
+
+
+def skill_words_ok(w):
+    """보낼 낱말 꼴(SKILL_WORDS)이고 낱말마다 숫자가 2개까지인지. @ . _ / : 한글·숫자로 시작하는 낱말을 받지 않아서 메일·주소·경로·전화번호 모양이 들어갈 수 없어요."""
+    return isinstance(w, str) and bool(SKILL_WORDS.match(w)) and all(sum(c.isdigit() for c in x) <= 2 for x in w.split(" "))
+
+
+def iso_tz(v):
+    """시간대가 있는 ISO 시각 글인지(datetime.fromisoformat이 읽고 tzinfo가 있음)."""
+    if not isinstance(v, str) or len(v) > 40:
+        return False
+    try:
+        return datetime.fromisoformat(v).tzinfo is not None
+    except ValueError:
+        return False
+
+
+def skill_search_on(t):
+    """층(org.json 줄)에 '스킬 찾기에 skills.sh 쓰기'를 켰는지: skillSearch가 {on: True, at: 시간대 있는 ISO, by: '사이트'}일 때만이에요(기본 꺼짐).
+    손으로 적은 {"on": true}는 켜짐이 아니에요. 바깥 기능은 staff_on(t)도 참일 때만 돌아요(각 API가 먼저 봐요)."""
+    v = t.get("skillSearch") if isinstance(t, dict) else None
+    return isinstance(v, dict) and v.get("on") is True and v.get("by") == "사이트" and iso_tz(v.get("at"))
+
+
+def skill_search_view(t):
+    """화면에 보낼 스위치 값 {on, at, by, odd}. at·by는 꼴이 맞을 때만 그대로예요. odd: 칸은 있는데 꼴이 틀려서 꺼짐으로 본 때 True(on: false로 끈 칸은 아니에요)."""
+    v = t.get("skillSearch") if isinstance(t, dict) else None
+    on = skill_search_on(t)
+    has = isinstance(t, dict) and "skillSearch" in t
+    return {"on": on, "at": v["at"] if isinstance(v, dict) and iso_tz(v.get("at")) else None,
+            "by": "사이트" if isinstance(v, dict) and v.get("by") == "사이트" else None,
+            "odd": has and not on and not (isinstance(v, dict) and v.get("on") is False)}
+
+
+def outside_off():
+    return ApiError(409, "‘스킬 찾기에 skills.sh 쓰기’가 꺼져 있어서 보내지 않았어요. ‘바깥에서 찾기’의 [켜기]나 위 스위치로 켜 주세요", {"why": "outside-off"})
+
+
+def api_staff_outside_enable(body):
+    """POST /api/staff/outside/enable {team, on}: 층의 '스킬 찾기에 skills.sh 쓰기'를 켜고 꺼요 → {ok, team, on, changed, at, by}. 바깥 요청은 없어요.
+    org.json 그 층 줄의 skillSearch를 {on, at: 바꾼 때, by: '사이트'}로 써요(끄면 칸을 지우지 않고 on: false로. 고치기 전 org.json은 org.json.bak).
+    켜기는 직원 스킬을 켠 층만(409 off), 끄기는 늘 돼요. 켜짐 값이 같으면 쓰지 않아요(changed: false). by는 늘 '사이트'예요(누가 눌렀는지 증명하지 못해요)."""
+    on = body.get("on")
+    if not isinstance(on, bool):
+        raise ApiError(400, "on은 true나 false로 보내 주세요")
+    t, base = floor_of(body.get("team"), "예시 층에는 스킬 찾기를 켤 수 없어요")
+    if on and not staff_on(t):
+        raise ApiError(409, "직원 스킬을 먼저 켜 주세요", {"why": "off"})
+    path = os.path.join(HERE, "org.json")
+    with TEAM_LOCK:   # 층 만들기·층 순서 바꾸기·직원 스킬 켜기(org.json을 써요)와 겹치지 않게
+        try:
+            cur = load_json(path)
+        except (OSError, ValueError):
+            raise ApiError(409, "org.json을 읽지 못했어요. 파일을 고친 뒤 다시 해 주세요")
+        teams = cur.get("teams") if isinstance(cur, dict) else None
+        hit = [x for x in teams if isinstance(x, dict) and x.get("id") == t["id"] and x.get("office")] if isinstance(teams, list) else []
+        if len(hit) != 1:
+            raise ApiError(409, "org.json에서 이 층을 하나로 찾지 못했어요. 파일을 고친 뒤 다시 해 주세요")
+        changed = skill_search_on(hit[0]) != on
+        if changed:
+            hit[0]["skillSearch"] = {"on": on, "at": now(), "by": "사이트"}
+            try:
+                shutil.copy(path, path + ".bak")
+                write_json(path, cur)
+            except OSError as e:
+                raise ApiError(500, f"org.json을 쓰지 못했어요({e.strerror or type(e).__name__}). 그대로예요")
+        view = skill_search_view(hit[0])
+    if changed:
+        log(base, "팀 전체", "설정", "스킬 찾기에 skills.sh 쓰기를 " + ("켰어요(누를 때만 검색 낱말이 나가요)" if on else "껐어요"))
+    return {"ok": True, "team": t["id"], "on": on, "changed": changed, "at": view["at"], "by": view["by"]}
+
+
+class OutError(Exception):
+    """바깥 요청이 끝나지 못함. why: network·timeout·ssl·moved·big·shape"""
+
+    def __init__(self, why):
+        super().__init__(why)
+        self.why = why
+
+
+def out_why(e):
+    """받기 오류 → OutError의 why. 3.9에서 socket.timeout은 TimeoutError가 아니라서 먼저 봐요. 검증하지 않는 SSL로 다시 해 보지 않아요."""
+    r = getattr(e, "reason", None)
+    if isinstance(e, (socket.timeout, TimeoutError)) or isinstance(r, (socket.timeout, TimeoutError)):
+        return "timeout"
+    if isinstance(e, ssl.SSLCertVerificationError) or isinstance(r, ssl.SSLCertVerificationError):
+        return "ssl"
+    return "network"   # URLError·OSError·http.client.HTTPException·ValueError와 그 밖 모두
+
+
+def out_get(url, accept, limit, timeout, deadline, api=False):
+    """바깥 GET 하나. → (상태 코드, 머리글{소문자 열쇠: 값}, 몸 ≤ limit 바이트). 머리글 인자는 없어요(늘 같은 머리글이에요).
+    - 받기는 데몬 일꾼 스레드에서 하고(tm_fetch_members와 같은 꼴), 부른 쪽은 deadline초까지만 기다려요. 기한이 지나면 OutError('timeout')이고
+      그 일꾼은 버려 둬요(결과는 버려요. 살아 있는 버린 일꾼 수를 SKILL_OUT_LOCK 안에서 세요). 머리글을 조금씩 흘려 보내는 곳도 deadline에서 끝나요.
+    - 일꾼 안의 한 번 읽기 timeout은 min(timeout, 남은 기한)이에요. 받기는 read1 고리로, limit을 넘으면 OutError('big').
+    - 넘겨 주는 주소(3xx)는 따라가지 않아요(_NoRedirect). 300~399면 OutError('moved')(308 포함, Location은 읽지 않아요).
+    - 127.0.0.1·localhost면 프록시를 거치지 않아요(LOCAL과 같게). 그 밖은 기본 프록시 그대로예요.
+    - 보내는 머리글: User-Agent: agencity/<VERSION>, Accept, (http.client가 붙이는) Accept-Encoding: identity. api면 X-GitHub-Api-Version도.
+      쿠키·Authorization·Referer는 없어요. GitHub 로그인 토큰(github-token.json, gh)은 읽지도 쓰지도 않아요.
+    - 4xx·5xx는 오류가 아니라 (상태, 머리글, 몸)으로 돌려줘요(몸도 limit까지). Content-Encoding이 비었거나 identity가 아니면 OutError('shape')(풀지 않아요).
+    - 오류: 시간 넘김 'timeout', 인증서 'ssl', 그 밖(연결·HTTP 꼴·주소) 'network'."""
+    headers = {"User-Agent": f"agencity/{VERSION}", "Accept": accept}
+    if api:
+        headers["X-GitHub-Api-Version"] = "2022-11-28"
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    handlers = [_NoRedirect]
+    if urlsplit(url).hostname in ("127.0.0.1", "localhost"):
+        handlers.insert(0, urllib.request.ProxyHandler({}))   # 시험용 가짜 서버는 프록시를 거치지 않게
+    end = time.monotonic() + deadline
+    box = {}
+
+    def take(f, hdrs):
+        if (hdrs.get("content-encoding") or "").strip().lower() not in ("", "identity"):
+            raise OutError("shape")
+        read = getattr(f, "read1", None) or f.read
+        buf = bytearray()
+        while True:
+            if time.monotonic() > end:
+                raise OutError("timeout")
+            b = read(65536)
+            if not b:
+                return bytes(buf)
+            buf += b
+            if len(buf) > limit:
+                raise OutError("big")
+
+    def get():
+        try:
+            opener = urllib.request.build_opener(*handlers)
+            try:
+                with opener.open(req, timeout=max(0.05, min(timeout, end - time.monotonic()))) as r:
+                    hdrs = {k.lower(): v for k, v in r.headers.items()}
+                    box["got"] = (r.status, hdrs, take(r, hdrs))
+            except urllib.error.HTTPError as e:
+                try:
+                    if 300 <= e.code < 400:
+                        raise OutError("moved")
+                    hdrs = {k.lower(): v for k, v in e.headers.items()} if e.headers is not None else {}
+                    box["got"] = (e.code, hdrs, take(e, hdrs) if e.fp is not None else b"")
+                finally:
+                    try:
+                        e.close()
+                    except Exception:  # noqa: BLE001 — 닫기 실패는 상관없어요
+                        pass
+        except OutError as e:
+            box["why"] = e.why
+        except Exception as e:  # noqa: BLE001 — 연결·HTTP 꼴·인증서 등 모든 받기 오류
+            box["why"] = out_why(e)
+        finally:
+            with SKILL_OUT_LOCK:
+                box["done"] = True
+                if box.get("gone"):
+                    OUT_WORKERS["abandoned"] = max(0, OUT_WORKERS["abandoned"] - 1)
+    th = threading.Thread(target=get, name="out-get", daemon=True)
+    th.start()
+    th.join(max(0.0, end - time.monotonic()))
+    with SKILL_OUT_LOCK:
+        late = not box.get("done")
+        if late:   # 기한이 지났어요: 일꾼은 버려 두고(데몬이라 서버를 붙잡지 않아요) 결과는 버려요
+            box["gone"] = True
+            OUT_WORKERS["abandoned"] += 1
+    if late:
+        raise OutError("timeout")
+    if "why" in box:
+        raise OutError(box["why"])
+    return box["got"]
+
+
+def skills_search_url(words):
+    return f"{SKILLS_BASE}/api/search?q={quote(words, safe='')}"
+
+
+def skill_hits(sid, words):
+    """스킬 이름(skillId)에 든 찾는 낱말 수: 이름을 소문자로 [-_.]에서 나눈 조각 중 하나가 w·ws·wer·wers·wing·wed이면 그 낱말 w는 맞아요."""
+    parts = set(re.split(r"[-_.]+", sid.lower()))
+    return sum(1 for w in dict.fromkeys(words.split(" ")) if any(w + tail in parts for tail in ("", "s", "er", "ers", "ing", "ed")))
+
+
+def skills_rows(doc, words):
+    """skills.sh 찾기 답(JSON 값)을 걸러 {rows, others, counts}(4-3). 꼴이 틀리면 ValueError. 쓰는 칸은 skills의 source·skillId·installs뿐이에요.
+    rows: GitHub 줄 {repo, skill, installs, org, hits, twins}(맞는 낱말 → 공식 → 맞는 낱말 수 → 설치 수 차례, SKILL_ROWS줄까지).
+    같은 이름(skillId casefold)은 공식이 아닌 줄 중 설치 수가 가장 많은 하나만 남기고 뺀 줄을 twins로(5개까지), 공식 줄은 모두 남겨요(같은 저장소면 하나).
+    others: 맞는 낱말이 있는 GitHub 밖 줄 {source, skill, installs, link}(SKILL_OTHER_ROWS줄까지, 읽기 없이 링크만)."""
+    if not isinstance(doc, dict) or not isinstance(doc.get("skills"), list):
+        raise ValueError("shape")
+    counts = {"got": len(doc["skills"]), "github": 0, "other": 0, "low": 0, "dup": 0, "kept": 0, "shown": 0}
+    gh, other = [], []
+    for i, x in enumerate(doc["skills"][:SKILL_SCAN]):
+        if not isinstance(x, dict):
+            continue
+        src, sid, n = x.get("source"), x.get("skillId"), x.get("installs")
+        if not isinstance(src, str) or not isinstance(sid, str) or isinstance(n, bool) or not isinstance(n, int) or n < 0:
+            continue
+        src, sid = clean_name(src, 250), clean_name(sid, 100)   # 제어 문자를 지운 뒤 꼴을 봐요
+        if not SKILL_ID.match(sid):
+            continue
+        m = GH_SOURCE.match(src)
+        if m:
+            if m.group(2) in (".", "..") or m.group(2).endswith(".git"):
+                continue
+            kind = "github"
+        elif OTHER_SOURCE.match(src) and not any(p in (".", "..") for p in src.split("/")):
+            kind = "other"
+        else:
+            continue
+        counts[kind] += 1
+        if n < SKILL_MIN_INSTALLS:
+            counts["low"] += 1
+            continue
+        row = {"i": i, "skill": sid, "installs": n, "hits": skill_hits(sid, words)}
+        if kind == "github":
+            gh.append(dict(row, repo=src, org=SKILL_OFFICIAL.get(m.group(1).lower())))
+        else:
+            other.append(dict(row, source=src, org=None))
+    by_name = {}
+    for r in sorted(gh, key=lambda r: (-r["installs"], r["i"])):   # 설치 수 차례(같으면 API 차례가 앞인 것)
+        by_name.setdefault(r["skill"].casefold(), []).append(r)
+    kept = []
+    for rows in by_name.values():
+        seen = set()
+        for r in rows:
+            if r["org"]:   # 공식 출처는 거르지 않아요(같은 저장소·같은 이름이 둘이면 하나)
+                if r["repo"].casefold() in seen:
+                    counts["dup"] += 1
+                    continue
+                seen.add(r["repo"].casefold())
+                kept.append(dict(r, twins=[]))
+        plain = [r for r in rows if not r["org"]]
+        if plain:
+            counts["dup"] += len(plain) - 1
+            kept.append(dict(plain[0], twins=[{"repo": r["repo"], "installs": r["installs"]} for r in plain[1:6]]))
+    order = lambda r: (r["hits"] == 0, r["org"] is None, -r["hits"], -r["installs"], r.get("repo", r.get("source", "")).casefold(), r["skill"].casefold())   # noqa: E731
+    rows = [{k: r[k] for k in ("repo", "skill", "installs", "org", "hits", "twins")} for r in sorted(kept, key=order)[:SKILL_ROWS]]
+    others = [{"source": r["source"], "skill": r["skill"], "installs": r["installs"], "link": f"{SKILLS_BASE}/{r['source']}/{r['skill']}"}
+              for r in sorted((r for r in other if r["hits"] > 0), key=order)[:SKILL_OTHER_ROWS]]
+    counts.update(kept=len(kept), shown=len(rows))
+    return {"rows": rows, "others": others, "counts": counts}
+
+
+def skill_fallback(why, status=None):
+    """찾기 실패 → 링크로: {why, text, link}(4-6). 캐시에 넣지 않아요."""
+    return {"why": why, "text": SKILL_FALLBACK[why].format(status=status) if why == "status" else SKILL_FALLBACK[why], "link": SKILL_FALLBACK_LINK}
+
+
+def search_cached(words):
+    """찾기 캐시(SKILL_OUT_LOCK을 쥔 채 불러요): 수명 안이면 그 값, 아니면 None(낡은 것은 빼요)."""
+    hit = SKILL_SEARCHES.get(words)
+    if hit and time.time() - hit["t"] > SKILL_SEARCH_TTL:
+        del SKILL_SEARCHES[words]
+        hit = None
+    return hit
+
+
+def search_answer(t, words, url, roles, got, sent, cached, at, fallback=None):
+    """찾기 응답. role(카드가 제안할 역할)은 캐시에 넣지 않고 응답 때마다 그 층 역할로 지어요."""
+    rows = [dict(r, role=role_suggest(r["skill"], None, roles)["role"]) for r in got["rows"]] if got else []
+    return {"ok": True, "team": t["id"], "words": words, "url": url, "sent": sent, "cached": cached, "at": at,
+            "rows": rows, "others": got["others"] if got else [], "counts": got["counts"] if got else None, "fallback": fallback}
+
+
+def api_staff_outside_search(body):
+    """POST /api/staff/outside/search {team, words}: skills.sh에 보이는 낱말 그대로 GET 한 번(q 하나뿐)을 보내고 걸러서 돌려줘요(4장).
+    앞에서 막히면 바깥 요청 없이 끝나요: 층 → 직원 스킬(409 off) → 스위치(409 outside-off) → 낱말 꼴(400 words) → 시험용 주소(fallback config) →
+    캐시(sent: false, cached: true) → 바쁨(429 busy) → 1분 한도(429 rate). 실패는 ok: true에 fallback{why, text, link}이에요(캐시에 넣지 않아요).
+    → {ok, team, words, url, sent, cached, at, rows[{repo, skill, installs, org, hits, twins, role}], others[{source, skill, installs, link}], counts, fallback}."""
+    t, base = floor_of(body.get("team"), "예시 층에는 직원을 들일 수 없어요")
+    if not staff_on(t):
+        raise ApiError(409, STAFF_OFF_TEXT, {"why": "off"})
+    if not skill_search_on(t):
+        raise outside_off()
+    words = body.get("words")
+    if not skill_words_ok(words):
+        raise ApiError(400, "영어 낱말 1~4개로 적어 주세요(예: code review). 보내지 않았어요", {"why": "words"})
+    roles = floor_roles(base)
+    if SKILLS_BASE is None:
+        return search_answer(t, words, None, roles, None, False, False, now(), skill_fallback("config"))
+    url = skills_search_url(words)
+    with SKILL_OUT_LOCK:
+        hit = search_cached(words)
+    if hit:
+        return search_answer(t, words, url, roles, hit, False, True, hit["at"])
+    busy = ApiError(429, "앞의 찾기가 아직 끝나지 않았어요", {"why": "busy"})
+    if not SKILL_SEARCH_NET.acquire(blocking=False):
+        raise busy
+    try:
+        with SKILL_OUT_LOCK:
+            stuck = OUT_WORKERS["abandoned"] >= OUT_ABANDON_MAX
+            hit = None if stuck else search_cached(words)
+            full = False
+            if not stuck and not hit:   # 실제로 보내는 찾기만 세요
+                tm = time.time()
+                SKILL_SENT[:] = [x for x in SKILL_SENT if tm - x < 60]
+                full = len(SKILL_SENT) >= SKILL_SEARCH_PER_MIN
+                if not full:
+                    SKILL_SENT.append(tm)
+        if stuck:
+            raise busy
+        if hit:
+            return search_answer(t, words, url, roles, hit, False, True, hit["at"])
+        if full:
+            raise ApiError(429, f"1분에 {SKILL_SEARCH_PER_MIN}번까지 찾아요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요", {"why": "rate"})
+        at, got, fb = now(), None, None
+        try:
+            status, _, raw = out_get(url, "application/json", SKILL_SEARCH_MAX, SKILL_NET_TIMEOUT, SKILL_NET_DEADLINE)
+        except OutError as e:
+            fb = skill_fallback("shape" if e.why in ("big", "shape") else e.why)
+        else:
+            if status == 429:
+                fb = skill_fallback("limited")
+            elif status != 200:
+                fb = skill_fallback("status", status)
+            else:
+                try:
+                    got = skills_rows(json.loads(raw.decode("utf-8")), words)
+                except (ValueError, UnicodeDecodeError, RecursionError):
+                    fb = skill_fallback("shape")
+        if got is not None:   # 성공(줄이 0개여도)만 기억해요
+            with SKILL_OUT_LOCK:
+                SKILL_SEARCHES.pop(words, None)
+                SKILL_SEARCHES[words] = dict(got, t=time.time(), at=at)
+                while len(SKILL_SEARCHES) > SKILL_SEARCH_KEEP:
+                    del SKILL_SEARCHES[next(iter(SKILL_SEARCHES))]
+    finally:
+        SKILL_SEARCH_NET.release()
+    log(base, "팀 전체", "설정", f"스킬 찾기: skills.sh에 ‘{words}’를 보냈어요(결과 {len(got['rows'])}줄)" if got
+        else f"스킬 찾기: skills.sh에 ‘{words}’를 보냈지만 답을 쓰지 못했어요({fb['why']})")
+    return search_answer(t, words, url, roles, got, True, False, at, fb)
+
+
+def gh_error(why, link=None, **kv):
+    """GitHub 읽기 오류(GH_ERRORS)의 ApiError. gh-config는 why가 gh-net이에요(글만 달라요)."""
+    code, text = GH_ERRORS[why]
+    extra = {"why": "gh-net" if why == "gh-config" else why}
+    if link:
+        extra["link"] = link
+    return ApiError(code, text.format(**kv) if kv else text, extra)
+
+
+def gh_limit_check(link=None):
+    """GitHub 한도로 쉬는 중이면 409 gh-limit(풀리는 때 HH:MM). 보내지 않아요."""
+    with SKILL_OUT_LOCK:
+        until = GH_LIMIT["until"]
+    if time.time() < until:
+        raise gh_error("gh-limit", link, hm=datetime.fromtimestamp(until, KST).strftime("%H:%M"))
+
+
+def gh_note_limit(status, headers, api):
+    """GitHub 한도 답이면 풀리는 때를 GH_LIMIT에 적고 True: API 403·429에 x-ratelimit-remaining 0이면 x-ratelimit-reset(API 429는 Retry-After도),
+    raw 429면 Retry-After(없으면 60초). 모두 지금+1시간까지예요."""
+    t, until = time.time(), None
+    if api and status in (403, 429) and (headers.get("x-ratelimit-remaining") or "").strip() == "0":
+        until = int_in(headers.get("x-ratelimit-reset"), int(t) + 60, 0, 10 ** 12)
+    elif status == 429:
+        until = t + int_in(headers.get("retry-after"), 60, 0, 10 ** 9)
+    if until is None:
+        return False
+    with SKILL_OUT_LOCK:
+        GH_LIMIT["until"] = max(GH_LIMIT["until"], min(max(float(until), t + 1), t + GH_LIMIT_MAX))
+    return True
+
+
+def gh_get(url, accept, limit, api, end, n, link, big="gh-big", moved="gh-moved"):
+    """GitHub GET 하나(out_get, 읽기 전체 기한 end 안에서). → (상태, 머리글, 몸). 한도 답이면 409 gh-limit, 받기 오류는 GH_ERRORS로 바꿔요. n: 보낸 요청 수 {api, raw}."""
+    left = end - time.monotonic()
+    if left <= 0:
+        raise gh_error("gh-net", link)
+    n["api" if api else "raw"] += 1
+    try:
+        status, headers, body = out_get(url, accept, limit, min(GH_NET_TIMEOUT, left), left, api=api)
+    except OutError as e:
+        raise gh_error({"timeout": "gh-net", "network": "gh-net", "ssl": "gh-ssl", "moved": moved, "big": big}.get(e.why, "gh-shape"), link)
+    if gh_note_limit(status, headers, api):
+        gh_limit_check(link)
+    return status, headers, body
+
+
+def gh_status(status, link):
+    """GitHub API 답의 상태 코드: 200이 아니면 오류(404·410·451 gh-gone, 401·403 gh-denied, 409·422 gh-shape, 그 밖 gh-net)."""
+    if status == 200:
+        return
+    if status in (404, 410, 451):
+        raise gh_error("gh-gone", link)
+    if status in (401, 403):
+        raise gh_error("gh-denied", link, status=status)
+    raise gh_error("gh-shape" if status in (409, 422) else "gh-net", link)
+
+
+def gh_json(body, link):
+    """GitHub API 답 몸(JSON 표). 못 읽거나 표가 아니면 409 gh-shape."""
+    try:
+        doc = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, RecursionError):
+        raise gh_error("gh-shape", link)
+    if not isinstance(doc, dict):
+        raise gh_error("gh-shape", link)
+    return doc
+
+
+def gh_tree(owner, repo, commit, end, n, link):
+    """그 커밋의 파일 목록(recursive). 잘려 왔거나(truncated) GH_TREE_ITEMS줄·4MB를 넘으면 409 gh-big, 꼴이 틀리면 gh-shape. → path가 글인 항목들."""
+    status, _, body = gh_get(f"{SKILL_GH_API}/repos/{owner}/{repo}/git/trees/{commit}?recursive=1", "application/vnd.github+json",
+                             GH_TREE_MAX, True, end, n, link)
+    gh_status(status, link)
+    doc = gh_json(body, link)
+    if doc.get("truncated") is not False:
+        raise gh_error("gh-big" if doc.get("truncated") is True else "gh-shape", link)
+    tree = doc.get("tree")
+    if not isinstance(tree, list):
+        raise gh_error("gh-shape", link)
+    if len(tree) > GH_TREE_ITEMS:
+        raise gh_error("gh-big", link)
+    return [x for x in tree if isinstance(x, dict) and isinstance(x.get("path"), str)]
+
+
+def gh_pick_dir(tree, skill, prefix, link):
+    """skillId → 스킬 폴더(5-3): SKILL.md(blob, 링크 아님)가 있는 폴더 중 끝 이름이 skill과 같은 것(없으면 casefold로). 둘 이상이면 경로 조각이 가장 적은 것,
+    같으면 글자 차례가 앞인 것. → (폴더, 같은 이름 폴더 수). 링크뿐이면 409 gh-link-main, 맨 위 SKILL.md뿐이면 409 gh-root, 없으면 404 gh-notfound,
+    폴더가 열쇠 꼴(prefix + 폴더가 SOURCE_KEY, 180자까지)에 맞지 않으면 409 gh-shape예요. 머리말 name으로 찾지는 않아요."""
+    cands = [x for x in tree if x.get("type") == "blob" and x["path"].endswith("/SKILL.md")]
+    last = lambda x: x["path"][:-len("/SKILL.md")].rsplit("/", 1)[-1]   # noqa: E731
+    plain = [x for x in cands if x.get("mode") != "120000"]
+    hit = [x for x in plain if last(x) == skill] or [x for x in plain if last(x).casefold() == skill.casefold()]
+    if not hit:
+        if any(last(x).casefold() == skill.casefold() for x in cands):
+            raise gh_error("gh-link-main", link)
+        if any(x.get("type") == "blob" and x["path"] == "SKILL.md" for x in tree):
+            raise gh_error("gh-root", link)
+        raise gh_error("gh-notfound", link, skill=skill)
+    # 경로 조각이 가장 적은 것, 같으면 글자 차례가 앞인 것. 다만 열쇠 꼴(숨은 폴더 '.agents/' 등이 아님)인 폴더를 먼저 봐요(숨은 폴더 사본이 앞서 gh-shape가 되지 않게)
+    hit.sort(key=lambda x: (not SOURCE_KEY.match(prefix + x["path"][:-len("/SKILL.md")]), x["path"].count("/"), x["path"]))
+    d = hit[0]["path"][:-len("/SKILL.md")]
+    if not SOURCE_KEY.match(prefix + d):
+        raise gh_error("gh-shape", link)
+    return d, len(hit)
+
+
+def gh_blob_ok(x):
+    """받을 파일 항목의 꼴: blob, sha 40자 16진, size 0 이상 정수."""
+    return x.get("type") == "blob" and isinstance(x.get("sha"), str) and bool(GH_SHA.match(x["sha"])) \
+        and isinstance(x.get("size"), int) and not isinstance(x["size"], bool) and x["size"] >= 0
+
+
+def gh_files(tree, d, link):
+    """스킬 폴더(d) 아래 항목을 나눠요(5-4, 이름 검사를 모든 항목에 가장 먼저): {main(항목 또는 None), md[(상대 경로, 항목)], lic[(이름, 항목)], lic_dir,
+    others[], refused[{file, why}], license_up}. 숨은 파일·폴더와 다른 도구용 지시 파일(tool_note)·스크립트·그 밖 파일은 받지 않고 이름만 others예요.
+    라이선스는 스킬 폴더 맨 위에 없을 때만 저장소 맨 위의 것을 봐요(license_up). 받을 것의 합이 GH_READ_TOTAL을 넘으면 409 gh-big."""
+    pre = d + "/"
+    out = {"main": None, "md": [], "lic": [], "lic_dir": d, "others": set(), "refused": [], "license_up": False}
+    for x in tree:
+        if not x["path"].startswith(pre) or x["path"] == pre:
+            continue
+        rel = x["path"][len(pre):]
+        parts = rel.split("/")
+        if SURROGATE.search(rel) or any(unicodedata.category(ch) in NAME_BAD for ch in rel) or "\\" in rel or len(rel) > 400 \
+                or any(len(p) > 100 or p in ("", ".", "..") for p in parts):
+            out["refused"].append({"file": clean_name(rel, 80), "why": "name"})
+            continue
+        cut = next((i for i, p in enumerate(parts[:-1]) if p.startswith(".") or i >= STAFF_SRC_DEPTH), None)
+        if cut is not None:   # 숨은 폴더 안이거나 깊이 한도 아래예요: 그 폴더를 한 줄로
+            out["others"].add("/".join(parts[:cut + 1]) + "/")
+            continue
+        if x.get("type") == "tree":
+            if parts[-1].startswith(".") or len(parts) > STAFF_SRC_DEPTH:
+                out["others"].add(rel + "/")
+            continue
+        if tool_note(rel):
+            out["others"].add(rel)
+            continue
+        if x.get("mode") == "120000":
+            out["refused"].append({"file": rel, "why": "link"})
+            continue
+        if x.get("type") != "blob":   # 하위 저장소(commit) 등
+            out["others"].add(rel)
+            continue
+        top = len(parts) == 1
+        if rel == "SKILL.md" or rel.lower().endswith(".md") or (top and rel in STAFF_LICENSE_NAMES):
+            if not gh_blob_ok(x):
+                raise gh_error("gh-shape", link)
+            if x["size"] > STAFF_SKILL_MAX:
+                if rel == "SKILL.md":
+                    raise ApiError(409, f"파일이 너무 커요(64KB까지): {d}/SKILL.md", {"why": "big", "link": link})
+                out["refused"].append({"file": rel, "why": "big"})
+            elif rel == "SKILL.md":
+                out["main"] = x
+            elif top and rel in STAFF_LICENSE_NAMES:
+                out["lic"].append((rel, x))
+            elif len(out["md"]) >= STAFF_SRC_FILES:
+                out["refused"].append({"file": rel, "why": "many"})
+            else:
+                out["md"].append((rel, x))
+            continue
+        out["others"].add(rel)
+    if not out["lic"]:   # 스킬 폴더 맨 위에 라이선스가 없으면 저장소 맨 위의 것(중간 폴더는 보지 않아요)
+        for x in tree:
+            if x["path"] in STAFF_LICENSE_NAMES and x.get("mode") != "120000" and x.get("type") == "blob":
+                if not gh_blob_ok(x):
+                    raise gh_error("gh-shape", link)
+                if x["size"] > STAFF_SKILL_MAX:
+                    out["refused"].append({"file": x["path"], "why": "big"})
+                else:
+                    out["lic"].append((x["path"], x))
+        out.update(lic_dir="", license_up=bool(out["lic"]))
+    out["lic"].sort()
+    if sum(x["size"] for x in [out["main"]] + [x for _, x in out["md"] + out["lic"]] if x) > GH_READ_TOTAL:
+        raise gh_error("gh-big", link)
+    out["others"] = sorted(out["others"])
+    return out
+
+
+def git_blob(data):
+    """git blob 해시(sha1(b'blob <길이>\\0' + 바이트)). 트리의 sha와 견줘요."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def gh_fetch(owner, repo, commit, d, plan, end, n, link):
+    """그 커밋의 받을 파일(주 파일 → 딸린 md → 라이선스 차례)을 raw에서 받아 → {저장소 안 경로: 바이트}. 파일마다 길이와 git blob 해시가 트리와 같아야 해요
+    (다르거나 200이 아니면 409 gh-mismatch, 읽기 전체를 멈춰요)."""
+    got = {}
+    items = [(f"{d}/SKILL.md", plan["main"])] + [(f"{d}/{r}", x) for r, x in plan["md"]] + [(x["path"], x) for _, x in plan["lic"]]
+    for path, x in items:   # 받는 한도는 64KB(트리 size는 그보다 작아요). 길이가 size와 다르면 아래에서 gh-mismatch예요(429 답도 읽어 한도를 적어요)
+        status, _, body = gh_get(f"{SKILL_GH_RAW}/{owner}/{repo}/{commit}/{quote(path, safe='/')}", "*/*", STAFF_SKILL_MAX, False, end, n, link,
+                                 big="gh-mismatch", moved="gh-mismatch")
+        if status != 200 or len(body) != x["size"] or git_blob(body) != x["sha"]:
+            raise gh_error("gh-mismatch", link)
+        got[path] = body
+    return got
+
+
+def gh_source_read(owner, repo, commit, d, branch, plan, got, g, link):
+    """GitHub에서 받은 것으로 source_read와 같은 꼴의 값을 지어요(5-5). record는 늘 None, adopted는 늘 False예요(저장소 안 출처.json은 읽지 않아요).
+    + repo, commit, dir, branch, url, blobs{상대: git sha}, read_at, others_more, others_sha, gh{many, license_up, fork, archived, stars, org, spdx}.
+    묶은 해시(sha)는 저장소·커밋·폴더, md·라이선스 해시, 가져오지 않는 파일 전체 목록을 묶어요(별·포크·가지는 넣지 않아요)."""
+    key = f"gh:{owner}/{repo}@{commit}:{d}"
+    name = d.rsplit("/", 1)[-1]
+    out = {"key": key, "kind": "gh-skill", "name": name, "group": f"{owner}/{repo}", "data": {}, "license_data": {}, "refused": list(plan["refused"]),
+           "record": None, "adopted": False, "upstream": {"repo": f"{owner}/{repo}", "sha": commit}, "gcs_sha": None}
+    raw = got[f"{d}/SKILL.md"]
+    try:
+        text = source_norm(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        raise ApiError(409, f"글자(UTF-8)로 읽을 수 없는 파일이에요: {d}/SKILL.md", {"why": "text", "link": link})
+    out["data"] = dict([("SKILL.md", raw)] + sorted((r, got[f"{d}/{r}"]) for r, _ in plan["md"]))
+    out["license_data"] = {name_: got[x["path"]] for name_, x in plan["lic"]}   # 저장소 맨 위에서 가져왔어도 이름만(직원 폴더 맨 위에 둬요)
+    out["refused"] += case_clash(list(out["data"]))
+    texts = {}
+    for rel, b in out["data"].items():
+        try:
+            texts[rel] = source_norm(b.decode("utf-8"))
+        except UnicodeDecodeError:
+            out["refused"].append({"file": rel, "why": "text"})
+    front, body, nfront, front_why = source_split(text)
+    files = {rel: hashlib.sha256(b).hexdigest() for rel, b in out["data"].items()}
+    lfiles = {n_: hashlib.sha256(b).hexdigest() for n_, b in out["license_data"].items()}
+    blobs = {rel: git_blob(b) for rel, b in out["data"].items()}
+    others = plan["others"]
+    lic_dir = plan["lic_dir"]
+    seal = [f"gh\0{owner}/{repo}\0{commit}\0{d}"] + [f"md\0{r}\0{s}" for r, s in sorted(files.items())] \
+        + [f"lic\0{lic_dir}\0{n_}\0{s}" for n_, s in sorted(lfiles.items())] + [f"other\0{r}" for r in sorted(others)]
+    whole = hashlib.sha256("\n".join(seal).encode("utf-8", "surrogateescape")).hexdigest()
+    lic = sorted(lfiles)
+    lic_main = next((n_ for n_ in lic if n_.startswith("LICENSE")), None)
+    ver, src = commit[:7], f"{owner}/{repo}/{name}"
+    out.update(src=src, main="SKILL.md", path=f"{SKILL_GH_WEB}/{owner}/{repo}/blob/{commit}/{d}/SKILL.md", bytes=len(raw), text=text, body=body.strip("\n"),
+               front=front, front_error=front_why, front_lines=nfront, texts=texts, files=files, license_files=lfiles,
+               license={"name": license_name(out["license_data"].get(lic_main), g.get("spdx")),
+                        "file": (f"{lic_dir}/{lic_main}" if lic_dir else lic_main) if lic_main else None, "files": lic},
+               scripts=[r for r in others if r.lower().endswith(STAFF_SCRIPT_EXT)][:GH_OTHERS_KEEP],
+               others=others[:GH_OTHERS_KEEP], others_more=max(0, len(others) - GH_OTHERS_KEEP),
+               others_sha=hashlib.sha256("\n".join(others).encode("utf-8", "surrogateescape")).hexdigest(),
+               sha=whole, ver=ver, label=f"{src}@{ver}", repo=f"{owner}/{repo}", commit=commit, dir=d, branch=branch,
+               url=f"{SKILL_GH_WEB}/{owner}/{repo}/tree/{commit}/{d}", blobs=blobs, read_at=now(), gh=dict(g, license_up=plan["license_up"]),
+               **{"from": f"gh-skill {key[3:]} @{ver}"})
+    return out
+
+
+def gh_check_items(src):
+    """gh 원천만의 점검 항목(6-3): gh-license-up·gh-fork·gh-archived·gh-many·gh-skip. 막아요는 없어요."""
+    g, out = src["gh"], []
+    if g.get("license_up"):
+        out.append(check_item("gh-license-up", f"스킬 폴더에 라이선스 파일이 없어서 저장소 맨 위의 {', '.join(src['license']['files'])}를 함께 가져와요."))
+    if g.get("fork"):
+        out.append(check_item("gh-fork", "다른 저장소를 복사해 만든 저장소(포크)예요. 처음 만든 사람의 저장소가 아닐 수 있어요."))
+    if g.get("archived"):
+        out.append(check_item("gh-archived", "보관된(더 고치지 않는) 저장소예요."))
+    if (g.get("many") or 0) > 1:
+        out.append(check_item("gh-many", f"같은 이름의 스킬 폴더가 이 저장소에 {g['many']}개 있어요. 경로가 가장 짧은 {src['dir']}를 읽었어요."))
+    scripts = set(src["scripts"])
+    skip = [r for r in src["others"] if r not in scripts]   # 스크립트는 script-file·script가 이미 말해요
+    if skip:
+        n = len(skip) + (src.get("others_more") or 0)
+        more = f" 외 {n - 5}개" if n > 5 else ""
+        out.append(check_item("gh-skip", f"글(.md)·라이선스가 아닌 파일과 다른 도구용 지시 파일 {n}개는 가져오지 않아요"
+                                         f"({', '.join(clean_name(x, 80) for x in skip[:5])}{more})."))
+    return out
+
+
+def gh_tidy():
+    """읽기 캐시에서 수명이 지난 것을 빼요(SKILL_OUT_LOCK을 쥔 채)."""
+    t = time.time()
+    for k in [k for k, v in GH_READS.items() if t - v["t"] > GH_READ_TTL]:
+        del GH_READS[k]
+
+
+def gh_cached(key, touch=True):
+    """읽어 둔 gh 원천(열쇠로). 바깥에 묻지 않아요. 없으면 None. → {t, used, src, pick, outside}."""
+    with SKILL_OUT_LOCK:
+        gh_tidy()
+        hit = GH_READS.get(key) if isinstance(key, str) else None
+        if hit and touch:
+            hit["used"] = time.time()
+        return hit
+
+
+def gh_cached_pick(pick):
+    """같은 줄(저장소·스킬 casefold)을 다시 눌렀을 때 쓸 읽어 둔 원천(가장 새 것). 없으면 None."""
+    with SKILL_OUT_LOCK:
+        gh_tidy()
+        hits = [v for v in GH_READS.values() if v["pick"] == pick]
+        hit = max(hits, key=lambda v: v["t"]) if hits else None
+        if hit:
+            hit["used"] = time.time()
+        return hit
+
+
+def gh_keep(src, pick, picked):
+    """읽은 원천을 캐시에 넣어요(GH_READ_KEEP개까지, 가장 오래 안 쓴 것부터 빼요)."""
+    with SKILL_OUT_LOCK:
+        t = time.time()
+        GH_READS[src["key"]] = {"t": t, "used": t, "src": src, "pick": pick, "outside": picked}
+        while len(GH_READS) > GH_READ_KEEP:
+            del GH_READS[min(GH_READS, key=lambda k: GH_READS[k]["used"])]
+
+
+def gh_drop(key):
+    with SKILL_OUT_LOCK:
+        GH_READS.pop(key, None)
+
+
+def gh_net_run(link, again, work):
+    """GitHub 읽기 차례(5-6): GH_LIMIT(409 gh-limit) → GH_READ_NET(바쁘거나 버린 일꾼이 많으면 429 busy) → again()(읽어 둔 것이 있으면 그것, 바깥 요청 없음) →
+    1분 한도(429 rate, 실제로 가는 읽기만 세요) → work() → 잠금은 finally에서 놓아요. → (값, 바깥에 갔는지)."""
+    gh_limit_check(link)
+    busy = ApiError(429, "앞의 읽기가 아직 끝나지 않았어요", {"why": "busy"})
+    if not GH_READ_NET.acquire(blocking=False):
+        raise busy
+    try:
+        with SKILL_OUT_LOCK:
+            stuck = OUT_WORKERS["abandoned"] >= OUT_ABANDON_MAX
+        if stuck:
+            raise busy
+        hit = again()
+        if hit is not None:
+            return hit, False
+        with SKILL_OUT_LOCK:
+            tm = time.time()
+            GH_SENT[:] = [x for x in GH_SENT if tm - x < 60]
+            full = len(GH_SENT) >= SKILL_READ_PER_MIN
+            if not full:
+                GH_SENT.append(tm)
+        if full:
+            raise ApiError(429, f"1분에 {SKILL_READ_PER_MIN}번까지 읽어요. 이번엔 보내지 않았어요", {"why": "rate"})
+        return work(), True
+    finally:
+        GH_READ_NET.release()
+
+
+def gh_resolve(owner, repo, end, n, link):
+    """저장소 정보 → 기본 가지의 커밋(5-2 차례 1·2). 커밋은 늘 서버가 여기서 정해요(포크의 커밋도 원래 저장소 이름으로 읽힐 수 있어서 페이지 값을 믿지 않아요).
+    → (owner, repo(full_name의 대소문자), branch, commit, gh 정보{fork, archived, stars, org(full_name의 소유자로), spdx})."""
+    status, _, body = gh_get(f"{SKILL_GH_API}/repos/{owner}/{repo}", "application/vnd.github+json", GH_JSON_MAX, True, end, n, link, big="gh-shape")
+    gh_status(status, link)
+    doc = gh_json(body, link)
+    full = doc.get("full_name")
+    m = GH_SOURCE.match(full) if isinstance(full, str) else None
+    if not m or full.casefold() != f"{owner}/{repo}".casefold():
+        raise gh_error("gh-moved", link)
+    owner, repo = m.group(1), m.group(2)
+    if doc.get("private") is not False or doc.get("disabled") not in (False, None):
+        raise gh_error("gh-closed", link)
+    branch = doc.get("default_branch")
+    if not isinstance(branch, str) or not GH_BRANCH.match(branch):
+        raise gh_error("gh-shape", link)
+    status, _, body = gh_get(f"{SKILL_GH_API}/repos/{owner}/{repo}/commits/{quote(branch, safe='')}", "application/vnd.github.sha", 200, True, end, n, link,
+                             big="gh-shape")
+    gh_status(status, link)
+    commit = body.decode("ascii", "replace").strip()
+    if not GH_SHA.match(commit):
+        raise gh_error("gh-shape", link)
+    lic = doc.get("license")
+    spdx = lic.get("spdx_id") if isinstance(lic, dict) else None
+    stars = doc.get("stargazers_count")
+    g = {"fork": doc["fork"] if isinstance(doc.get("fork"), bool) else None, "archived": doc["archived"] if isinstance(doc.get("archived"), bool) else None,
+         "stars": stars if isinstance(stars, int) and not isinstance(stars, bool) and stars >= 0 else None, "org": SKILL_OFFICIAL.get(owner.lower()),
+         "spdx": spdx if isinstance(spdx, str) and re.match(r"^[A-Za-z0-9.+-]{1,40}\Z", spdx) and spdx != "NOASSERTION" else None}
+    return owner, repo, branch, commit, g
+
+
+def gh_preview_read(t, outside, fresh):
+    """찾은 줄 누르기(5-8): {repo, skill} 꼴(GH_SOURCE 아님 400 not-github, SKILL_ID 아님 400 source) → 스위치(409 outside-off) →
+    fresh가 아니면 같은 줄을 읽어 둔 것 → 없으면 GitHub에서 저장소 → 기본 가지의 커밋 → 파일 목록 → md·LICENSE를 읽고 캐시에 넣어요. → (src, 고를 때 값 {repo, skill})."""
+    repo_s, skill = (outside.get("repo"), outside.get("skill")) if isinstance(outside, dict) else (None, None)
+    m = GH_SOURCE.match(repo_s) if isinstance(repo_s, str) else None
+    if not m or m.group(2) in (".", "..") or m.group(2).endswith(".git"):
+        raise gh_error("not-github")
+    if not isinstance(skill, str) or not SKILL_ID.match(skill):
+        raise ApiError(400, "스킬 이름 꼴이 이상해요. 다시 찾아 주세요", {"why": "source"})
+    if not skill_search_on(t):
+        raise outside_off()
+    pick, picked = (repo_s.casefold(), skill.casefold()), {"repo": repo_s, "skill": skill}
+    if not fresh:
+        hit = gh_cached_pick(pick)
+        if hit:
+            return hit["src"], picked
+    owner, repo = m.group(1), m.group(2)
+    link = f"{SKILL_GH_WEB}/{owner}/{repo}"
+    if SKILL_GH_API is None or SKILL_GH_RAW is None:
+        raise gh_error("gh-config", link)
+    n = {"api": 0, "raw": 0}
+
+    def work():
+        end = time.monotonic() + GH_READ_DEADLINE
+        o, r, branch, commit, g = gh_resolve(owner, repo, end, n, link)
+        lk = f"{SKILL_GH_WEB}/{o}/{r}"
+        tree = gh_tree(o, r, commit, end, n, lk)
+        d, many = gh_pick_dir(tree, skill, f"gh:{o}/{r}@{commit}:", lk)
+        plan = gh_files(tree, d, lk)
+        src = gh_source_read(o, r, commit, d, branch, plan, gh_fetch(o, r, commit, d, plan, end, n, lk), dict(g, many=many), lk)
+        gh_keep(src, pick, picked)
+        return src
+    hit, went = gh_net_run(link, lambda: None if fresh else (gh_cached_pick(pick) or {}).get("src"), work)
+    if went:
+        base = os.path.realpath(os.path.join(HERE, t["office"]))
+        log(base, "팀 전체", "설정", f"GitHub에서 읽었어요: {hit['label']} (API {n['api']}번, 파일 {n['raw']}개)")
+    return hit, picked
+
+
+def gh_reread(base, key, branch):
+    """[직원 들이기] 때 그 커밋을 캐시 없이 새로 읽어요(7-3 6번): 파일 목록(API 1번) + 받을 파일(raw). 저장소·커밋 정하기는 하지 않아요(커밋이 열쇠에 있어요).
+    못 닿거나(시험용 주소 포함) 시간 넘김이면 409 gh-net(들이기 글), 목록·파일 404·해시 다름·꼴 다름이면 409 changed(그 열쇠를 읽기 캐시에서 빼요).
+    GitHub 한도 409 gh-limit, 우리 한도 429 rate, 바쁨 429 busy. 별·포크·보관은 None이고 가지는 묶음 값이에요."""
+    owner, repo, commit, d = gh_key_parts(key)
+    link = f"{SKILL_GH_WEB}/{owner}/{repo}"
+    if SKILL_GH_API is None or SKILL_GH_RAW is None:
+        raise ApiError(409, GH_HIRE_NET, {"why": "gh-net", "link": link})
+    n = {"api": 0, "raw": 0}
+
+    def work():
+        end = time.monotonic() + GH_READ_DEADLINE
+        tree = gh_tree(owner, repo, commit, end, n, link)
+        plan = gh_files(tree, d, link)
+        if plan["main"] is None:
+            raise gh_error("gh-notfound", link, skill=d.rsplit("/", 1)[-1])
+        g = {"fork": None, "archived": None, "stars": None, "org": SKILL_OFFICIAL.get(owner.lower()), "spdx": None, "many": None}
+        return gh_source_read(owner, repo, commit, d, branch, plan, gh_fetch(owner, repo, commit, d, plan, end, n, link), g, link)
+    try:
+        src, _ = gh_net_run(link, lambda: None, work)
+    except ApiError as e:
+        why = e.extra.get("why")
+        if why == "gh-net":
+            raise ApiError(409, GH_HIRE_NET, {"why": "gh-net", "link": link})
+        if why in ("gh-mismatch", "gh-shape", "gh-gone", "gh-notfound", "gh-link-main", "gh-root", "text", "big"):
+            gh_drop(key)
+            raise ApiError(409, GH_HIRE_CHANGED, {"why": "changed", "link": link})
+        raise
+    log(base, "팀 전체", "설정", f"GitHub에서 읽었어요: {src['label']} (API {n['api']}번, 파일 {n['raw']}개)")
+    return src
+
+
+def gh_hire_source(t, base, body):
+    """gh 열쇠 들이기의 앞 차례(7-3 1~7): 열쇠 꼴(400 source) → 스위치(409 outside-off) → 승인된 묶음(request_ok) → 그 커밋을 새로 읽기(gh_reread) →
+    묶은 해시·md 해시 목록·라이선스 해시 목록(과 body.sha)이 묶음과 같아야 해요(다르면 409 changed, 읽기 캐시에서 빼요). 앞에서 막히면 바깥 요청이 없어요.
+    → (src, req, form). 파일은 쓰지 않아요."""
+    key = body.get("source")
+    gh_key_parts(key)
+    if not skill_search_on(t):
+        raise outside_off()
+    req = request_ok(base, body, key)
+    data = req["data"]["source"]
+    src = gh_reread(base, key, data.get("branch"))
+    if (src["sha"] != data["sha"] or [src["files"][r] for r in sorted(src["files"])] != data.get("files_sha256")
+            or [src["license_files"][n] for n in sorted(src["license_files"])] != data.get("license_sha256")
+            or (body.get("sha") is not None and body.get("sha") != src["sha"])):
+        gh_drop(key)
+        raise ApiError(409, GH_HIRE_CHANGED, {"why": "changed", "link": f"{SKILL_GH_WEB}/{src['repo']}"})
+    return src, req, skill_form(req["data"]["form"], src)
 
 
 # 스킬로 들이기(U-35, 서버 B): 들일 묶음·승인 표시·스킬로 들이기·다시 짓기 검사·복직·원본 영역 되돌리기·팀장 폴더 알림 -----------------------------
@@ -8880,13 +9892,23 @@ def said_parts(said):
 
 
 def request_shape(data):
-    """묶음 값의 모양이 서버가 쓴 꼴인지(source.key·sha, form의 칸들)."""
+    """묶음 값의 모양이 서버가 쓴 꼴인지(source.key·sha, form의 칸들). gh 열쇠면 kind·repo·commit·dir가 열쇠와 같고, branch·파일 해시 목록 꼴도 봐요."""
     src, form = (data.get("source"), data.get("form")) if isinstance(data, dict) else (None, None)
     return (isinstance(src, dict) and isinstance(src.get("key"), str) and bool(SOURCE_KEY.match(src["key"])) and isinstance(src.get("sha"), str)
             and isinstance(form, dict) and is_role(form.get("role")) and isinstance(form.get("staff"), str) and bool(STAFF_RE.match(form["staff"]))
             and isinstance(form.get("desc"), str) and isinstance(form.get("note"), str) and form.get("model") in STAFF_MODELS
             and isinstance(form.get("tools"), list) and all(x in STAFF_TOOLS for x in form["tools"])
-            and isinstance(form.get("skills"), list) and all(isinstance(x, str) for x in form["skills"]))
+            and isinstance(form.get("skills"), list) and all(isinstance(x, str) for x in form["skills"])
+            and (not is_gh_key(src["key"]) or gh_request_ok(src)))
+
+
+def gh_request_ok(src):
+    """gh 묶음의 source 칸 꼴: kind gh-skill, repo·commit·dir가 열쇠와 같음, branch가 GH_BRANCH 꼴, files_sha256 1~40개·license_sha256 0~6개(64자 16진)."""
+    owner, repo, commit, d = gh_key_parts(src["key"])
+    hexes = lambda v, lo, hi: isinstance(v, list) and lo <= len(v) <= hi and all(isinstance(x, str) and HEX64.match(x) for x in v)   # noqa: E731
+    return (src.get("kind") == "gh-skill" and src.get("repo") == f"{owner}/{repo}" and src.get("commit") == commit and src.get("dir") == d
+            and isinstance(src.get("branch"), str) and bool(GH_BRANCH.match(src["branch"]))
+            and hexes(src.get("files_sha256"), 1, STAFF_SRC_FILES + 1) and hexes(src.get("license_sha256"), 0, len(STAFF_LICENSE_NAMES)))
 
 
 def request_read(base, n):
@@ -8925,11 +9947,15 @@ def request_read(base, n):
         return out
     if rec.get("sha256") != digest or not request_shape(data):
         return bad("bundle", "묶음 파일이 만든 뒤에 바뀌었거나 이 사무실 서버가 만든 묶음이 아니에요. 카드에서 다시 만들어 주세요")
-    unread = False
-    try:   # 승인 상태를 볼 때마다 원천을 다시 읽어요(묶음을 만든 뒤 사본이 바뀌면 들이기 전에 알려요)
-        src = source_read(base, data["source"]["key"])
-    except ApiError as e:   # 주 파일이 64KB를 넘거나 글이 아니면 묶을 때와 달라진 거예요. 없거나 링크면 잠깐일 수 있어서 견주지 못한 것으로 봐요
-        src, unread = None, e.extra.get("why") not in ("big", "text")
+    unread, gh = False, is_gh_key(data["source"]["key"])
+    if gh:   # 바깥(GitHub) 원천은 읽어 둔 것만 봐요(바깥에 묻지 않아요). 없으면(서버를 다시 켰어요) 견주지 않고, 진짜 견주기는 들일 때 해요
+        hit = gh_cached(data["source"]["key"], touch=False)
+        src = hit["src"] if hit else None
+    else:
+        try:   # 승인 상태를 볼 때마다 원천을 다시 읽어요(묶음을 만든 뒤 사본이 바뀌면 들이기 전에 알려요)
+            src = source_read(base, data["source"]["key"])
+        except ApiError as e:   # 주 파일이 64KB를 넘거나 글이 아니면 묶을 때와 달라진 거예요. 없거나 링크면 잠깐일 수 있어서 견주지 못한 것으로 봐요
+            src, unread = None, e.extra.get("why") not in ("big", "text")
     if src:
         out.update(take=list(src["files"]) + list(src["license_files"]), skip=list(src["others"]))
     if out["used"]:
@@ -8938,7 +9964,9 @@ def request_read(base, n):
         return bad("stale", "묶음이 낡았어요(24시간 지남). 카드에서 다시 만들어 주세요")
     if unread:
         return bad("unread", "사본을 지금 읽지 못했어요(찾지 못했거나 링크예요). 잠시 뒤 [승인 상태 다시 보기]를 눌러 주세요")
-    if src is None or src["sha"] != data["source"]["sha"]:
+    if gh and src is not None and src["sha"] != data["source"]["sha"]:
+        return bad("changed", "GitHub에서 읽은 글이 묶음을 만들 때와 달라요. 카드를 [다시 읽기]한 뒤 묶음을 다시 만들어 주세요")
+    if not gh and (src is None or src["sha"] != data["source"]["sha"]):
         return bad("changed", "사본이 묶음을 만들 때와 달라요. 카드를 [다시 읽기]한 뒤 묶음을 다시 만들어 주세요")
     okp, why = plain_path(base, ["staff-requests", n + ".ok.json"])
     if why == "gone":
@@ -9085,6 +10113,10 @@ def staff_origin_record(src, form, chk, mark, hired, body_sha, req):
            "front": {k: v for k, v in (src["front"] or {}).items() if k not in ("name", "description")},
            "wants": chk["wants_wide"], "hint": next((h["text"] for h in chk["tools"].get("Bash", []) if h["n"]), None),
            "tools": form["tools"], "model": form["model"], "request": None, "approval": None}
+    if src["kind"] == "gh-skill":   # 바깥(GitHub): 사본 경로 대신 저장소·커밋·폴더·가지, git blob 해시, 가져오지 않은 파일은 200개까지와 남은 수·전체 목록 해시
+        out.update(path=f"{src['dir']}/SKILL.md", copy=None, read=src["read_at"], **{k: src[k] for k in ("repo", "commit", "dir", "branch", "url", "blobs",
+                                                                                                       "others_more", "others_sha")})
+        out["others"] = src["others"][:GH_OTHERS_KEEP]
     if req:
         out.update(request=f"staff-requests/{req['n']}.json", approval=f"staff-requests/{req['n']}.ok.json", request_sha256=req["digest"],
                    said=req["approval"]["said"])
@@ -9102,7 +10134,15 @@ def api_staff_request(body):
         raise ApiError(409, "이 층은 직원 스킬(시험 기능)이 꺼져 있어요. 설정 → 층에서 먼저 켜 주세요", {"why": "off"})
     if body.get("source") is None and "request" in body:
         return dict(request_view(request_read(base, body.get("request"))), ok=True, team=t["id"])
-    src = source_read(base, body.get("source"))
+    if is_gh_key(body.get("source")):   # 바깥(GitHub) 원천: 읽어 둔 글로만 묶어요. GitHub에 묻지 않아요(묶음의 커밋은 서버가 기본 가지에서 정한 것이에요)
+        if not skill_search_on(t):
+            raise outside_off()
+        hit = gh_cached(body.get("source"))
+        if not hit:
+            raise gh_error("gh-reread")
+        src = hit["src"]
+    else:
+        src = source_read(base, body.get("source"))
     if src["kind"] == "floor" and src["adopted"]:
         raise ApiError(409, "이미 들인 스킬이에요. 묶음 없이 [직원 들이기]로 바로 들여요", {"why": "adopted"})
     form = skill_form(body, src)
@@ -9115,6 +10155,9 @@ def api_staff_request(body):
         skills_ready(folder, base, form["skills"])
         data = {"v": 1, "team": t["id"], "created": now(),   # 원천을 쓴 사람이 정한 파일 이름은 넣지 않아요(이름은 sha가 묶어요. 팀장이 이 파일을 읽어요)
                 "source": {k: src[k] for k in ("key", "kind", "name", "group", "label", "sha")}, "form": form}
+        if src["kind"] == "gh-skill":   # 저장소·커밋·폴더·가지와 파일마다의 해시(상대 경로 차례, 이름 없이). 원문도 파일 이름도 넣지 않아요
+            data["source"].update({k: src[k] for k in ("repo", "commit", "dir", "branch")}, files_sha256=[src["files"][r] for r in sorted(src["files"])],
+                                  license_sha256=[src["license_files"][n] for n in sorted(src["license_files"])])
         try:
             n, path, raw_bundle = request_write(base, data)
             save_request(base, n, {"sha256": hashlib.sha256(raw_bundle).hexdigest(), "at": time.time()}, new=True)
@@ -9124,15 +10167,8 @@ def api_staff_request(body):
     return dict(request_view(request_read(base, n)), ok=True, team=t["id"])
 
 
-def staff_hire_skill(t, base, body):
-    """스킬로 들이기(api_staff_hire의 source 갈래, 설계 7-1). 이미 들인 것(출처.json이 있는 층 스킬): {team, source, sha, role, staff, desc, note, tools, model, skills}.
-    남의 글: {team, source, request, sha?}. 승인 표시가 맞는 묶음(request_read의 state ok)일 때만 들이고, 그때 양식 값은 묶음의 것이에요(body의 양식 값은 보지 않아요).
-    원천을 다시 읽어(source_read) 카드·묶음에서 읽은 해시(sha)와 다르면 409(why: changed), 막아요 항목이 있으면 409(why: blocked), 셸·웹 도구면 409(why: wide-locked),
-    명찰이 너무 크면 409(why: size), 묶음이 승인되지 않았으면 409(why: request·wait·approval·stale·used·bundle·unread·changed)예요.
-    직원 폴더에 새 꼴 SKILL.md·기억.md·원본/(원래 바이트 그대로)·LICENSE(NOTICE)·출처.json을 쓰고, 명찰은 들일 때 적을 기록으로 지어요(옛 기록은 잇지 않아요).
-    주 스킬은 팀장 폴더에 링크하지 않아요. 실패하면 직원 폴더(원본/ 포함)·명찰·링크를 되돌려요(undo_made).
-    같은 원본을 주 스킬로 가진 직원(team.json에 있는 직원만)이 있어도 막지 않고 dup으로 알려요.
-    → {ok, team, role, staff, folder, skill, agent, restart, restart_hint(늘 true), links, git, source{key, kind, name, group, label}, mark_line, dup, request}."""
+def skill_hire_source(base, body):
+    """이 맥 원천의 들이기 앞 차례(staff_hire_skill): 원천을 다시 읽고(source_read) 이미 들인 층 스킬이면 body 양식, 남의 글이면 승인된 묶음 양식으로 → (src, req 또는 None, form)."""
     try:
         src = source_read(base, body.get("source"))
     except ApiError as e:
@@ -9148,17 +10184,41 @@ def staff_hire_skill(t, base, body):
         form = skill_form(body, src)
         source_same(body.get("sha"), src)
     else:
-        if body.get("request") in (None, ""):
-            raise ApiError(409, "남이 쓴 글이라 팀장 창 승인이 있어야 들여요. [팀장 창 승인 받기]로 묶음을 먼저 만들어 주세요", {"why": "request"})
-        req = request_read(base, body.get("request"))
-        if req["state"] != "ok":
-            raise request_refuse(req)
-        if req["data"]["source"]["key"] != src["key"]:
-            raise ApiError(409, "묶음의 원천이 고른 원천과 달라요. 카드에서 다시 해 주세요", {"why": "request", "request": req["n"]})
+        req = request_ok(base, body, src["key"])
         form = skill_form(req["data"]["form"], src)
         source_same(req["data"]["source"]["sha"], src)
         if body.get("sha") is not None:
             source_same(body.get("sha"), src)
+    return src, req, form
+
+
+def request_ok(base, body, key):
+    """남의 글 들이기의 묶음(body.request): 없으면 409(why: request), 승인되지 않았으면 request_refuse, 묶음의 원천 열쇠가 key와 다르면 409(why: request). → request_read 값."""
+    if body.get("request") in (None, ""):
+        raise ApiError(409, "남이 쓴 글이라 팀장 창 승인이 있어야 들여요. [팀장 창 승인 받기]로 묶음을 먼저 만들어 주세요", {"why": "request"})
+    req = request_read(base, body.get("request"))
+    if req["state"] != "ok":
+        raise request_refuse(req)
+    if req["data"]["source"]["key"] != key:
+        raise ApiError(409, "묶음의 원천이 고른 원천과 달라요. 카드에서 다시 해 주세요", {"why": "request", "request": req["n"]})
+    return req
+
+
+def staff_hire_skill(t, base, body):
+    """스킬로 들이기(api_staff_hire의 source 갈래, 설계 7-1). 이미 들인 것(출처.json이 있는 층 스킬): {team, source, sha, role, staff, desc, note, tools, model, skills}.
+    남의 글: {team, source, request, sha?}. 승인 표시가 맞는 묶음(request_read의 state ok)일 때만 들이고, 그때 양식 값은 묶음의 것이에요(body의 양식 값은 보지 않아요).
+    원천을 다시 읽어(source_read) 카드·묶음에서 읽은 해시(sha)와 다르면 409(why: changed), 막아요 항목이 있으면 409(why: blocked), 셸·웹 도구면 409(why: wide-locked),
+    명찰이 너무 크면 409(why: size), 묶음이 승인되지 않았으면 409(why: request·wait·approval·stale·used·bundle·unread·changed)예요.
+    직원 폴더에 새 꼴 SKILL.md·기억.md·원본/(원래 바이트 그대로)·LICENSE(NOTICE)·출처.json을 쓰고, 명찰은 들일 때 적을 기록으로 지어요(옛 기록은 잇지 않아요).
+    주 스킬은 팀장 폴더에 링크하지 않아요. 실패하면 직원 폴더(원본/ 포함)·명찰·링크를 되돌려요(undo_made).
+    같은 원본을 주 스킬로 가진 직원(team.json에 있는 직원만)이 있어도 막지 않고 dup으로 알려요.
+    → {ok, team, role, staff, folder, skill, agent, restart, restart_hint(늘 true), links, git, source{key, kind, name, group, label}, mark_line, dup, request}.
+    gh 열쇠(바깥에서 찾은 스킬)는 맨 위 갈래(gh_hire_source)예요: 스위치·묶음·승인을 본 뒤 그 커밋을 GitHub에서 새로 읽어 해시를 견주고, 같을 때만 아래 공통 차례로 가요.
+    바깥 요청은 모두 TEAM_LOCK 전, 파일 쓰기 전에 끝나요(못 닿거나 다르면 아무것도 쓰지 않아요)."""
+    if isinstance(body.get("source"), str) and body["source"].startswith("gh:"):
+        src, req, form = gh_hire_source(t, base, body)
+    else:
+        src, req, form = skill_hire_source(base, body)
     chk = source_ready(src)
     hired, mark = now(), staff_mark_new()
     skill, _, _, extra = skill_build(base, form, src, mark, hired)
@@ -9382,7 +10442,7 @@ def api_staff_body_reset(body):
         mark = rec.get("mark") if rec and isinstance(rec.get("mark"), str) and MARK_RE.match(rec["mark"]) else None
         bsha = rec.get("body_sha") if rec and isinstance(rec.get("body_sha"), str) and rec["body_sha"] else None
         lost = not (mark and bsha)
-        main = "SKILL.md" if info["kind"] == "floor" else info["name"] + ".md"
+        main = "SKILL.md" if info["kind"] in ("floor", "gh-skill") else info["name"] + ".md"
         op, why = plain_path(base, ["staff", staff, "원본", main])
         raw = source_file(op)[0] if not why else None
         try:
@@ -9547,7 +10607,7 @@ def staff_from(base, staff, sk, rec):
     if not key:
         return None
     kind, name, group = source_key_parts(key)
-    src = name if kind == "floor" else f"{group}/{name}"
+    src = key_src(key)
     ver = rec.get("ver") if rec and isinstance(rec.get("ver"), str) and re.match(r"^[0-9a-f]{7}\Z", rec["ver"]) else None
     if not ver:
         m = re.search(r"@([0-9a-f]{7})\Z", (sk or {}).get("from") or "")
@@ -10062,7 +11122,8 @@ ROUTES = {"/api/say": api_say, "/api/meeting/start": api_meeting_start, "/api/me
           "/api/boss/cancel": api_boss_cancel, "/api/floor/link-rules": api_floor_link_rules, "/api/talk/allow": api_talk_allow,
           "/api/staff/hire": api_staff_hire, "/api/staff/fire": api_staff_fire, "/api/staff/rebuild": api_staff_rebuild,
           "/api/staff/enable": api_staff_enable, "/api/staff/from-skill/preview": api_staff_preview,
-          "/api/staff/from-skill/request": api_staff_request, "/api/staff/restore": api_staff_restore, "/api/staff/body-reset": api_staff_body_reset}
+          "/api/staff/from-skill/request": api_staff_request, "/api/staff/restore": api_staff_restore, "/api/staff/body-reset": api_staff_body_reset,
+          "/api/staff/outside/enable": api_staff_outside_enable, "/api/staff/outside/search": api_staff_outside_search}
 GET_ROUTES = {"/api/staff/sources": api_staff_sources}   # 열쇠(X-Office-Token)가 맞아야 하는 GET(get_api)
 
 

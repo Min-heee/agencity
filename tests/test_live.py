@@ -55,7 +55,8 @@ class LiveState(unittest.TestCase):
         cls.port = free_port()
         env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("AGENCITY_", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"))}
         env.update(HOME=cls.home, OFFICE_PORT=str(cls.port), AGENCITY_CONFIG_DIR=cls.conf, AGENCITY_UPDATE_INTERVAL="999999999", AGENCITY_CLAUDE_RUN_DIR=cls.rundir,
-                   AGENCITY_UPDATE_BASE="http://127.0.0.1:9", AGENCITY_UPDATE_RAW="http://127.0.0.1:9", AGENCITY_GITHUB_API="http://127.0.0.1:9", AGENCITY_GITHUB_BASE="http://127.0.0.1:9")
+                   AGENCITY_UPDATE_BASE="http://127.0.0.1:9", AGENCITY_UPDATE_RAW="http://127.0.0.1:9", AGENCITY_GITHUB_API="http://127.0.0.1:9", AGENCITY_GITHUB_BASE="http://127.0.0.1:9",
+                   AGENCITY_SKILLS_BASE="http://127.0.0.1:9")
         cls.env = env
         cls.proc = subprocess.Popen([sys.executable, "-I", "office_server.py"], cwd=cls.dir, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         cls.base = f"http://127.0.0.1:{cls.port}"

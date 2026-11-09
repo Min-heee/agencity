@@ -117,7 +117,8 @@ class Office(unittest.TestCase):
         cls.port = free_port()
         env = {k: v for k, v in os.environ.items() if not k.upper().startswith(("AGENCITY_", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"))}
         env.update(HOME=cls.home, OFFICE_PORT=str(cls.port), AGENCITY_CONFIG_DIR=cls.conf, AGENCITY_UPDATE_INTERVAL="999999999",
-                   AGENCITY_UPDATE_BASE="http://127.0.0.1:9", AGENCITY_UPDATE_RAW="http://127.0.0.1:9", AGENCITY_GITHUB_API="http://127.0.0.1:9", AGENCITY_GITHUB_BASE="http://127.0.0.1:9")
+                   AGENCITY_UPDATE_BASE="http://127.0.0.1:9", AGENCITY_UPDATE_RAW="http://127.0.0.1:9", AGENCITY_GITHUB_API="http://127.0.0.1:9", AGENCITY_GITHUB_BASE="http://127.0.0.1:9",
+                   AGENCITY_SKILLS_BASE="http://127.0.0.1:9")
         cls.env = env
         code = f"import sys; sys.path.insert(0, '.'); import office_server as o; o.IMAGE_RATE = {cls.RATE}; o.IMAGE_READ_SECS = 1; o.MAX_PER_MIN = 10 ** 6; o.MAX_PENDING = 10 ** 6; o.main()"
         cls.proc = subprocess.Popen([sys.executable, "-I", "-c", code], cwd=cls.dir, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
