@@ -724,6 +724,59 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .su-skg{display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px}
 .su-skf textarea{width:100%; min-width:0; min-height:84px; padding:7px 9px; border:1px solid var(--line-2); border-radius:2px; background:var(--surface); color:var(--ink); font:inherit; font-size:13.5px; resize:vertical}
 .su-skf .su-actions{margin-top:0}
+/* 스킬로 들이기(U-35): 두 갈래 고르기, 단계 줄, 묶음별 원천 목록, 카드(막아요·확인해요), 팀장 창 승인 상자, 퇴근한 직원. 새 색 없이 지금 토큰만 써요 */
+.su-skmode{display:flex; gap:8px; min-width:0}
+.su-skm{flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:6px 10px; border:1px solid var(--line-2); border-radius:2px; background:var(--surface); color:var(--ink); font-size:13px; font-weight:600; text-align:center; cursor:pointer}
+.su-skm:has(input:checked){border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink)}
+.su-skm input{margin:0; flex:none}
+.su-skstep{margin:0; font-size:12.5px; color:var(--ink-3)}
+.su-skstep b{color:var(--ink)}
+.su-skh{margin:0; font-size:13.5px; font-weight:600; color:var(--ink); overflow-wrap:anywhere}
+.su-skgrp{border-top:1px solid var(--line); padding-top:4px; min-width:0}
+.su-skgrp > summary{cursor:pointer; padding:6px 0; font-size:13px; font-weight:600; color:var(--ink-2); overflow-wrap:anywhere}
+.su-srcs{list-style:none; margin:0; padding:0}
+.su-floors .su-srcs > li,.su-srcs > li{border:0; border-top:1px solid var(--line); border-radius:0; background:none; padding:4px 0 6px; display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:0}
+.su-src{display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; min-width:0; min-height:44px; padding:4px 0; border:0; background:none; color:var(--ink); font:inherit; text-align:left; cursor:pointer}
+.su-src-t{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; min-width:0}
+.su-src b{font:600 13px var(--font-mono); overflow-wrap:anywhere}
+.su-src .hint,.su-src-d{overflow-wrap:anywhere}
+.su-src-d{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink-3)}
+.su-src[aria-expanded="true"] b{text-decoration:underline; text-underline-offset:3px}
+.su-skcard{margin:6px 0 4px; padding:12px; border:1px solid var(--line-2); border-radius:4px; background:var(--surface); display:flex; flex-direction:column; gap:10px; min-width:0; overflow-wrap:anywhere}
+.su-skcard code{overflow-wrap:anywhere}
+.su-skcard .su-more{margin-top:0}
+.su-skn{margin:0; font-size:13px}
+.su-skx{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
+.su-floors .su-skx li,.su-skx li{display:block; padding:6px 9px; border:1px solid var(--line); border-radius:3px; background:var(--surface); font-size:12.5px; color:var(--ink); overflow-wrap:anywhere}
+.su-floors .su-skx li.bad,.su-skx li.bad{border-color:color-mix(in srgb, var(--err) 55%, var(--line)); background:color-mix(in srgb, var(--err) 10%, var(--surface)); color:var(--ink)}   /* 빨강은 테두리·바탕으로만(--err-ink 글자는 밝은 모드 4.2:1) */
+.su-floors .su-skx li.chk,.su-skx li.chk{border-color:color-mix(in srgb, var(--work) 55%, var(--line)); background:color-mix(in srgb, var(--work) 10%, var(--surface))}
+.su-skx li > b{margin-right:4px}
+.su-skx .btn{display:flex; margin-top:6px; padding:3px 10px; font-size:12px}
+.su-skx .btn[aria-disabled="true"]{opacity:.6; cursor:default}
+.su-skq{display:block; margin-top:4px; padding:4px 8px; border-left:2px solid var(--line-2); background:var(--surface-2); color:var(--ink); white-space:pre-wrap; font:12px/1.5 var(--font-mono)}
+.su-skfields{margin:0; padding:0; border:0; min-width:0; display:flex; flex-direction:column; gap:10px}
+.su-skfields > legend{padding:0; margin-bottom:6px}
+.su-skfields[disabled]{opacity:.75}
+.su-skdl{display:grid; grid-template-columns:max-content minmax(0,1fr); gap:3px 10px; margin:6px 0 0; font-size:12px; color:var(--ink-2)}
+.su-skdl dt{color:var(--ink-3)}
+.su-skdl dd{margin:0; min-width:0; overflow-wrap:anywhere}
+.su-skorig{margin:6px 0 0; white-space:pre-wrap; font-size:12.5px; color:var(--ink-3)}
+.su-skfence{margin:6px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:3px; font-size:12.5px; color:var(--ink-2)}
+.su-floors .su-skfence li,.su-skfence li{display:block; padding:0; border:0; border-radius:0; background:none; font-size:12.5px; overflow-wrap:anywhere}   /* 층 줄(.su-floors li)의 점선 상자 꼴을 물려받지 않게 */
+.su-skpre{margin:6px 0 0; padding:8px 10px; max-height:60vh; overflow-x:hidden; overflow-y:auto; white-space:pre-wrap; overflow-wrap:anywhere; border-radius:3px; background:var(--surface-2); color:var(--ink); font:12px/1.55 var(--font-mono)}
+.su-skreq{display:flex; flex-direction:column; gap:6px; margin-top:0; border-left:3px solid var(--line-2)}
+.su-skreq .su-actions{margin-top:2px}
+.su-skreq p + p{margin-top:0}
+.su-said{padding:8px 10px; border:1px solid var(--line-2); border-radius:3px; background:var(--surface); color:var(--ink); font:500 12.5px/1.5 var(--font-mono); overflow-wrap:anywhere}
+.su-skwhere{overflow-wrap:anywhere}
+.su-skret{margin-top:10px}
+.chip.bad{background:color-mix(in srgb, var(--err) 18%, var(--surface)); color:var(--ink)}   /* .chip.wait처럼 글자는 --ink, 빨강은 바탕으로만(--err-ink 글자는 밝은 모드 3.7:1) */
+@media (max-width:559px){
+  .su-skcard{padding:10px}
+  .su-skcard .su-actions .btn,.su-skreq .btn.su-wide{flex:1 1 100%; justify-content:center; min-height:44px}
+  .su-skdl{grid-template-columns:minmax(0,1fr)}
+  .su-skdl dd{margin-bottom:4px}
+}
 /* 층 머리의 [섹션 맞추기]·[규칙 맞추기]와 그 결과 한 줄 */
 .room-note{margin:-4px 0 12px; padding:7px 11px; border:1px solid var(--line); border-radius:3px; background:var(--surface); color:var(--ink); font-size:12.5px; overflow-wrap:anywhere}
 .room-note.bad{border-color:color-mix(in srgb, var(--err) 45%, var(--line)); color:var(--err-ink)}
@@ -2032,6 +2085,9 @@ const SK_VIA = '보낸 말은 총괄이 받아서 팀장 세션에 전하고, �
 const SK_NO_LEAD = '이 층에 팀장이 없어서 직원에게 전할 수 없어요';   // 서버(STAFF_NO_LEAD)와 같은 말이에요
 const SK_BAD_NAME = '명찰 이름(team.json의 staff 칸)이 ag-… 꼴이 아니라서 전할 수 없어요. team.json을 고친 뒤 다시 해 주세요';
 const SK_RESTART = '팀장 창을 한 번 다시 켜야 새 직원이 보여요. 일꾼이 없을 때 해요';
+// 다시 켜기 고정 글(U-35 0단계 결과): 팀장 창은 켤 때 명찰을 한 번만 읽어요. 서버가 restart_hint(늘 true)를 주면 들이기·복직·다시 만들기 뒤에 늘 보여요
+const SK_HINT = '팀장 창을 한 번 다시 켜야 새 직원이 일할 수 있어요. 일꾼이 일하는 중이면 끝난 뒤에 해요.';
+const SK_HINT_RE = '팀장 창을 한 번 다시 켜야 다시 만든 명찰을 읽어요. 일꾼이 일하는 중이면 끝난 뒤에 해요.';
 const SK_BASH = '셸 명령은 좁힐 수 없어요. 꼭 필요한 직원에게만 줘요';
 const SK_MUST = '커밋·배포·업로드처럼 위험한 일은 팀장 본인이 팀장 창에서 해요. 팀장이 일꾼에게 하는 말은 승인이 아니에요.';   // 직원 서랍 머리(세션 줄의 MUST_LINE 대신. 직원에게는 세션 창이 없어요)
 const CX_NO_TALK = 'Codex에는 아직 말을 걸 수 없어요';
@@ -4044,18 +4100,29 @@ function drawerPaint() {   // 열린 동안에는 머리의 상태 줄과 정보
   picWaitPaint();
 }
 // 직원 서랍 정보 탭의 직원 칸(세션 칸 대신): 직원 스킬 이름, SKILL.md·기억.md 경로, 도구, 모델, 명찰 상태. 경로·도구·모델은 서버가 /api/state의 staff로 알려 줘요(모르면 —)
+// 스킬로 들인 직원(U-35, 서버가 준 from)이면 원본·확인 표시·원본이 원한 셸·웹 도구 알림(노랑, 늘)도 더해요. 쓸 스킬은 모두 보여요(못 찾은 것은 명찰 칸에)
+// 시험(test_scene의 서랍 틀)이 이 함수만 꺼내 돌려서 도움 함수는 안에 둬요
 function skFactsHTML(tid, m) {
   const x = skInfo(tid, m.role), nm = skName(m), list = v => (Array.isArray(v) && v.some(y => typeof y === 'string') ? esc(v.filter(y => typeof y === 'string').join(', ')) : '—');
-  const path = v => (typeof v === 'string' && v ? `<code>${esc(v)}</code>` : '—');
+  const path = v => (typeof v === 'string' && v ? `<code>${esc(v)}</code>` : '—'), str = v => (typeof v === 'string' ? v : '');
+  const fr = x && x.from && typeof x.from === 'object' && !Array.isArray(x.from) && str(x.from.name) ? x.from : null, dd = /^(\d{4})-(\d{2})-(\d{2})/.exec(str(fr && fr.hired));
+  const wants = fr && Array.isArray(fr.wants) ? fr.wants : [], hint = str(fr && fr.hint);
+  const warn = [wants.includes('Bash') ? `원본은 명령${hint ? `(${hint})` : ''}을 쓰는데 이 직원은 명령을 못 돌려요. ${/^git diff/.test(hint) ? 'diff 파일을' : '필요한 결과 파일을'} [일 맡기기]에 적어 줘요.` : '',
+    wants.some(w => w === 'WebFetch' || w === 'WebSearch') ? '원본은 웹을 읽는데 이 직원은 웹을 못 읽어요. 읽을 글을 파일로 [일 맡기기]에 적어 줘요.' : ''].filter(Boolean);
+  const dup = x && Array.isArray(x.dup) ? x.dup.filter(y => typeof y === 'string') : [], sp = str(x && x.skill_path);
+  const from = fr ? `<dt>원본</dt><dd><code>${esc(fr.name)}</code> · ${esc(str(fr.group) || '이 층 스킬')}${dd ? ` · ${+dd[2]}월 ${+dd[3]}일 들임` : ''}${str(fr.label) ? `<br><small class="hint">${esc(fr.label)}${sp.endsWith('/SKILL.md') ? ` · 원본 폴더 ${esc(sp.slice(0, -8))}원본/` : ''}</small>` : ''}`
+    + warn.map(w => `<br><small class="hint"><span class="chip wait">확인해요</span> ${esc(w)}</small>`).join('') + (dup.length ? `<br><small class="hint">같은 원본 직원: ${esc(dup.join(', '))}(막지는 않아요)</small>` : '') + '</dd>'
+    + (str(x.mark_line) ? `<dt>확인 표시</dt><dd>${esc(x.mark_line)}</dd>` : '') : '';
   return `<dt>직원 스킬</dt><dd><code>${esc(nm || (typeof m.staff === 'string' ? cut(m.staff, 40) : '(글이 아니에요)'))}</code>${nm ? '' : ' <span class="chip wait">이름 꼴이 틀렸어요</span>'}</dd>
       <dt>SKILL.md</dt><dd>${path(x && x.skill_path)}</dd>
       <dt>기억.md</dt><dd>${path(x && x.memory_path)}</dd>
       <dt>도구</dt><dd>${list(x && x.tools)}</dd>
-      <dt>모델</dt><dd>${x && typeof x.model === 'string' && x.model ? esc(x.model) : '—'}</dd>
+      <dt>모델</dt><dd>${x && typeof x.model === 'string' && x.model ? esc(x.model === 'inherit' ? '팀장과 같게' : x.model) : '—'}</dd>
+      ${from}<dt>쓸 스킬</dt><dd>${x && Array.isArray(x.skills) && x.skills.some(y => typeof y === 'string') ? list(x.skills) : '없음'}</dd>
       ${skHeadHTML(x, 'dd')}<dt>명찰</dt><dd id="dfAgent">${skAgentHTML(tid, m.role)}</dd>`;
 }
 // 팀장 폴더 명찰에 실제로 적힌 도구·모델(서버가 명찰 머리말에서 읽어요. 일꾼이 받는 도구예요). '*'는 tools 줄이 없어 모든 도구예요. 모르면 ''
-const skHeadText = x => (x && Array.isArray(x.agent_tools) ? (x.agent_tools.includes('*') ? '모든 도구(tools 줄 없음)' : x.agent_tools.filter(y => typeof y === 'string').join(', ') || '—') + (typeof x.agent_model === 'string' && x.agent_model ? ` · 모델 ${x.agent_model}` : '') : '');
+const skHeadText = x => (x && Array.isArray(x.agent_tools) ? (x.agent_tools.includes('*') ? '모든 도구(tools 줄 없음)' : x.agent_tools.filter(y => typeof y === 'string').join(', ') || '—') + (typeof x.agent_model === 'string' && x.agent_model ? ` · 모델 ${x.agent_model === 'inherit' ? '팀장과 같게' : x.agent_model}` : '') : '');
 const SK_DIFF = 'SKILL.md와 달라요';   // 명찰이 손으로 고쳐져 도구가 이미 넓어졌을 수 있어요
 // how 'dd': 서랍 정보 탭의 한 줄(<dt>명찰의 도구</dt>), 'row': 설정 직원 줄의 작은 글
 function skHeadHTML(x, how) {
@@ -4082,13 +4149,23 @@ function skResult(tid, role) {
   if (!r.busy && 'agent' in r && (skInfo(tid, role) || {}).agent !== r.agent) { delete SKR[k]; return {}; }
   return r;
 }
+// 팀장 폴더 알림(lead_alert: 빨강 hooks 바뀜·노랑 기록에 없는 명찰)이 있으면 명찰이 맞아도 [명찰 다시 만들기]를 보여요(알림을 확인했다는 뜻으로 눌러요).
+// lead_alert가 null이고 명찰이 맞으면 견줄 기록이 없는 직원(0.13.0에서 들인 직원)이라 알림을 켜려면 한 번 다시 만들어야 해요: 그때도 단추와 한 줄을 보여요.
+// 새 꼴 직원의 원본 영역이 바뀌었으면(body '바뀜', 또는 다시 만들기가 409 body-changed로 멈췄으면) [원본 영역 되돌리기]예요. 도움 함수는 안에 둬요(test_scene 서랍 틀)
 function skAgentHTML(tid, role) {
-  const x = skInfo(tid, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(tid, role);
+  const x = skInfo(tid, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(tid, role), old = a === 'ok' && x.lead_alert === null;
   const why = !x ? '서버에서 아직 받지 못했어요' : a === 'ok' ? '팀장 폴더의 명찰이 직원 스킬(SKILL.md)과 같아요' : a === '바뀜' ? '직원 스킬(SKILL.md)이나 명찰이 그 뒤에 바뀌었어요. 명찰이 고쳐져 도구가 이미 넓어졌을 수 있어요(명찰의 도구를 봐요)' : '팀장 폴더에 명찰이 없거나 팀장 폴더를 찾지 못했어요';
   const miss = x && Array.isArray(x.missing_skills) && x.missing_skills.length ? `<br><small class="hint">팀장 폴더에서 못 찾은 쓸 스킬: ${esc(x.missing_skills.filter(y => typeof y === 'string').join(', '))}</small>` : '';
   const err = x && typeof x.error === 'string' && x.error ? `<br><small class="err">${esc(x.error)}</small>` : '';
-  const btn = API && !exampleTeam(tid) && !!x && !!x.staff && (a === '바뀜' || a === '없음') ? ` <button type="button" class="btn" data-act="sk-rebuild" data-team="${esc(tid)}" data-role="${esc(role)}"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : '';
-  return `${a ? `<span class="chip${a === 'ok' ? ' on' : ' wait'}">${esc(SK_AGENT[a])}</span> ` : ''}<small class="hint">${esc(why)}</small>${miss}${err}${btn}${r.text ? `<br><small class="${r.bad ? 'err' : 'hint'}" role="status">${esc(r.text)}</small>` : ''}`;
+  const al = x && Array.isArray(x.lead_alert) ? x.lead_alert.filter(y => y && typeof y === 'object' && typeof y.text === 'string' && y.text) : [];
+  const body = !!x && (x.body === '바뀜' || r.why === 'body-changed'), can = API && !exampleTeam(tid) && !!x && !!x.staff;
+  const notes = al.map(y => `<br><small class="${y.level === 'red' ? 'err' : 'hint'}"><span class="chip ${y.level === 'red' ? 'bad' : 'wait'}">${y.level === 'red' ? '꼭 확인' : '확인해요'}</span> 팀장 폴더 알림: ${esc(y.text)}</small>`).join('')
+    + (x && x.body === '바뀜' ? '<br><small class="err">원본 영역이 들일 때와 달라요. [원본 영역 되돌리기]로 원본/의 글로 되돌린 뒤 명찰을 다시 만들어요.</small>' : '')
+    + (x && x.skill_changed === true ? '<br><small class="hint">직원 스킬(SKILL.md)이 마지막 명찰 뒤에 바뀌었어요. 다시 만들 때 바뀐 줄을 보여 줘요.</small>' : '')
+    + (can && old ? '<br><small class="hint">팀장 폴더 알림을 켜려면 한 번 다시 만들어요.</small>' : '');
+  const btn = (can && (a === '바뀜' || a === '없음' || al.length || old) ? ` <button type="button" class="btn" data-act="sk-rebuild" data-team="${esc(tid)}" data-role="${esc(role)}"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : '')
+    + (can && body ? ` <button type="button" class="btn" data-act="sk-body-reset" data-team="${esc(tid)}" data-role="${esc(role)}"${r.busy ? ' disabled' : ''}>원본 영역 되돌리기</button>` : '');
+  return `${a ? `<span class="chip${a === 'ok' ? ' on' : ' wait'}">${esc(SK_AGENT[a])}</span> ` : ''}<small class="hint">${esc(why)}</small>${miss}${err}${notes}${btn}${r.text ? `<br><small class="${r.bad ? 'err' : 'hint'}" role="status">${esc(r.text)}</small>` : ''}`;
 }
 // [명찰 다시 만들기]: 서버가 SKILL.md로 명찰을 다시 쓰고 해시를 고쳐요. 끝나면 /api/state를 새로 읽어 서랍과 설정의 명찰 칸을 다시 그려요. focus: 설정에서 누른 뒤 키보드를 둘 곳(앞에서부터 있는 것)
 // 서버가 도구가 늘거나 모델이 바뀐다고 멈추면(409 why: widen) 무엇이 바뀌는지 확인 창을 띄우고, 대표가 확인하면 confirm: true와 확인 창에 보인 도구·모델(409의 tools·model을
@@ -4109,19 +4186,47 @@ function skGitText(git) {
   const add = part(added), had = skipped ? '' : part(lines.filter(x => !added.includes(x))), where = '팀장 폴더 저장소의 info/exclude';
   return [add ? `${where}에 ${add}를 더했어요${had ? `(${had}는 이미 있어요)` : ''}` : had ? `${where}에 ${had}는 이미 있어요` : '', skipped].filter(Boolean).join(' · ');
 }
-async function skRebuild(tid, role, focus) {
-  const k = tid + '|' + role, r = SKR[k] = { busy: true, text: '', bad: false }, widen = e => { if (e.body && e.body.why === 'widen') return e; throw e; };
+// 확인 표시 줄(서버 mark_line: '확인 표시: ag-… · <원천>@<판7> · <들인 날>. 마지막 답 첫 줄에 …')로 다시 켜기 안내의 둘째 글을 지어요. 없으면 ''
+function skMarkText(line) {
+  const s = typeof line === 'string' ? line.replace(/\s+/g, ' ').trim() : '', m = /^(확인 표시: .*?)\.(?: |$)/.exec(s);
+  return s ? ` 첫 일의 마지막 답 첫 줄에 ‘${m ? m[1] : s}’가 나오면 새 명찰이 실린 거예요.` : '';
+}
+// 확인 창 글: 넓힘(409 widen)과 SKILL.md 바뀜(409 skill-changed). what: '‘기획’ 명찰을 다시 만들면' 같은 머리. 바뀐 줄은 서버가 한 줄로 줄인 글이라 확인 창(글만)에 그대로 적어요
+const skWidenAsk = (b, what) => `${b.again ? '확인하는 사이에 직원 스킬(SKILL.md)이 또 바뀌었어요.\n' : ''}${what}\n${skWiden(b)}\n\n직원 스킬(SKILL.md)은 일꾼도 고칠 수 있어요. 누가 고쳤는지 확인한 뒤 만들어요. 계속할까요?`;
+function skChangedAsk(b, what) {
+  const ls = Array.isArray(b.lines) ? b.lines.filter(x => x && typeof x === 'object').slice(0, 40) : [];
+  const rows = ls.map(x => `${x.op === '-' ? '-' : '+'} ${Number.isInteger(x.n) ? `${x.n}행 ` : ''}${String(x.text == null ? '' : x.text).replace(/[\u0000-\u001f\u007f]/g, ' ')}`);
+  return `${b.again ? '확인하는 사이에 직원 스킬(SKILL.md)이 또 바뀌었어요.\n' : ''}${what}\n직원 스킬(SKILL.md)이 마지막으로 명찰을 지은 뒤 바뀌었어요. 바뀐 줄이에요(+ 지금 글에만 있는 줄, - 지난번 글에만 있던 줄).\n`
+    + `${b.copy === false ? '마지막으로 지은 사본이 없어서 모든 줄을 보여요.\n' : ''}${rows.join('\n')}${Number.isInteger(b.more) && b.more > 0 ? `\n… 줄 ${b.more}개 더 있어요` : ''}`
+    + '\n\n직원 스킬은 일꾼도 고칠 수 있어요. 누가 고쳤는지 확인한 뒤 만들어요. 계속할까요?';
+}
+// 다시 만들기·복직의 확인 창 차례(서버 409). skill-changed(새 꼴 직원의 SKILL.md가 마지막 명찰 뒤에 바뀜)는 바뀐 줄을 보여 주고, 확인하면 그 409의 skill_sha를 seen_skill로 붙여 다시 보내요.
+// widen(도구가 늘거나 모델이 바뀜)은 확인하면 confirm과 확인 창에 보인 도구·모델(expect)을 붙여요(seen_skill이 있으면 함께). 그사이 또 바뀌면(again) 새 차이로 다시 물어요(종류마다 세 번까지).
+// → { res: 서버 답(취소하면 null), stop: 취소한 확인 창의 why }. 다른 409(body-changed·wide-locked 등)는 그대로 던져요
+async function skAsk(path, body, what) {
+  const ask = e => { if (e.body && (e.body.why === 'widen' || e.body.why === 'skill-changed')) return e; throw e; };
+  const n = { widen: 0, 'skill-changed': 0 };
+  let res = await post(path, body).catch(ask), more = {};
+  while (res instanceof Error && n[res.body.why] < 3) {
+    const b = res.body, w = b.why;
+    n[w]++;
+    if (!confirm(w === 'widen' ? skWidenAsk(b, what) : skChangedAsk(b, what))) return { res: null, stop: w };
+    more = Object.assign({}, more, w === 'widen' ? { confirm: true, expect: { tools: b.tools, model: b.model } } : { seen_skill: b.skill_sha });
+    res = await post(path, Object.assign({}, body, more)).catch(ask);
+  }
+  if (res instanceof Error) throw res;
+  return { res, stop: '' };
+}
+// head: 앞에 붙일 글(원본 영역 되돌리기 결과 등). 409 body-changed로 멈추면 r.why에 남겨 [원본 영역 되돌리기]를 보여요
+async function skRebuild(tid, role, focus, head) {
+  const k = tid + '|' + role, r = SKR[k] = { busy: true, text: '', bad: false };
   skRepaint(tid, role, focus);
   try {
-    let res = await post('api/staff/rebuild', { team: tid, role }).catch(widen);
-    for (let n = 0; res instanceof Error && n < 3; n++) {
-      const b = res.body, ok = confirm(`${b.again ? '확인하는 사이에 직원 스킬(SKILL.md)이 또 바뀌었어요.\n' : ''}‘${role}’ 명찰을 다시 만들면\n${skWiden(b)}\n\n직원 스킬(SKILL.md)은 일꾼도 고칠 수 있어요. 누가 고쳤는지 확인한 뒤 만들어요. 계속할까요?`);
-      res = ok ? await post('api/staff/rebuild', { team: tid, role, confirm: true, expect: { tools: b.tools, model: b.model } }).catch(widen) : null;
-    }
-    if (res instanceof Error) throw res;
-    if (res) { const g = skGitText(res.git); r.text = `명찰을 다시 만들었어요.${g ? ` ${g}.` : ''}${res.restart ? ` ${SK_RESTART}.` : ''}`; }
-    else { r.text = '명찰을 다시 만들지 않았어요. 도구나 모델이 바뀌어서 확인 창에서 멈췄어요.'; r.bad = true; }
-  } catch (e) { r.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '명찰을 만들지 못했어요'; r.bad = true; }
+    const { res, stop } = await skAsk('api/staff/rebuild', { team: tid, role }, `‘${role}’ 명찰을 다시 만들면`);
+    if (res) { const g = skGitText(res.git); r.text = `명찰을 다시 만들었어요.${g ? ` ${g}.` : ''}${res.restart_hint === true ? ` ${SK_HINT_RE}${skMarkText(res.mark_line)}` : res.restart ? ` ${SK_RESTART}.` : ''}`; }
+    else { r.text = stop === 'skill-changed' ? '명찰을 다시 만들지 않았어요. 직원 스킬(SKILL.md)이 바뀌어서 확인 창에서 멈췄어요.' : '명찰을 다시 만들지 않았어요. 도구나 모델이 바뀌어서 확인 창에서 멈췄어요.'; r.bad = true; }
+  } catch (e) { r.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '명찰을 만들지 못했어요'; r.bad = true; r.why = e.body && typeof e.body.why === 'string' ? e.body.why : ''; }
+  if (head) r.text = `${head} ${r.text}`;
   r.busy = false;
   if (API && state) { try { state.relay = JSON.parse(await getText('api/state')); liveTake(state.relay); } catch (e) {} }
   r.agent = (skInfo(tid, role) || {}).agent;   // 이 상태가 바뀌면 결과 글을 지워요(skResult)
@@ -5397,62 +5502,465 @@ function editHTML(f, e, j, used) {
 // ---------- 직원 스킬(U-31 '스킬이 곧 직원', 시험 기능) ----------
 // 층마다 켜고 꺼요(org.json의 층 "staff": true, /api/staff/enable). 켠 층만 [직원 들이기] 폼이 보여요(/api/staff/hire). 직원마다 [퇴근](/api/staff/fire)과,
 // 명찰이 바뀌었거나 없으면 [명찰 다시 만들기](/api/staff/rebuild)가 있어요. 끄면 들이기만 숨겨요(들인 직원과 명찰은 그대로예요). 직원 목록은 사무실 화면이 읽은 team.json이에요.
-const skState = id => SU.sk[id] || (SU.sk[id] = { open: false, draft: null, busy: '', text: '', bad: false, restart: false, err: '' });
+// U-35 '스킬로 들이기'(기본 갈래)와 '직접 쓰기'(지금 양식): mode는 고른 갈래(들인 뒤 폼을 비워도 남아요), src는 원천 목록(/api/staff/sources, 처음 펼 때 한 번),
+// hint는 다시 켜기 고정 글(restart_hint, 확인 표시 줄 mark), dup은 같은 원본 직원 알림, reset은 복직이 원본 영역 바뀜으로 멈춘 직원, pre는 마지막으로 그린 묶음 id
+const skState = id => SU.sk[id] || (SU.sk[id] = { open: false, draft: null, busy: '', text: '', bad: false, restart: false, err: '', mode: 'skill', src: { busy: false, list: null, err: '' }, hint: null, dup: [], reset: '', pre: '' });
 const skCount = f => { const d = state && state.teams && state.teams[f.id]; return d && d.team ? skRows(d.team.members).length : 0; };
 const SK_TOOLS = ['Read', 'Grep', 'Glob', 'Write', 'Edit'];   // 서버가 기본 도구를 못 알려 줄 때(서버 STAFF_BASE_TOOLS와 같아요. Bash 없이)
 const floorWord = n => (String(n).endsWith('층') ? String(n) : `${n} 층`);   // '<층 이름> 층'. 이름이 이미 '층'으로 끝나면 또 붙이지 않아요(서버 floor_word와 같아요)
 function skDraft(f) {
   const k = skState(f.id), form = f.staffForm || {};
-  if (!k.draft) k.draft = { role: '', staff: '', desc: '', work: '', tools: (Array.isArray(form.defaultTools) ? form.defaultTools : SK_TOOLS).slice(), model: 'inherit', skills: [] };
+  // 직접 쓰기 칸(role…skills)과 스킬 갈래 값: source(고른 원천 열쇠), preview(카드, /api/staff/from-skill/preview 답), card(카드 양식 값), request(들일 묶음·승인 상태),
+  // busy('preview'·'request'·'check'), cerr(카드 오류 글), pvErr(카드를 못 읽은 까닭), stale(사본이 읽은 판과 달라 다시 읽어야 해요)
+  if (!k.draft) k.draft = { mode: k.mode === 'direct' ? 'direct' : 'skill', role: '', staff: '', desc: '', work: '', tools: (Array.isArray(form.defaultTools) ? form.defaultTools : SK_TOOLS).slice(), model: 'inherit', skills: [],
+    source: '', preview: null, card: null, request: null, busy: '', cerr: '', pvErr: '', stale: false };
   return k.draft;
+}
+// 원천에서 온 글(원 설명·본문·점검 글·찾은 낱말·주석 글)은 HTML 글에 넣지 않아요. 빈 자리(data-skt)만 두었다가 그린 뒤 skTextFill이 textContent로 채워요
+const SKT = [];
+const skT = (s, tag = 'span', cls = '') => { SKT.push(String(s == null ? '' : s)); return `<${tag} data-skt="${SKT.length - 1}"${cls ? ` class="${cls}"` : ''}></${tag}>`; };
+function skTextFill(root) {
+  if (root && root.querySelectorAll) for (const el of root.querySelectorAll('[data-skt]')) { const v = SKT[Number(el.dataset.skt)]; el.textContent = v == null ? '' : v; el.removeAttribute('data-skt'); }
+  SKT.length = 0;
+}
+const skStrs = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x) : []);
+const skDay = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(typeof v === 'string' ? v : ''); return m ? `${+m[2]}월 ${+m[3]}일` : ''; };   // 'YYYY-MM-DD…' → '11월 9일'
+const skGa = w => { const c = String(w).normalize('NFC').slice(-1).charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 && c % 28 ? '이' : '가'; };   // ‘기획이’·‘마케팅이’·‘QA가’
+const skKB = n => (!Number.isFinite(n) || n < 0 ? '—' : n < 1024 ? `${n}B` : `${(n / 1024).toFixed(1).replace(/\.0$/, '')}KB`);
+const skOpen = (k, open) => { const fd = SU.fold || {}; return k in fd ? !!fd[k] : !!open; };   // 접는 칸을 다시 그려도 펼친 채로(SU.fold, setup의 toggle이 적어요)
+// 퇴근한 직원(서버 /api/state의 staffRetired[층]): 이름 꼴이 맞는 줄만
+const skRetired = tid => { const s = state && state.relay && state.relay.staffRetired, l = s && typeof s === 'object' && Array.isArray(s[tid]) ? s[tid] : []; return l.filter(x => x && typeof x === 'object' && typeof x.staff === 'string' && STAFF_RE.test(x.staff)); };
+// 들일 수 없는 층(화면 1): 팀장 세션이 없거나 자리가 꽉 찼어요(서버 seat_spot·lead_spot과 같은 말). 단추는 잠그지 않아요(서버가 다시 봐요)
+function skStop(f) {
+  const d = state && state.teams && state.teams[f.id], ms = d && d.team && Array.isArray(d.team.members) ? d.team.members : null;
+  if (!ms) return '';
+  if (!skLead(f.id)) return '이 층에 팀장 세션이 없어서 직원을 들일 수 없어요. 팀장 자리에 세션을 먼저 앉혀 주세요.';
+  return shownRows(ms).length + skRows(ms).length >= MAX_MEMBERS ? `한 층에는 ${MAX_MEMBERS}자리까지예요(팀장·직원 포함). 자리를 비운 뒤 들여 주세요.` : '';
 }
 function skPanelHTML(f, j) {
   const k = skState(f.id), on = f.staffOn === true, d = state && state.teams && state.teams[f.id], rows = d && d.team ? skRows(d.team.members) : [], pre = 'suK' + j;
+  k.pre = pre;
   const list = rows.length ? `<ul class="su-sklist" aria-label="${esc(floorWord(f.name))} 직원">${rows.map((m, i) => skRowHTML(f, m, `${pre}m${i}`)).join('')}</ul>` : on ? '<p class="hint" style="margin-top:8px">아직 들인 직원이 없어요.</p>' : '';
+  const dup = skStrs(k.dup);
   return `<div class="su-edit su-staff" id="${pre}" role="group" aria-label="${esc(floorWord(f.name))} 직원 스킬">
     <label class="su-check"><input type="checkbox" role="switch" id="${pre}on" data-su-in="sk-on" data-team="${esc(f.id)}"${on ? ' checked' : ''}${k.busy === 'on' ? ' disabled' : ''} aria-describedby="${pre}h"> 직원 스킬(시험 기능) 켜기</label>
     <p class="hint" id="${pre}h" data-must>직원은 세션 없이 이 층 팀장 세션이 띄우는 일꾼이에요. 켜면 [직원 들이기]가 보이고, 이 층 RULES.md에 ‘직원 일꾼’ 부분이 들어가요. 켜져 있는 팀장에게는 RULES.md를 다시 읽으라는 사이트 알림을 한 번 보내요.</p>
-    <details class="su-more"><summary>자세히</summary><p class="hint">직원마다 이 층 팀 사무실의 staff/&lt;영문 이름&gt;/에 직원 스킬(SKILL.md)과 기억.md를 두고, 팀장 폴더에 명찰(.claude/agents/ag-….md)을 만들어요. 쓸 층 스킬은 팀장 폴더의 .claude/skills/에 링크를 걸고, 팀장 폴더가 git 저장소면 .git/info/exclude에 명찰 한 줄과 건 스킬 링크마다 한 줄을 더해요. 직원에게 건 말과 사진은 팀장 세션이 받아 그 직원의 일꾼에게 맡겨요. 끄면 [직원 들이기]만 숨겨요. 들인 직원과 명찰, 직원이 남아 있는 동안의 ‘직원 일꾼’ 규칙은 그대로예요.</p></details>
-    ${k.text ? `<p class="hint su-rlst${k.bad ? ' bad' : ''}" role="status">${esc(k.text)}</p>` : ''}${k.restart ? `<div class="su-box su-warn" role="note"><p>${esc(SK_RESTART)}.</p></div>` : ''}
-    ${list}${on ? skFormHTML(f, pre) : ''}</div>`;
+    <details class="su-more"><summary>자세히</summary><p class="hint">직원마다 이 층 팀 사무실의 staff/&lt;영문 이름&gt;/에 직원 스킬(SKILL.md)과 기억.md를 두고, 팀장 폴더에 명찰(.claude/agents/ag-….md)을 만들어요. 쓸 층 스킬은 팀장 폴더의 .claude/skills/에 링크를 걸고, 팀장 폴더가 git 저장소면 .git/info/exclude에 명찰 한 줄과 건 스킬 링크마다 한 줄을 더해요. 직원에게 건 말과 사진은 팀장 세션이 받아 그 직원의 일꾼에게 맡겨요. 끄면 [직원 들이기]와 ‘퇴근한 직원’ 목록([복직])을 숨겨요. 들인 직원과 명찰, 직원이 남아 있는 동안의 ‘직원 일꾼’ 규칙은 그대로예요.</p></details>
+    ${k.text ? `<p class="hint su-rlst${k.bad ? ' bad' : ''}" role="status">${esc(k.text)}</p>` : ''}${k.hint ? skHintHTML(f, k, pre) : k.restart ? `<div class="su-box su-warn" role="note"><p>${esc(SK_RESTART)}.</p></div>` : ''}
+    ${dup.length ? `<p class="hint"><span class="chip wait">확인해요</span> 같은 원본을 주 스킬로 가진 직원이 있어요: ${esc(dup.join(', '))}. 막지는 않아요.</p>` : ''}
+    ${list}${skRetiredHTML(f, pre)}${on ? skFormHTML(f, pre) : ''}</div>`;
 }
-// 들인 직원 한 줄: 역할, 명찰 이름, 명찰 상태, [명찰 다시 만들기](바뀜·없음일 때만), [퇴근]
+// 다시 켜기 고정 글(설계 화면 5, .su-warn). 스킬로 들였거나 복직했으면 확인 표시 줄과 [실렸는지 확인 맡기기](팀장에게 사이트 말로 확인 부탁, 승인이 아니에요).
+// 단추는 보낸 뒤에만 잠가요(보내지 못했으면 다시 누를 수 있어요)
+function skHintHTML(f, k, pre) {
+  const h = k.hint, mark = skMarkText(h.mark);
+  return `<div class="su-box su-warn" role="note"><p>${esc(SK_HINT)}</p>${mark ? `<p>${esc(mark.trim())}</p>` : ''}${mark && h.role && STAFF_RE.test(h.staff || '') ? `
+      <div class="su-actions"><button type="button" class="btn" id="${pre}vf" data-su="sk-verify" data-team="${esc(f.id)}" data-role="${esc(h.role)}" data-staff="${esc(h.staff)}"${h.sent && !h.bad ? ' disabled' : ''}>실렸는지 확인 맡기기</button>
+      <span class="hint">팀장 창을 다시 켠 뒤에 눌러요. 팀장에게 그 직원이 파일을 읽지 말고 원본 첫 머리글과 확인 표시를 말하게 해 달라고 보내요(승인이 아니에요).</span></div>` : ''}${h.sent ? `<p class="${h.bad ? 'err' : 'hint'}" role="status">${esc(h.sent)}</p>` : ''}</div>`;
+}
+// 들인 직원 한 줄: 역할, 명찰 이름, 명찰 상태, [명찰 다시 만들기](바뀜·없음, 팀장 폴더 알림이 있을 때, 또는 견줄 기록이 없어 알림이 꺼진 0.13.0 직원), [원본 영역 되돌리기](원본 영역이 바뀐 새 꼴 직원), [퇴근]
+// 스킬로 들인 직원은 원본 줄(원본 이름 · 묶음 · 들인 날)과 원본이 원한 셸·웹 도구 알림(노랑), 팀장 폴더 알림(빨강 hooks·노랑 기록에 없는 명찰)도 보여요
 function skRowHTML(f, m, id) {
-  const role = skRole(m), x = skInfo(f.id, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(f.id, role), nm = skName(m);
+  const role = skRole(m), x = skInfo(f.id, role), a = x && SK_AGENT[x.agent] ? x.agent : '', r = skResult(f.id, role), nm = skName(m), old = a === 'ok' && x.lead_alert === null;
   const miss = x && Array.isArray(x.missing_skills) && x.missing_skills.length ? `<p class="hint">팀장 폴더에서 못 찾은 쓸 스킬: ${esc(x.missing_skills.filter(y => typeof y === 'string').join(', '))}</p>` : '';
+  const fr = x && x.from && typeof x.from === 'object' && !Array.isArray(x.from) && typeof x.from.name === 'string' ? x.from : null;
+  const al = x && Array.isArray(x.lead_alert) ? x.lead_alert.filter(y => y && typeof y === 'object' && typeof y.text === 'string' && y.text) : [];
+  const body = !!x && (x.body === '바뀜' || r.why === 'body-changed'), warn = skToolNote(fr);
+  const src = fr ? `<p class="hint">원본: <code>${esc(fr.name)}</code> · ${esc(typeof fr.group === 'string' && fr.group ? fr.group : '이 층 스킬')}${skDay(fr.hired) ? ` · ${skDay(fr.hired)}` : ''}</p>` : '';
+  const notes = warn.map(w => `<p class="hint"><span class="chip wait">확인해요</span> ${esc(w)}</p>`).join('')
+    + al.map(y => `<p class="${y.level === 'red' ? 'err' : 'hint'}"><span class="chip ${y.level === 'red' ? 'bad' : 'wait'}">${y.level === 'red' ? '꼭 확인' : '확인해요'}</span> 팀장 폴더 알림: ${esc(y.text)}</p>`).join('')
+    + (x && x.body === '바뀜' ? '<p class="err">원본 영역이 들일 때와 달라요. [원본 영역 되돌리기]로 원본/의 글로 되돌린 뒤 명찰을 다시 만들어요.</p>' : '')
+    + (x && x.skill_changed === true ? '<p class="hint">직원 스킬(SKILL.md)이 마지막 명찰 뒤에 바뀌었어요. 다시 만들 때 바뀐 줄을 보여 줘요.</p>' : '')
+    + (nm && old ? '<p class="hint">팀장 폴더 알림을 켜려면 한 번 다시 만들어요.</p>' : '');
   return `<li class="su-have-h"><b>${esc(role)}</b><code>${esc(nm || '명찰 이름 꼴이 틀림')}</code>${a ? `<span class="chip${a === 'ok' ? ' on' : ' wait'}">명찰 ${esc(SK_AGENT[a])}</span>` : ''}
-      <span class="su-have-b">${nm && (a === '바뀜' || a === '없음') ? `<button type="button" class="btn su-to" id="${id}r" data-su="sk-rebuild" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 명찰 다시 만들기"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : ''}<button type="button" class="btn su-to" id="${id}f" data-su="sk-fire" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 직원 퇴근">퇴근</button></span>
-      ${r.text ? `<p class="hint su-rlst${r.bad ? ' bad' : ''}" role="status">${esc(r.text)}</p>` : ''}${skHeadHTML(x, 'row')}${miss}</li>`;
+      <span class="su-have-b">${nm && (a === '바뀜' || a === '없음' || al.length || old) ? `<button type="button" class="btn su-to" id="${id}r" data-su="sk-rebuild" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 명찰 다시 만들기"${r.busy ? ' disabled' : ''}>${r.busy ? '만드는 중…' : '명찰 다시 만들기'}</button>` : ''}${nm && body ? `<button type="button" class="btn su-to" id="${id}b" data-su="sk-body-reset" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 원본 영역 되돌리기"${r.busy ? ' disabled' : ''}>원본 영역 되돌리기</button>` : ''}<button type="button" class="btn su-to" id="${id}f" data-su="sk-fire" data-team="${esc(f.id)}" data-role="${esc(role)}" aria-label="${esc(role)} 직원 퇴근">퇴근</button></span>
+      ${r.text ? `<p class="hint su-rlst${r.bad ? ' bad' : ''}" role="status">${esc(r.text)}</p>` : ''}${src}${skHeadHTML(x, 'row')}${miss}${notes}</li>`;
 }
-// [직원 들이기] 폼: 역할 이름, 영문 이름(ag-…), 한 줄 설명, 하는 일, 도구, 모델, 쓸 스킬. 고를 것(도구·모델·스킬 목록)은 서버가 /api/setup/state의 staffForm으로 줘요
+// 원본이 원한 셸·웹 도구 알림(서버 from.wants·hint). 이 직원은 명령·웹을 못 써서 팀장이 자료 파일을 [일 맡기기]에 적어 줘요
+function skToolNote(fr) {
+  const wants = fr && Array.isArray(fr.wants) ? fr.wants : [], hint = fr && typeof fr.hint === 'string' ? fr.hint : '';
+  return [wants.includes('Bash') ? `원본은 명령${hint ? `(${hint})` : ''}을 쓰는데 이 직원은 명령을 못 돌려요. ${/^git diff/.test(hint) ? 'diff 파일을' : '필요한 결과 파일을'} [일 맡기기]에 적어 줘요.` : '',
+    wants.some(w => w === 'WebFetch' || w === 'WebSearch') ? '원본은 웹을 읽는데 이 직원은 웹을 못 읽어요. 읽을 글을 파일로 [일 맡기기]에 적어 줘요.' : ''].filter(Boolean);
+}
+// 화면 6: 퇴근한 직원(폴더가 남은 직원)을 접은 줄로. [복직]은 남은 폴더로 team.json 줄을 다시 넣고 명찰을 다시 지어요
+function skRetiredHTML(f, pre) {
+  const xs = skRetired(f.id), k = skState(f.id), fk = `sk|${f.id}|retired`;
+  if (!xs.length) return '';
+  const row = (x, i) => {
+    const role = typeof x.role === 'string' ? x.role : '', day = skDay(x.fired), busy = k.busy === 'restore|' + x.staff, fr = x.from && typeof x.from === 'object' ? x.from : null, err = typeof x.error === 'string' ? x.error : '';
+    return `<li class="su-have-h"><b>${esc(role || '(역할 이름 없음)')}</b><code>${esc(x.staff)}</code>${day ? `<span class="hint">${esc(day)} 퇴근</span>` : ''}
+      <span class="su-have-b">${k.reset === x.staff ? `<button type="button" class="btn su-to" id="${pre}qb${i}" data-su="sk-body-reset" data-team="${esc(f.id)}" data-staff="${esc(x.staff)}">원본 영역 되돌리기</button>` : ''}<button type="button" class="btn su-to" id="${pre}q${i}" data-su="sk-restore" data-team="${esc(f.id)}" data-staff="${esc(x.staff)}" aria-label="${esc(role || x.staff)} 직원 복직"${err || busy ? ' disabled' : ''}>${busy ? '복직하는 중…' : '복직'}</button></span>
+      ${fr && typeof fr.label === 'string' ? `<p class="hint">원본: ${esc(fr.label)}</p>` : ''}${x.taken === true || !role ? `<p class="hint">${role ? `‘${esc(role)}’ 역할 이름이 이미 있어서` : 'SKILL.md에 역할 이름이 없어서'} 복직할 때 다른 이름을 물어요.</p>` : ''}${err ? `<p class="err">${esc(err)}</p>` : ''}</li>`;
+  };
+  return `<details class="su-more su-skret" data-fold="${esc(fk)}"${skOpen(fk, false) ? ' open' : ''}><summary>퇴근한 직원 ${xs.length}</summary>
+      <ul class="su-sklist" aria-label="${esc(floorWord(f.name))} 퇴근한 직원">${xs.map(row).join('')}</ul>
+      <p class="hint">[복직]은 남은 직원 폴더로 팀원 목록에 다시 넣고 명찰을 다시 지어요. 기억.md가 그대로 이어져요.</p></details>`;
+}
+// [직원 들이기] 폼(설계 화면 1): 두 갈래 radio. 기본은 '스킬로 들이기'(스킬 하나가 직원이 돼요), '직접 쓰기'는 지금 양식 그대로예요.
+// 고를 것(도구·모델·쓸 스킬 목록)은 서버가 /api/setup/state의 staffForm으로 주고, 스킬 원천 목록은 /api/staff/sources로 따로 불러요(staffForm에는 없어요)
 function skFormHTML(f, pre) {
+  const d = skDraft(f), skill = d.mode !== 'direct', stop = skStop(f);
+  const radio = (v, t) => `<label class="su-skm"><input type="radio" name="${pre}mode" id="${pre}m${v === 'skill' ? 's' : 'd'}" data-su-in="sk-mode" data-team="${esc(f.id)}" value="${v}"${(v === 'skill') === skill ? ' checked' : ''}> ${t}</label>`;
+  return `<fieldset class="su-skf" aria-describedby="${pre}fh"><legend>직원 들이기</legend>
+      <div class="su-skmode" role="radiogroup" aria-label="직원 들이는 법">${radio('skill', '스킬로 들이기')}${radio('direct', '직접 쓰기')}</div>
+      ${stop ? `<p class="su-box su-warn" role="note">${esc(stop)}</p>` : ''}${skill ? skSkillHTML(f, pre) : skDirectHTML(f, pre)}
+    </fieldset>`;
+}
+// '직접 쓰기': 역할 이름, 영문 이름(ag-…), 한 줄 설명, 하는 일, 도구, 모델, 쓸 스킬(지금 양식 그대로, 하는 일 칸 안내만 더했어요)
+function skDirectHTML(f, pre) {
   const k = skState(f.id), d = skDraft(f), form = f.staffForm || {}, list = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : []);
   const tools = list(form.tools).length ? list(form.tools) : SK_TOOLS, models = list(form.models).length ? list(form.models) : ['inherit'], sk = form.skills || {};
   const fl = list(sk.floor), me = list(sk.personal).filter(n => !fl.includes(n)), bash = d.tools.includes('Bash');
   const ck = (kind, v, i) => `<label><input type="checkbox" id="${pre}${kind}${i}" data-su-in="sk-${kind === 't' ? 'tool' : 'skill'}" data-team="${esc(f.id)}" value="${esc(v)}"${(kind === 't' ? d.tools : d.skills).includes(v) ? ' checked' : ''}> ${esc(v)}</label>`;
   const group = (legend, names, from) => (names.length ? `<fieldset class="chips"><legend>${legend}</legend>${names.map((n, i) => ck('s', n, from + i)).join('')}</fieldset>` : '');
-  return `<fieldset class="su-skf" aria-describedby="${pre}fh"><legend>직원 들이기</legend>
-      <p class="hint" id="${pre}fh">직원 스킬(SKILL.md)을 만들고 팀장 폴더에 명찰을 둬요. 들인 뒤 SKILL.md를 고치면 [명찰 다시 만들기]로 맞춰요.</p>
+  return `<p class="hint" id="${pre}fh">직원 스킬(SKILL.md)을 만들고 팀장 폴더에 명찰을 둬요. 들인 뒤 SKILL.md를 고치면 [명찰 다시 만들기]로 맞춰요.</p>
       <div class="su-skg"><div class="su-field"><label for="${pre}r">역할 이름 <small>화면·파일 이름, 12자까지</small></label><input type="text" id="${pre}r" data-su-in="sk" data-k="role" data-team="${esc(f.id)}" maxlength="12" value="${esc(d.role)}" list="suRoleList" autocomplete="off"></div>
         <div class="su-field"><label for="${pre}n">영문 이름 <small>ag-로 시작 · 소문자·숫자·-</small></label><input type="text" id="${pre}n" data-su-in="sk" data-k="staff" data-team="${esc(f.id)}" maxlength="27" value="${esc(d.staff)}" placeholder="ag-planner" autocomplete="off" autocapitalize="off" spellcheck="false"></div></div>
       <div class="su-field"><label for="${pre}d">한 줄 설명 <small>300자까지, 팀장이 이 직원을 고를 때 읽어요</small></label><input type="text" id="${pre}d" data-su-in="sk" data-k="desc" data-team="${esc(f.id)}" maxlength="300" value="${esc(d.desc)}" autocomplete="off"></div>
-      <div class="su-field"><label for="${pre}w">하는 일 <small>여러 줄, 4000자까지</small></label><textarea id="${pre}w" data-su-in="sk" data-k="work" data-team="${esc(f.id)}" maxlength="4000" rows="4">${esc(d.work)}</textarea></div>
+      <div class="su-field"><label for="${pre}w">하는 일 <small>여러 줄, 4000자까지</small></label><textarea id="${pre}w" data-su-in="sk" data-k="work" data-team="${esc(f.id)}" maxlength="4000" rows="4" aria-describedby="${pre}wh">${esc(d.work)}</textarea>
+        <small class="hint" id="${pre}wh">제목(#)은 쓰지 않아도 돼요. ‘## 하는 일’ 아래에 들어가요.</small></div>
       <fieldset class="chips"><legend>도구</legend>${tools.map((t, i) => ck('t', t, i)).join('')}</fieldset>
       <p class="err" id="${pre}b" role="status">${bash ? SK_BASH : ''}</p>
       <div class="su-field"><label for="${pre}mo">모델</label><select id="${pre}mo" data-su-in="sk" data-k="model" data-team="${esc(f.id)}">${models.map(m => `<option value="${esc(m)}"${m === d.model ? ' selected' : ''}>${esc(m === 'inherit' ? 'inherit (팀장과 같게)' : m)}</option>`).join('')}</select></div>
       ${fl.length || me.length ? group('쓸 스킬 · 이 층 스킬 <small>팀장 폴더에 링크를 걸어요</small>', fl, 0) + group('쓸 스킬 · 개인 스킬', me, fl.length) : '<p class="hint">고를 스킬이 없어요(이 층 .office/skills와 개인 스킬 폴더가 비었어요).</p>'}
       <p class="err" role="alert" id="${pre}e" tabindex="-1">${esc(k.err)}</p>
-      <div class="su-actions"><button type="button" class="btn primary" id="${pre}go" data-su="sk-hire" data-team="${esc(f.id)}">직원 들이기</button><span class="hint">직원 폴더(.office/staff/영문 이름/)와 팀장 폴더의 명찰을 만들어요.</span></div>
+      <div class="su-actions"><button type="button" class="btn primary" id="${pre}go" data-su="sk-hire" data-team="${esc(f.id)}">직원 들이기</button><span class="hint">직원 폴더(.office/staff/영문 이름/)와 팀장 폴더의 명찰을 만들어요.</span></div>`;
+}
+// '스킬로 들이기'(설계 화면 2~4): 단계 줄(1 고르기 › 2 보고 들이기, 남의 글이면 › 3 팀장 창 승인), 원천 목록, 고른 줄 아래의 카드
+function skSkillHTML(f, pre) {
+  const k = skState(f.id), d = skDraft(f), s = k.src, lead = !!d.preview && d.preview.approval !== 'adopted';
+  const step = d.request ? 3 : d.source ? 2 : 1;
+  const steps = ['1 고르기', '2 보고 들이기'].concat(lead ? ['3 팀장 창 승인'] : []).map((t, i) => (i + 1 === step ? `<b aria-current="step">${t}</b>` : `<span>${t}</span>`)).join(' › ');
+  const body = s.list ? skListHTML(f, pre)
+    : s.err ? `<p class="err" role="alert">${esc(s.err)}</p><div class="su-actions"><button type="button" class="btn" id="${pre}xr" data-su="sk-src-reload" data-team="${esc(f.id)}">목록 다시 읽기</button></div>`
+      : '<p class="hint" role="status">목록을 읽는 중이에요…</p>';
+  return `<p class="hint" id="${pre}fh">스킬 하나를 고르면 그 스킬이 직원이 돼요. 이름과 하는 일은 스킬에서 채워요.</p>
+      <p class="su-skstep">${steps}</p>${body}`;
+}
+// 화면 2: 묶음별 목록(찾기 칸 없이). 칩은 모두 보통 .chip이에요(원천이 안전하다는 뜻으로 읽히지 않게 색을 넣지 않아요). 원 설명은 글로만(skT)
+function skListHTML(f, pre) {
+  const k = skState(f.id), d = skDraft(f), L = k.src.list, c = L.counts, by = new Map();
+  L.sources.forEach((s, i) => { if (!by.has(s.group)) by.set(s.group, []); by.get(s.group).push([s, i]); });
+  const head = `<p class="su-skh" id="${pre}h1" tabindex="-1">어떤 직원을 들일까요?</p>
+      <p class="hint" aria-live="polite">이 층 스킬 ${c.floor} · 공식 플러그인 ${c.plugins}묶음(에이전트 글 ${c.plugin})</p>`;
+  const foot = `<p class="hint">이 목록에는 이 층 스킬과 공식 플러그인 묶음의 에이전트 글만 나와요. 앱에서 켠 스킬(design·productivity 등)과 개인 스킬은 다음 버전에 나와요.</p>${L.market ? '' : '<p class="hint">이 맥에서 공식 플러그인 묶음 사본(~/.claude/plugins/marketplaces/claude-plugins-official)을 찾지 못해서 플러그인 줄이 없어요.</p>'}`;
+  if (!L.sources.length) return `${head}<p class="hint">들일 수 있는 스킬이 없어요. [직접 쓰기]로 들여요.</p>${foot}`;
+  const grp = g => {
+    const xs = by.get(g.id) || [], fk = `sk|${f.id}|g|${g.id}`, open = skOpen(fk, g.id === 'floor' || xs.some(([s]) => s.key === d.source)) || xs.some(([s]) => s.key === d.source);
+    const name = g.id === 'floor' ? '이 층 스킬' : g.label, n = g.id === 'floor' ? `스킬 ${xs.length}` : `에이전트 글 ${xs.length}`;
+    return `<details class="su-skgrp" data-fold="${esc(fk)}"${open ? ' open' : ''}><summary>${esc(name)}${g.ko ? ` · ${esc(g.ko)}` : ''} <small class="hint">(${n})</small></summary>
+        ${xs.length ? `<ul class="su-srcs">${xs.map(([s, i]) => skSrcHTML(f, s, i, pre)).join('')}</ul>` : '<p class="hint">이 층 .office/skills에 들일 스킬이 없어요.</p>'}</details>`;
+  };
+  return head + L.groups.map(grp).join('') + foot;
+}
+// 목록 한 줄(두 줄: 이름+칩 / 출처·승인 글). 누르면 그 줄 아래에 카드가 펼쳐져요. 원 설명 첫 줄은 그 아래 흐린 글(글로만)
+function skSrcHTML(f, s, i, pre) {
+  const d = skDraft(f), open = d.source === s.key, floor = s.kind === 'floor', ret = skRetired(f.id).find(x => x.from && x.from.key === s.key);
+  const chips = (floor ? '<span class="chip">스킬</span>' : '<span class="chip" title="일꾼 정의 글이에요">에이전트 글</span>') + skStrs(s.used_by).map(r => `<span class="chip">${esc(r)}${skGa(r)} 써요</span>`).join('');
+  const st = (floor ? (s.adopted ? ['들인 것', s.upstream ? `위 원본 ${s.upstream}` : ''] : ['출처 기록 없음', '팀장 창 승인이 필요해요']) : ['이 맥 사본', '깔림·켜짐 아님', '팀장 창 승인이 필요해요'])
+    .concat(s.same > 0 ? [s.same === 1 ? '이름이 같은 것이 하나 더 있어요' : `이름이 같은 것이 ${s.same}개 더 있어요`] : [], skStrs(s.main_by).length ? [`‘${skStrs(s.main_by).join('’·‘')}’ 직원이 이 원본이에요`] : [],
+      ret ? [`퇴근한 ‘${ret.role || ret.staff}’ 직원이 이 원본이에요`] : []).filter(Boolean).join(' · ');
+  return `<li class="su-srcl${open ? ' on' : ''}"><button type="button" class="su-src" id="${pre}x${i}" data-su="sk-src" data-team="${esc(f.id)}" data-key="${esc(s.key)}" aria-expanded="${open}"${open ? ` aria-controls="${pre}c"` : ''}>
+        <span class="su-src-t"><b>${esc(s.name)}</b>${chips}</span><span class="hint">${esc(st)}</span></button>
+      ${s.desc ? skT(s.desc, 'span', 'hint su-src-d') : ''}${open ? skCardHTML(f, pre) : ''}</li>`;
+}
+// 사본이 카드에서 읽은 것과 달라요(서버 409 changed, d.stale). 'request'면 들일 묶음도 옛 사본으로 만든 것이라 다시 쓸 수 없어요(묶음 번호 기억과 승인 상자를 비웠어요)
+const SK_STALE = '사본이 카드에서 읽은 것과 달라요. [다시 읽기]로 카드를 새로 읽어 주세요.';
+const SK_STALE_REQ = '사본이 바뀌어서 이 묶음으로는 들일 수 없어요. [다시 읽기] 뒤 [팀장에게 들이기 맡기기]로 묶음을 다시 만들어 승인을 다시 받아 주세요.';
+// 화면 3: 카드(읽기와 들이기를 하나로). 원천에서 온 글(원문 설명·본문·점검 글·주석 글·원본 모델 값·명령 낱말)은 모두 skT(글로만)로 그려요.
+// 막아요가 하나라도 있으면 아래 단추를 잠그고 그 위에 까닭을 적어요. 이미 들인 것은 [직원 들이기], 남의 글은 [팀장에게 들이기 맡기기](들일 묶음 → 화면 4)
+function skCardHTML(f, pre) {
+  const d = skDraft(f), p = d.preview, c = d.card, tid = esc(f.id), id = `${pre}c`;
+  const close = `<button type="button" class="btn" id="${pre}cx" data-su="sk-close" data-team="${tid}">닫기</button>`;
+  if (!p || !c) return `<div class="su-skcard" id="${id}">${d.pvErr ? `<p class="err" role="alert" id="${pre}ce" tabindex="-1">${esc(d.pvErr)}</p>
+      <div class="su-actions"><button type="button" class="btn" id="${pre}cre" data-su="sk-src-again" data-team="${tid}">다시 읽기</button>${close}</div>` : '<p class="hint" role="status">카드를 읽는 중이에요…</p>'}</div>`;
+  const src = p.source, sg = p.suggest, lead = p.approval !== 'adopted', lock = !!d.request, blocked = p.blocked || p.block.length > 0;
+  const lic = src.license && typeof src.license === 'object' ? src.license : {}, lf = skStrs(lic.files);
+  const licText = lf.length ? `라이선스 ${lic.name || '모름'} (${lf.join('·')} 함께 가져와요)` : '라이선스 파일이 없어요';
+  const fold = (key, sum, inner, open) => `<details class="su-more" data-fold="${esc(`sk|${f.id}|${key}`)}"${skOpen(`sk|${f.id}|${key}`, open) ? ' open' : ''}><summary>${sum}</summary>${inner}</details>`;
+  const hashes = Object.entries(Object.assign({}, src.files, src.license_files)).filter(([, v]) => typeof v === 'string');
+  const more = `<dl class="su-skdl"><dt>출처 경로</dt><dd><code>${esc(src.path)}</code></dd><dt>원본 표시</dt><dd><code>${esc(src.label)}</code></dd>
+      ${src.gcs_sha ? `<dt>마켓플레이스 표시값</dt><dd><code>${esc(src.gcs_sha)}</code></dd>` : ''}${src.upstream && src.upstream.repo ? `<dt>위 원본</dt><dd><code>${esc(src.upstream.repo)}${src.upstream.sha ? ` @ ${esc(src.upstream.sha)}` : ''}</code></dd>` : ''}
+      <dt>파일 해시</dt><dd>${hashes.map(([n, h]) => `${skT(n, 'code')} ${esc(h)}`).join('<br>') || '—'}</dd>
+      ${skStrs(src.others).length ? `<dt>가져오지 않는 파일</dt><dd>${skT(skStrs(src.others).join(', '))}</dd>` : ''}<dt>읽은 때</dt><dd>${esc(src.read)}</dd></dl>`;
+  const ret = skRetired(f.id).find(x => x.from && x.from.key === src.key);
+  const item = (x, i, bad) => `<li class="${bad ? 'bad' : 'chk'}"><b>${bad ? '막아요' : '확인해요'}</b> ${skT(x.text)}${x.quote.length ? x.quote.map(q => skT(q, 'span', 'su-skq')).join('') : ''}${!bad && x.add && !lock ? `
+        <button type="button" class="btn" id="${pre}ca${i}" data-su="sk-add" data-team="${tid}" data-i="${i}"${skHas(c.note, x.add) ? ' aria-disabled="true">넣었어요' : '>표준 문장 넣기'}</button>` : ''}</li>`;
+  const who = STAFF_RE.test(String(c.staff || '').trim()) ? String(c.staff).trim() : '';
+  const fence = p.fence.map(t => `<li>${esc(skSwap(t, sg.staff, who))}</li>`).join('');
+  return `<div class="su-skcard" id="${id}" role="group" aria-labelledby="${pre}h2">
+      <p class="su-skh" id="${pre}h2" tabindex="-1">${esc(src.name)} (${esc(src.kind === 'floor' ? '이 층 스킬' : `${src.group} 플러그인`)})</p>
+      <p class="hint">${esc(licText)} · 본문 ${skKB(p.size.body)} · 명찰 약 ${Math.max(1, Math.round(p.size.agent / 1024))}KB</p>
+      ${fold('more', '자세히 <small class="hint">(출처 경로, 마켓플레이스 표시값, 파일 해시, 읽은 때)</small>', more, false)}
+      ${p.desc_orig ? fold('orig', '원문 설명(참고)', `<p class="hint">원문 그대로 글로만 보여 줘요. 설명 칸에는 들어가지 않아요.</p>${skT(p.desc_orig, 'p', 'su-skorig')}`, false) : ''}
+      ${ret ? `<p class="su-box su-warn" role="note">퇴근한 직원 ‘${esc(ret.role || ret.staff)}’(${esc(ret.staff)})이 같은 원본이에요. 새로 들이기보다 위 ‘퇴근한 직원’에서 [복직]을 먼저 권해요.</p>` : ''}
+      <p class="su-skn" aria-live="polite"><b>막아요 ${p.block.length}</b> · <b>확인해요 ${p.check.length}</b></p>
+      ${p.block.length ? `<ul class="su-skx">${p.block.map((x, i) => item(x, i, true)).join('')}</ul>` : ''}${p.check.length ? `<ul class="su-skx">${p.check.map((x, i) => item(x, i, false)).join('')}</ul>` : ''}
+      ${skCardForm(f, pre, lock)}
+      ${fold('fence', `명찰에 붙는 ‘이 층에서 지킬 것’ ${p.fence.length}줄 보기`, `<p class="hint">${esc(p.fence_head)}</p><ul class="su-skfence">${fence}</ul>`, false)}
+      ${p.auto.length ? fold('auto', `서버가 저절로 하는 것 ${p.auto.length}가지`, `<ul class="su-skfence">${p.auto.map(a => `<li>${esc(a.text)}</li>`).join('')}</ul>`, false) : ''}
+      ${fold('body', `본문 펼치기 <small class="hint">(${skKB(p.size.body)})</small>`, skT(p.body, 'pre', 'su-skpre'), false)}
+      <p class="hint su-skwhere" id="${pre}cwhere">${esc(skWhere(p, who))}</p>
+      ${d.request ? skRequestHTML(f, pre) : ''}
+      ${blocked ? `<p class="err">막아요 항목이 있어서 들일 수 없어요. 위 ‘막아요’를 봐요.</p>` : ''}${d.stale ? `<p class="err">${d.stale === 'request' ? SK_STALE_REQ : SK_STALE}</p>` : ''}
+      <p class="err" role="alert" id="${pre}ce" tabindex="-1">${esc(d.cerr)}</p>
+      <div class="su-actions">${d.request ? '' : `<button type="button" class="btn primary" id="${pre}cgo" data-su="${lead ? 'sk-req' : 'sk-hire'}" data-team="${tid}"${blocked || d.busy ? ' disabled' : ''}>${lead ? (d.busy === 'request' ? '묶음을 만드는 중…' : '팀장에게 들이기 맡기기') : '직원 들이기'}</button>`}${d.stale ? `<button type="button" class="btn" id="${pre}cre" data-su="sk-src-again" data-team="${tid}">다시 읽기</button>` : ''}${close}
+        ${d.request ? '' : `<span class="hint">${lead ? '남이 쓴 글이라 팀장 창 승인을 거쳐요. 들일 묶음(출처·묶은 해시 하나·양식 값)만 만들어요.' : '직원 폴더와 팀장 폴더의 명찰을 만들어요.'}</span>`}</div>
+    </div>`;
+}
+// 카드 양식(역할 이름·영문 이름·한 줄 설명·덧붙일 말·도구·모델·쓸 스킬). 들일 묶음을 만든 뒤에는 묶음의 값이라 잠가요(lock)
+function skCardForm(f, pre, lock) {
+  const d = skDraft(f), p = d.preview, c = d.card, sg = p.suggest, tid = esc(f.id), form = f.staffForm || {}, sk = form.skills || {};
+  const main = p.source.kind === 'floor' ? p.source.name : '', fl = skStrs(sk.floor).filter(n => n !== main), me = skStrs(sk.personal).filter(n => !fl.includes(n) && n !== main);
+  const ck = (kind, v, i) => `<label><input type="checkbox" id="${pre}c${kind}${i}" data-su-in="skc-${kind === 't' ? 'tool' : 'skill'}" data-team="${tid}" value="${esc(v)}"${(kind === 't' ? c.tools : c.skills).includes(v) ? ' checked' : ''}> ${esc(v)}</label>`;
+  const group = (legend, names, from) => (names.length ? `<fieldset class="chips"><legend>${legend}</legend>${names.map((n, i) => ck('s', n, from + i)).join('')}</fieldset>` : '');
+  const room = skRoom(p, c.note), h = p.signals.Bash && p.signals.Bash[0] && typeof p.signals.Bash[0].text === 'string' ? p.signals.Bash[0].text : '';
+  const wants = p.wants_wide.map(w => (w === 'Bash' ? `명령${h ? `(${h})` : ''}` : w === 'WebFetch' ? '웹 읽기' : w === 'WebSearch' ? '웹 찾기' : w)).join(', ');
+  const tip = wants ? ` 원본이 원해요: ${wants}.${p.wants_wide.includes('Bash') ? /^git diff/.test(h) ? ' git diff가 필요하면 팀장이 diff 파일을 만들어 [일 맡기기]에 적어 줘요.' : ' 명령 결과가 필요하면 팀장이 결과 파일을 만들어 [일 맡기기]에 적어 줘요.' : ''}` : '';
+  return `<fieldset class="su-skfields"${lock ? ' disabled' : ''}><legend class="hint">${lock ? (d.request && d.request.state === 'changed' ? '들일 묶음에 적은 양식 값이에요. 이 묶음은 더 쓸 수 없어요. [다시 읽기] 뒤 양식을 다시 고칠 수 있어요.' : '들일 묶음에 적은 양식 값이에요. 바꾸려면 [양식 다시 고치기]를 눌러 묶음을 다시 만들어요.') : '들일 직원'}</legend>
+      <div class="su-skg"><div class="su-field"><label for="${pre}cr">역할 이름 <small>화면·파일 이름, 12자까지</small></label><input type="text" id="${pre}cr" data-su-in="skc" data-k="role" data-team="${tid}" maxlength="12" value="${esc(c.role)}"${sg.role ? '' : ` placeholder="${esc(p.source.name)}" aria-describedby="${pre}crh"`} list="suRoleList" autocomplete="off">
+          ${sg.role ? '' : `<small class="hint" id="${pre}crh">낱말 표에 없는 낱말${skStrs(sg.role_words).length ? `(${esc(skStrs(sg.role_words).join(', '))})` : ''}이 있어서 비웠어요. 한국어 역할 이름을 적어 주세요.</small>`}</div>
+        <div class="su-field"><label for="${pre}cn">영문 이름 <small>ag-로 시작 · 소문자·숫자·-</small></label><input type="text" id="${pre}cn" data-su-in="skc" data-k="staff" data-team="${tid}" maxlength="27" value="${esc(c.staff)}" placeholder="ag-…" autocomplete="off" autocapitalize="off" spellcheck="false"${sg.staff ? '' : ` aria-describedby="${pre}cnh"`}>
+          ${sg.staff ? '' : `<small class="hint" id="${pre}cnh">원본 이름에 쓸 영문 글자가 없어서 비웠어요. ag-로 시작하는 이름을 적어 주세요.</small>`}</div></div>
+      <div class="su-field"><label for="${pre}cd">한 줄 설명 <small>300자까지</small></label><input type="text" id="${pre}cd" data-su-in="skc" data-k="desc" data-team="${tid}" maxlength="300" value="${esc(c.desc)}" autocomplete="off" aria-describedby="${pre}cdh">
+        <small class="hint" id="${pre}cdh">팀장이 이 직원을 고를 때 읽어요. 한국어로 고쳐 써도 돼요. 원문 설명은 넣지 않아요.</small></div>
+      <div class="su-field"><label for="${pre}cw">덧붙일 말 <small>(선택) 4000자까지</small></label><textarea id="${pre}cw" data-su-in="skc" data-k="note" data-team="${tid}" maxlength="4000" rows="3" aria-describedby="${pre}cwh">${esc(c.note)}</textarea>
+        <small class="hint" id="${pre}cwh">표준 문장 단추로 넣은 줄도 여기 와요. 직원 스킬의 ‘대표가 덧붙인 말’에 들어가요.</small><small class="err" id="${pre}cwb" role="status">${esc(room)}</small></div>
+      <fieldset class="chips"><legend>도구</legend>${p.tools.map((t, i) => ck('t', t, i)).join('')}</fieldset>
+      <p class="hint" id="${pre}cth">셸·웹 도구는 스킬로 들일 때 줄 수 없어요.${tip ? skT(tip) : ''}</p>
+      <div class="su-field"><label for="${pre}cmo">모델</label><select id="${pre}cmo" data-su-in="skc" data-k="model" data-team="${tid}">${p.models.map(m => `<option value="${esc(m)}"${m === c.model ? ' selected' : ''}>${esc(m === 'inherit' ? '팀장과 같게' : m)}</option>`).join('')}</select>
+        ${sg.model_orig ? `<small class="hint">원본은 ${skT(sg.model_orig)}예요. 고르지 않으면 팀장과 같게 돌아요.</small>` : ''}</div>
+      ${group('쓸 스킬 · 이 층 스킬 <small>(선택) 팀장 폴더에 링크를 걸어요</small>', fl, 0)}${group('쓸 스킬 · 개인 스킬 <small>(선택)</small>', me, fl.length)}
     </fieldset>`;
 }
+// 화면 4: 남의 글 팀장 창 승인. 묶음 번호와 한마디(said)를 보여 주고 [말 복사]는 서버가 준 copy 글을 그대로 클립보드에 넣어요(글을 다시 짓지 않아요)
+// changed(사본이 묶음과 달라져 이 묶음은 다시 쓸 수 없어요)면 서버 글과 함께 [다시 읽기]만 둬요. 붙여 넣을 한마디·[말 복사]·가져오는 것 줄도 그리지 않아요(쓸 수 없는 묶음에 승인 표시를 쓰지 않게).
+// 카드도 옛 사본이라 새로 읽은 뒤 [팀장에게 들이기 맡기기]로 새 묶음을 만들어요. unread(사본을 지금 읽지 못했어요)는 묶음이 아직 쓸 수 있어서 [승인 상태 다시 보기]로 다시 봐요
+const SK_REQ_STATE = { wait: '팀장 승인 기다림', ok: '승인됨, 들일 수 있어요', used: '들였어요(이 묶음으로 이미 들였어요)' };
+function skRequestHTML(f, pre) {
+  const d = skDraft(f), q = d.request, tid = esc(f.id), ok = q.state === 'ok', again = ['stale', 'bundle', 'approval'].includes(q.state), dead = q.state === 'changed';
+  const st = q.state === 'wait' ? `${SK_REQ_STATE.wait}${q.error ? ` · ${q.error}` : ''}` : SK_REQ_STATE[q.state] || q.error || (dead ? '사본이 바뀌어서 이 묶음으로는 들일 수 없어요' : '승인 표시를 볼 수 없어요');
+  return `<div class="su-box su-skreq" role="group" aria-labelledby="${pre}h3">
+      <p class="su-skh" id="${pre}h3" tabindex="-1">3 팀장 창 승인</p>
+      <p>이 글은 이 맥에 있지만 남이 쓴 글이에요. 들이기는 팀 규칙 1장 일로 봐요.</p>
+      ${!dead && (q.take.length || q.skip.length) ? `<p>가져오는 것: ${esc(q.take.join(', ') || '없음')} · 가져오지 않는 것: ${esc(q.skip.join(', ') || '없음')}</p>` : ''}
+      <p>들일 묶음 ${esc(q.request)}을 만들었어요(출처·묶은 해시 하나·양식 값만 들어 있어요. 원문도 파일 이름도 없어요).</p>
+      ${q.said && !dead ? `<p>팀장 창에 아래 말을 붙여 넣어 주세요.</p><p class="su-said" id="${pre}csd">「${esc(q.said)}」</p>
+      <div class="su-actions"><button type="button" class="btn su-wide" id="${pre}cq" data-copy="${esc(q.copy || q.said)}">말 복사</button></div>
+      <p class="hint">[말 복사]는 위 한 줄 뒤에 팀장이 할 일(묶음 파일과 견주고 승인 표시를 쓰기)을 붙여 복사해요. 팀장은 원문을 읽지 않아요.</p>` : ''}
+      ${dead ? '' : '<p>팀장이 승인 표시를 쓰면 여기 [직원 들이기]가 켜져요.</p>'}
+      <p class="${ok || q.state === 'wait' || q.state === 'used' ? 'hint' : 'err'}" role="status" aria-live="polite" id="${pre}cst"><b>상태:</b> ${esc(st)}</p>
+      ${dead ? `<p class="hint">[다시 읽기] 뒤 [팀장에게 들이기 맡기기]로 묶음을 다시 만들어 승인을 다시 받아 주세요.</p>
+      <div class="su-actions"><button type="button" class="btn" id="${pre}crq" data-su="sk-src-again" data-team="${tid}"${d.busy ? ' disabled' : ''}>다시 읽기</button></div>` : `
+      <div class="su-actions">${q.state === 'used' ? '' : `<button type="button" class="btn primary su-wide" id="${pre}cgo" data-su="sk-hire" data-team="${tid}"${ok && !d.busy ? '' : ' disabled'}>직원 들이기</button>`}
+        ${q.state === 'used' ? '' : `<button type="button" class="btn" id="${pre}cck" data-su="sk-req-check" data-team="${tid}"${d.busy ? ' disabled' : ''}>${d.busy === 'check' ? '보는 중…' : '승인 상태 다시 보기'}</button>`}
+        ${again ? `<button type="button" class="btn" id="${pre}crq" data-su="sk-req" data-team="${tid}"${d.busy ? ' disabled' : ''}>묶음 다시 만들기</button>` : ''}
+        <button type="button" class="btn" id="${pre}ced" data-su="sk-req-edit" data-team="${tid}">양식 다시 고치기</button></div>`}
+    </div>`;
+}
+const skBytes = s => new TextEncoder().encode(String(s == null ? '' : s)).length;
+const skHas = (note, add) => String(note || '').split('\n').some(l => l.trim() === String(add).trim());
+// 덧붙일 말이 명찰 한도(서버 size.room 바이트)를 넘으면 그 글(아니면 ''). 한도 KB는 서버 size.limit(STAFF_AGENT_LIMIT, 60KB)에서 와요
+const skRoom = (p, note) => { const n = skBytes(note), s = p && p.size, r = s && Number.isFinite(s.room) ? s.room : Infinity, kb = Math.round((s && s.limit > 0 ? s.limit : 61440) / 1024); return n > r ? `덧붙일 말이 너무 길어요(명찰 ${kb}KB 한도). ${n - r}바이트를 줄여 주세요.` : ''; };
+// 서버가 제안 이름(없으면 ag-staff)으로 채운 경로를 지금 적은 영문 이름으로 바꿔 보여요(들어가는 곳·고정 절 8번)
+const skSwap = (t, sg, who) => { const from = sg || 'ag-staff'; return who && who !== from ? String(t).split(`/${from}/`).join(`/${who}/`).split(`/${from}.md`).join(`/${who}.md`).replace(new RegExp(`/${from}$`), `/${who}`) : String(t); };
+const skWhere = (p, who) => `들어가는 곳: 직원 폴더 ${skSwap(p.where.folder, p.suggest.staff, who)}/ · 팀장 폴더 ${skSwap(p.where.agent, p.suggest.staff, who)}`;
+// 카드 답(preview)을 화면이 쓰는 꼴로 맞춰요(모르는 칸은 빈 값). 원천 글은 그대로 두고 그릴 때 skT로 글로만 그려요
+function skPvNorm(r) {
+  const o = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), a = v => (Array.isArray(v) ? v : []), s = v => (typeof v === 'string' ? v : '');
+  const items = v => a(v).filter(x => x && typeof x === 'object' && typeof x.text === 'string').map(x => ({ id: s(x.id), text: x.text, add: typeof x.add === 'string' && x.add ? x.add : null, quote: skStrs(x.quote) }));
+  const src = o(r.source), sg = o(r.suggest), size = o(r.size), num = v => (Number.isFinite(v) ? v : 0);
+  return { source: Object.assign({}, src, { key: s(src.key), kind: s(src.kind), name: s(src.name), group: s(src.group), path: s(src.path), label: s(src.label), sha: s(src.sha), read: s(src.read), files: o(src.files), license_files: o(src.license_files) }),
+    desc_orig: s(r.desc_orig), body: s(r.body), block: items(r.block), check: items(r.check), blocked: r.blocked === true, signals: o(r.signals), wants_wide: skStrs(r.wants_wide),
+    suggest: { staff: s(sg.staff), role: s(sg.role), role_words: skStrs(sg.role_words), desc: s(sg.desc), tools: skStrs(sg.tools), model: s(sg.model) || 'inherit', model_orig: s(sg.model_orig) },
+    tools: skStrs(r.tools).filter(x => !['Bash', 'WebFetch', 'WebSearch'].includes(x)), models: skStrs(r.models).length ? skStrs(r.models) : ['inherit'], fence_head: s(r.fence_head), fence: skStrs(r.fence),
+    size: { body: num(size.body), skill: num(size.skill), agent: num(size.agent), limit: num(size.limit), room: Number.isFinite(size.room) ? size.room : Infinity },
+    auto: a(r.auto).filter(x => x && typeof x.text === 'string'), approval: r.approval === 'adopted' ? 'adopted' : 'lead', dup: skStrs(r.dup), where: { folder: s(o(r.where).folder), agent: s(o(r.where).agent) } };
+}
+// 들일 묶음 답(가: 새로 만들기, 나: 승인 상태 보기 — 같은 꼴)
+function skReqNorm(r) {
+  const s = v => (typeof v === 'string' ? v : ''), fm = r && r.form && typeof r.form === 'object' ? r.form : null;
+  return { request: s(r.request), state: s(r.state) || 'wait', error: s(r.error), said: s(r.said), copy: s(r.copy), file: s(r.file), take: skStrs(r.take), skip: skStrs(r.skip), differs: skStrs(r.differs),
+    source: r.source && typeof r.source === 'object' ? r.source : null,
+    form: fm ? { role: s(fm.role), staff: s(fm.staff), desc: s(fm.desc), note: s(fm.note), tools: skStrs(fm.tools), model: s(fm.model) || 'inherit', skills: skStrs(fm.skills) } : null };
+}
+// 들일 묶음 번호는 이 탭에만 기억해요(새로고침해도 같은 카드에서 승인 상태를 다시 봐요). 못 쓰면 그냥 넘어가요
+const skReqKey = (id, key) => `agencity-sk-req|${id}|${key}`;
+function skReqMemo(id, key, n) { try { if (n) sessionStorage.setItem(skReqKey(id, key), n); else sessionStorage.removeItem(skReqKey(id, key)); } catch (e) {} }
+function skReqMemoGet(id, key) { try { const v = sessionStorage.getItem(skReqKey(id, key)); return /^\d{8}-[1-9]\d{0,2}$/.test(v || '') ? v : ''; } catch (e) { return ''; } }
+const SK_NET = '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요';
+// 열쇠가 있어야 하는 GET(/api/staff/sources). 다른 GET과 달리 X-Office-Token을 붙여요
+async function skGet(path) {
+  const r = await fetch(path, { cache: 'no-store', headers: { 'X-Office-Token': TOKEN } });
+  let j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok || !j.ok) throw Object.assign(new Error(j.error || `읽지 못했어요 (${r.status})`), { body: j });
+  return j;
+}
+// 원천 목록(화면 2)을 불러요: '스킬로 들이기' 갈래를 처음 펼 때 한 번(again이면 다시: 들이기·퇴근·복직 뒤, [목록 다시 읽기])
+async function skSources(id, again) {
+  const f = floorById(id), k = skState(id), s = k.src;
+  if (!f || f.staffOn !== true || k.mode === 'direct' || s.busy || (s.list && !again)) return;
+  s.busy = true; s.err = '';
+  try {
+    const j = await skGet('api/staff/sources?team=' + encodeURIComponent(id)), o = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), c = o(j.counts), n = v => (Number.isInteger(v) && v >= 0 ? v : 0);
+    const sources = (Array.isArray(j.sources) ? j.sources : []).filter(x => x && typeof x === 'object' && typeof x.key === 'string' && typeof x.name === 'string' && (x.kind === 'floor' || x.kind === 'plugin-agent'))
+      .map(x => Object.assign({}, x, { group: typeof x.group === 'string' && x.group ? x.group : x.kind === 'floor' ? 'floor' : '?', desc: typeof x.desc === 'string' ? x.desc : '', same: n(x.same), adopted: x.adopted === true, upstream: typeof x.upstream === 'string' ? x.upstream : '' }));
+    const groups = (Array.isArray(j.groups) ? j.groups : []).filter(g => g && typeof g.id === 'string').map(g => ({ id: g.id, label: typeof g.label === 'string' ? g.label : g.id, ko: typeof g.ko === 'string' ? g.ko : '' }));
+    for (const x of sources) if (!groups.some(g => g.id === x.group)) groups.push({ id: x.group, label: x.group, ko: '' });   // 묶음 머리가 빠진 줄도 보여요
+    s.list = { sources, groups, counts: { floor: n(c.floor), plugin: n(c.plugin), plugins: n(c.plugins) }, market: j.market === true };
+  } catch (e) { s.err = e instanceof TypeError ? SK_NET : e.message || '목록을 읽지 못했어요'; }
+  s.busy = false;
+  if (SU.open && SU.view === 'floors' && k.open) { renderSetup(); if (!again && s.list) suSay(`들일 수 있는 스킬 목록을 읽었어요. 이 층 스킬 ${s.list.counts.floor}개, 공식 플러그인 에이전트 글 ${s.list.counts.plugin}개예요.`); }
+}
+// 갈래 바꾸기(radio): 스킬 갈래를 처음 펼 때 목록을 불러요
+function skMode(t) {
+  const f = floorById(t.dataset.team);
+  if (!f) return;
+  const k = skState(f.id), d = skDraft(f);
+  k.mode = d.mode = t.value === 'direct' ? 'direct' : 'skill'; k.err = '';
+  renderSetup('#' + t.id);
+  skSources(f.id);
+}
+// 목록 줄을 눌렀어요: 그 줄 아래에 카드를 펼쳐요(같은 줄이면 접어요). 다른 줄의 카드·묶음은 닫아요
+const skClose = d => Object.assign(d, { source: '', preview: null, card: null, request: null, busy: '', cerr: '', pvErr: '', stale: false });
+async function skPick(id, key, bid) {
+  const f = floorById(id);
+  if (!f) return;
+  const d = skDraft(f);
+  if (d.source === key) { skClose(d); renderSetup('#' + bid); return; }
+  skClose(d); d.source = key; d.busy = 'preview';
+  renderSetup('#' + bid);
+  await skPreview(id);
+}
+// 카드를 읽어요(서버는 파일을 쓰지 않아요). 이 탭에서 이 카드로 만든 들일 묶음이 있으면 그 승인 상태도 다시 봐요
+async function skPreview(id) {
+  const f = floorById(id), k = skState(id), d = f && skDraft(f), key = d && d.source, pre = k.pre;
+  if (!key) return;
+  Object.assign(d, { busy: 'preview', pvErr: '', stale: false, cerr: '', request: null });
+  let r;
+  try { r = await post('api/staff/from-skill/preview', { team: id, source: key }); }
+  catch (e) {
+    if (d.source !== key) return;
+    d.busy = ''; d.preview = null; d.card = null; d.pvErr = e instanceof TypeError ? SK_NET : e.message || '카드를 읽지 못했어요';
+    if (e.body && (e.body.why === 'source' || e.body.why === 'gone')) skSources(id, true);   // 목록이 낡았어요
+    renderSetup([`#${pre}cre`, `#${pre}ce`]);
+    return;
+  }
+  if (d.source !== key) return;   // 읽는 사이에 다른 줄을 골랐어요
+  const p = d.preview = skPvNorm(r), sg = p.suggest;
+  d.card = { role: sg.role, staff: sg.staff, desc: sg.desc, note: '', tools: sg.tools.filter(x => p.tools.includes(x)), model: p.models.includes(sg.model) ? sg.model : p.models[0], skills: [] };
+  d.busy = '';
+  renderSetup(`#${pre}h2`);
+  suSay(`${p.source.name} 카드를 열었어요. 막아요 ${p.block.length}개, 확인해요 ${p.check.length}개예요.`);
+  const n = p.approval === 'lead' ? skReqMemoGet(id, key) : '';
+  if (n) skReqCheck(id, n, true);
+}
+// [표준 문장 넣기]: 덧붙일 말 끝에 그 항목의 표준 문장 한 줄(이미 있으면 그대로)
+function skAdd(id, i, bid) {
+  const f = floorById(id), d = f && skDraft(f), x = d && d.preview && d.preview.check[i];
+  if (!x || !x.add || !d.card || d.request) return;
+  const cur = String(d.card.note || '');
+  if (!skHas(cur, x.add)) d.card.note = (cur.trim() ? cur.replace(/\s+$/, '') + '\n' : '') + x.add;
+  renderSetup('#' + bid);
+  suSay('덧붙일 말에 표준 문장을 넣었어요');
+}
+// 카드 양식 값(서버에 보내는 꼴)
+const skForm = c => ({ role: String(c.role || '').normalize('NFC').trim(), staff: String(c.staff || '').trim(), desc: String(c.desc || '').trim(), note: String(c.note || ''), tools: c.tools.slice(), model: c.model, skills: c.skills.slice() });
+// [팀장에게 들이기 맡기기]·[묶음 다시 만들기]: 서버가 들일 묶음(출처·묶은 해시 하나·양식 값만)을 쓰고 한마디(said)와 [말 복사] 글(copy)을 줘요
+async function skRequest(id) {
+  const f = floorById(id), k = skState(id), d = f && skDraft(f), pre = k.pre;
+  if (!d || !d.preview || !d.card) return;
+  const key = d.source, bad = skCheck(f, d, 'request');
+  d.cerr = bad ? bad[1] : '';
+  if (bad) { renderSetup([`#${pre}${bad[0]}`, `#${pre}ce`]); return; }
+  d.busy = 'request';
+  let r;
+  try { r = await post('api/staff/from-skill/request', Object.assign({ team: id, source: key, sha: d.preview.source.sha }, skForm(d.card))); }
+  catch (e) {
+    if (d.source !== key) return;
+    const why = e.body && e.body.why;
+    d.busy = '';
+    if (why === 'changed') return skStale(id, d, pre);
+    d.cerr = e instanceof TypeError ? SK_NET : e.message || '들일 묶음을 만들지 못했어요';
+    renderSetup(`#${pre}ce`);
+    return;
+  }
+  if (d.source !== key) return;
+  d.busy = ''; d.request = skReqNorm(r); skReqMemo(id, key, d.request.request);
+  renderSetup(`#${pre}h3`);
+  suSay(`들일 묶음 ${d.request.request}을 만들었어요. 팀장 창에 한마디를 붙여 넣어 주세요.`);
+}
+// 서버가 409 changed(사본이 카드·묶음에서 읽은 것과 달라요)로 멈췄어요: 빨간 줄은 d.stale 하나만 두고 서버 글(d.cerr)은 비워요.
+// 들일 묶음이 있으면 그 묶음도 옛 사본으로 만든 것이라 다시 쓸 수 없어요. 이 탭의 묶음 번호 기억과 승인 상자를 비워서 [다시 읽기] 뒤에 다시 붙지 않게 해요
+function skStale(id, d, pre) {
+  d.cerr = ''; d.stale = d.request || d.stale === 'request' ? 'request' : true;
+  if (d.request) { skReqMemo(id, d.source, ''); d.request = null; }
+  renderSetup([`#${pre}cre`, `#${pre}ce`]);
+  suSay(d.stale === 'request' ? SK_STALE_REQ : SK_STALE);
+}
+// 승인 상태 다시 보기(파일을 쓰지 않아요). quiet: 창으로 돌아왔을 때·새로고침 뒤 저절로 볼 때(바뀌었을 때만 다시 그려요)
+async function skReqCheck(id, n, quiet) {
+  const f = floorById(id), k = skState(id), d = f && skDraft(f), pre = k.pre, key = d && d.source;
+  n = n || (d && d.request && d.request.request);
+  if (!key || !n || (d.busy && d.busy !== 'check' && !quiet)) return;
+  const before = d.request ? d.request.state : '';
+  if (!quiet) { d.busy = 'check'; renderSetup(`#${pre}cck`); }
+  let r;
+  try { r = await post('api/staff/from-skill/request', { team: id, request: n }); }
+  catch (e) {
+    if (d.source !== key) return;
+    if (d.busy === 'check') d.busy = '';
+    if (quiet && !d.request) { skReqMemo(id, key, ''); return; }   // 새로고침 뒤 기억한 번호가 낡았어요
+    d.cerr = e instanceof TypeError ? SK_NET : e.message || '승인 상태를 보지 못했어요';
+    renderSetup(quiet ? undefined : [`#${pre}cck`, `#${pre}ce`]);
+    return;
+  }
+  if (d.source !== key) return;
+  if (d.busy === 'check') d.busy = '';
+  const q = skReqNorm(r);
+  if (q.source && q.source.key && q.source.key !== key) { skReqMemo(id, key, ''); return; }   // 다른 원천의 묶음이에요
+  if (quiet && !d.request && !['wait', 'ok', 'approval', 'unread'].includes(q.state)) { skReqMemo(id, key, ''); return; }
+  if (q.state === 'changed') skReqMemo(id, key, '');   // 사본이 묶음과 달라졌어요: 이 묶음은 다시 쓸 수 없어서 [다시 읽기] 뒤에 다시 붙이지 않아요
+  // unread(사본을 지금 읽지 못했어요)는 견주지 못한 것이라 기억을 지우지 않아요. 사본이 돌아오면 같은 묶음이 다시 ok·wait예요
+  d.request = q; d.cerr = '';
+  if (q.form && d.card) Object.assign(d.card, q.form);   // 묶음의 값이 들어가요(양식은 잠가요)
+  if (!quiet || before !== q.state) {
+    renderSetup(quiet ? undefined : [`#${pre}cck`, `#${pre}crq`]);
+    suSay(`승인 상태: ${SK_REQ_STATE[q.state] || q.error || q.state}`);
+  }
+}
+// 창으로 돌아오면(대표가 팀장 창에 한마디를 붙여 넣고 왔어요) 기다리는 묶음(사본을 못 읽은 묶음도)의 승인 상태를 한 번 봐요
+function skReqWatch() {
+  if (!API || !SU.open || SU.view !== 'floors') return;
+  for (const [id, k] of Object.entries(SU.sk)) { const d = k.draft; if (k.open && d && d.request && ['wait', 'unread'].includes(d.request.state) && !d.busy) skReqCheck(id, '', true); }
+}
 // 폼 칸 하나를 바꿨어요(다시 그리지 않아요. 도구에 Bash가 들면 경고 한 줄만 바꿔요)
+// 카드 칸(skc·skc-tool·skc-skill)도 같아요. 덧붙일 말이 한도를 넘으면 그 아래 한 줄, 영문 이름을 고치면 '들어가는 곳' 줄만 바꿔요
 function skInput(t, kind) {
   const f = floorById(t.dataset.team);
   if (!f) return;
   const d = skDraft(f);
+  const lower = () => { const low = t.value.toLowerCase(); if (low !== t.value) { const a = t.selectionStart, b = t.selectionEnd; t.value = low; try { t.setSelectionRange(a, b); } catch (e) {} } };
   if (kind === 'sk') {
-    if (t.dataset.k === 'staff') { const low = t.value.toLowerCase(); if (low !== t.value) { const a = t.selectionStart, b = t.selectionEnd; t.value = low; try { t.setSelectionRange(a, b); } catch (e) {} } }
+    if (t.dataset.k === 'staff') lower();
     if (['role', 'staff', 'desc', 'work', 'model'].includes(t.dataset.k)) d[t.dataset.k] = t.value;
+    return;
+  }
+  if (kind === 'skc' || kind === 'skc-tool' || kind === 'skc-skill') {
+    const c = d.card, box = t.closest ? t.closest('.su-skcard') : null, el = sel => (box && box.querySelector ? box.querySelector(sel) : null);
+    if (!c || d.request) return;   // 묶음을 만든 뒤에는 묶음의 값이에요
+    if (kind === 'skc') {
+      if (t.dataset.k === 'staff') lower();
+      if (!['role', 'staff', 'desc', 'note', 'model'].includes(t.dataset.k)) return;
+      c[t.dataset.k] = t.value;
+      const pre = skState(f.id).pre;
+      if (t.dataset.k === 'note') { const w = el(`#${pre}cwb`); if (w) w.textContent = skRoom(d.preview, c.note); }
+      if (t.dataset.k === 'staff' && d.preview) { const w = el(`#${pre}cwhere`), who = STAFF_RE.test(t.value.trim()) ? t.value.trim() : ''; if (w) w.textContent = skWhere(d.preview, who); }
+      return;
+    }
+    const key = kind === 'skc-tool' ? 'tools' : 'skills', v = t.value;
+    c[key] = t.checked ? [...c[key].filter(x => x !== v), v] : c[key].filter(x => x !== v);
     return;
   }
   const key = kind === 'sk-tool' ? 'tools' : 'skills', v = t.value;
@@ -5479,49 +5987,166 @@ async function skEnable(t) {
   k.busy = ''; t.disabled = false;
   renderSetup('#' + CSS.escape(t.id));
   suSay(k.text);
+  if (on && t.checked) skSources(id);   // 켰으면 '스킬로 들이기' 목록을 불러요
 }
 // 폼을 서버에 보내기 전에 보는 것(서버가 다시 봐요): 빈 칸, 역할 이름 규칙과 이 층에서 겹치는지, 영문 이름 꼴, 도구
-function skCheck(f, d) {
-  const role = String(d.role || '').normalize('NFC').trim(), dd = state && state.teams && state.teams[f.id];
+// 스킬 갈래(how 'request'면 들일 묶음 만들기): 고른 카드, 막아요, 남의 글이면 승인된 묶음(묶음이 있으면 양식 값은 묶음의 것이라 더 보지 않아요),
+// 그다음 역할·영문 이름·설명·도구(셸·웹 도구는 줄 수 없어요)·덧붙일 말 크기. 하는 일(덧붙일 말)은 비어도 돼요. → [칸 id 꼬리, 글] 또는 null
+function skCheck(f, d, how) {
+  const dd = state && state.teams && state.teams[f.id];
   const taken = new Set((dd && dd.team && Array.isArray(dd.team.members) ? dd.team.members : []).filter(m => m && typeof m.role === 'string').map(m => roleKey(m.role)));
+  if (d.mode !== 'direct') {
+    const p = d.preview, c = d.card, lead = !!p && p.approval !== 'adopted';
+    if (!p || !c) return ['h1', '들일 스킬을 목록에서 먼저 골라 주세요'];
+    if (p.blocked || p.block.length) return ['cgo', '막아요 항목이 있어서 들일 수 없어요. 카드의 ‘막아요’를 봐요'];
+    if (lead && how !== 'request') return !d.request ? ['cgo', '남이 쓴 글이라 팀장 창 승인이 있어야 들여요. [팀장에게 들이기 맡기기]로 들일 묶음을 먼저 만들어 주세요']
+      : d.request.state !== 'ok' ? ['cck', '팀장 승인 표시가 아직 맞지 않아요. [승인 상태 다시 보기]로 확인해 주세요'] : null;
+    const role = String(c.role || '').normalize('NFC').trim(), wide = c.tools.filter(x => ['Bash', 'WebFetch', 'WebSearch'].includes(x)), room = skRoom(p, c.note);
+    return roleErr(role, taken) ? ['cr', roleErr(role, taken)] : !STAFF_RE.test(String(c.staff || '').trim()) ? ['cn', '영문 이름은 ag-로 시작하고 영문 소문자·숫자·-로 써요(27자까지, 예: ag-planner)']
+      : !String(c.desc || '').trim() ? ['cd', '한 줄 설명을 적어 주세요'] : !c.tools.length ? ['ct0', '도구를 하나 이상 골라 주세요']
+        : wide.length ? ['ct0', `스킬로 들일 때는 셸·웹 도구(${wide.join(', ')})를 줄 수 없어요`] : room ? ['cw', room] : null;
+  }
+  const role = String(d.role || '').normalize('NFC').trim();
   return roleErr(role, taken) ? ['r', roleErr(role, taken)] : !STAFF_RE.test(String(d.staff || '').trim()) ? ['n', '영문 이름은 ag-로 시작하고 영문 소문자·숫자·-로 써요(27자까지, 예: ag-planner)']
     : !String(d.desc || '').trim() ? ['d', '한 줄 설명을 적어 주세요'] : !String(d.work || '').trim() ? ['w', '하는 일을 적어 주세요'] : !d.tools.length ? ['t0', '도구를 하나 이상 골라 주세요'] : null;
+}
+// 들인 뒤(직접 쓰기·스킬 갈래 같아요): 결과 글, 다시 켜기 안내(restart_hint면 고정 글, 옛 서버면 restart일 때 SK_RESTART), 같은 원본 알림. 폼은 비워요(고른 갈래는 남아요)
+async function skHired(f, k, r, pre, text) {
+  k.draft = null; k.bad = false; k.err = ''; k.restart = r.restart === true; k.dup = skStrs(r.dup);
+  k.hint = r.restart_hint === true ? { mark: typeof r.mark_line === 'string' ? r.mark_line : '', role: r.role, staff: r.staff } : null;
+  k.text = text;
+  await Promise.all([refreshSetup().catch(() => {}), load()]);
+  if (k.mode !== 'direct') skSources(f.id, true);   // 쓰는 직원·같은 원본 표시가 바뀌었어요
+  renderSetup([`#${pre}on`]);
+  suSay(k.text + (k.hint ? ` ${SK_HINT}` : k.restart ? ` ${SK_RESTART}.` : ''));
 }
 async function skHire(id, pre) {
   const f = floorById(id), k = skState(id);
   if (!f) return;
-  const d = skDraft(f), bad = skCheck(f, d);
+  const d = skDraft(f);
+  if (d.mode !== 'direct') return skHireSkill(f, k, d, pre);
+  const bad = skCheck(f, d);
   k.err = bad ? bad[1] : ''; k.restart = false;
   if (bad) { renderSetup([`#${pre}${bad[0]}`, `#${pre}e`]); return; }
   let r;
   try {
     r = await post('api/staff/hire', { team: id, role: String(d.role).normalize('NFC').trim(), staff: String(d.staff).trim(), desc: String(d.desc).trim(), work: String(d.work), tools: d.tools, model: d.model, skills: d.skills });
-  } catch (e) { k.err = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '들이지 못했어요'; renderSetup(`#${pre}e`); return; }
+  } catch (e) { k.err = e instanceof TypeError ? SK_NET : e.message || '들이지 못했어요'; renderSetup(`#${pre}e`); return; }
   const links = Array.isArray(r.links) ? r.links.length : 0, g = skGitText(r.git);   // exclude 줄은 서버 답 git대로(명찰 줄·스킬 링크 줄, 이미 있던 줄)
-  k.draft = null; k.bad = false; k.restart = r.restart === true;
-  k.text = `‘${r.role}’ 직원(${r.staff})을 들였어요. 직원 스킬: ${r.folder}/SKILL.md`
-    + (links ? ` · 층 스킬 ${links}개를 팀장 폴더에 링크했어요` : '') + (g ? ` · ${g}` : '') + '.';
-  await Promise.all([refreshSetup().catch(() => {}), load()]);
-  renderSetup([`#${pre}on`]);
-  suSay(k.text + (k.restart ? ` ${SK_RESTART}.` : ''));
+  await skHired(f, k, r, pre, `‘${r.role}’ 직원(${r.staff})을 들였어요. 직원 스킬: ${r.folder}/SKILL.md`
+    + (links ? ` · 층 스킬 ${links}개를 팀장 폴더에 링크했어요` : '') + (g ? ` · ${g}` : '') + '.');
 }
-// [퇴근]: 확인 창 뒤에 서버가 team.json의 직원 줄을 빼고 명찰을 직원 폴더의 retired/로 옮겨요. 직원 폴더는 남아요(지우지 않아요)
+// 스킬로 들이기(설계 화면 3·4): 이미 들인 것은 카드 양식 값과 읽은 해시(sha)로, 남의 글은 승인된 묶음 번호로 보내요(그때 양식 값은 서버가 묶음에서 읽어요).
+// 확인 창 뒤에 보내요. 서버가 사본을 다시 읽어 해시가 다르면 409 changed([다시 읽기], 묶음이 있으면 그 묶음도 버려요: skStale), 묶음 상태가 바뀌었으면(wait·approval·stale·used·bundle·unread) 승인 상자에 그대로 적어요
+async function skHireSkill(f, k, d, pre) {
+  const id = f.id, p = d.preview, bad = skCheck(f, d);
+  if (d.preview) d.cerr = bad ? bad[1] : '';
+  k.restart = false; k.hint = null;
+  if (bad) { if (!d.preview) k.err = bad[1]; renderSetup([`#${pre}${bad[0]}`, `#${pre}ce`]); return; }
+  const lead = p.approval !== 'adopted', fm = lead && d.request.form ? d.request.form : skForm(d.card), src = p.source;
+  if (!confirm(`‘${fm.role}’ 직원(${fm.staff})을 ${src.name}${src.kind === 'floor' ? '' : `(${src.group} 플러그인)`}로 들일까요?\n도구: ${fm.tools.join(', ')} · 모델: ${fm.model === 'inherit' ? '팀장과 같게' : fm.model}\n팀장 폴더에 명찰을 만들어요. 팀장 창을 한 번 다시 켜야 일할 수 있어요.`)) return;
+  const key = d.source;
+  let r;
+  try { r = await post('api/staff/hire', lead ? { team: id, source: key, request: d.request.request, sha: src.sha } : Object.assign({ team: id, source: key, sha: src.sha }, skForm(d.card))); }
+  catch (e) {
+    if (d.source !== key) return;
+    const b = e.body || {};
+    if (b.why === 'changed') return skStale(id, d, pre);
+    d.cerr = e instanceof TypeError ? SK_NET : e.message || '들이지 못했어요';
+    if (d.request && ['wait', 'approval', 'stale', 'used', 'bundle', 'unread'].includes(b.why)) Object.assign(d.request, { state: b.why, error: e.message || '', differs: skStrs(b.differs) });
+    renderSetup(`#${pre}ce`);
+    return;
+  }
+  skReqMemo(id, key, '');
+  const links = Array.isArray(r.links) ? r.links.length : 0, g = skGitText(r.git), s = r.source && typeof r.source === 'object' ? r.source : src;
+  await skHired(f, k, r, pre, `‘${r.role}’ 직원(${r.staff})을 들였어요. 원본: ${s.name}(${s.group || '이 층 스킬'}). 직원 스킬: ${r.skill || `${r.folder}/SKILL.md`}`
+    + (links ? ` · 쓸 스킬 ${links}개를 팀장 폴더에 링크했어요` : '') + (g ? ` · ${g}` : '') + '.');
+}
+// [퇴근]: 확인 창 뒤에 서버가 team.json의 직원 줄을 빼고 명찰을 직원 폴더의 retired/로 옮겨요. 직원 폴더는 남아요(지우지 않아요). 나중에 [복직]할 수 있어요
 async function skFire(id, role, pre) {
-  if (!confirm(`‘${role}’ 직원을 퇴근시킬까요?\n팀원 목록(team.json)에서 빼고, 팀장 폴더의 명찰은 직원 폴더의 retired/로 옮겨요.\n직원 폴더(SKILL.md·기억.md)는 남아요. 지우지 않아요.`)) return;
+  const x = skInfo(id, role), born = !!x && (x.form === 2 || !!x.from);   // 스킬로 들인 직원은 원본/·출처.json·LICENSE도 남아요
+  if (!confirm(`‘${role}’ 직원을 퇴근시킬까요?\n팀원 목록(team.json)에서 빼고, 팀장 폴더의 명찰은 직원 폴더의 retired/로 옮겨요.\n${born ? '직원 폴더(원본/, 출처.json, LICENSE 포함)는 남아요.' : '직원 폴더(SKILL.md·기억.md)는 남아요. 지우지 않아요.'}\n나중에 [복직]할 수 있어요. 지우기는 1장 일이에요.`)) return;
   const k = skState(id);
   let r;
   try {
     r = await post('api/staff/fire', { team: id, role }).catch(e => { if (e.body && e.body.why === 'lead') return e; throw e; });
     // 팀장 폴더를 못 찾아 명찰을 옮길 수 없어요: 그래도 줄만 뺄지 한 번 더 물어요(명찰이 남으면 팀장이 아직 그 일꾼을 띄울 수 있어요)
     if (r instanceof Error) r = confirm(`${r.message}\n\n그래도 팀원 목록에서만 뺄까요?`) ? await post('api/staff/fire', { team: id, role, anyway: true }) : null;
-  } catch (e) { k.text = e instanceof TypeError ? '사무실 서버에 닿지 못했어요. 앱(또는 start.py)이 켜져 있는지 확인해 주세요' : e.message || '퇴근시키지 못했어요'; k.bad = true; renderSetup(`#${pre}on`); return; }
+  } catch (e) { k.text = e instanceof TypeError ? SK_NET : e.message || '퇴근시키지 못했어요'; k.bad = true; renderSetup(`#${pre}on`); return; }
   if (!r) { k.text = `‘${role}’ 직원을 퇴근시키지 않았어요. 팀장 창을 한 번 연 뒤 다시 해 주세요.`; k.bad = true; renderSetup(`#${pre}on`); suSay(k.text); return; }
-  k.bad = !!r.left; k.restart = false;
-  k.text = `‘${role}’ 직원을 퇴근시켰어요. 직원 폴더는 남아요${r.kept ? `(${r.kept})` : ''}.${r.retired ? ` 명찰은 ${r.retired}로 옮겼어요.` : ''}${r.left ? ` ${r.left}.` : ''}`;
+  k.bad = !!r.left; k.restart = false; k.hint = null; k.dup = [];
+  // 서버 note(직원 폴더가 남았어요): 켠 층이면 아래 ‘퇴근한 직원’ 목록을 가리키고, 끈 층에는 그 목록이 없어서 다시 켜면 복직할 수 있다고 알려요
+  // (서버 note의 '직원 폴더는 남아요.'는 앞 글에 이미 있어서 붙이지 않아요)
+  const f = floorById(id), note = typeof r.note === 'string' && r.note ? (f && f.staffOn === true ? ' 아래 ‘퇴근한 직원’에서 [복직]할 수 있어요.' : ' 직원 스킬을 다시 켜면 [복직]할 수 있어요.') : '';
+  k.text = `‘${role}’ 직원을 퇴근시켰어요. 직원 폴더는 남아요${r.kept ? `(${r.kept})` : ''}.${r.retired ? ` 명찰은 ${r.retired}로 옮겼어요.` : ''}${r.left ? ` ${r.left}.` : ''}${note}`;
   delete SKR[id + '|' + role];
   await Promise.all([refreshSetup().catch(() => {}), load()]);
+  if (k.mode !== 'direct') skSources(id, true);
   renderSetup(`#${pre}on`);
   suSay(k.text);
+}
+// [복직](설계 화면 6): 남은 직원 폴더로 team.json 줄을 다시 넣고 명찰을 다시 지어요. 역할 이름이 이미 있거나 없으면 새 이름을 물어요.
+// 다시 만들기와 같은 확인 창(SKILL.md 바뀜·넓힘)을 거쳐요. 원본 영역이 바뀌었으면(409 body-changed) 그 줄에 [원본 영역 되돌리기]를 보여요. head: 앞에 붙일 글
+async function skRestore(id, staff, head) {
+  const f = floorById(id), k = skState(id), x = skRetired(id).find(y => y.staff === staff), pre = k.pre;
+  if (!f || !x) return;
+  const dd = state && state.teams && state.teams[id], taken = new Set((dd && dd.team && Array.isArray(dd.team.members) ? dd.team.members : []).filter(m => m && typeof m.role === 'string').map(m => roleKey(m.role)));
+  let role = typeof x.role === 'string' ? x.role.normalize('NFC').trim() : '';
+  const ask = !role || x.taken === true || taken.has(roleKey(role));
+  if (ask) {
+    const v = prompt(`${role ? `이 층에 ‘${role}’ 자리가 이미 있어요.` : 'SKILL.md에 역할 이름이 없어요.'} 복직할 역할 이름을 적어 주세요(12자까지).`, '');
+    if (v == null) return;
+    role = String(v).normalize('NFC').trim();
+    const bad = roleErr(role, taken);
+    if (bad) { k.text = `복직하지 않았어요. ${bad}.`; k.bad = true; renderSetup(`#${pre}on`); suSay(k.text); return; }
+  }
+  if (!head && !confirm(`‘${role}’ 직원(${staff})을 복직할까요?\n남은 직원 폴더(기억.md 포함)로 팀원 목록(team.json)에 다시 넣고, 팀장 폴더에 명찰을 다시 지어요.\n팀장 창을 한 번 다시 켜야 일할 수 있어요.`)) return;
+  k.busy = 'restore|' + staff; k.reset = ''; k.hint = null;
+  renderSetup(`#${pre}on`);
+  let out = null, why = '';
+  try { out = await skAsk('api/staff/restore', ask ? { team: id, staff, role } : { team: id, staff }, `‘${role}’ 직원을 복직해 명찰을 지으면`); }
+  catch (e) { k.text = e instanceof TypeError ? SK_NET : e.message || '복직하지 못했어요'; why = e.body && e.body.why; }
+  k.busy = '';
+  if (out && out.res) {
+    const r = out.res, g = skGitText(r.git);
+    await skHired(f, k, r, pre, `${head ? `${head} ` : ''}‘${r.role}’ 직원(${r.staff})을 복직했어요. 기억.md는 그대로 이어져요${g ? ` · ${g}` : ''}.`);
+    return;
+  }
+  if (out) k.text = out.stop === 'skill-changed' ? '복직하지 않았어요. 직원 스킬(SKILL.md)이 바뀌어서 확인 창에서 멈췄어요.' : '복직하지 않았어요. 도구나 모델이 바뀌어서 확인 창에서 멈췄어요.';
+  if (why === 'body-changed') k.reset = staff;
+  k.bad = true; if (head) k.text = `${head} ${k.text}`;
+  renderSetup(why === 'body-changed' ? [`#${pre}qb${skRetired(id).findIndex(y => y.staff === staff)}`, `#${pre}on`] : `#${pre}on`);
+  suSay(k.text);
+}
+// [원본 영역 되돌리기](설계 6-6 3): 서버가 원본/의 주 파일과 기록의 난수로 SKILL.md의 원본 영역만 다시 지어요(영역 밖 줄은 그대로).
+// 그다음 다시 만들기(직원) 또는 복직(퇴근한 직원)을 다시 불러요. 되돌리지 못하면(409 mark-dup: 원본 표시 줄이 여럿이에요 등) 서버 글만 그 줄·서랍에 적고 다시 부르지 않아요.
+// role: 이 층 직원, staff: 퇴근한 직원
+async function skBodyReset(tid, role, staff, focus) {
+  const who = role ? `‘${role}’ 직원` : `${staff} 직원`, k = skState(tid);
+  if (!confirm(`${who} 스킬(SKILL.md)의 원본 영역(── 원본 시작 ~ ── 원본 끝 사이)을 직원 폴더 원본/의 글로 되돌릴까요?\n영역 밖 줄(대표가 덧붙인 말 등)은 그대로예요. 되돌린 뒤 ${role ? '명찰을 다시 만들어요' : '다시 복직해요'}.`)) return;
+  let r;
+  try { r = await post('api/staff/body-reset', role ? { team: tid, role } : { team: tid, staff }); }
+  catch (e) {
+    const t = e instanceof TypeError ? SK_NET : e.message || '원본 영역을 되돌리지 못했어요';
+    if (role) { SKR[tid + '|' + role] = { busy: false, text: t, bad: true, why: e.body && e.body.why, agent: (skInfo(tid, role) || {}).agent }; skRepaint(tid, role, focus); }
+    else { k.text = t; k.bad = true; renderSetup(focus); }
+    suSay(t);
+    return;
+  }
+  const done = r.changed === false ? '원본 영역은 이미 원본/의 글과 같아요.' : `원본 영역을 원본/의 글로 되돌렸어요.${r.lost ? ' 설정 폴더 기록을 잃은 직원이라 새 표시 줄로 지었어요. 원본/이 들일 때와 같은지는 확인하지 못했어요.' : ''}`;
+  if (role) await skRebuild(tid, role, focus, done);
+  else await skRestore(tid, staff, done);
+}
+// [실렸는지 확인 맡기기]: 팀장에게 사이트 말로 확인을 부탁해요(승인이 아니에요). 팀장 창을 다시 켠 뒤에 눌러요
+async function skVerify(id, role, staff) {
+  const k = skState(id), h = k.hint;
+  if (!h) return;
+  try {
+    await post('api/say', { team: id, thread: 'chat:' + LEAD, text: `[확인 부탁] ‘${role}’ 직원(${staff})이 새 명찰로 실렸는지 봐 주세요. 그 직원에게 파일을 읽지 말고 원본 첫 머리글과 확인 표시를 말하게 해요. 승인이 아니라 확인 부탁이에요.` });
+    h.sent = '팀장에게 확인 부탁을 보냈어요. 답은 팀장 대화에 올라와요.'; h.bad = false;
+  } catch (e) { h.sent = `보내지 못했어요: ${e instanceof TypeError ? SK_NET : e.message || '알 수 없는 오류'}`; h.bad = true; }
+  renderSetup(`#${k.pre}on`);
+  suSay(h.sent);
 }
 // 총괄: 제목이 총괄 같은 세션을 맨 위에(서버가 고른 후보가 맨 앞), 그다음 묶음별로 모든 세션. 아직 총괄이 없으면 후보를 미리 골라 둬요(‘층 만들기’를 눌러야 정해져요).
 function bossHTML(all, save = '') {   // save: 고르기 바로 아래에 둘 단추(총괄 묶음의 [총괄로 정하기])
@@ -6420,6 +7045,7 @@ function renderSetup(focus) {
   if (first) { body.removeAttribute('role'); body.setAttribute('aria-labelledby', 'suHead'); } else { body.setAttribute('role', 'tabpanel'); body.setAttribute('aria-labelledby', 'suTab-' + SU.view); }
   body.innerHTML = (first ? firstHTML() : { floors: floorsHTML, boss: bossTabHTML, city: cityHTML, alerts: alertsHTML }[SU.view]())
     + (first ? '' : `<p class="err" role="alert" id="suErr" style="margin-top:12px">${esc(hold ? '' : SU.err)}</p>${foot ? `<p class="su-tabfoot">${esc(foot)}</p>` : ''}`);
+  skTextFill(body);   // 직원 스킬 카드의 원천 글(원문 설명·본문·점검 글)은 그린 뒤 글로만 채워요
   if (SU.view === 'city') mtEnsure();   // 도시 묶음의 ‘도시에 내 건물 세우기’ 상태(처음 화면에서는 바깥에 묻지 않아요)
   applyFilter();
   const mid = first ? $('#suBody .su-fmid') : null;
@@ -6996,10 +7622,22 @@ $('#setup').addEventListener('click', e => {
     renderSetup(`#suO${up ? 'u' : 'd'}${ix('floor|' + f.id)}`);
     if (note) suSay(note);
   }
-  else if (a === 'sk-open') { const k = skState(b.dataset.team); k.open = !k.open; if (!k.open) { k.text = ''; k.restart = false; k.err = ''; } renderSetup('#' + b.id); }   // 직원 스킬 묶음 펼치기·접기
+  else if (a === 'sk-open') { const k = skState(b.dataset.team); k.open = !k.open; if (!k.open) { k.text = ''; k.restart = false; k.err = ''; k.hint = null; k.dup = []; } renderSetup('#' + b.id); if (k.open) skSources(b.dataset.team); }   // 직원 스킬 묶음 펼치기·접기
   else if (a === 'sk-hire') { const p = b.closest('.su-staff'); suRun(b, () => skHire(b.dataset.team, p ? p.id : '')); }
   else if (a === 'sk-fire') { const p = b.closest('.su-staff'); suRun(b, () => skFire(b.dataset.team, b.dataset.role, p ? p.id : '')); }
   else if (a === 'sk-rebuild') { const p = b.closest('.su-staff'); skRebuild(b.dataset.team, b.dataset.role, [`#${b.id}`, p ? `#${p.id}on` : '#suHead']); }
+  // 스킬로 들이기(U-35): 목록 줄 고르기·카드 닫기·다시 읽기, 표준 문장, 들일 묶음·승인 상태, 복직, 원본 영역 되돌리기, 실렸는지 확인 맡기기
+  else if (a === 'sk-src') skPick(b.dataset.team, b.dataset.key, b.id);
+  else if (a === 'sk-src-reload') suRun(b, () => skSources(b.dataset.team, true));
+  else if (a === 'sk-src-again') suRun(b, () => skPreview(b.dataset.team));
+  else if (a === 'sk-close') { const f = floorById(b.dataset.team), d = f && skDraft(f), key = d ? d.source : ''; if (d) skClose(d); renderSetup([`[data-su="sk-src"][data-key="${key}"]`, `#${skState(b.dataset.team).pre}h1`]); }
+  else if (a === 'sk-add') { if (b.getAttribute('aria-disabled') !== 'true') skAdd(b.dataset.team, Number(b.dataset.i), b.id); }
+  else if (a === 'sk-req') suRun(b, () => skRequest(b.dataset.team));
+  else if (a === 'sk-req-check') suRun(b, () => skReqCheck(b.dataset.team, '', false));
+  else if (a === 'sk-req-edit') { const f = floorById(b.dataset.team), d = f && skDraft(f), k = skState(b.dataset.team); if (d) { skReqMemo(b.dataset.team, d.source, ''); d.request = null; d.cerr = ''; } renderSetup(`#${k.pre}cr`); suSay('양식을 다시 고칠 수 있어요. 고친 뒤 [팀장에게 들이기 맡기기]로 묶음을 다시 만들어요'); }
+  else if (a === 'sk-restore') suRun(b, () => skRestore(b.dataset.team, b.dataset.staff));
+  else if (a === 'sk-body-reset') { const p = b.closest('.su-staff'); skBodyReset(b.dataset.team, b.dataset.role || '', b.dataset.staff || '', [`#${b.id}`, p ? `#${p.id}on` : '#suHead']); }
+  else if (a === 'sk-verify') suRun(b, () => skVerify(b.dataset.team, b.dataset.role, b.dataset.staff));
   else if (a === 'edit-open') openEdit(b.dataset.team, b.dataset.rec ? recByKey(b.dataset.rec) : null);
   else if (a === 'edit-cancel') closeEdit(b.dataset.team);
   else if (a === 'edit-save') suRun(b, () => editSave(b.dataset.team));
@@ -7030,7 +7668,8 @@ function suInput(e) {
   if (kind === 'mt-auto') { mtAuto(t); return; }        // 도시 묶음: 자동으로 올리기(1시간마다)
   if (kind === 'archived') { SU.archived = t.checked; loadClaude(); return; }
   if (kind === 'sk-on') { skEnable(t); return; }   // 직원 스킬(시험 기능) 켜기
-  if (kind === 'sk' || kind === 'sk-tool' || kind === 'sk-skill') { skInput(t, kind); return; }   // 직원 들이기 폼
+  if (kind === 'sk-mode') { skMode(t); return; }   // 직원 들이기 갈래: 스킬로 들이기 / 직접 쓰기
+  if (kind === 'sk' || kind === 'sk-tool' || kind === 'sk-skill' || kind === 'skc' || kind === 'skc-tool' || kind === 'skc-skill') { skInput(t, kind); return; }   // 직원 들이기 폼·스킬 카드 양식
   if (kind === 'rules-on') { SU.rules.on = t.checked; return; }   // 처음 화면: 팀 규칙 한 줄을 [사무실 열기] 때 넣을지
   if (kind === 'first-msg') {   // [첫 메시지도 읽기]: 바꾸는 순간 서버에 적고 그 기준으로 다시 추천해요
     const yes = t.checked;
@@ -7207,6 +7846,7 @@ $('#setup').addEventListener('change', e => {
   }
 });
 $('#setup').addEventListener('search', e => { if (e.target.id === 'suQ') suInput(e); });   // 찾기 칸의 지우기(×) 단추
+window.addEventListener('focus', skReqWatch);   // 팀장 창에 한마디를 붙여 넣고 돌아오면 들일 묶음의 승인 상태를 한 번 봐요
 $('#setup').addEventListener('toggle', e => { if (e.target.id === 'suMtJson') MT.jsonOpen = e.target.open; }, true);   // 다시 그려도 펼친 채로
 // 도시 묶음을 보는 동안: 세는 중이면 1초마다 진행을, 참가 신청을 기다리면 45초마다(창으로 돌아오면 바로) 명단을 물어요
 setInterval(() => {
@@ -8105,6 +8745,7 @@ document.addEventListener('click', e => {
     }
     if (act.dataset.act === 'appr-open') { apprDrawer(); return; }
     if (act.dataset.act === 'sk-rebuild') { if (!act.disabled && API) skRebuild(act.dataset.team, act.dataset.role); return; }   // 직원 서랍의 [명찰 다시 만들기]
+    if (act.dataset.act === 'sk-body-reset') { if (!act.disabled && API) skBodyReset(act.dataset.team, act.dataset.role, '', null); return; }   // 직원 서랍의 [원본 영역 되돌리기]
     if (act.dataset.act === 'edit-team') { editTeam(act.dataset.team); return; }
     if (act.dataset.act === 'rules-all') { rulesAll(); return; }
     if (act.dataset.act === 'rules-tell') { rulesTell(); return; }
