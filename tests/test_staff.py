@@ -1913,6 +1913,12 @@ class SkillStaff(SkillBase):
         self.assertEqual(o.role_suggest("docs-guard", None, [])["field"], "기획")
         self.assertEqual(o.role_suggest("code-reviewer", None, [])["field"], "개발")
         self.assertEqual(o.words_ko("pr-review-toolkit")[0], ["PR", "리뷰"])
+        # U-36: 공식 플러그인 일꾼 이름표(STAFF_SOURCE_KO)에 있으면 그 역할이 먼저예요. 겹침 처리(묶음 첫 낱말 → 2~9)는 그대로예요
+        r = o.role_suggest("silent-failure-hunter", "pr-review-toolkit", [])
+        self.assertEqual((r["role"], r["field"], r["missing"]), ("숨은오류찾기", "개발", []))
+        self.assertEqual(o.role_suggest("silent-failure-hunter", "pr-review-toolkit", ["숨은오류찾기"])["role"], "PR숨은오류찾기")
+        self.assertEqual(o.role_suggest("silent-failure-hunter", None, [])["role"], "")    # 층 스킬(묶음 없음)은 이름표를 보지 않아요(낱말 표뿐)
+        self.assertEqual(o.role_suggest("code-reviewer", "zzz-pack", ["코드리뷰"])["role"], "코드리뷰2")   # 표에 없는 묶음은 낱말 표
 
     def test_demote_headings(self):
         o = self.o
@@ -1971,6 +1977,16 @@ class SkillStaff(SkillBase):
         self.assertEqual(bash["add"], o.STAFF_ADD["diff"])
         self.assertEqual(bash["lines"][0], {"file": "code-reviewer.md", "n": 12, "text": "git diff"})
         self.assertIn("(12행 git diff)", bash["text"])
+        self.assertEqual(bash["at"], "12행 git diff")                                     # U-36: 화면은 곳 글을 둘째 줄('원본 위치')로 따로 그려요
+        self.assertNotIn("행", bash["say"])
+        self.assertEqual(bash["say"], bash["text"].replace("(12행 git diff)", ""))
+        for x in chk["check"]:
+            if x["lines"]:
+                self.assertTrue(x["at"] and f"({x['at']})" in x["text"] and x["at"] not in x["say"], x["id"])
+            else:
+                self.assertEqual((x["say"], x["at"]), (x["text"], ""), x["id"])          # 곳이 없으면 say는 text 그대로, at은 ''
+        item = o.check_item("bash", "단계가 있어요{at}. 끝.", [o.src_hit("a.md", 3, "npm")], "a.md")
+        self.assertEqual((item["text"], item["say"], item["at"]), ("단계가 있어요(3행 npm). 끝.", "단계가 있어요. 끝.", "3행 npm"))
         self.assertEqual(chk["wants_wide"], ["Bash"])
         self.assertEqual(next(x for x in chk["check"] if x["id"] == "model")["text"], "원본은 opus예요. 아래에서 팀장과 같게 뒀어요.")
         chk = o.source_check(o.source_read(self.office("t1"), "plugin-agent:feature-dev/code-reviewer"))
@@ -1993,8 +2009,13 @@ class SkillStaff(SkillBase):
         self.assertEqual((pr["same"], pr["group"], pr["bytes"]), (1, "pr-review-toolkit", len(PR_REVIEWER.encode("utf-8"))))
         self.assertTrue(pr["desc"].startswith("Use this agent proactively"))
         self.assertEqual(r["groups"], [{"id": "floor", "label": "이 층 스킬", "ko": "", "n": 2},
-                                       {"id": "feature-dev", "label": "feature-dev 플러그인", "ko": "기능", "n": 1},
-                                       {"id": "pr-review-toolkit", "label": "pr-review-toolkit 플러그인", "ko": "PR 리뷰", "n": 1}])
+                                       {"id": "pr-review-toolkit", "label": "pr-review-toolkit 플러그인", "ko": "PR 리뷰", "n": 1},
+                                       {"id": "feature-dev", "label": "feature-dev 플러그인", "ko": "기능 개발", "n": 1}])   # 이름표 차례(STAFF_GROUP_KO), 칸은 그대로
+        roles = [x["role"] for x in self.team("t1")["members"]]
+        self.assertEqual([(x["role"], x["does"], x["aux"]) for x in r["sources"][:2]], [("문서점검", "", False), ("", "", False)])   # 층 스킬은 낱말 표(public은 표에 없어요)
+        for x in r["sources"][2:]:
+            self.assertEqual(x["role"], o.role_suggest(x["name"], x["group"], roles)["role"], x["key"])   # 카드가 제안할 역할과 같아요
+            self.assertEqual((x["role"], x["does"], x["aux"]), ("코드리뷰", "", False), x["key"])   # 시험 원 설명은 이 맥 사본과 해시가 달라서 하는 일은 비어요
         self.assertEqual((r["counts"], r["market"]), ({"floor": 2, "plugin": 2, "plugins": 2}, True))
         self.refused(409, o.api_staff_sources, {"team": ["t3"]})                           # 직원 스킬이 꺼진 층
         self.refused(400, o.api_staff_sources, {})
@@ -2004,6 +2025,54 @@ class SkillStaff(SkillBase):
             self.assertEqual((r["market"], r["counts"]["plugin"]), (False, 0))
         finally:
             os.rename(self.market + ".off", self.market)
+
+    def test_source_ko_table(self):
+        """U-36 이름표: 표의 꼴(열쇠·묶음·역할·분야·하는 일·desc12), 원 설명 해시가 같을 때만 하는 일을 보여 주기, 목록(sources)과 카드(preview)의 역할·하는 일이 같은지."""
+        o = self.o
+        groups = [g for g, _ in o.STAFF_GROUP_KO]
+        self.assertEqual(len(groups), len(set(groups)))
+        for g, ko in o.STAFF_GROUP_KO:
+            self.assertTrue(o.SKILL_NAME.match(g) and ko and "판" not in ko, g)
+        self.assertTrue(o.STAFF_SOURCE_KO)
+        for key, (role, field, does, h, aux) in o.STAFF_SOURCE_KO.items():
+            g, _, n = key.partition("/")
+            self.assertTrue(o.SKILL_NAME.match(g) and o.SKILL_NAME.match(n), key)       # '<묶음>/<이름>' 꼴
+            self.assertIn(g, groups, key)
+            self.assertTrue(o.is_role(role) and role != o.LEAD, key)
+            self.assertTrue(field is None or field in o.STAFF_FIELD_WORDS, key)
+            self.assertTrue(1 <= len(does) <= 50, key)
+            for bad in ("판", "sha256", "inherit"):
+                self.assertNotIn(bad, does, key)
+            self.assertRegex(h, r"^[0-9a-f]{12}$")
+            self.assertIsInstance(aux, bool)
+            self.assertEqual(o.role_suggest(n, g, [])["role"], role, key)                 # 표의 역할이 그대로 제안돼요
+        for g, ko in o.STAFF_GROUP_KO:                                                     # 묶음 이름이 어떤 역할 이름과 같으면 그 묶음 안에 그 역할이 있어요(‘보안점검’을 찾아 연 묶음에 없지 않게)
+            same = [k for k, e in o.STAFF_SOURCE_KO.items() if e[0] == ko.replace(" ", "")]
+            self.assertTrue(not same or any(k.startswith(g + "/") for k in same), (g, ko, same))
+        desc = "Reviews code for project rules."
+        h = hashlib.sha256(desc.encode("utf-8")).hexdigest()[:12]
+        with mock.patch.dict(o.STAFF_SOURCE_KO, {"pr-review-toolkit/code-reviewer": ("코드리뷰", "개발", "시험 하는 일", h, False)}):
+            self.assertEqual(o.source_ko("pr-review-toolkit", "code-reviewer", desc), {"role": "코드리뷰", "field": "개발", "does": "시험 하는 일", "aux": False})
+            self.assertEqual(o.source_ko("pr-review-toolkit", "pr-review-toolkit:code-reviewer", desc)["does"], "시험 하는 일")   # ':' 뒤 이름
+            for other in (desc + " ", "Reviews code.", ""):
+                self.assertEqual(o.source_ko("pr-review-toolkit", "code-reviewer", other), {"role": "코드리뷰", "field": "개발", "does": "", "aux": False})   # 원본이 바뀌면 원문으로
+            self.assertIsNone(o.source_ko(None, "code-reviewer", desc))                   # 층 스킬은 표에 없어요
+            self.assertIsNone(o.source_ko("zzz-pack", "code-reviewer", desc))
+        # 목록과 카드가 같은 값: 시험 사본의 원 설명 해시로 표를 잠깐 바꿔 끼워요(보조 일꾼과 해시가 다른 줄도)
+        rows = {x["key"]: x for x in o.api_staff_sources({"team": ["t1"]})["sources"]}
+        pr, fd = rows["plugin-agent:pr-review-toolkit/code-reviewer"], rows["plugin-agent:feature-dev/code-reviewer"]
+        ph = hashlib.sha256(pr["desc"].encode("utf-8")).hexdigest()[:12]
+        table = {"pr-review-toolkit/code-reviewer": ("코드리뷰", "개발", "바뀐 코드를 검토해요", ph, False), "feature-dev/code-reviewer": ("기능리뷰", "개발", "기능 하는 일", "0" * 12, True)}
+        with mock.patch.dict(o.STAFF_SOURCE_KO, table):
+            rows = {x["key"]: x for x in o.api_staff_sources({"team": ["t1"]})["sources"]}
+            got = {k: (x["role"], x["does"], x["aux"]) for k, x in rows.items() if x["kind"] == "plugin-agent"}
+            self.assertEqual(got, {"plugin-agent:pr-review-toolkit/code-reviewer": ("코드리뷰", "바뀐 코드를 검토해요", False),
+                                   "plugin-agent:feature-dev/code-reviewer": ("기능리뷰", "", True)})
+            for key in got:
+                sg = self.preview(key)["suggest"]
+                self.assertEqual((sg["role"], sg["does"], sg["aux"]), got[key], key)
+            sg = self.preview("floor:docs-guard")["suggest"]
+            self.assertEqual((sg["role"], sg["does"], sg["aux"]), ("문서점검", "", False))   # 층 스킬은 이름표가 없어요
 
     def test_refuses_outside_keys_and_links(self):
         o = self.o

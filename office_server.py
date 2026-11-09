@@ -7238,12 +7238,57 @@ STAFF_WORDS = {
 STAFF_FILLER = ("skill", "agent", "toolkit", "dev", "pro", "best", "practices", "patterns", "guidelines")   # 이름·역할 제안에서 버리는 채움말
 STAFF_VERBS = ("write", "synthesize", "check")          # 역할 이름에서 뒤로 보내는 동사 낱말
 STAFF_FIELD_WORDS = {"개발": ("개발",), "디자인": ("디자인", "디자이너"), "기획": ("기획",), "마케팅": ("마케팅",), "운영": ("운영",)}
-# 카드의 표준 문장 단추(누르면 '덧붙일 말' 끝에 한 줄이 붙어요)
+# 카드의 추천 문장(체크를 켜면 '덧붙일 말' 끝에 줄마다 붙어요)
 STAFF_ADD = {
     "diff": "검토 범위는 [일 맡기기]의 diff 파일이나 파일 목록이에요. 코드를 고치지 않고 '고칠 안'으로만 적어요.",
     "bash": "명령이 필요한 단계는 팀장이 [일 맡기기]에 준 자료(예: diff 파일, 시험 결과 파일)를 읽어요. 자료가 없으면 '확인 못 함'으로 적어요.",
     "rules": "코드 규칙은 [일 맡기기]가 이름을 댄 규칙 파일을 따라요.",
     "rule1": "'커밋 전에' 같은 장면은 팀장이 정해요. 직원은 보고서의 '결정할 것'에 적어요."}
+# 공식 플러그인 일꾼 이름표(U-36): 저장소에 싣는 사람이 검토한 정적 글이에요(실행 중 번역·바깥 호출 없음). 묶음 차례가 곧 목록의 묶음 차례예요
+STAFF_GROUP_KO = (("pr-review-toolkit", "PR 리뷰"), ("feature-dev", "기능 개발"), ("code-simplifier", "코드 다듬기"), ("code-modernization", "옛 코드 현대화"),
+                  ("claude-security", "Claude 보안 검사"), ("plugin-dev", "플러그인 만들기"), ("hookify", "훅(자동 규칙) 만들기"), ("agent-sdk-dev", "에이전트 SDK 개발"),
+                  ("math-proof", "수학 증명"))
+# "<묶음>/<이름>": (역할, 분야 또는 None, 하는 일 한 줄, desc12, 보조). desc12는 그 원천 원 설명 첫 줄(source_desc)의 sha256 앞 12자예요(이 맥 사본으로 계산).
+# 원 설명이 바뀌면 하는 일은 보이지 않고 원문으로 돌아가요(역할은 남아요). 보조: 다른 일꾼이나 스킬이 불러 쓰라고 만든 일꾼(혼자 띄우면 제대로 못 해요)이라 목록에서 묶음 맨 뒤로 가요.
+# claude-security/explore는 다른 일꾼이 불러 쓰기도 하지만 혼자 써도 되는 읽기 전용 코드 탐색 일꾼이라 보조로 두지 않아요
+STAFF_SOURCE_KO = {
+    "pr-review-toolkit/code-reviewer": ("코드리뷰", "개발", "바뀐 코드가 프로젝트 규칙과 스타일에 맞는지 검토해요", "3d7267d13e6a", False),
+    "pr-review-toolkit/code-simplifier": ("코드다듬기", "개발", "기능은 그대로 두고 방금 바뀐 코드를 읽기 쉽게 다듬어요", "111f03127a4a", False),
+    "pr-review-toolkit/comment-analyzer": ("주석점검", "개발", "코드 주석이 맞는지, 빠지거나 낡은 곳이 없는지 살펴요", "f367bad8bd0f", False),
+    "pr-review-toolkit/pr-test-analyzer": ("시험점검", "개발", "PR의 시험(테스트)이 새 기능을 충분히 덮는지 살펴요", "431a0c349ef6", False),
+    "pr-review-toolkit/silent-failure-hunter": ("숨은오류찾기", "개발", "오류를 조용히 넘기는 곳과 허술한 오류 처리를 찾아요", "75d6e634d819", False),
+    "pr-review-toolkit/type-design-analyzer": ("타입설계점검", "개발", "새 타입(자료형)이 잘 짜였는지 살펴요", "5448f0fc5b47", False),
+    "feature-dev/code-architect": ("기능설계", "개발", "지금 코드의 꼴을 보고 새 기능의 설계도(만들 파일·흐름·순서)를 그려요", "6dfc7f04db90", False),
+    "feature-dev/code-explorer": ("코드탐색", "개발", "기능이 어떻게 이어져 도는지 따라가 구조를 정리해요", "60010f3655f9", False),
+    "feature-dev/code-reviewer": ("코드리뷰", "개발", "버그·논리 오류·보안 문제 가운데 확실한 것만 골라 알려요", "a6d272895dde", False),
+    "code-simplifier/code-simplifier": ("코드다듬기", "개발", "기능은 그대로 두고 최근 바뀐 코드를 단순하게 다듬어요", "f2bc67442dd2", False),
+    "code-modernization/architecture-critic": ("설계비평", "개발", "새 설계와 바꾼 코드에서 지나친 복잡함과 빠진 요구를 찾아요", "2f477be43d1d", False),
+    "code-modernization/business-rules-extractor": ("업무규칙정리", "기획", "옛 코드 속 계산·검증·정책을 시험할 수 있는 규칙 글로 뽑아요", "341e18405dd6", False),
+    "code-modernization/legacy-analyst": ("옛코드분석", "개발", "옛 코드가 무엇을 하고 무엇에 기대는지 깊이 읽어 정리해요", "d0f9cd08de18", False),
+    "code-modernization/scaffolder": ("뼈대만들기", "개발", "정한 설계대로 새 서비스의 기본 틀과 시험을 만들어요", "d0a36179d2cd", False),
+    "code-modernization/security-auditor": ("보안점검", "개발", "흔한 보안 약점, 비밀 값 노출, 주입 위험을 찾아요", "e087943b6145", False),
+    "code-modernization/test-engineer": ("시험작성", "개발", "코드를 바꾸기 전에 지금 동작을 붙잡아 두는 시험을 써요", "e7c90f09a423", False),
+    "code-modernization/uplift-migrator": ("버전올리기", "개발", "검증된 절차대로 모듈 하나의 버전을 올려요", "9b344c4a2e1f", False),
+    "code-modernization/version-delta-analyst": ("버전차이분석", "개발", "두 버전 사이에서 이 코드에 걸리는 바뀐 점을 찾아요", "0996e90f73ef", False),
+    "claude-security/explore": ("코드지도", "개발", "코드에서 파일 위치·흐름·부르는 곳을 찾아 정리해요(읽기만 해요)", "ba59ccf11265", False),
+    "claude-security/claude-security": ("보안검사총괄", "개발", "따로 연 세션에서만 도는 보안 검사 총괄이라 직원으로는 검사를 끝까지 못 해요", "efdfce4664d4", True),
+    "claude-security/patch-generator": ("보안패치만들기", "개발", "찾은 보안 문제 하나를 고치는 패치 파일을 만들어요", "afb057bf87ac", True),
+    "claude-security/patch-verifier": ("보안패치검증", "개발", "패치가 문제를 고치는지 시험을 돌려 확인해요", "d028b18fe80b", True),
+    "claude-security/scan-inventory": ("저장소나누기", "개발", "보안 검사 전에 저장소를 부분으로 나누고 맨 위 폴더를 빠짐없이 챙겨요", "90bad4512d75", True),
+    "claude-security/scan-loader": ("검사결과읽기", "개발", "보안 검사 기록 폴더에서 JSON 파일 하나를 읽어 와요", "6a52689342a2", True),
+    "claude-security/scan-redactor": ("비밀값가리기", "개발", "보안 검사 보고서 속 비밀 값을 가려요", "2c330dae40ff", True),
+    "claude-security/scan-researcher": ("약점조사", "개발", "보안 검사 중에 약점을 깊이 조사해요", "e50e5186f2c1", True),
+    "claude-security/scan-verifier": ("약점확인", "개발", "찾은 약점 후보 하나가 맞는지 따져 봐요", "ae79142900dd", True),
+    "plugin-dev/agent-creator": ("일꾼만들기", "개발", "바라는 일을 듣고 새 AI 일꾼 정의 글을 써요", "1b2eec02cc9d", False),
+    "plugin-dev/plugin-validator": ("플러그인검증", "개발", "플러그인 폴더와 설정 파일이 맞는 꼴인지 확인해요", "d9d4df405b10", False),
+    "plugin-dev/skill-reviewer": ("스킬리뷰", "개발", "새로 만들거나 고친 스킬의 품질과 설명을 검토해요", "3382891ea96c", False),
+    "hookify/conversation-analyzer": ("대화돌아보기", None, "지난 대화에서 막아야 할 실수를 찾아 자동 규칙(훅) 후보로 정리해요", "570626ca9369", False),
+    "agent-sdk-dev/agent-sdk-verifier-py": ("파이썬SDK점검", "개발", "파이썬 Agent SDK 앱이 설정과 권장 방식에 맞는지 확인해요", "592ec088e9ba", False),
+    "agent-sdk-dev/agent-sdk-verifier-ts": ("타입스크립트SDK점검", "개발", "타입스크립트 Agent SDK 앱이 설정과 권장 방식에 맞는지 확인해요", "367741ee2c88", False),
+    "math-proof/math-proof-judge": ("증명심사", None, "증명 라운드마다 질문을 정하고 답을 모아 증명 글을 다듬어요", "9c04e1630a47", True),
+    "math-proof/math-proof-worker": ("증명풀이", None, "파일로 받은 질문 하나에 답을 써요", "86811bdb7196", True),
+    "math-proof/math-proof-worker-deep": ("깊은증명풀이", None, "어려운 라운드에서 질문 하나에 더 깊이 답해요", "55d5eea6059e", True),
+}
 
 
 def staff_on(t):
@@ -8218,9 +8263,11 @@ def hits_say(hits, main):
 
 
 def check_item(kind, text, hits=(), main="", add=None, quote=None):
-    """점검 항목 하나: {id, text(화면 글, 곳이 있으면 괄호로), lines[src_hit], add(표준 문장 단추 글 또는 None), quote?(그대로 보여 줄 글)}."""
+    """점검 항목 하나: {id, text(화면 글, 곳이 있으면 괄호로), say(곳 없는 글), at(곳 글: '21행 git diff' 또는 ''), lines[src_hit], add(추천 문장 또는 None), quote?(그대로 보여 줄 글)}.
+    화면(U-36)은 say와 at을 따로 그려요(둘째 줄 '원본 위치'). text는 옛 화면·409 글이 쓰는 꼴 그대로예요."""
     hits = list(hits)[:20]
-    out = {"id": kind, "text": text.replace("{at}", f"({hits_say(hits, main)})" if hits else ""), "lines": hits, "add": add}
+    at = hits_say(hits, main) if hits else ""
+    out = {"id": kind, "text": text.replace("{at}", f"({at})" if at else ""), "say": text.replace("{at}", ""), "at": at, "lines": hits, "add": add}
     if quote is not None:
         out["quote"] = quote
     return out
@@ -8493,11 +8540,33 @@ def staff_name_suggest(name, group, taken, same=False):
     return ""
 
 
+def source_ko(group, name, desc):
+    """공식 플러그인 일꾼 이름표 한 줄(STAFF_SOURCE_KO): {role, field, does, aux} 또는 None. does는 지금 원 설명 첫 줄의 해시가 표와 같을 때만이에요
+    (원본이 바뀌면 원문으로 돌아가요). 층 스킬(group None)은 표에 없어요."""
+    e = STAFF_SOURCE_KO.get(f"{group}/{name.split(':')[-1]}") if group else None
+    if not e:
+        return None
+    role, field, does, h, aux = e
+    same = bool(desc) and hashlib.sha256(desc.encode("utf-8")).hexdigest()[:12] == h
+    return {"role": role, "field": field, "does": does if same else "", "aux": bool(aux)}
+
+
+def floor_roles(base):
+    """team.json의 역할 이름들(NFC, 앞뒤 빈칸 뗌). 못 읽으면 []."""
+    try:
+        raw = load_json(os.path.join(base, "team.json")).get("members")
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [unicodedata.normalize("NFC", m["role"]).strip() for m in raw if isinstance(m, dict) and isinstance(m.get("role"), str)] if isinstance(raw, list) else []
+
+
 def role_suggest(name, group, roles):
     """역할 이름 제안(설계 4-1 낱말 표): {role, field(분야 또는 None), missing(표에 없는 낱말들)}. roles: 이 층에 이미 있는 역할 이름(대소문자 무시).
+    공식 플러그인 일꾼 이름표(STAFF_SOURCE_KO)에 있으면 그 역할이 먼저예요(U-36). 없으면 낱말 표로 풀어요.
     표에 없는 낱말이 있으면 role은 ''이에요(소리 옮기기 없음). 이미 있는 역할이면 플러그인 첫 낱말을 앞에 붙이고(PR코드리뷰), 그래도 겹치면 뒤에 2~9를 붙여요.
     12자를 넘거나 쓸 수 없는 이름이면 ''이에요."""
-    ko, field, missing = words_ko(name)
+    t = source_ko(group, name, "")
+    ko, field, missing = ([t["role"]], t["field"], []) if t and t["role"] else words_ko(name)
     if not ko:
         return {"role": "", "field": None, "missing": missing}
     taken = {r.casefold() for r in roles} | {LEAD.casefold()}
@@ -8589,8 +8658,11 @@ def source_desc(front):
 def staff_sources(base):
     """직원 들이기 양식이 고를 원천 목록(3-1 목록 안만, 이름과 머리말만 읽어요): {sources, groups, counts, market}.
     sources: [{key, kind, name, group, desc(원 설명 첫 줄), bytes, adopted(이미 들인 것), upstream(위 원본 저장소 또는 None), used_by(쓸 스킬로 쓰는 직원 역할),
-               main_by(주 스킬로 가진 직원 역할), same(목록 안에 같은 이름이 몇 개 더 있는지)}]."""
+               main_by(주 스킬로 가진 직원 역할), same(목록 안에 같은 이름이 몇 개 더 있는지), role(카드가 제안할 역할 이름 또는 ''), does(이름표 한 줄 또는 ''),
+               aux(보조 일꾼)}].
+    groups: 층 스킬 다음 이름표 차례(STAFF_GROUP_KO, 없으면 뒤에 이름 차례)예요. ko는 이름표, 없으면 낱말 표예요."""
     names = source_names(base)
+    roles = floor_roles(base)
     staff = floor_staff(base)
     mains = {s: staff_main_key(base, s, sk) for _, s, sk in staff}
     count = Counter(n for _, _, n, _, _ in names)
@@ -8611,14 +8683,19 @@ def staff_sources(base):
             except (ValueError, RecursionError):
                 rec = None
             up = clean_name(rec.get("repo"), 100) or None if isinstance(rec, dict) else None
-        out.append({"key": key, "kind": kind, "name": name, "group": group or "floor", "desc": source_desc(front),
+        desc = source_desc(front)
+        plugin = kind == "plugin-agent"
+        ko = source_ko(group, name, desc) if plugin else None
+        out.append({"key": key, "kind": kind, "name": name, "group": group or "floor", "desc": desc,
                     "bytes": len(raw) if raw is not None else 0, "adopted": isinstance(rec, dict), "upstream": up,
                     "used_by": [r for r, _, sk in staff if kind == "floor" and sk and name in sk["skills"]],
-                    "main_by": [r for r, s, _ in staff if mains[s] == key], "same": count[name] - 1})
+                    "main_by": [r for r, s, _ in staff if mains[s] == key], "same": count[name] - 1,
+                    "role": role_suggest(name, group if plugin else None, roles)["role"], "does": ko["does"] if ko else "", "aux": bool(ko and ko["aux"])})
     groups = [{"id": "floor", "label": "이 층 스킬", "ko": "", "n": sum(1 for x in out if x["kind"] == "floor")}]
-    for g in sorted({x["group"] for x in out if x["kind"] == "plugin-agent"}):
-        ko = words_ko(g)[0]
-        groups.append({"id": g, "label": f"{g} 플러그인", "ko": " ".join(ko), "n": sum(1 for x in out if x["group"] == g and x["kind"] == "plugin-agent")})
+    order, names_ko = {g: i for i, (g, _) in enumerate(STAFF_GROUP_KO)}, dict(STAFF_GROUP_KO)
+    for g in sorted({x["group"] for x in out if x["kind"] == "plugin-agent"}, key=lambda g: (order.get(g, 99), g)):
+        groups.append({"id": g, "label": f"{g} 플러그인", "ko": names_ko.get(g) or " ".join(words_ko(g)[0]),
+                       "n": sum(1 for x in out if x["group"] == g and x["kind"] == "plugin-agent")})
     plugins = [x for x in out if x["kind"] == "plugin-agent"]
     return {"sources": out, "groups": groups, "counts": {"floor": len(out) - len(plugins), "plugin": len(plugins), "plugins": len(groups) - 1},
             "market": market_root() is not None}
@@ -8651,8 +8728,9 @@ def api_staff_preview(body):
     folder = lead_folder(lead) if lead else None
     same = sum(1 for _, _, n, _, _ in source_names(base) if n == src["name"]) > 1
     staff = staff_name_suggest(src["name"], src["group"], staff_taken(base, raw, folder), same)
-    roles = [unicodedata.normalize("NFC", m["role"]).strip() for m in raw if isinstance(m, dict) and isinstance(m.get("role"), str)]
+    roles = floor_roles(base)
     rs = role_suggest(src["name"], src["group"], roles)
+    ko = source_ko(src["group"], src["name"], source_desc(src["front"])) if src["kind"] == "plugin-agent" else None
     floor = floor_label(base)
     desc = one_line(f"{floor} {rs['role'] or '직원'}. 팀장이 업무 번호와 함께 띄워요.", STAFF_DESC_MAX)
     tools = [x for x in STAFF_TOOLS if x in STAFF_SKILL_TOOLS or (x == "Edit" and ("Edit" in chk["tools"] or "Edit" in (chk["listed"] or [])))]
@@ -8687,7 +8765,7 @@ def api_staff_preview(body):
             "body": src["body"], "block": chk["block"], "check": chk["check"], "blocked": bool(chk["block"]), "signals": chk["tools"],
             "wants_wide": chk["wants_wide"], "unknown_tools": chk["unknown"],
             "suggest": {"staff": staff, "role": rs["role"], "role_words": rs["missing"], "field": rs["field"], "desc": desc, "tools": tools,
-                        "model": "inherit", "model_orig": model_orig},
+                        "model": "inherit", "model_orig": model_orig, "does": ko["does"] if ko else "", "aux": bool(ko and ko["aux"])},
             "tools": list(STAFF_SKILL_TOOLS) + ["Edit"], "locked": list(STAFF_WIDE), "models": list(STAFF_MODELS),
             "fence_head": STAFF_FENCE_HEAD, "fence": staff_fence(base, who), "size": size, "auto": auto,
             "approval": "adopted" if src["kind"] == "floor" and src["adopted"] else "lead", "dup": dup,
@@ -9071,7 +9149,7 @@ def staff_hire_skill(t, base, body):
         source_same(body.get("sha"), src)
     else:
         if body.get("request") in (None, ""):
-            raise ApiError(409, "남이 쓴 글이라 팀장 창 승인이 있어야 들여요. [팀장에게 들이기 맡기기]로 묶음을 먼저 만들어 주세요", {"why": "request"})
+            raise ApiError(409, "남이 쓴 글이라 팀장 창 승인이 있어야 들여요. [팀장 창 승인 받기]로 묶음을 먼저 만들어 주세요", {"why": "request"})
         req = request_read(base, body.get("request"))
         if req["state"] != "ok":
             raise request_refuse(req)
