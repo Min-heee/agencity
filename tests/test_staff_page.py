@@ -529,7 +529,7 @@ console.log(JSON.stringify({ all, preset, noLead }));
                     "skPvNorm", "skReqNorm", "skInput", "skCheck", "skGitText",
                     # U-34 v0.15.0 '바깥에서 찾기' 그리기(skPanelHTML·skListHTML·skSrcHTML·skCardHTML이 불러요)
                     "SK_WORDS_RE", "skWordsOk", "skWordsNorm", "SK_ASK_STOP", "SK_ASK_EN", "skLink", "skExt", "skOutOn", "skPicked", "SK_REPO_RE", "SK_ORGS", "SK_OUT_NONE", "SK_OUT_STOP",
-                    "skAskWords", "skOutSend", "skOutReq", "skInst", "skWhen", "skOutNorm", "skOutHTML", "skOutAskHTML", "skOutFormHTML", "skOutResHTML", "skOutRowHTML", "SK_STALE_GH", "SK_STALE_REQ_GH") + "\n" + page_block("roleErr") + """
+                    "skAskWords", "skOutSend", "skOutReq", "skInst", "skWhen", "skOutGh", "skOutNorm", "skOutHTML", "skOutAskHTML", "skOutFormHTML", "skOutResHTML", "skOutRowHTML", "SK_STALE_GH", "SK_STALE_REQ_GH") + "\n" + page_block("roleErr") + """
 let MAX_MEMBERS = 12;
 const SU = { sk: {} }, FORM = { tools: ['Read', 'Grep', 'Glob', 'Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch'], defaultTools: ['Read', 'Grep', 'Glob', 'Write', 'Edit'], models: ['inherit', 'opus', 'sonnet', 'haiku'],
   skills: { floor: ['public-copy-check'], personal: ['public-copy-check', 'my-note'] } };
@@ -1857,6 +1857,9 @@ console.log(JSON.stringify({ skill, plain }));
         self.assertIn('<details class="su-skgrp su-skout" data-fold="sk|t1|g|outside"><summary id="suK3og">skills.sh <small class="hint">(꺼져 있어요)</small></summary>', off)   # 처음엔 접혀 있어요
         box = off[off.index('su-skoutask'):]
         self.assertEqual(box[:box.index('</ul>')].count('<li>'), 7)
+        # GitHub에 묻는 때는 #osh·켜기 안내 상자 모두 카드를 열 때·[다시 읽기]·[직원 들이기]예요(U-38)
+        self.assertIn('찾은 줄을 눌러 카드를 열 때·[다시 읽기]·[직원 들이기]를 누를 때만 GitHub에서 그 스킬 파일을 받아요', osh)
+        self.assertIn('<li>찾은 줄을 눌러 카드를 열거나 [다시 읽기]를 누르면 GitHub에서 그 스킬 파일을 받아요(로그인 없이). [직원 들이기] 때 한 번 더 받아 같은지 봐요.</li>', box)
         self.assertIn('id="suK3oh" tabindex="-1">스킬 찾기에 skills.sh를 쓸까요?</p>', off)
         self.assertIn('data-su="sk-out-yes" data-team="t1">켜기</button>', off)
         self.assertIn('data-su="sk-out-no" data-team="t1">이 맥 안에서만</button>', off)
@@ -1933,6 +1936,12 @@ const snap = () => ({ w: els.suK3ow.value, p: els.suK3owp.textContent, u: els.su
                      '<summary>보내는 요청 보기</summary>'):
             self.assertIn(part, f)
         self.assertEqual(f.count('aria-describedby="suK3owp"'), 2)
+        # 맡길 일 칸은 이 맥 밖으로 나가지 않아요: 브라우저의 온라인 맞춤법 검사·자동 완성·대문자 바꾸기를 끄고, 이웃 낱말 칸과 같은 속성이에요(U-38)
+        ask = re.search(r'<input [^>]*id="suK3oa"[^>]*>', f).group(0)
+        for part in ('autocomplete="off"', 'autocapitalize="off"', 'spellcheck="false"'):
+            self.assertIn(part, ask)
+            self.assertIn(part, re.search(r'<input [^>]*id="suK3ow"[^>]*>', f).group(0))
+        self.assertNotIn('spellcheck="true"', f)
         a1 = r["a1"]
         self.assertEqual((a1["w"], a1["p"], a1["go"]), ("code review", "이 낱말만 skills.sh(Vercel)로 가요: ‘code review’", False))
         self.assertIn("주소: https://skills.sh/api/search?q=code%20review · 함께 가는 것: 이 맥의 인터넷 주소(IP), 프로그램 이름(agencity/0.15.0) · 가지 않는 것: 맡길 일 글, 역할 이름, 팀 이름, 로그인 정보, 쿠키", a1["u"])
@@ -1991,8 +2000,8 @@ const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, sele
         self.assertEqual(r["saidNow"], [])                                                 # 초점이 옮겨 가며 읽혀요
         self.assertTrue(r["fold"])
         self.assertEqual([x["repo"] for x in r["res"]["rows"]], ["acme/skills", "anthropics/knowledge-work-plugins", "obra/superpowers"])
-        self.assertIn('id="suK3oc" tabindex="-1">‘code review’로 찾은 100개 중 앞 20개예요(같은 이름 4개는 뺐어요) · 11월 10일 14:02 기준</p>', r["html"])
-        self.assertIn('(찾은 것 100개)', r["html"])                                           # 수 줄의 '찾은 100개'와 같은 수(보이는 줄 수가 아니에요)
+        self.assertIn('id="suK3oc" tabindex="-1">‘code review’로 찾은 GitHub 스킬 98개 중 앞 20개예요(같은 이름 4개는 뺐어요) · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준</p>', r["html"])
+        self.assertIn('(찾은 것 98개)', r["html"])                                            # 수 줄의 '찾은 GitHub 스킬 98개'와 같은 수(보이는 줄 수가 아니에요)
         focus, told, html = r["none"]
         self.assertEqual(focus, "#suK3ogo")
         self.assertEqual(told, ["맞는 스킬을 찾지 못했어요(설치 1천 이상만 보여요). 다른 낱말로 찾아 보세요."])
@@ -2027,7 +2036,7 @@ const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, sele
   const bad = Object.assign({}, OUT, { rows: OUT.rows.concat([{ repo: '<b>x</b>/y', skill: 'z', installs: 5000, org: null, hits: 1, twins: [], role: '' }, { repo: 'a/b', skill: 'z', installs: '12' }]),
     others: OUT.others.concat([{ source: 'evil.example', skill: 'x', installs: 5000, link: 'javascript:alert(1)' }]) });
   skState('t1').out.res = skOutNorm(bad); const html = skPanelHTML(F.t1, 3); SKT.length = 0;
-  skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { cached: true, sent: false, counts: Object.assign({}, OUT.counts, { low: 3, kept: 20 }) })); const cached = skPanelHTML(F.t1, 3); SKT.length = 0;
+  skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { cached: true, sent: false, counts: { got: 30, github: 27, other: 3, low: 5, dup: 4, kept: 20, shown: 20 } })); const cached = skPanelHTML(F.t1, 3); SKT.length = 0;
   skState('t1').out.res = skOutNorm(Object.assign({}, OUT, { rows: [], others: [] })); const empty = skPanelHTML(F.t1, 3); SKT.length = 0;
   skState('t1').out.res = skOutNorm(OUT_FB); const fb = skPanelHTML(F.t1, 3); SKT.length = 0;
   console.log(JSON.stringify({ html, cached, empty, fb, inst: [868252, 10101, 7261, 136437900, 20401, 999].map(skInst) }));
@@ -2037,7 +2046,7 @@ const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, sele
         self.assertEqual(r["inst"], ["86.8만", "1만", "7,261", "1.4억", "2만", "999"])
         h = r["html"]
         res = h[h.index('id="suK3oc"'):]
-        for part in ('‘code review’로 찾은 100개 중 앞 20개예요(같은 이름 4개는 뺐어요) · 11월 10일 14:02 기준</p>', '<p class="hint">줄을 누르면 GitHub에서 읽어 카드를 열어요(로그인 없이 한 시간에 20번쯤까지).</p>',
+        for part in ('‘code review’로 찾은 GitHub 스킬 98개 중 앞 20개예요(같은 이름 4개는 뺐어요) · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준</p>', '<p class="hint">줄을 누르면 GitHub에서 읽어 카드를 열어요(로그인 없이 한 시간에 20번쯤까지).</p>',
                      '<div class="su-box su-sknote" role="note">차례는 이름에 찾는 낱말이 든 것 → Anthropic·Vercel·Microsoft 저장소 → 설치 수예요. 설치 수와 차례는 참고일 뿐 안전하다는 뜻이 아니에요. 들일지는 카드의 점검을 보고 정해요.</div>',
                      '<ul class="su-srcs su-skouts"><li class="su-srcl"><button type="button" class="su-src" id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="false">',
                      '<span class="su-src-t"><b class="su-src-r">코드리뷰</b><span class="su-src-sfx">직원</span></span><span class="su-src-m"><code>code-review</code><span class="hint">acme/skills</span><span class="chip">팀장 창 승인 필요</span></span>',
@@ -2060,11 +2069,95 @@ const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, sele
             self.assertNotIn(gone, after)
         for chip in re.findall(r'<span class="chip[^"]*"[^>]*>', res):
             self.assertEqual(chip, '<span class="chip">', chip)
-        self.assertIn('‘code review’로 찾은 100개 중 20개예요(같은 이름 4개는 뺐어요 · 설치 1천 미만 3개는 뺐어요) · 11월 10일 14:02 기준 · 기억해 둔 결과라 이번엔 보내지 않았어요</p>', r["cached"])
+        self.assertIn('‘code review’로 찾은 GitHub 스킬 27개 중 20개예요(같은 이름 4개는 뺐어요 · 설치 1천 미만 3개는 뺐어요) · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준 · 기억해 둔 결과라 이번엔 보내지 않았어요</p>', r["cached"])
         self.assertIn('<p class="hint">맞는 스킬을 찾지 못했어요(설치 1천 이상만 보여요). 다른 낱말로 찾아 보세요.</p>', r["empty"])
         self.assertNotIn('su-sknote" role="note">차례는', r["empty"])
         self.assertNotIn('GitHub 밖 출처', r["empty"])
         self.assertIn('<p class="err" role="alert">skills.sh에 닿지 못했어요. 이 맥에 있는 것만 보여요.</p><p class="su-src-l"><a class="su-ext" href="https://skills.sh/" target="_blank" rel="noopener noreferrer">skills.sh 열기 ↗</a></p>', r["fb"])
+
+    def outside_count_lines(self, answers):
+        """찾기 답마다 그린 수 줄(#oc) 글과 요약 꼬리의 '찾은 것' 수."""
+        code = self.FLOW + OUTSKILL + """
+const ANS = """ + json.dumps(answers, ensure_ascii=False) + """;
+(async () => {
+  ON(); await skSources('t1'); (SU.fold || (SU.fold = {}))['sk|t1|g|outside'] = true;
+  const out = [];
+  for (const a of ANS) { skState('t1').out.res = skOutNorm(Object.assign({}, OUT, a)); out.push(skPanelHTML(F.t1, 3)); SKT.length = 0; }
+  console.log(JSON.stringify(out));
+})();
+"""
+        got = []
+        for html in self.node(code):
+            line = re.search(r'id="suK3oc" tabindex="-1">(.*?)</p>', html).group(1)
+            tail = re.search(r'<summary id="suK3og">skills\.sh <small class="hint">\(찾은 것 (\d+)개\)</small>', html)
+            got.append((line, int(tail.group(1)) if tail else None))
+        return got
+
+    def assert_count_line_adds_up(self, line, tail, counts, others):
+        """수 줄의 수가 서로 맞아요: 찾은 GitHub 스킬 − 같은 이름 − 설치 1천 미만 = 남긴 줄(kept), 그중 앞 shown개. GitHub 밖 n개는 아래에 보이는 줄 수예요. 꼬리는 찾은 수와 같아요.
+        뺀 것이 없으면 ' 중 n개'가 없어요(보이는 수 = 찾은 수)."""
+        m = re.fullmatch(r"‘code review’로 찾은 GitHub 스킬 (\d+)개(?: 중 (앞 )?(\d+)개)?예요(?:\((.*?)\))?(?: · GitHub 밖 (\d+)개는 아래)? · 11월 10일 14:02 기준", line)
+        self.assertIsNotNone(m, line)
+        found, front, paren, out = int(m.group(1)), bool(m.group(2)), m.group(4) or "", int(m.group(5) or 0)
+        shown = int(m.group(3)) if m.group(3) else found
+        self.assertEqual(m.group(3) is None, shown == found, line)                         # 'n개 중 n개'로 되풀이하지 않아요
+        dup = int((re.search(r"같은 이름 (\d+)개는 뺐어요", paren) or [0, 0])[1])
+        low = int((re.search(r"설치 1천 미만 (\d+)개는 뺐어요", paren) or [0, 0])[1])
+        self.assertEqual(found - dup - low, counts["kept"], line)
+        self.assertEqual((shown, front), (counts["shown"], counts["shown"] < counts["kept"]), line)
+        self.assertEqual(dup, counts["dup"], line)
+        self.assertEqual(out, len(others), line)
+        self.assertEqual(tail, found, line)
+
+    def test_outside_count_line_adds_up(self):
+        """수 줄(#oc)은 GitHub 줄만 세요(U-38). 서버 got에는 GitHub 밖 줄과 꼴이 틀린 줄이, low에는 GitHub 밖 1천 미만 줄도 들어 있어서 쓰면 수가 맞지 않아요.
+        GitHub 밖 줄이 보이면 'GitHub 밖 n개는 아래'를 더해요. 요약 꼬리 '(찾은 것 n개)'도 같은 수예요.
+        뺀 것이 없으면 'n개 중 n개'로 되풀이하지 않고 '찾은 GitHub 스킬 n개예요'예요(GitHub 밖 줄이 있어도, 수가 없는 옛 답도)."""
+        other = {"counts": {"got": 30, "github": 25, "other": 4, "low": 8, "dup": 3, "kept": 16, "shown": 16}}      # GitHub 1천 미만 6 + 밖 1천 미만 2, 꼴이 틀린 줄 1
+        none = {"others": [], "counts": {"got": 12, "github": 12, "other": 0, "low": 2, "dup": 1, "kept": 9, "shown": 9}}
+        two = [{"source": "code.deepline.com", "skill": "deepline-plays-review", "installs": 20401, "link": "https://skills.sh/code.deepline.com/deepline-plays-review"},
+               {"source": "uizze.sh", "skill": "ui-taste", "installs": 3000, "link": "https://skills.sh/uizze.sh/ui-taste"}]
+        clean = {"others": two, "counts": {"got": 5, "github": 3, "other": 2, "low": 0, "dup": 0, "kept": 3, "shown": 3}}   # 뺀 것 없음, 밖 2개
+        (l3, t3), (l4, t4), (l5, t5) = self.outside_count_lines([clean, {"counts": None}, {"others": [], "counts": None}])
+        self.assertEqual((l3, t3), ("‘code review’로 찾은 GitHub 스킬 3개예요 · GitHub 밖 2개는 아래 · 11월 10일 14:02 기준", 3))
+        self.assertEqual((l4, t4), ("‘code review’로 찾은 GitHub 스킬 3개예요 · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준", 3))
+        self.assertEqual((l5, t5), ("‘code review’로 찾은 GitHub 스킬 3개예요 · 11월 10일 14:02 기준", 3))
+        self.assert_count_line_adds_up(l3, t3, clean["counts"], two)
+        (l1, t1), (l2, t2) = self.outside_count_lines([other, none])
+        self.assertEqual(l1, "‘code review’로 찾은 GitHub 스킬 25개 중 16개예요(같은 이름 3개는 뺐어요 · 설치 1천 미만 6개는 뺐어요) · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준")
+        self.assertEqual(t1, 25)
+        self.assertEqual(l2, "‘code review’로 찾은 GitHub 스킬 12개 중 9개예요(같은 이름 1개는 뺐어요 · 설치 1천 미만 2개는 뺐어요) · 11월 10일 14:02 기준")
+        self.assertEqual(t2, 12)
+        self.assert_count_line_adds_up(l1, t1, other["counts"], [1])
+        self.assert_count_line_adds_up(l2, t2, none["counts"], [])
+        for gone in ("30개", "설치 1천 미만 8개"):
+            self.assertNotIn(gone, l1)
+
+    def test_outside_count_line_matches_server(self):
+        """서버의 진짜 거르기(skills_rows)로 만든 수를 그려도 수 줄이 맞아요: GitHub 밖 줄(보이는 것·낱말이 없는 것·1천 미만)과 꼴이 틀린 줄이 섞인 답, 섞이지 않은 답."""
+        o = server_ns("skills_rows", "skill_hits", "clean_name", "one_line", "SKILL_OFFICIAL", "SKILL_ID", "GH_SOURCE", "OTHER_SOURCE")
+        exec(re.search(r"^SKILL_SCAN, SKILL_MIN_INSTALLS, SKILL_ROWS, SKILL_OTHER_ROWS = .*$", SERVER_SRC, re.M).group(0), o)
+        o["SKILLS_BASE"] = "https://skills.sh"
+        gh = [{"source": "acme/skills", "skillId": "code-review", "installs": 868252}, {"source": "coderabbitai/skills", "skillId": "code-review", "installs": 15914},
+              {"source": "getsentry/skills", "skillId": "code-review", "installs": 5681}, {"source": "anthropics/knowledge-work-plugins", "skillId": "code-review", "installs": 10101},
+              {"source": "obra/superpowers", "skillId": "requesting-code-review", "installs": 7261}, {"source": "low/skills", "skillId": "code-review-lite", "installs": 999},
+              {"source": "tiny/skills", "skillId": "review-helper", "installs": 10}] + [{"source": f"fill{i:02d}/skills", "skillId": f"code-tool-{i:02d}", "installs": 5000 + i} for i in range(25)]
+        out = [{"source": "code.deepline.com", "skillId": "deepline-plays-review", "installs": 20401}, {"source": "uizze.sh", "skillId": "ui-taste", "installs": 3000},
+               {"source": "site.example", "skillId": "review-low", "installs": 50}]
+        bad = [{"source": "x"}, {"source": "bad source!", "skillId": "x", "installs": 5}]
+        answers, sets = [], []
+        for doc in ({"skills": gh + out + bad}, {"skills": gh}):
+            r = o["skills_rows"](doc, "code review")
+            sets.append(r)
+            answers.append({"rows": [dict(x, role="") for x in r["rows"]], "others": r["others"], "counts": r["counts"]})
+        mixed, plain = sets
+        self.assertEqual(mixed["counts"], {"got": 37, "github": 32, "other": 3, "low": 3, "dup": 2, "kept": 28, "shown": 20})   # 예전 수 줄이면 37 − 2 − 3 ≠ 28
+        self.assertEqual(plain["counts"]["other"], 0)
+        (l1, t1), (l2, t2) = self.outside_count_lines(answers)
+        self.assertEqual(l1, "‘code review’로 찾은 GitHub 스킬 32개 중 앞 20개예요(같은 이름 2개는 뺐어요 · 설치 1천 미만 2개는 뺐어요) · GitHub 밖 1개는 아래 · 11월 10일 14:02 기준")
+        self.assert_count_line_adds_up(l1, t1, mixed["counts"], mixed["others"])
+        self.assert_count_line_adds_up(l2, t2, plain["counts"], plain["others"])
+        self.assertNotIn("GitHub 밖", l2)
 
     def test_outside_pick_and_card(self):
         """줄 누르기(8-6): {team, outside: {repo, skill}}로 읽고(페이지는 커밋을 보내지 않아요), 읽는 동안에도 그 줄 단추가 남고 'GitHub에서 읽는 중이에요'예요. 답 뒤 d.source는 gh 열쇠.
@@ -2137,7 +2230,7 @@ const between = (html, a, b) => { const i = html.indexOf(a); return i < 0 ? '' :
         cl = r["closed"]
         self.assertEqual(r["closeFocus"][0], "#suK3or0")
         self.assertIsNone(r["want"])
-        for part in ('su-skout', 'id="suK3oc"', '(찾은 것 100개)', 'id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="false">', '<details class="su-skgrp"'):
+        for part in ('su-skout', 'id="suK3oc"', '(찾은 것 98개)','id="suK3or0" data-su="sk-out-read" data-team="t1" data-i="0" aria-expanded="false">', '<details class="su-skgrp"'):
             self.assertIn(part, cl)
         self.assertNotIn('suK3cb', cl)
         lim = r["limited"]
@@ -2319,7 +2412,7 @@ const inp = (kind, value) => ({ dataset: { team: 't1', suIn: kind }, value, sele
         """첫 화면 '읽는 정보' 자세히: 처음 설정에서 나가는 것은 새 버전 확인뿐이고, 스킬 찾기 스위치를 켠 층만 누를 때 skills.sh·GitHub에 물어요."""
         h = self.node(page_js("readInfoHTML") + "\nconsole.log(JSON.stringify(readInfoHTML()));")
         self.assertIn("처음 설정에서 밖으로 나가는 건 하루 한 번 새 버전 확인뿐이에요(버전 번호만 물어요).", h)
-        self.assertIn("다만 직원 스킬을 켠 층에서 ‘스킬 찾기에 skills.sh 쓰기’(기본 꺼짐)를 켜면, [찾기]를 누르거나 찾은 줄을 눌러 카드를 열 때·[직원 들이기] 때만 skills.sh·GitHub에 물어요.", h)
+        self.assertIn("다만 직원 스킬을 켠 층에서 ‘스킬 찾기에 skills.sh 쓰기’(기본 꺼짐)를 켜면, [찾기]를 누르거나 찾은 줄을 눌러 카드를 열 때·[다시 읽기]·[직원 들이기] 때만 skills.sh·GitHub에 물어요.", h)
 
     def test_wiring_and_text_only(self):
         """새 단추·칸이 이어져 있고, 원천 글은 그린 뒤 textContent로 채워요(renderSetup). 화면에 쓰지 않는 말(sha256·inherit)을 카드 글에 쓰지 않아요."""

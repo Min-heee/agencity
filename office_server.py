@@ -9091,12 +9091,14 @@ def out_get(url, accept, limit, timeout, deadline, api=False):
     """바깥 GET 하나. → (상태 코드, 머리글{소문자 열쇠: 값}, 몸 ≤ limit 바이트). 머리글 인자는 없어요(늘 같은 머리글이에요).
     - 받기는 데몬 일꾼 스레드에서 하고(tm_fetch_members와 같은 꼴), 부른 쪽은 deadline초까지만 기다려요. 기한이 지나면 OutError('timeout')이고
       그 일꾼은 버려 둬요(결과는 버려요. 살아 있는 버린 일꾼 수를 SKILL_OUT_LOCK 안에서 세요). 머리글을 조금씩 흘려 보내는 곳도 deadline에서 끝나요.
-    - 일꾼 안의 한 번 읽기 timeout은 min(timeout, 남은 기한)이에요. 받기는 read1 고리로, limit을 넘으면 OutError('big').
+    - 일꾼 안의 한 번 읽기 timeout은 min(timeout, 남은 기한)이에요. 받기는 read1 고리로, 2xx 몸이 limit을 넘으면 OutError('big').
     - 넘겨 주는 주소(3xx)는 따라가지 않아요(_NoRedirect). 300~399면 OutError('moved')(308 포함, Location은 읽지 않아요).
     - 127.0.0.1·localhost면 프록시를 거치지 않아요(LOCAL과 같게). 그 밖은 기본 프록시 그대로예요.
     - 보내는 머리글: User-Agent: agencity/<VERSION>, Accept, (http.client가 붙이는) Accept-Encoding: identity. api면 X-GitHub-Api-Version도.
       쿠키·Authorization·Referer는 없어요. GitHub 로그인 토큰(github-token.json, gh)은 읽지도 쓰지도 않아요.
-    - 4xx·5xx는 오류가 아니라 (상태, 머리글, 몸)으로 돌려줘요(몸도 limit까지). Content-Encoding이 비었거나 identity가 아니면 OutError('shape')(풀지 않아요).
+    - 2xx 몸은 Content-Encoding이 비었거나 identity가 아니면 OutError('shape')(풀지 않아요).
+    - 4xx·5xx는 오류가 아니라 (상태, 머리글, 몸)으로 돌려줘요. 그 몸은 쓰지 않아서 앞 limit 바이트만 읽고 그만 읽어요('big'·압축 머리글을 보지 않아요).
+      그래서 큰 오류 페이지여도 부른 쪽이 상태(5xx·429)를 봐요.
     - 오류: 시간 넘김 'timeout', 인증서 'ssl', 그 밖(연결·HTTP 꼴·주소) 'network'."""
     headers = {"User-Agent": f"agencity/{VERSION}", "Accept": accept}
     if api:
@@ -9108,8 +9110,8 @@ def out_get(url, accept, limit, timeout, deadline, api=False):
     end = time.monotonic() + deadline
     box = {}
 
-    def take(f, hdrs):
-        if (hdrs.get("content-encoding") or "").strip().lower() not in ("", "identity"):
+    def take(f, hdrs, cut=False):   # cut: 오류 답(4xx·5xx)이라 앞 limit 바이트만 읽고 그만 읽어요
+        if not cut and (hdrs.get("content-encoding") or "").strip().lower() not in ("", "identity"):
             raise OutError("shape")
         read = getattr(f, "read1", None) or f.read
         buf = bytearray()
@@ -9121,6 +9123,8 @@ def out_get(url, accept, limit, timeout, deadline, api=False):
                 return bytes(buf)
             buf += b
             if len(buf) > limit:
+                if cut:
+                    return bytes(buf[:limit])
                 raise OutError("big")
 
     def get():
@@ -9135,7 +9139,7 @@ def out_get(url, accept, limit, timeout, deadline, api=False):
                     if 300 <= e.code < 400:
                         raise OutError("moved")
                     hdrs = {k.lower(): v for k, v in e.headers.items()} if e.headers is not None else {}
-                    box["got"] = (e.code, hdrs, take(e, hdrs) if e.fp is not None else b"")
+                    box["got"] = (e.code, hdrs, take(e, hdrs, cut=True) if e.fp is not None else b"")
                 finally:
                     try:
                         e.close()
@@ -9512,14 +9516,15 @@ def git_blob(data):
 
 
 def gh_fetch(owner, repo, commit, d, plan, end, n, link):
-    """그 커밋의 받을 파일(주 파일 → 딸린 md → 라이선스 차례)을 raw에서 받아 → {저장소 안 경로: 바이트}. 파일마다 길이와 git blob 해시가 트리와 같아야 해요
-    (다르거나 200이 아니면 409 gh-mismatch, 읽기 전체를 멈춰요)."""
+    """그 커밋의 받을 파일(주 파일 → 딸린 md → 라이선스 차례)을 raw에서 받아 → {저장소 안 경로: 바이트}. 200이 아니면 gh_status 규칙(404 gh-gone, 5xx gh-net 등),
+    200인데 길이나 git blob 해시가 트리와 다르면 409 gh-mismatch예요. 어느 쪽이든 읽기 전체를 멈춰요."""
     got = {}
     items = [(f"{d}/SKILL.md", plan["main"])] + [(f"{d}/{r}", x) for r, x in plan["md"]] + [(x["path"], x) for _, x in plan["lic"]]
     for path, x in items:   # 받는 한도는 64KB(트리 size는 그보다 작아요). 길이가 size와 다르면 아래에서 gh-mismatch예요(429 답도 읽어 한도를 적어요)
         status, _, body = gh_get(f"{SKILL_GH_RAW}/{owner}/{repo}/{commit}/{quote(path, safe='/')}", "*/*", STAFF_SKILL_MAX, False, end, n, link,
                                  big="gh-mismatch", moved="gh-mismatch")
-        if status != 200 or len(body) != x["size"] or git_blob(body) != x["sha"]:
+        gh_status(status, link)   # 잠깐의 GitHub 오류(5xx)는 gh-net이라 들일 때 묶음이 그대로예요
+        if len(body) != x["size"] or git_blob(body) != x["sha"]:
             raise gh_error("gh-mismatch", link)
         got[path] = body
     return got
@@ -9657,10 +9662,24 @@ def gh_net_run(link, again, work):
             if not full:
                 GH_SENT.append(tm)
         if full:
-            raise ApiError(429, f"1분에 {SKILL_READ_PER_MIN}번까지 읽어요. 이번엔 보내지 않았어요", {"why": "rate"})
+            raise ApiError(429, f"1분에 {SKILL_READ_PER_MIN}번까지 읽어요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요", {"why": "rate"})
         return work(), True
     finally:
         GH_READ_NET.release()
+
+
+def gh_read_stopped(base, what, n, e):
+    """읽기가 멈췄을 때 GitHub에 요청을 하나라도 보냈으면(n) 층 기록에 한 줄을 남겨요. 보내기 전에 막혔으면 남기지 않아요.
+    what은 꼴 검사(GH_SOURCE·SKILL_ID·SOURCE_KEY)를 거친 저장소·스킬 이름이고, 까닭은 아는 코드만 적어요. 기록을 못 써도 부른 쪽 오류는 그대로예요."""
+    if n["api"] + n["raw"] <= 0:
+        return
+    why = e.extra.get("why") if isinstance(e, ApiError) else None
+    if why not in GH_ERRORS and why not in ("text", "big"):
+        why = "error"
+    try:
+        log(base, "팀 전체", "설정", f"GitHub에서 읽다 멈췄어요: {what} ({why}, API {n['api']}번, 파일 {n['raw']}개)")
+    except OSError:
+        pass
 
 
 def gh_resolve(owner, repo, end, n, link):
@@ -9715,6 +9734,7 @@ def gh_preview_read(t, outside, fresh):
     if SKILL_GH_API is None or SKILL_GH_RAW is None:
         raise gh_error("gh-config", link)
     n = {"api": 0, "raw": 0}
+    base = os.path.realpath(os.path.join(HERE, t["office"]))
 
     def work():
         end = time.monotonic() + GH_READ_DEADLINE
@@ -9726,17 +9746,20 @@ def gh_preview_read(t, outside, fresh):
         src = gh_source_read(o, r, commit, d, branch, plan, gh_fetch(o, r, commit, d, plan, end, n, lk), dict(g, many=many), lk)
         gh_keep(src, pick, picked)
         return src
-    hit, went = gh_net_run(link, lambda: None if fresh else (gh_cached_pick(pick) or {}).get("src"), work)
+    try:
+        hit, went = gh_net_run(link, lambda: None if fresh else (gh_cached_pick(pick) or {}).get("src"), work)
+    except Exception as e:
+        gh_read_stopped(base, f"{owner}/{repo}/{skill}", n, e)
+        raise
     if went:
-        base = os.path.realpath(os.path.join(HERE, t["office"]))
         log(base, "팀 전체", "설정", f"GitHub에서 읽었어요: {hit['label']} (API {n['api']}번, 파일 {n['raw']}개)")
     return hit, picked
 
 
 def gh_reread(base, key, branch):
     """[직원 들이기] 때 그 커밋을 캐시 없이 새로 읽어요(7-3 6번): 파일 목록(API 1번) + 받을 파일(raw). 저장소·커밋 정하기는 하지 않아요(커밋이 열쇠에 있어요).
-    못 닿거나(시험용 주소 포함) 시간 넘김이면 409 gh-net(들이기 글), 목록·파일 404·해시 다름·꼴 다름이면 409 changed(그 열쇠를 읽기 캐시에서 빼요).
-    GitHub 한도 409 gh-limit, 우리 한도 429 rate, 바쁨 429 busy. 별·포크·보관은 None이고 가지는 묶음 값이에요."""
+    못 닿거나(시험용 주소 포함) 시간 넘김·GitHub 5xx면 409 gh-net(들이기 글), 목록·파일 404·해시 다름·꼴 다름이면 409 changed(그 열쇠를 읽기 캐시에서 빼요).
+    401·403은 gh-denied 그대로예요(묶음과 캐시는 그대로). GitHub 한도 409 gh-limit, 우리 한도 429 rate, 바쁨 429 busy. 별·포크·보관은 None이고 가지는 묶음 값이에요."""
     owner, repo, commit, d = gh_key_parts(key)
     link = f"{SKILL_GH_WEB}/{owner}/{repo}"
     if SKILL_GH_API is None or SKILL_GH_RAW is None:
@@ -9753,7 +9776,10 @@ def gh_reread(base, key, branch):
         return gh_source_read(owner, repo, commit, d, branch, plan, gh_fetch(owner, repo, commit, d, plan, end, n, link), g, link)
     try:
         src, _ = gh_net_run(link, lambda: None, work)
-    except ApiError as e:
+    except Exception as e:
+        gh_read_stopped(base, f"{owner}/{repo}/{d.rsplit('/', 1)[-1]}", n, e)
+        if not isinstance(e, ApiError):
+            raise
         why = e.extra.get("why")
         if why == "gh-net":
             raise ApiError(409, GH_HIRE_NET, {"why": "gh-net", "link": link})

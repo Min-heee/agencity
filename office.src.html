@@ -12,7 +12,7 @@
   --work-w:#E4E1DA; --idle-w:#E4E1DA; --meet-w:#E4E1DA; --block-w:#E4E1DA; --none-w:#E4E1DA; --hot:#B93610; --hot-w:#E8E5DE; --note:#E8E5DE; --note-l:#B2AEA4;
   --plate:#1E2024; --plate-ink:#F1EFEA; --plate-rim:#45474C; --gold:#B88A1E; --sc-bg:#7E7D77;
   --work:#A85F05; --ok:#147A50; --rest:#6E7076; --err:#C92222; --meet:#6A4BD6;
-  --err-ink:#C92222; --on-a:#FFFFFF; --on-s:#FFFFFF; --chip-wash:rgba(0,0,0,.22); --me:#2E3239; --me-ink:#F1EFEA;
+  --err-ink:#B22222; --on-a:#FFFFFF; --on-s:#FFFFFF; --chip-wash:rgba(0,0,0,.22); --me:#2E3239; --me-ink:#F1EFEA;
   --w-a:#E2DFD8; --a-a:#14694A;
   --w-b:#E2DFD8; --a-b:#1F5CB8;
   --w-c:#E2DFD8; --a-c:#B01F50;
@@ -785,7 +785,7 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .su-skxh .hint{display:block; margin-top:2px; font-weight:400}
 .su-skx{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px}
 .su-floors .su-skx li,.su-skx li{display:block; padding:6px 9px; border:1px solid var(--line); border-radius:3px; background:var(--surface); font-size:12.5px; color:var(--ink); overflow-wrap:anywhere}
-.su-floors .su-skx li.bad,.su-skx li.bad{border-color:color-mix(in srgb, var(--err) 55%, var(--line)); background:color-mix(in srgb, var(--err) 10%, var(--surface)); color:var(--ink)}   /* 빨강은 테두리·바탕으로만(--err-ink 글자는 밝은 모드 4.2:1) */
+.su-floors .su-skx li.bad,.su-skx li.bad{border-color:color-mix(in srgb, var(--err) 55%, var(--line)); background:color-mix(in srgb, var(--err) 10%, var(--surface)); color:var(--ink)}   /* 빨강은 테두리·바탕으로만, 글자는 --ink(이 바탕 위 --err-ink 글자는 밝은 모드 5.0:1) */
 .su-floors .su-skx li.chk,.su-skx li.chk{border-color:color-mix(in srgb, var(--work) 55%, var(--line)); background:color-mix(in srgb, var(--work) 10%, var(--surface))}
 .su-skx li > b{margin-right:4px}
 /* 확인해요 세 묶음(U-36): 먼저 알아 둘 점은 노랑 막대 상자 하나, 못 하는 단계·맞춰 둔 것은 색 없이. 위 규칙과 특이도가 같아서 뒤에 와야 이겨요 */
@@ -827,11 +827,11 @@ button.live{font:inherit; font-size:12.5px; cursor:pointer}
 .su-skreq{display:flex; flex-direction:column; gap:6px; margin-top:0; border-left:3px solid var(--line-2)}
 .su-skreq .su-actions{margin-top:2px}
 .su-skreq p + p{margin-top:0}
-.su-skreq > p.err[role="status"]{padding:3px 8px; border-left:3px solid var(--err); background:var(--surface); color:var(--ink)}   /* 상태가 오류여도 글자는 --ink(빨강 글자는 밝은 모드 --surface-2 위 4.4:1), 빨강은 막대로 */
+.su-skreq > p.err[role="status"]{padding:3px 8px; border-left:3px solid var(--err); background:var(--surface); color:var(--ink)}   /* 상태가 오류여도 글자는 --ink, 빨강은 막대로(--err-ink 글자는 밝은 모드 --surface-2 위 5.2:1) */
 .su-said{padding:8px 10px; border:1px solid var(--line-2); border-radius:3px; background:var(--surface); color:var(--ink); font:500 12.5px/1.5 var(--font-mono); overflow-wrap:anywhere}
 .su-skwhere{font:500 12px/1.6 var(--font-mono); color:var(--ink-2); overflow-wrap:anywhere}
 .su-skret{margin-top:10px}
-.chip.bad{background:color-mix(in srgb, var(--err) 18%, var(--surface)); color:var(--ink)}   /* .chip.wait처럼 글자는 --ink, 빨강은 바탕으로만(--err-ink 글자는 밝은 모드 3.7:1) */
+.chip.bad{background:color-mix(in srgb, var(--err) 18%, var(--surface)); color:var(--ink)}   /* .chip.wait처럼 글자는 --ink, 빨강은 바탕으로만(이 바탕 위 --err-ink 글자는 밝은 모드 4.4:1) */
 @media (max-width:559px){
   .su-skcard{padding:10px}
   .su-skcard .su-actions .btn,.su-skreq .btn.su-wide,.su-skout .btn.su-wide{flex:1 1 100%; justify-content:center; min-height:44px}
@@ -5680,6 +5680,8 @@ const skOutSend = (r, words) => { const w = skWordsNorm(words), m = r ? r.missin
 const skOutReq = (base, words) => `주소: ${base ? `${base}/api/search?q=${encodeURIComponent(skWordsNorm(words))}` : '(시험용 주소 값이 이상해서 보내지 않아요)'} · 함께 가는 것: 이 맥의 인터넷 주소(IP), 프로그램 이름(agencity/${typeof PAGE_VER === 'string' && /^\d+\.\d+\.\d+$/.test(PAGE_VER) ? PAGE_VER : '이 사무실 버전'}) · 가지 않는 것: 맡길 일 글, 역할 이름, 팀 이름, 로그인 정보, 쿠키`;
 const skInst = n => (!Number.isFinite(n) || n < 0 ? '—' : n >= 1e8 ? `${(n / 1e8).toFixed(1).replace(/\.0$/, '')}억` : n >= 1e4 ? `${(n / 1e4).toFixed(1).replace(/\.0$/, '')}만` : String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','));   // 868252 → 86.8만, 7261 → 7,261
 const skWhen = v => { const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(typeof v === 'string' ? v : ''); return m ? `${+m[2]}월 ${+m[3]}일 ${m[4]}:${m[5]}` : ''; };   // 서버 시각 그대로 '11월 10일 14:02'
+// 찾은 GitHub 스킬 수(수 줄 #oc와 요약 꼬리가 같이 써요): 서버 github = 설치 1천 미만 + 같은 이름(dup) + 남긴 줄(kept). got은 GitHub 밖 줄·꼴이 틀린 줄도 세서 쓰지 않아요. 수가 없으면 보이는 줄 수
+const skOutGh = (c, n) => (c ? Math.max(c.github, c.dup + c.kept) : n);
 // 찾기 답(POST /api/staff/outside/search)을 화면 꼴로: 꼴이 틀린 줄(저장소·이름·설치 수·링크)은 빼요
 function skOutNorm(r) {
   const o = v => (v && typeof v === 'object' && !Array.isArray(v) ? v : {}), a = v => (Array.isArray(v) ? v : []), n = v => (Number.isInteger(v) && v >= 0 ? v : null), str = v => typeof v === 'string';
@@ -5865,8 +5867,8 @@ function skSrcHTML(f, s, i, pre) {
 // '바깥에서 찾기' 묶음(U-34 v0.15.0 8-2): 처음엔 접혀 있어요([켜기]·찾기를 하면 펼쳐요). 꺼짐이면 켜기 안내 상자, 켜짐이면 찾기 칸과 결과 줄
 function skOutHTML(f, pre) {
   const k = skState(f.id), o = k.out, on = skOutOn(f), fk = `sk|${f.id}|g|outside`, n = on && o.res ? o.res.rows.length : 0;
-  // '찾은 것'은 바로 아래 수 줄(#oc)의 '찾은 {got}개'와 같은 수예요(보이는 줄 수가 아니에요). 수가 없는 옛 답이면 보이는 줄 수
-  const tail = !on ? '(꺼져 있어요)' : n ? `(찾은 것 ${o.res.counts ? o.res.counts.got : n}개)` : '(켜져 있어요 · [찾기]를 누를 때만 물어요)';
+  // '찾은 것'은 바로 아래 수 줄(#oc)의 '찾은 GitHub 스킬 n개'와 같은 수예요(skOutGh, 보이는 줄 수가 아니에요)
+  const tail = !on ? '(꺼져 있어요)' : n ? `(찾은 것 ${skOutGh(o.res.counts, n)}개)` : '(켜져 있어요 · [찾기]를 누를 때만 물어요)';
   return `<p class="su-skh2">바깥에서 찾기<span class="hint">skills.sh에서 찾고, 고른 스킬은 GitHub에서 읽은 그때 글 그대로 들여요. 이 맥에 없는 스킬이에요.</span></p>
       <details class="su-skgrp su-skout" data-fold="${esc(fk)}"${skOpen(fk, false) ? ' open' : ''}><summary id="${pre}og">skills.sh <small class="hint">${tail}</small></summary>
         <div class="su-skoutb">${on ? skOutFormHTML(f, pre) + skOutResHTML(f, pre) : skOutAskHTML(f, pre)}</div></details>`;
@@ -5881,7 +5883,7 @@ function skOutAskHTML(f, pre) {
           <ul class="su-skfence su-skconsent">
             <li>켜면 [찾기]를 누를 때만 영어 낱말 몇 개가 skills.sh(Vercel)로 가요.</li>
             <li>맡길 일 글, 역할 이름, 팀 이름, 스킬 내용은 보내지 않아요. 저절로 묻지 않아요.</li>
-            <li>찾은 줄을 눌러 카드를 열면 GitHub에서 그 스킬 파일을 받아요(로그인 없이). [직원 들이기] 때 한 번 더 받아 같은지 봐요.</li>
+            <li>찾은 줄을 눌러 카드를 열거나 [다시 읽기]를 누르면 GitHub에서 그 스킬 파일을 받아요(로그인 없이). [직원 들이기] 때 한 번 더 받아 같은지 봐요.</li>
             <li>skills.sh와 GitHub는 이 맥의 인터넷 주소(IP)도 봐요.</li>
             <li>설치 수와 순위는 참고만 해요. 안전하다는 뜻이 아니에요.</li>
             <li>바깥 스킬을 들이는 것은 남이 쓴 글이라 늘 팀장 창 승인을 거쳐요.</li>
@@ -5899,7 +5901,7 @@ function skOutFormHTML(f, pre) {
           ${o.just ? '<p class="hint" role="status">켰어요. 맡길 일을 적고 [찾기]를 누르면 그때 낱말이 나가요.</p>' : ''}
           <div class="su-actions"><button type="button" class="btn" id="${pre}ooff" data-su="sk-out-off" data-team="${tid}"${k.busy === 'out-on' ? ' disabled' : ''}>스킬 찾기 끄기</button></div>
           <div class="su-field"><label for="${pre}oa">무슨 일을 맡길까요? <small>한국어로 써도 돼요. 이 글은 이 맥 밖으로 나가지 않아요</small></label>
-            <input type="text" id="${pre}oa" data-su-in="sk-out-ask" data-team="${tid}" maxlength="60" placeholder="예: 코드 리뷰" autocomplete="off" aria-describedby="${pre}owp" value="${esc(o.ask)}"></div>
+            <input type="text" id="${pre}oa" data-su-in="sk-out-ask" data-team="${tid}" maxlength="60" placeholder="예: 코드 리뷰" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="${pre}owp" value="${esc(o.ask)}"></div>
           <div class="su-field"><label for="${pre}ow">보낼 낱말 (영어) <small>위에 쓴 일로 채워요. 고쳐도 돼요</small></label>
             <input type="text" id="${pre}ow" data-su-in="sk-out-words" data-team="${tid}" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="${pre}owp" value="${esc(o.words)}"></div>
           <p class="hint su-skowp" id="${pre}owp" data-must>${esc(skOutSend(r, o.words))}</p>
@@ -5912,9 +5914,12 @@ function skOutResHTML(f, pre) {
   const res = skState(f.id).out.res;
   if (!res) return '';
   if (res.fallback) return `<p class="err" role="alert">${esc(res.fallback.text)}</p>${skLink(res.fallback.link) ? `<p class="su-src-l">${skExt(res.fallback.link, 'skills.sh 열기 ↗')}</p>` : ''}`;
-  const c = res.counts, rows = res.rows, n = rows.length, when = skWhen(res.at);
-  const paren = c ? [c.dup ? `같은 이름 ${c.dup}개는 뺐어요` : '', c.low ? `설치 1천 미만 ${c.low}개는 뺐어요` : ''].filter(Boolean).join(' · ') : '';
-  const top = n ? `<p class="hint" id="${pre}oc" tabindex="-1">‘${esc(res.words)}’로 찾은 ${c ? c.got : n}개 중 ${c ? (c.shown < c.kept ? `앞 ${c.shown}개` : `${c.shown}개`) : `${n}개`}예요${paren ? `(${paren})` : ''}${when ? ` · ${esc(when)} 기준` : ''}${res.cached ? ' · 기억해 둔 결과라 이번엔 보내지 않았어요' : ''}</p>
+  // 수 줄은 GitHub 줄만 세요: 찾은 수 = 같은 이름 + 설치 1천 미만 + 남긴 줄(kept), 그중 앞 shown개. 서버 low는 GitHub 밖 줄도 세서 GitHub 몫만 써요. GitHub 밖 줄은 '아래'로만 알려요
+  // 뺀 것이 없으면(보이는 수 = 찾은 수) 'n개 중 n개'로 되풀이하지 않고 '찾은 GitHub 스킬 n개예요'예요(U-38)
+  const c = res.counts, rows = res.rows, n = rows.length, when = skWhen(res.at), gh = skOutGh(c, n), low = c ? gh - c.dup - c.kept : 0, shown = c ? c.shown : n;
+  const paren = c ? [c.dup ? `같은 이름 ${c.dup}개는 뺐어요` : '', low ? `설치 1천 미만 ${low}개는 뺐어요` : ''].filter(Boolean).join(' · ') : '';
+  const of = shown === gh ? '' : ` 중 ${c && c.shown < c.kept ? '앞 ' : ''}${shown}개`;
+  const top = n ? `<p class="hint" id="${pre}oc" tabindex="-1">‘${esc(res.words)}’로 찾은 GitHub 스킬 ${gh}개${of}예요${paren ? `(${paren})` : ''}${res.others.length ? ` · GitHub 밖 ${res.others.length}개는 아래` : ''}${when ? ` · ${esc(when)} 기준` : ''}${res.cached ? ' · 기억해 둔 결과라 이번엔 보내지 않았어요' : ''}</p>
           <p class="hint">줄을 누르면 GitHub에서 읽어 카드를 열어요(로그인 없이 한 시간에 20번쯤까지).</p>
           <div class="su-box su-sknote" role="note">차례는 이름에 찾는 낱말이 든 것 → Anthropic·Vercel·Microsoft 저장소 → 설치 수예요. 설치 수와 차례는 참고일 뿐 안전하다는 뜻이 아니에요. 들일지는 카드의 점검을 보고 정해요.</div>
           <ul class="su-srcs su-skouts">${rows.map((r, i) => skOutRowHTML(f, r, i, pre)).join('')}</ul>` : `<p class="hint">${SK_OUT_NONE}</p>`;
@@ -6725,7 +6730,7 @@ function readInfoHTML() {
       [첫 메시지도 읽기]를 켜면 세션마다 첫 메시지 앞 600자에서 역할 낱말만 찾아요. 화면에는 찾은 낱말과 어디서 찾았는지만 나와요.
       [세션 만들기]·[총괄 만들기]로 기다리는 30분 동안은 새로 만든 세션의 첫 메시지에서 자리 표시만 찾아요. 추천은 낱말표로만 정해서 틀릴 수 있어요. 팀을 펼쳐 [고치기]로 바꿔요.
       처음 설정에서 밖으로 나가는 건 하루 한 번 새 버전 확인뿐이에요(버전 번호만 물어요).
-      다만 직원 스킬을 켠 층에서 ‘스킬 찾기에 skills.sh 쓰기’(기본 꺼짐)를 켜면, [찾기]를 누르거나 찾은 줄을 눌러 카드를 열 때·[직원 들이기] 때만 skills.sh·GitHub에 물어요.</p></details></div>`;
+      다만 직원 스킬을 켠 층에서 ‘스킬 찾기에 skills.sh 쓰기’(기본 꺼짐)를 켜면, [찾기]를 누르거나 찾은 줄을 눌러 카드를 열 때·[다시 읽기]·[직원 들이기] 때만 skills.sh·GitHub에 물어요.</p></details></div>`;
 }
 // [첫 메시지도 읽기] 칸(기본 끔, 묻기 전 값 null은 끔과 같아요). 켜거나 끄는 순간 서버(setup.json)에 적고 추천을 다시 받아요(팀장 결정 U-19 3장). 한계 한 줄은 칸 옆에 늘 보여요
 const firstMsgOn = () => { const R = SU.rec, d = R.data; if (R.busy && R.want != null) return R.want; return d && d.consent !== null ? d.consent === true : SU.st.firstMessages === true; };   // want: 바꾸는 동안 고른 값

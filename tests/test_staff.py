@@ -3422,6 +3422,7 @@ class OutsideSkills(SkillBase):
             away = self.fake.url + "/elsewhere"
             cases = (("moved a", lambda q: (302, {"Location": away}, b""), "moved"), ("moved b", lambda q: (308, {"Location": away}, b""), "moved"),
                      ("moved c", lambda q: (301, {"Location": away}, b""), "moved"), ("status a", lambda q: (503, {}, b"x"), "status"),
+                     ("status big", lambda q: (503, {"Content-Type": "text/html"}, b"x" * (600 * 1024)), "status"),   # 오류 답의 몸은 앞 한도만 읽어요(U-38)
                      ("html a", lambda q: (200, {"Content-Type": "text/html"}, b"<html>hi</html>"), "shape"),
                      ("dict a", lambda q: (200, {}, json.dumps({"skills": {"a": 1}}).encode("utf-8")), "shape"),
                      ("deep a", lambda q: (200, {}, b"[" * 100000 + b"]" * 100000), "shape"),
@@ -3622,7 +3623,7 @@ class OutsideSkills(SkillBase):
             for _ in range(4):
                 self.pick(fresh=True)
             e = self.refused(429, lambda: self.pick(fresh=True))
-            self.assertEqual((e.extra, e.msg), ({"why": "rate"}, "1분에 4번까지 읽어요. 이번엔 보내지 않았어요"))
+            self.assertEqual((e.extra, e.msg), ({"why": "rate"}, "1분에 4번까지 읽어요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요"))
             self.assertEqual(len(self.sent()), 4 * 6)
             self.pick()                                                                      # 읽어 둔 것은 한도와 상관없어요
             self.assertEqual(len(self.sent()), 4 * 6)
@@ -3831,6 +3832,234 @@ class OutsideSkills(SkillBase):
         o.skill_out_reset()
         self.assertEqual(self.refused(409, self.preview, CR_KEY).extra["why"], "gh-reread")
         self.assertEqual(self.sent(), [])
+
+    def test_gh_read_stop_logged(self):
+        """요청을 보낸 뒤 멈춘 줄 누르기(U-38): 층 기록에 'GitHub에서 읽다 멈췄어요: 저장소/스킬 (까닭, API n번, 파일 n개)' 한 줄, 오류는 그대로예요.
+        raw 404 gh-gone, raw 403 gh-denied, raw 5xx gh-net, raw 429 gh-limit, 200인데 바이트가 다르면 gh-mismatch. 모르는 까닭·다른 예외는 'error'로 적어요."""
+        o = self.o
+        self.on()
+        link = self.fake.url + "/web/acme/skills"
+
+        def stop(code, why, msg, line, **kv):
+            before = self.floor_log()
+            e = self.refused(code, lambda: self.pick(fresh=True, **kv))
+            self.assertEqual(e.extra.get("why"), why, kv)
+            if msg is not None:
+                self.assertEqual(e.msg, msg, kv)
+            self.assertEqual(self.floor_log()[len(before):], ["GitHub에서 읽다 멈췄어요: " + line], kv)   # 꼭 한 줄
+            return e
+        stop(409, "gh-gone", "그 저장소를 GitHub에서 찾지 못했어요(지웠거나 비공개예요)", "acme/missing/code-review (gh-gone, API 1번, 파일 0개)", repo="acme/missing")
+        stop(404, "gh-notfound", "이 저장소에서 그 스킬 폴더(nope)를 찾지 못했어요. 이름이 바뀌었을 수 있어요", "acme/skills/nope (gh-notfound, API 3번, 파일 0개)",
+             skill="nope")
+        self.fake.rules["raw"] = lambda path: (503, {}, b"x")
+        e = stop(409, "gh-net", "GitHub에 닿지 못했어요. 인터넷 연결을 확인한 뒤 다시 눌러 주세요", "acme/skills/code-review (gh-net, API 3번, 파일 1개)")
+        self.assertEqual(e.extra, {"why": "gh-net", "link": link})
+        self.fake.rules["raw"] = lambda path: (404, {}, b"404: Not Found")
+        stop(409, "gh-gone", "그 저장소를 GitHub에서 찾지 못했어요(지웠거나 비공개예요)", "acme/skills/code-review (gh-gone, API 3번, 파일 1개)")
+        self.fake.rules["raw"] = lambda path: (403, {}, b"no")
+        stop(409, "gh-denied", "GitHub가 거절했어요(상태 403). 조금 뒤 다시 눌러 주세요", "acme/skills/code-review (gh-denied, API 3번, 파일 1개)")
+        self.fake.rules["raw"] = lambda path: (429, {"Retry-After": "30"}, b"slow") if path == "LICENSE" else None
+        stop(409, "gh-limit", None, "acme/skills/code-review (gh-limit, API 3번, 파일 3개)")
+        self.assertTrue(o.GH_LIMIT["until"] > time.time())                                  # raw 429는 여전히 한도로 적어요
+        o.skill_out_reset()
+        self.fake.rules.clear()
+        self.fake.raw_over["skills/eng/code-review/SKILL.md"] = CR_SKILL.encode("utf-8").replace(b"diff", b"DIFF")   # 200, 길이는 같고 해시만 달라요
+        stop(409, "gh-mismatch", "GitHub에서 받은 파일이 그 커밋의 파일 목록과 달라서 쓰지 않았어요", "acme/skills/code-review (gh-mismatch, API 3번, 파일 1개)")
+        self.fake.raw_over.clear()
+        with mock.patch.object(o, "gh_pick_dir", side_effect=o.ApiError(409, "x", {"why": "gh-net\nfake line"})):
+            stop(409, "gh-net\nfake line", "x", "acme/skills/code-review (error, API 3번, 파일 0개)")   # 모르는 까닭은 적지 않아요
+        before = self.floor_log()
+        with mock.patch.object(o, "gh_source_read", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError) as boom:
+                self.pick(fresh=True)
+        self.assertEqual(str(boom.exception), "boom")
+        self.assertEqual(self.floor_log()[len(before):], ["GitHub에서 읽다 멈췄어요: acme/skills/code-review (error, API 3번, 파일 3개)"])
+        self.assertIsNone(o.gh_cached(CR_KEY))
+        self.assertFalse(any(x.startswith("GitHub에서 읽었어요") for x in self.floor_log()))
+        self.pick(fresh=True)
+        self.assertEqual(self.floor_log()[-1], f"GitHub에서 읽었어요: acme/skills/code-review@{GH_A[:7]} (API 3번, 파일 3개)")   # 성공 줄은 그대로
+
+    def test_gh_read_refused_before_sending_logs_nothing(self):
+        """보내기 전에 막힌 읽기는 층 기록에 남기지 않아요(U-38): 스위치 꺼짐, 시험용 주소 이상, GitHub 한도가 아직 안 풀림, 바쁨, 1분 한도, 읽어 둔 것, 꼴이 틀린 줄.
+        들이기도 같아요. 1분 한도 글은 '조금 뒤 다시 눌러 주세요'로 끝나요."""
+        o = self.o
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        self.approve(r)
+        hire = lambda: o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": r["request"]})   # noqa: E731
+        self.on(on=False)
+        self.fake.reset()
+        n = len(self.floor_log())
+        self.assertEqual(self.refused(409, lambda: self.pick(fresh=True)).extra["why"], "outside-off")
+        self.assertEqual(self.refused(409, hire).extra["why"], "outside-off")
+        self.assertEqual(len(self.floor_log()), n)
+        self.on()
+        n = len(self.floor_log())
+        self.assertEqual(self.pick()["source"]["key"], CR_KEY)                               # 읽어 둔 것
+        self.assertEqual(self.refused(400, lambda: self.pick(repo="code.deepline.com")).extra["why"], "not-github")
+        self.assertEqual(self.refused(400, lambda: self.pick(skill="a b")).extra["why"], "source")
+        saved = o.SKILL_GH_RAW
+        o.SKILL_GH_RAW = None                                                                # AGENCITY_UPDATE_RAW가 틀린 값이었어요
+        try:
+            self.assertEqual(self.refused(409, lambda: self.pick(fresh=True)).extra["why"], "gh-net")
+            self.assertEqual(self.refused(409, hire).extra["why"], "gh-net")
+        finally:
+            o.SKILL_GH_RAW = saved
+        o.GH_LIMIT["until"] = time.time() + 120
+        try:
+            self.assertEqual(self.refused(409, lambda: self.pick(fresh=True)).extra["why"], "gh-limit")
+            self.assertEqual(self.refused(409, hire).extra["why"], "gh-limit")
+        finally:
+            o.GH_LIMIT["until"] = 0.0
+        self.assertTrue(o.GH_READ_NET.acquire(blocking=False))
+        try:
+            self.assertEqual(self.refused(429, lambda: self.pick(fresh=True)).extra["why"], "busy")
+            self.assertEqual(self.refused(429, hire).extra["why"], "busy")
+        finally:
+            o.GH_READ_NET.release()
+        o.SKILL_READ_PER_MIN = 1
+        o.GH_SENT[:] = [time.time()]
+        try:
+            for fn in (lambda: self.pick(fresh=True), hire):
+                e = self.refused(429, fn)
+                self.assertEqual((e.extra, e.msg), ({"why": "rate"}, "1분에 1번까지 읽어요. 이번엔 보내지 않았어요. 조금 뒤 다시 눌러 주세요"))
+                self.assertTrue(e.msg.endswith(" 조금 뒤 다시 눌러 주세요"))
+        finally:
+            o.SKILL_READ_PER_MIN = 10 ** 6
+            o.GH_SENT.clear()
+        self.assertEqual((len(self.floor_log()), self.sent()), (n, []))
+        self.assertIsNotNone(o.gh_cached(CR_KEY))
+
+    def test_gh_hire_raw_errors(self):
+        """들일 때 raw 오류(U-38): 5xx는 409 gh-net(들이기 글), 묶음·읽기 캐시는 그대로라 다시 누르면 들어요. 403은 gh-denied 그대로(묶음·캐시 그대로),
+        raw 429는 gh-limit. 404와 200인데 바이트가 다름은 changed(읽기 캐시에서 빠져요). 어느 쪽이든 아무것도 쓰지 않고, 보낸 뒤 멈췄으면 층 기록에 한 줄이에요."""
+        o = self.o
+        base = self.office("t1")
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        n = r["request"]
+        self.approve(r)
+        before = self.team_bytes("t1")
+        hire = lambda: o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": n})   # noqa: E731
+
+        def refuse(code, why, line):
+            seen = self.floor_log()
+            e = self.refused(code, hire)
+            self.assertEqual(e.extra["why"], why)
+            self.assertEqual(self.team_bytes("t1"), before)
+            self.assertFalse(os.path.lexists(os.path.join(base, "staff", "ag-code-review")))
+            self.assertFalse(os.path.lexists(os.path.join(self.lead, ".claude", "agents", "ag-code-review.md")))
+            self.assertEqual(self.floor_log()[len(seen):], ["GitHub에서 읽다 멈췄어요: " + line])
+            self.assertEqual(o.api_staff_request({"team": "t1", "request": n})["state"], "ok")   # 묶음은 그대로예요
+            return e
+        self.fake.reset()
+        self.fake.rules["raw"] = lambda path: (404, {}, b"404: Not Found")
+        e = refuse(409, "changed", "acme/skills/code-review (gh-gone, API 1번, 파일 1개)")
+        self.assertEqual(e.msg, "GitHub의 그 커밋이 카드에서 읽은 것과 달라요(없어졌거나 바뀌었어요). 들이지 않았어요. [다시 읽기]로 새로 읽어 주세요")
+        self.assertIsNone(o.gh_cached(CR_KEY))
+        self.fake.rules.clear()
+        self.fake.raw_over["skills/eng/code-review/references/checklist.md"] = CR_LIST.encode("utf-8").replace(b"tests", b"TESTS")   # 200, 해시만 달라요
+        refuse(409, "changed", "acme/skills/code-review (gh-mismatch, API 1번, 파일 2개)")
+        self.fake.raw_over.clear()
+        self.pick()                                                                          # 다시 읽어 둬요
+        self.assertIsNotNone(o.gh_cached(CR_KEY))
+        for status, why, msg in ((503, "gh-net", "GitHub에 닿지 못해서 들이지 않았어요. 아무것도 쓰지 않았어요. 잠시 뒤 [직원 들이기]를 다시 눌러 주세요"),
+                                 (500, "gh-net", None), (403, "gh-denied", "GitHub가 거절했어요(상태 403). 조금 뒤 다시 눌러 주세요")):
+            self.fake.rules["raw"] = lambda path, s=status: (s, {}, b"oops")
+            e = refuse(409, why, f"acme/skills/code-review ({why}, API 1번, 파일 1개)")
+            if msg:
+                self.assertEqual(e.msg, msg)
+            self.assertIsNotNone(o.gh_cached(CR_KEY), status)                               # 읽기 캐시에서 빼지 않아요
+        self.fake.rules["raw"] = lambda path: (502, {}, b"oops") if path == "LICENSE" else None   # 셋째 파일에서 멈춰도 같아요
+        refuse(409, "gh-net", "acme/skills/code-review (gh-net, API 1번, 파일 3개)")
+        self.fake.rules["raw"] = lambda path: (429, {"Retry-After": "30"}, b"slow")
+        refuse(409, "gh-limit", "acme/skills/code-review (gh-limit, API 1번, 파일 1개)")
+        self.assertIsNotNone(o.gh_cached(CR_KEY))
+        o.GH_LIMIT["until"] = 0.0
+        self.fake.reset()
+        seen = len(self.floor_log())
+        got = hire()                                                                         # 같은 묶음으로 다시 누르면 들어요
+        self.assertEqual((got["staff"], got["request"], len(self.sent())), ("ag-code-review", n, 4))
+        self.assertIn(f"GitHub에서 읽었어요: acme/skills/code-review@{GH_A[:7]} (API 1번, 파일 3개)", self.floor_log()[seen:])
+
+    def test_gh_error_body_cut(self):
+        """오류 답(4xx·5xx)의 몸은 앞 한도만 읽고 그만 읽어요(U-38): 몸이 64KB를 넘거나 압축 머리글이 있어도 raw 5xx는 gh-net이라 들일 때 묶음·읽기 캐시가 그대로이고,
+        raw 429는 gh-limit(한도를 적어요)예요. 200인데 64KB를 넘는 몸은 그대로 gh-mismatch(들일 때 changed)예요."""
+        o = self.o
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        n = r["request"]
+        self.approve(r)
+        hire = lambda: o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": n})   # noqa: E731
+        link = self.fake.url + "/web/acme/skills"
+        big = b"<html>" + b"x" * (o.STAFF_SKILL_MAX + 4096) + b"</html>"
+        for headers in ({"Content-Type": "text/html"}, {"Content-Type": "text/html", "Content-Encoding": "gzip"}):
+            self.fake.rules["raw"] = lambda path, h=headers: (503, h, big)
+            e = self.refused(409, lambda: self.pick(fresh=True))
+            self.assertEqual((e.extra, e.msg), ({"why": "gh-net", "link": link}, o.GH_ERRORS["gh-net"][1]), headers)
+            self.assertEqual(self.floor_log()[-1], "GitHub에서 읽다 멈췄어요: acme/skills/code-review (gh-net, API 3번, 파일 1개)")
+            e = self.refused(409, hire)
+            self.assertEqual((e.extra, e.msg), ({"why": "gh-net", "link": link}, o.GH_HIRE_NET), headers)
+            self.assertIsNotNone(o.gh_cached(CR_KEY), headers)                              # 묶음과 읽기 캐시는 그대로예요
+            self.assertEqual(o.api_staff_request({"team": "t1", "request": n})["state"], "ok")
+        self.fake.rules["raw"] = lambda path: (429, {"Retry-After": "30"}, big)
+        self.assertEqual(self.refused(409, hire).extra["why"], "gh-limit")
+        self.assertTrue(o.GH_LIMIT["until"] > time.time())                                  # 몸이 커도 한도를 적어요
+        self.assertIsNotNone(o.gh_cached(CR_KEY))
+        o.GH_LIMIT["until"] = 0.0
+        self.fake.rules.clear()
+        self.fake.raw_over["skills/eng/code-review/SKILL.md"] = big                          # 200인데 64KB를 넘으면 그대로예요
+        self.assertEqual(self.refused(409, lambda: self.pick(fresh=True)).extra["why"], "gh-mismatch")
+        self.assertEqual(self.refused(409, hire).extra["why"], "changed")
+        self.assertIsNone(o.gh_cached(CR_KEY))
+        self.assertFalse(os.path.lexists(os.path.join(self.office("t1"), "staff", "ag-code-review")))
+
+    def test_gh_read_stop_log_fails(self):
+        """층 기록을 쓰지 못해도(OSError) 멈춘 읽기의 오류는 그대로예요(U-38): 줄 누르기·들이기 모두 기록을 쓸 수 있을 때와 같은 코드·글·extra예요(500이 아니에요)."""
+        o = self.o
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        self.approve(r)
+        hire = lambda: o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": r["request"]})   # noqa: E731
+        tried = []
+
+        def broken(base, to, kind, text):
+            tried.append(text)
+            raise OSError(30, "Read-only file system")
+        for status in (503, 403, 404):
+            self.fake.rules["raw"] = lambda path, s=status: (s, {}, b"oops")
+            for name, fn in (("pick", lambda: self.pick(fresh=True)), ("hire", hire)):
+                want = self.refused(409, fn)                                                 # 기록을 쓸 수 있을 때
+                seen = len(self.floor_log())
+                tried.clear()
+                with mock.patch.object(o, "log", side_effect=broken):
+                    got = self.refused(409, fn)
+                self.assertEqual((got.code, got.msg, got.extra), (want.code, want.msg, want.extra), (status, name))
+                self.assertEqual(len(tried), 1, (status, name, tried))
+                self.assertTrue(tried[0].startswith("GitHub에서 읽다 멈췄어요: acme/skills/code-review ("), tried)
+                self.assertEqual(len(self.floor_log()), seen)
+        self.assertEqual(o.api_staff_request({"team": "t1", "request": r["request"]})["state"], "ok")
+
+    def test_gh_hire_other_error_logged(self):
+        """들일 때 ApiError가 아닌 예외도(U-38) 층 기록에 멈춘 줄 '(error, API 1번, 파일 3개)' 하나를 남기고 그대로 올라가요. 읽기 캐시와 묶음은 그대로예요."""
+        o = self.o
+        self.on()
+        card = self.pick()
+        r = self.gh_request(card)
+        self.approve(r)
+        seen = len(self.floor_log())
+        with mock.patch.object(o, "gh_source_read", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError) as boom:
+                o.api_staff_hire({"team": "t1", "source": CR_KEY, "request": r["request"]})
+        self.assertEqual(str(boom.exception), "boom")
+        self.assertEqual(self.floor_log()[seen:], ["GitHub에서 읽다 멈췄어요: acme/skills/code-review (error, API 1번, 파일 3개)"])
+        self.assertIsNotNone(o.gh_cached(CR_KEY))
+        self.assertEqual(o.api_staff_request({"team": "t1", "request": r["request"]})["state"], "ok")
+        self.assertFalse(os.path.lexists(os.path.join(self.office("t1"), "staff", "ag-code-review")))
 
     def test_source_key_forms(self):
         """SOURCE_KEY: 옛 두 꼴 그대로, gh 꼴을 받고, 커밋 대문자·39자, ..·.claude 조각, 폴더 '.'·'/'로 시작·빈 폴더, 저장소 x.git·.·.., 181자는 거절.
