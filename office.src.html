@@ -991,6 +991,12 @@ svg.i{width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke
 .counts{display:flex; flex-wrap:wrap; gap:4px 10px; font-size:12.5px; color:var(--ink-2)}
 .counts span{display:inline-flex; align-items:center; gap:4px}
 .counts b{color:var(--ink); font-weight:700}
+/* 층 머리글의 ‘남은 양’(사용량 알림에서 한도를 정한 기간만): 좁으면 한 덩이로 다음 줄에, 더 좁으면 기간 사이에서만 끊어요(기간 안은 nowrap).
+   앞의 층 ‘오늘 n’과 이어 읽히지 않게 왼쪽에 가는 선을 둬요.
+   80% 이상 쓰면 --hot, 넘으면 --err-ink 글자(이 바탕 위 밝은 모드 5.1:1·5.8:1, 어두운 모드 7.5:1·5.8:1) */
+.counts .usg-left{flex-wrap:wrap; white-space:nowrap; border-left:1px solid var(--line-2); padding-left:10px}
+.counts .usg-left .warn b{color:var(--hot)}
+.counts .usg-left .over b{color:var(--err-ink)}
 .tools{position:relative}
 .tools summary{list-style:none; cursor:pointer}
 .tools summary::-webkit-details-marker{display:none}
@@ -8635,7 +8641,7 @@ async function updUnskip() {
 // 숫자는 도시 카드처럼 만·억으로. 서버에서 온 숫자는 Number()로만 쓰고, 글은 모두 esc()를 거쳐요.
 const USG = { st: null, gone: false, busy: '', err: '', draft: null, said: '', hide: {} };
 const USG_HIDE = 'agencity.usage.hide';   // 닫은 칩 {기간: '날짜|단계'}(localStorage, 이 브라우저만)
-const USG_WIN = [['h5', '최근 5시간', '5시간'], ['day', '오늘', '하루'], ['week', '이번 주', '이번 주']];
+const USG_WIN = [['h5', '최근 5시간', '5시간', '5시간'], ['day', '오늘', '하루', '오늘'], ['week', '이번 주', '이번 주', '이번 주']];   // [기간, 이름, 설정 칸 이름, 층 머리글 ‘남은 양’ 이름]
 try { const h = JSON.parse(localStorage.getItem(USG_HIDE) || '{}'); if (h && typeof h === 'object') USG.hide = h; } catch (e) {}
 // city.html의 korNum(만·억·조)과 같아요. 다만 10억 아래의 억은 소수 한 자리까지(1.5억을 2억으로 보이지 않게)
 function korNum(n) {
@@ -8648,6 +8654,7 @@ function korNum(n) {
 }
 const usgDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const usgRelay = () => (API && state && state.relay && state.relay.usage && typeof state.relay.usage === 'object' ? state.relay.usage : null);
+const usgLevel = r => (r >= 1 ? 'over' : r >= 0.8 ? 'warn' : '');   // 쓴 비율(쓴 양 ÷ 한도) → 단계. 머리말 칩과 층 머리글 ‘남은 양’이 같이 써요
 // 가장 급한 칩 하나 {w, label, level: 'warn'|'over', pct, used, lim}, 없으면 null. hide: 닫은 것 {기간: '날짜|단계'}
 function usgPick(u, day, hide) {
   if (!u || !u.limits || !u.win) return null;
@@ -8655,7 +8662,7 @@ function usgPick(u, day, hide) {
   for (const [w, label] of USG_WIN) {
     const lim = Number(u.limits[w]), used = Number(u.win[w]);
     if (!(lim > 0) || !(used >= 0)) continue;
-    const r = used / lim, level = r >= 1 ? 'over' : r >= 0.8 ? 'warn' : '';
+    const r = used / lim, level = usgLevel(r);
     if (!level || (hide && hide[w] === `${day}|${level}`)) continue;
     if (!best || (level === 'over' && best.level !== 'over') || (level === best.level && r > best.r)) best = { w, label, level, r, pct: Math.floor(r * 100), used, lim };
   }
@@ -8696,7 +8703,27 @@ function usgClose() {
 // 층 머리글의 ‘오늘 1,234만’: 사용량 알림을 켰고, 그 층 폴더에서 오늘 쓴 작업량이 있을 때만
 function usgFloorHTML(tid) {
   const u = usgRelay(), n = u && u.floors && typeof u.floors === 'object' && Object.prototype.hasOwnProperty.call(u.floors, tid) ? Number(u.floors[tid]) : 0;
-  return n > 0 ? `<span title="오늘 이 층 폴더에서 쓴 작업량(캐시 읽기 ×0.1)">오늘 <b>${esc(korNum(n))}</b></span>` : '';
+  // 화면 읽기가 뒤의 ‘남은 양’과 이어 ‘오늘 1,234만 남은 양’으로 읽지 않게 이 층 숫자라고 밝혀요
+  return (n > 0 ? `<span title="오늘 이 층 폴더에서 쓴 작업량(캐시 읽기 ×0.1)">오늘<span class="su-sr"> 이 층에서 쓴 양</span> <b>${esc(korNum(n))}</b></span>` : '') + usgLeftHTML();
+}
+// 층 머리글의 ‘남은 양 5시간 72% · 이번 주 65%’: 사용량 알림을 켰고, 한도를 정했고, 서버가 그 기간 숫자를 준 기간만(5시간 → 오늘 → 이번 주).
+// 이 맥 전체(층 밖 폴더까지, 세 도구 합계)라 어느 층에서나 같아요. 80%·100% 문턱은 머리말 칩과 같아요(usgLevel).
+// 서버는 맞지 않는(자정이 지난 등) 기간을 win에서 빼요. 없거나 null·글이면 그 기간도 빼요(Number(null)이 0이 되지 않게)
+// 한도는 안전한 정수까지만 받아요(서버는 1000조까지). Infinity·아주 큰 수로 NaN%·Infinity%가 나오지 않아요.
+// 나누는 차례는 left × 100 ÷ lim 그대로예요(left ÷ lim × 100은 29%를 28.999…로 만들어 28%로 보여요)
+function usgLeftHTML() {
+  const u = usgRelay(), lims = u && u.limits && typeof u.limits === 'object' ? u.limits : null, win = u && u.win && typeof u.win === 'object' ? u.win : null;
+  if (!lims || !win) return '';
+  const out = [];
+  for (const [w, label, , head] of USG_WIN) {
+    const lim = Number(lims[w]), v = win[w];
+    if (!(lim > 0 && lim <= Number.MAX_SAFE_INTEGER) || typeof v !== 'number' || !Number.isFinite(v) || v < 0) continue;
+    const used = Number(v), left = lim - used, level = usgLevel(used / lim), pct = Math.floor(left * 100 / lim);
+    const txt = used > lim ? '넘음' : left <= 0 ? '0%' : pct < 1 ? '<1%' : `${pct}%`;   // 넘으면 색만이 아니라 글로도(주의 색과 넘음 색이 비슷해요)
+    const tip = `${label}: 쓴 양 ${korNum(used)} / 한도 ${korNum(lim)} · ${used > lim ? `넘은 양 ${korNum(used - lim)}` : `남은 양 ${korNum(Math.max(0, left))}`}`;
+    out.push(`<span class="usg-w${level ? ' ' + level : ''}" title="${esc(tip)}">${esc(head)} <b>${esc(txt)}</b></span>`);
+  }
+  return out.length ? `<span class="usg-left" title="이 맥 전체예요(층 밖 폴더까지, Claude·Codex·Gemini 합계). 사용량 알림에서 정한 한도 기준이에요">남은 양<span class="su-sr">(이 맥 전체, 사용량 알림에서 정한 한도 기준)</span> ${out.join(' · ')}</span>` : '';
 }
 
 /* 설정 알림 묶음의 ‘사용량 알림’: 켜기·끄기, 기간별 한도(작업량, 1500만·15M처럼), 지금 센 숫자 */
@@ -8726,7 +8753,7 @@ function usgSetHTML() {
   if (!u) return '<div id="suUsgBox" hidden></div>';   // 아직 못 읽었으면 자리만(읽으면 채워요)
   const d = USG.draft || {};
   const more = !u.enabled ? '' : `<div class="su-usg-lim">${USG_WIN.map(([w, , short]) => `<label for="suUsg-${w}">${short}</label><input type="text" id="suUsg-${w}" data-su-in="usg-lim" data-w="${w}" value="${esc(w in d ? d[w] : usgLimText(u.limits[w]))}" placeholder="한도 없음" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="suUsgL">`).join('')}</div>
-      <p class="hint" id="suUsgL">작업량(캐시 읽기 ×0.1)으로 1500만·15M처럼 써요. 비우면 한도가 없어요. 80%·100%가 되면 위에 알려요.</p>
+      <p class="hint" id="suUsgL">작업량(캐시 읽기 ×0.1)으로 1500만·15M처럼 써요. 비우면 한도가 없어요. 80%·100%가 되면 위에 알려요. 한도를 정한 기간은 층 머리글에 남은 양이 늘 보여요.</p>
       <p class="hint" id="suUsgS">${esc(usgLine(u))}</p>
       <p class="err" role="alert" id="suUsgErr">${esc(USG.err)}</p>
       <div class="su-actions"><button type="button" class="btn" data-su="usg-save">한도 저장</button><button type="button" class="btn" data-su="usg-now">지금 세기</button></div>`;
