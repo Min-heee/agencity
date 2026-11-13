@@ -54,13 +54,13 @@ Claude는 따로 로그인하지 않아요. GitHub 로그인·도시 공개·알
 
 ![에이전시티 도시](docs/city.jpg)
 
-등록한 사람마다 **토큰 작업량만큼 높은 건물**이 서요. 건물을 누르면 주인이 공개한 층만 읽기 전용으로 둘러봐요.
+등록한 사람마다 **총 토큰만큼 높은 건물**이 서요. 건물을 누르면 주인이 공개한 층만 읽기 전용으로 둘러봐요.
 
 - 사무실 위쪽 **도시**로 열어요.
 - 설치하지 않은 사람도 [min-heee.github.io/agencity](https://min-heee.github.io/agencity/)에서 봐요.
 - 기본은 비공개예요. GitHub에 연결한 뒤 **설정 → 도시**의 **도시에 내 건물 세우기**에서 내 숫자를 올리고 [도시 명단](https://github.com/Min-heee/token-meter)에 참가해요. 층과 나라도 같은 화면에서 골라요.
-- 건물은 본인이 고른 나라 구역에 서요. **[빌딩 | 숫자]**로 총 토큰 순위표(오늘 숫자 함께)를 보고, **[한국어 | English]**로 화면 글을 바꿔요.
-- 에이전시티를 깔지 않아도 공개 도시의 **내 건물 세우기 →**에서 만든 명령 한 줄로 숫자(와 고른 나라)만 올려 건물을 세울 수 있어요. 올리기 전에 한 번 더 물어봐요.
+- 건물은 본인이 고른 나라 구역에 서요. **[빌딩 | 숫자]**로 총 토큰 순위표를 보고, **[한국어 | English]**로 화면 글을 바꿔요.
+- 에이전시티를 깔지 않아도 공개 도시의 **내 토큰 세어 보기**에서 만든 명령 한 줄로 로그인 없이 내 총 토큰을 먼저 세어 보고, 원하면 숫자(토큰·횟수·환산액)·모델 이름·날짜·시간대와 고른 나라만 올려 건물을 세울 수 있어요. 올리기 전에 한 번 더 물어봐요.
 
 [도시 안내](docs/GUIDE.md#에이전시티-도시) · [앞으로의 계획](docs/VISION.md)
 
@@ -97,7 +97,7 @@ From one page you can message any session, trade images with it, run meetings, a
 An empty seat can open a new session through a `claude://` link and gets it seated once you press Enter; team leads talk across floors, and every exchange is logged on the page.
 A coordinator session relays messages with Claude Code's own `SendMessage` tool; the page never types into sessions.
 An experimental staff skill option, off by default and turned on per floor, lets a floor keep staff without sessions of their own: each staff member is a `SKILL.md` that the floor lead's session runs as a subagent, and the office takes only the agent type, finish flag and file times from those subagent records. You can hire staff from one of the floor's skills or an agent file in this Mac's copy of the official plugin marketplace (text someone else wrote needs a line you paste into the lead's window). Hiring reads those files on this Mac only (front matter for the list, the body when you open a card), and on floors with staff the office also hashes the hooks field of the lead folder's settings and lists the file names in its `.claude/agents/`. The hired text is copied into the staff folder and goes to Claude when the lead runs that staff member. Reading these local files adds no network requests. On a floor with staff you can also turn on skill search (off by default): only when you press Search does the office send the 1–4 English words shown on screen to skills.sh (Vercel), and only when you open a result's card, press Read again, or press Hire does it fetch that skill's files from GitHub at one pinned commit, without logging in. Both see your IP address; your task text, role names, team names and skill contents are not sent.
-The opt-in Agencity city, one building per member sized by token work, is public at https://min-heee.github.io/agencity/ (no install needed). Buildings stand in the country each member picks, with a total-token leaderboard, and the city page is in Korean and English.
+The opt-in Agencity city, one building per member sized by total tokens, is public at https://min-heee.github.io/agencity/ (no install needed). Buildings stand in the country each member picks, with a total-token leaderboard, and the city page is in Korean and English.
 You can join from the setup screen without Node or gh, or without installing anything through a one-line command from the city page (macOS or Linux terminal): it counts usage numbers (tokens, counts, cost estimate) by model and date, without extracting chat text, and uploads them with your time zone to your public usage gist only after you confirm. In the app you can also turn on hourly auto upload, which posts only when the numbers changed.
 Needs macOS, the Claude Code desktop app, Python 3.9+ (from the Xcode command line tools or python.org) and `jq`. Talking, meetings, approvals and new sessions all go through the Claude desktop app on macOS; on Linux only the demo team and read-only Codex floors work. Codex sessions sit as read-only seats (status only); talking to Codex and Gemini CLI support are planned. The app UI is in Korean. Formerly Claude Office (until v0.3.1).
 
