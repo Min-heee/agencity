@@ -910,10 +910,11 @@ class CityJoin(unittest.TestCase):
 
 
 # ── U-40 도시 화면 ───────────────────────────────────────────────────────
-def honest_doc(base, codex_no_cached=False):
+def honest_doc(base, codex_no_cached=False, stray=False):
     """bin/token_meter.py가 가짜 기록(Claude·Codex·Gemini)을 그대로 센 공개 문서(TZ=Asia/Seoul).
     스트리밍 중간값(같은 id)과 날짜 없는 기록도 있어요. HOME은 임시 폴더라 이 컴퓨터의 기록은 읽지 않아요.
-    codex_no_cached: Codex 기록 하나에 cached_input_tokens 칸이 없어요(그런 판이 있으면 셈이 입력·캐시 읽기를 0으로 올려요)."""
+    codex_no_cached: Codex 기록 하나에 cached_input_tokens 칸이 없어요(그런 판이 있으면 셈이 입력·캐시 읽기를 0으로 올려요).
+    stray: 시각이 null인 기록(셈이 1970-01-01로 적어요)과 시계가 2001년으로 돌아간 기록이 하나씩 더 있어요."""
     home = os.path.join(base, "home")
     claude = os.path.join(home, "claude")
     os.makedirs(os.path.join(claude, "p1"))
@@ -928,6 +929,11 @@ def honest_doc(base, codex_no_cached=False):
                                 "message": {"id": f"m{i}", "model": "claude-opus-4-5", "usage": u}}) + "\n")
         f.write(json.dumps({"type": "assistant", "sessionId": "s9", "message": {"id": "mx", "model": "claude-opus-4-5",
                                                                                 "usage": {"input_tokens": 120, "output_tokens": 30}}}) + "\n")   # 날짜 없는 기록
+        if stray:
+            f.write(json.dumps({"type": "assistant", "timestamp": None, "sessionId": "s8", "requestId": "rn",
+                                "message": {"id": "mn", "model": "claude-opus-4-5", "usage": {"input_tokens": 900, "output_tokens": 40}}}) + "\n")
+            f.write(json.dumps({"type": "assistant", "timestamp": "2001-09-09T01:46:40.000Z", "sessionId": "s8", "requestId": "ro",
+                                "message": {"id": "mo", "model": "claude-opus-4-5", "usage": {"input_tokens": 700, "output_tokens": 20}}}) + "\n")
     codex = os.path.join(home, "codex")
     os.makedirs(os.path.join(codex, "sessions", "2026", "10", "20"))
     with open(os.path.join(codex, "sessions", "2026", "10", "20", "rollout-2026-10-20T01-00-00-c1.jsonl"), "w", encoding="utf-8") as f:
@@ -958,7 +964,7 @@ def honest_doc(base, codex_no_cached=False):
 class CityFilter(unittest.TestCase):
     """숫자 거르기(U-40 5-2 ①): 지어낸 숫자는 '확인 안 됨', token_meter.py가 정직하게 센 숫자는 늘 통과."""
 
-    NOW = "2026-11-12T12:00:00Z"   # 서울은 11월 12일 밤 9시: 내일(13일)까지 괜찮고 모레(14일)는 미래 날짜예요
+    NOW = "2026-11-12T12:00:00Z"   # 지구에서 가장 이른 시간대(UTC+14)는 13일 새벽 2시: 그 내일(14일)까지 괜찮고 15일은 미래 날짜예요
 
     @classmethod
     def setUpClass(cls):
@@ -971,7 +977,7 @@ class CityFilter(unittest.TestCase):
 
     def judge(self, docs):
         code = ("const DEMO = false, NOW = Date.parse(%s), now = () => new Date(NOW);\n" % json.dumps(self.NOW)
-                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay")
+                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay", "lastDay", "okDay")
                 + "\nconst docs = %s;\n" % json.dumps(docs)
                 + "console.log(JSON.stringify(Object.fromEntries(Object.entries(docs).map(([k, d]) => { const m = cleanMeter(d, %s); return [k, [verifyMeter(d, NOW), m && m.ok]]; }))));" % json.dumps(ME))
         return run_node(code)
@@ -1002,10 +1008,25 @@ class CityFilter(unittest.TestCase):
             e["totals"]["total"] += 5 * 10 ** 9
             e["totals"]["input"] += 5 * 10 ** 9
 
-        def day_over_cap(d, e):
-            for k in ("total", "input"):
-                e["totals"][k] += 2 * 10 ** 10
-            e["byDay"][sorted(e["byDay"])[0]][0] += 2 * 10 ** 10
+        def add_day(day, n):
+            def change(d, e):
+                for k in ("total", "input"):
+                    e["totals"][k] += n
+                e["byDay"].setdefault(day, [0, 0, 0])[0] += n   # 셈이 하듯 total과 그날에 같은 값을 더해요
+            return change
+
+        day_over_cap = add_day("2026-10-05", 2 * 10 ** 11)   # 하루 1000억 넘음: 망가진 값
+        heavy_day_ok = add_day("2026-10-05", 5 * 10 ** 10)   # 하루 500억: 에이전트를 여럿 돌린 날도 걸리지 않아요
+        def two_tools_heavy_ok(d, e):   # 같은 날 Claude 600억 + Codex 350억: 도구를 더해도 1000억 밑이라 괜찮아요
+            add_day("2026-10-20", 6 * 10 ** 10)(d, e)
+            add_day("2026-10-20", 35 * 10 ** 9)(d, next(x for x in d["entries"] if x["tool"] == "codex"))
+
+        def two_tools_over_cap(d, e):   # 같은 날 600억 + 500억: 도구 하나로는 넘지 않아도 더하면 넘어요
+            add_day("2026-10-20", 6 * 10 ** 10)(d, e)
+            add_day("2026-10-20", 5 * 10 ** 10)(d, next(x for x in d["entries"] if x["tool"] == "codex"))
+        stray_1970 = add_day("1970-01-01", 15)   # 시각이 빈 기록 한 줄(셈이 1970년으로 적어요): 그 몫이 작으면 괜찮아요
+        stray_2001 = add_day("2001-09-09", 4000)
+        stray_future = add_day("2027-03-01", 4000)   # 시계가 잠깐 틀린 기록
 
         def days_over_total(d, e):
             e["byDay"][sorted(e["byDay"])[0]][0] += 10 ** 6
@@ -1017,9 +1038,16 @@ class CityFilter(unittest.TestCase):
             "total_only": self.variant(total_only),
             "total_and_input": self.variant(total_and_input),
             "day_over_cap": self.variant(day_over_cap),
+            "heavy_day_ok": self.variant(heavy_day_ok),
+            "two_tools_heavy_ok": self.variant(two_tools_heavy_ok),
+            "two_tools_over_cap": self.variant(two_tools_over_cap),
+            "stray_1970": self.variant(stray_1970),
+            "stray_2001": self.variant(stray_2001),
+            "stray_future": self.variant(stray_future),
             "days_over_total": self.variant(days_over_total),
             "same_tool_twice": self.variant(same_tool_twice),
-            "future": self.move_day("2026-11-14"),
+            "future": self.move_day("2026-11-15"),
+            "utc14_tomorrow_ok": self.move_day("2026-11-14"),
             "before_2023": self.move_day("2022-12-31"),
             "tomorrow_ok": self.move_day("2026-11-13"),
             "first_day_ok": self.move_day("2023-01-01"),
@@ -1029,8 +1057,10 @@ class CityFilter(unittest.TestCase):
         })
         self.assertEqual(r, {
             "total_only": ["sum", False], "total_and_input": ["days", False], "day_over_cap": ["day", False],
+            "heavy_day_ok": ["", True], "two_tools_heavy_ok": ["", True], "two_tools_over_cap": ["day", False],
+            "stray_1970": ["", True], "stray_2001": ["", True], "stray_future": ["", True],
             "days_over_total": ["days", False], "same_tool_twice": ["sum", False],
-            "future": ["date", False], "before_2023": ["date", False],
+            "future": ["date", False], "utc14_tomorrow_ok": ["", True], "before_2023": ["date", False],
             "tomorrow_ok": ["", True], "first_day_ok": ["", True],
             "feb_30": ["date", False], "month_13": ["date", False], "day_00": ["date", False]})
 
@@ -1056,6 +1086,20 @@ class CityFilter(unittest.TestCase):
         r = self.judge({"honest": doc, "blow_up": codex(blow_up), "cache_back": codex(cache_back)})
         self.assertEqual(r, {"honest": ["", True], "blow_up": ["days", False], "cache_back": ["sum", False]})
 
+    def test_stray_bad_dates_pass(self):
+        """기록 한 줄의 시각이 비었거나(셈이 1970년으로 적어요) 시계가 틀려도 그 사람 전체가 '확인 안 됨'이 되지 않아요.
+        그런 날짜는 날짜 없는 기록처럼 쳐서, 활동한 날·가장 많이 쓴 날에도 들어가지 않아요."""
+        doc = honest_doc(os.path.join(self.tmp, "stray"), stray=True)
+        cl = next(e for e in doc["entries"] if e["tool"] == "claude")
+        self.assertIn("1970-01-01", cl["byDay"])   # 셈(token_meter.py)이 그렇게 적는지부터 봐요
+        self.assertIn("2001-09-09", cl["byDay"])
+        code = ("const DEMO = false, NOW = Date.parse(%s), now = () => new Date(NOW);\n" % json.dumps(self.NOW)
+                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay",
+                          "lastDay", "okDay")
+                + "\nconst a = cleanMeter(%s, %s), b = cleanMeter(%s, %s);\n" % (json.dumps(doc), json.dumps(ME), json.dumps(self.doc), json.dumps(ME))
+                + "console.log(JSON.stringify([a.ok, a.why, Object.keys(a.days).filter(d => d < '2023'), a.active === b.active, a.best === b.best]));")
+        self.assertEqual(run_node(code), [True, "", [], True, True])
+
     def test_my_record_counts_all_days(self):
         """내 기록(활동한 날, 가장 많이 쓴 날)은 400일로 자르기 전 byDay 전부로 세요. 건물에 쓰는 days만 최근 400일이에요."""
         import datetime
@@ -1066,7 +1110,7 @@ class CityFilter(unittest.TestCase):
         doc = {"schema": 1, "app": "token-meter", "login": ME, "updatedAt": "2026-11-01T00:00:00Z", "entries": [
             {"tool": "claude", "tz": "Asia/Seoul", "totals": {"input": tot, "output": 0, "cacheWrite": 0, "cacheRead": 0, "total": tot}, "byDay": by}]}
         code = ("const DEMO = false, NOW = Date.parse(%s), now = () => new Date(NOW);\n" % json.dumps(self.NOW)
-                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay",
+                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay", "lastDay", "okDay",
                           "activeDays", "bestDay")
                 + "\nconst m = cleanMeter(%s, %s);\n" % (json.dumps(doc), json.dumps(ME))
                 + "console.log(JSON.stringify([m.ok, m.active, m.best, Object.keys(m.days).length, activeDays(m), bestDay(m)]));")
@@ -1077,7 +1121,7 @@ class CityFilter(unittest.TestCase):
         with open(os.path.join(ROOT, "examples", "city", "demo.json"), encoding="utf-8") as f:
             ppl = json.load(f)["people"]
         code = ("const DEMO = true, NOW = Date.parse('2026-10-21T09:00:00+09:00'), now = () => new Date(NOW);\n"
-                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay")
+                + city_js("own", "num", "str", "TOOLS", "DAY_RE", "TZ_RE", "DAY_FIRST", "dayKey", "family", "cleanMeter", "verifyMeter", "realDay", "lastDay", "okDay")
                 + "\nconst ppl = %s;\nconsole.log(JSON.stringify(ppl.filter(p => !cleanMeter(p.meter, p.login).ok).map(p => p.login)));" % json.dumps(ppl))
         self.assertEqual(run_node(code), ["demo-zed"])
 

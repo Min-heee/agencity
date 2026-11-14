@@ -351,8 +351,8 @@ const PAGE = 100;       // 순위표는 이만큼씩 보여 줘요(내 줄이 �
 const OLD_DAYS = 30;    // 이보다 오래 안 올린 줄은 흐리게
 const RANK_FROM = 20;   // 확인된 사람이 이만큼부터 '세계 n등 · N명 중 · 상위 x%'를 앞에(그 전에는 'n번째 시민'과 내 기록, 결재 R2)
 const COUNTRY_FROM = 5; // 그 나라에 확인된 사람이 이만큼부터 나라 순위를 보여요
-// 숫자 거르기(U-40 5-2 ①): 날짜는 이날부터, 하루 합은 이만큼까지, 날짜별 합은 total의 (1 − 여유)부터 total까지
-const DAY_FIRST = '2023-01-01', DAY_MAX = 1e10, DAY_SLACK = 0.01;
+// 숫자 거르기(U-40 5-2 ①): 날짜는 이날부터, 하루 합은 이만큼까지(망가진 값만 잡아요), 날짜별 합은 total의 (1 − 여유)부터 total까지
+const DAY_FIRST = '2023-01-01', DAY_MAX = 1e11, DAY_SLACK = 0.01;
 const ME_KEY = 'agencity.me';   // 이 브라우저의 '나'(참가 명령이 연 ?who=<아이디>#me로만 정해요)
 const POLL_MS = 30000, POLL_FOR = 600000;   // 명단에 아직 없는 ?who=: 30초마다 다시 읽고 10분 뒤 멈춰요
 const PUBLIC_URL = 'https://min-heee.github.io/agencity/';
@@ -533,6 +533,7 @@ const str = (v, n) => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f\u2
 function cleanMeter(doc, login) {
   if (!doc || typeof doc !== 'object' || doc.schema !== 1 || doc.app !== 'token-meter' || String(doc.login).toLowerCase() !== login.toLowerCase() || !Array.isArray(doc.entries)) return null;
   const tools = Object.create(null), days = Object.create(null), models = Object.create(null), all = Object.create(null);
+  const at = now().getTime(), last = lastDay(at);
   let tz = '';
   for (const e of doc.entries.slice(0, 3)) {
     if (!e || typeof e !== 'object' || typeof e.tool !== 'string' || !own(TOOLS, e.tool) || !e.totals || typeof e.totals !== 'object') continue;
@@ -540,31 +541,35 @@ function cleanMeter(doc, login) {
     tools[e.tool] = { input: num(tt.input), output: num(tt.output), cacheWrite: num(tt.cacheWrite), cacheRead: num(tt.cacheRead), total: num(tt.total) };
     if (!tz && typeof e.tz === 'string' && TZ_RE.test(e.tz)) { try { new Intl.DateTimeFormat('en-CA', { timeZone: e.tz }); tz = e.tz; } catch (x) {} }
     if (e.byDay && typeof e.byDay === 'object') {
-      const ent = Object.entries(e.byDay);
+      // 쓸 수 없는 날짜(okDay)는 날짜를 못 읽은 기록처럼 빼요(1970년 같은 날이 '활동한 날'·'가장 많이 쓴 날'에 들어가지 않게).
+      const ent = Object.entries(e.byDay).filter(([d, v]) => DAY_RE.test(d) && okDay(d, last) && Array.isArray(v) && num(v[0]) > 0);
       // 내 기록(활동한 날 수, 가장 많이 쓴 날)은 자르기 전 전부로 세요. 건물·창문에 쓰는 days는 최근 400일만 둬요.
-      for (const [d, v] of ent) if (DAY_RE.test(d) && Array.isArray(v) && num(v[0]) > 0) all[d] = (all[d] || 0) + num(v[0]);
-      for (const [d, v] of ent.slice(-400)) if (DAY_RE.test(d) && Array.isArray(v) && num(v[0]) > 0) days[d] = (days[d] || 0) + num(v[0]);
+      for (const [d, v] of ent) all[d] = (all[d] || 0) + num(v[0]);
+      for (const [d, v] of ent.slice(-400)) days[d] = (days[d] || 0) + num(v[0]);
     }
     if (e.byModel && typeof e.byModel === 'object') {
       for (const [m, v] of Object.entries(e.byModel).slice(0, 100)) { const f = family(m); models[f] = (models[f] || 0) + num(v && v.total); }
     }
   }
   if (!Object.keys(tools).length) return null;
-  const why = verifyMeter(doc, now().getTime()), allV = Object.values(all);
+  const why = verifyMeter(doc, at), allV = Object.values(all);
   return { tools, days, models, tz, active: allV.length, best: allV.reduce((a, v) => Math.max(a, v), 0), updatedAt: str(doc.updatedAt, 40), ok: !why, why };
 }
 // 숫자 거르기(U-40 5-2 ①). 걸리면 그 이유('sum'·'days'·'date'·'day'), 아니면 ''. 걸린 사람은 순위에서 빼고 '확인 안 됨'으로 보여요.
 //  sum  도구마다 칸 합(input+output+cacheWrite+cacheRead)이 total과 달라요(같은 도구가 두 번 있어도)
-//  days 날짜별 합(400일로 자르기 전 byDay 전체)이 total보다 커요(도구마다), 또는 모두 더해 total의 99%보다 작아요
-//  date 2023-01-01 전 날짜나, 그 사람 시간대의 오늘에서 하루 넘게 뒤인 날짜, 달력에 없는 날짜(2025-02-30)가 있어요
-//  day  하루 합(도구를 더해)이 100억을 넘어요
+//  days 날짜별 합(400일로 자르기 전 byDay 전체)이 total보다 커요(도구마다), 또는 모든 날짜(쓸 수 없는 날짜까지)를 더해도 total의 99%보다 작아요
+//  date 모든 날짜로는 99%에 닿지만 쓸 수 있는 날짜만으로는 못 닿아요: 날짜 없는 기록과 쓸 수 없는 날짜를 더해 1%를 넘었어요
+//  day  쓸 수 있는 하루의 합(도구를 더해)이 1000억을 넘어요(망가진 값. 에이전트를 여럿 하루 종일 돌리면 100억은 넘을 수 있어요)
+// 쓸 수 없는 날짜(okDay): 2023-01-01 전, 지구에서 가장 이른 시간대(UTC+14)로 내일보다 뒤, 달력에 없는 날짜(2025-02-30).
+//  그런 날짜는 날짜를 못 읽은 기록처럼 total에만 있는 셈으로 쳐요. 시각이 빈 기록 한 줄(셈이 1970년으로 적어요)이나
+//  잠깐 틀린 시계 때문에 그 사람 전체가 걸리지 않게요. 미래 기준은 그 사람 tz·보는 사람 시간대와 상관없어요.
 // 정직하게 센 값(bin/token_meter.py·collect.mjs)은 걸리지 않아요: 기록 하나가 total과 그날 byDay에 같은 값으로 들어가고,
 // 날짜를 못 읽은 기록은 total에만 들어가요(그래서 날짜별 합 ≤ total). 날짜는 그 컴퓨터 시간대(tz)의 달력이에요.
 // Codex 기록에 cached_input_tokens 칸이 빠진 판이 섞이면 셈이 입력·캐시 읽기를 0으로 올려요(출력·total은 맞아요).
 // 그 꼴(입력·캐시 쓰기·캐시 읽기가 모두 0, 출력 ≤ total)은 칸 합 검사만 건너뛰어요. total을 부풀리면 날짜별 합 검사가 그대로 잡아요.
 function verifyMeter(doc, at) {
-  let total = 0, dsum = 0, tz = '';
-  const perDay = Object.create(null), seen = new Set();
+  let total = 0, dsum = 0, bad = 0;
+  const perDay = Object.create(null), seen = new Set(), last = lastDay(at);
   for (const e of doc.entries.slice(0, 3)) {
     if (!e || typeof e !== 'object' || typeof e.tool !== 'string' || !own(TOOLS, e.tool) || !e.totals || typeof e.totals !== 'object') continue;
     if (seen.has(e.tool)) return 'sum';
@@ -577,21 +582,21 @@ function verifyMeter(doc, at) {
       for (const [d, v] of Object.entries(e.byDay)) {
         if (!DAY_RE.test(d)) continue;
         const x = Array.isArray(v) ? num(v[0]) : 0;
-        ds += x; perDay[d] = (perDay[d] || 0) + x;
+        ds += x;
+        if (okDay(d, last)) perDay[d] = (perDay[d] || 0) + x; else bad += x;
       }
     }
     if (ds > tot + tol) return 'days';
     total += tot; dsum += ds;
-    if (!tz && typeof e.tz === 'string' && TZ_RE.test(e.tz)) { try { new Intl.DateTimeFormat('en-CA', { timeZone: e.tz }); tz = e.tz; } catch (x) {} }
   }
-  if (dsum < total * (1 - DAY_SLACK) - 1) return 'days';
-  const last = dayKey(new Date(at + 864e5), tz);   // 그 사람 시간대의 내일까지(시계가 조금 달라도 괜찮게)
-  for (const d of Object.keys(perDay)) {
-    if (d < DAY_FIRST || d > last || !realDay(d)) return 'date';
-    if (perDay[d] > DAY_MAX) return 'day';
-  }
+  const floor = total * (1 - DAY_SLACK) - 1;
+  if (dsum - bad < floor) return dsum < floor ? 'days' : 'date';
+  for (const d of Object.keys(perDay)) if (perDay[d] > DAY_MAX) return 'day';
   return '';
 }
+// 쓸 수 있는 날짜의 끝: 지구에서 가장 이른 시간대(UTC+14)의 내일. 시계가 조금 달라도, 날짜 바뀔 무렵이어도 정직한 오늘은 들어가요.
+function lastDay(at) { return new Date(at + 864e5 + 504e5).toISOString().slice(0, 10); }
+function okDay(d, last) { return d >= DAY_FIRST && d <= last && realDay(d); }
 // 달력에 있는 날짜인지(YYYY-MM-DD 꼴은 DAY_RE가 봐요): 2025-02-30·2024-13-45·2025-00-00은 아니에요
 function realDay(d) {
   const [y, m, dd] = d.split('-').map(Number), x = new Date(Date.UTC(y, m - 1, dd));
