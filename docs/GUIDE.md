@@ -1167,7 +1167,7 @@ python3 bin/new_team.py
 에이전시티를 깔지 않아도 돼요. 공개 도시 위쪽의 **내 토큰 세어 보기**를 누르면 창 맨 위에 명령 한 줄이 있어요. 그 아래에서 나라를 고르면 그 나라가 명령에 들어가요(안 골라도 돼요. 안 고르면 터미널에서 한 번 물어봐요). **복사**해서 터미널에 붙여 넣어요.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.15.2/bin/city_join.py | python3 -I - --country KR
+curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.16.0/bin/city_join.py | python3 -I - --country KR
 ```
 
 1. **세기(로그인 없이)**: 같은 판의 숫자 세기 도우미(`bin/token_meter.py`)와 나라 목록만 임시 폴더에 받아 쓰고 끝나면 지워요(설치 폴더를 만들지 않아요). 이 컴퓨터의 Claude Code·Codex·Gemini CLI 로그에서 숫자(토큰·횟수·환산액)·모델 이름·날짜만 세요(대화 글은 꺼내지 않아요).
@@ -1180,7 +1180,7 @@ curl -fsSL https://raw.githubusercontent.com/Min-heee/agencity/v0.15.2/bin/city_
 - 명단에 있으면 끝에 **공유 주소**(`?who=<아이디>`)도 보여 줘요. 남에게는 이 주소를 줘요. `#me`가 붙은 주소를 연 브라우저는 그 아이디를 ‘나’로 기억하기 때문이에요. 명단에 들어오기 전에는 공유 주소를 보여 주지 않아요(그때 남이 열면 아직 없다고만 나와요). 들어온 뒤 도시의 내 카드에서 **공유 글 복사**를 써요.
 - 브라우저를 열지 않으려면 `--no-open`을 붙여요. 신청 주소·내 도시 주소(명단에 있으면 공유 주소도)를 글로만 보여 줘요.
 - 준비물은 맥이나 리눅스의 터미널(윈도는 WSL), python3, GitHub 계정이에요(node·gh는 없어도 돼요). 맥은 python3를 처음 쓸 때 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 실행해요.
-- 붙여 넣기 전에 스크립트를 읽어 볼 수 있어요: [bin/city_join.py (v0.15.2)](https://github.com/Min-heee/agencity/blob/v0.15.2/bin/city_join.py)
+- 붙여 넣기 전에 스크립트를 읽어 볼 수 있어요: [bin/city_join.py (v0.16.0)](https://github.com/Min-heee/agencity/blob/v0.16.0/bin/city_join.py)
 - 나라를 바꾸려면 `--country JP`, 빼려면 `--country none`으로 다시 실행해요(물을 때 `none`이라고 적어도 빠져요).
 - 숫자를 새로 올리려면 같은 줄을 다시 실행해요. 숫자도 나라도 그대로면 아무것도 올리지 않아요. 저절로 올라가지는 않아요(자동으로 올리기는 에이전시티 앱에서 켜요).
 - 저장소를 받았다면 `python3 bin/city_join.py --dry-run`으로 숫자만 세어 볼 수 있어요(나라도 묻지 않고, 로그인도 올리기도 안 해요).
