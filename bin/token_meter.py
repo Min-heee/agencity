@@ -61,6 +61,11 @@ def JOIN_URL(gist_id):
     return f"https://github.com/{REPO}/issues/new?template=join.yml&title=join&gist=" + quote(str(gist_id), safe="!'()*")
 
 
+def LEAVE_URL():
+    """도시에서 나가기: 탈퇴 이슈 쓰기 화면(내가 Submit을 눌러요). 이슈를 연 계정만 명단에서 빠져요. 저장소는 JOIN_URL과 같은 REPO예요."""
+    return f"https://github.com/{REPO}/issues/new?template=leave.yml&title=leave"
+
+
 # ── 단가 (USD / 1M tokens, collect.mjs 그대로) ──────────────────────────
 CLAUDE_PRICES = {
     "claude-fable-5": {"in": 10, "out": 50},

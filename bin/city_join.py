@@ -141,6 +141,7 @@ MSG = {
         "last_open": "남은 일 하나: 열린 GitHub 신청 화면에서 Submit new issue를 눌러요. 몇 분 뒤 내 도시 주소에 내 카드가 열려요.",
         "last": "남은 일 하나: 위의 ‘도시 참가 신청’ 주소를 열어 Submit new issue를 눌러요. 몇 분 뒤 내 도시 주소에 내 카드가 열려요.",
         "again": "숫자를 새로 올리려면 같은 줄을 다시 실행해요. 저절로 올라가지는 않아요.",
+        "leave": "나중에 도시에서 나가려면 참가한 GitHub 계정으로 두 가지를 해요.\n  1) 탈퇴 신청을 열어 확인 칸에 체크하고 Submit new issue를 눌러요: {0}\n  2) 그다음 내 gist를 열어 Delete를 눌러요: {1}",
         "ssl": "GitHub 인증서를 확인하지 못했어요. python.org에서 받은 파이썬이면 'Install Certificates.command'를 한 번 실행해 주세요.",
         "net": "GitHub에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.",
         "bye": "그만뒀어요. 아무것도 올리지 않았어요.",
@@ -209,6 +210,7 @@ MSG = {
         "last_open": "One step left: click Submit new issue on the GitHub page that just opened. Your card opens on your city page a few minutes later.",
         "last": "One step left: open the Join the city link above and click Submit new issue. Your card opens on your city page a few minutes later.",
         "again": "To post new numbers, run the same line again. Nothing uploads on its own.",
+        "leave": "To leave the city later, do two things while signed in to GitHub as the account you joined with:\n  1) Open the leave request, tick the confirm box and click Submit new issue: {0}\n  2) Then open your gist and click Delete: {1}",
         "ssl": "Couldn't verify GitHub's certificate. If you installed Python from python.org, run 'Install Certificates.command' once.",
         "net": "Couldn't reach GitHub. Check your connection.",
         "bye": "Stopped. Nothing was posted.",
@@ -694,6 +696,8 @@ def after(tm, gid, me, lst, no_open):
     """도시 명단에 있는지 보고, 없으면 참가 신청 화면을 열어요(제출은 본인이). 그 직후 내 도시 주소(#me)도 열어요.
     명단에 있으면 내 도시 주소만 열어요. 도시 페이지는 명단에 들어올 때까지 '참가 처리 중'으로 기다려요.
     공유 주소는 명단에 들어온 게 보일 때만 보여 줘요(명단을 못 읽었어도 빼요). 신청이 남았으면 끝 줄을 그 할 일 하나로 끝내요(터미널만 봐도 알게).
+    명단에 들어온 게 보일 때만 끝에 도시에서 나가는 방법(탈퇴 신청 주소와 내 gist 주소, 주소는 줄 끝에)을 적어요.
+    신청이 남았거나 명단을 못 읽었으면 빼요(신청 주소와 헷갈리지 않게. 나가는 방법은 도시의 내 카드에 있어요).
     --no-open이면 주소만 보여 줘요."""
     if not gid:
         return
@@ -721,6 +725,9 @@ def after(tm, gid, me, lst, no_open):
     if listed:   # 명단을 못 읽었으면(lst가 None) 들어왔는지 몰라서 공유 주소를 보여 주지 않아요
         say("share", share_url(me))
     say("again")
+    lv = getattr(tm, "LEAVE_URL", None)   # 같은 판의 도우미에는 늘 있어요. 없으면(옛 도우미) 이 줄만 빼요
+    if callable(lv) and listed:   # 명단에 들어온 게 보일 때만(공유 주소와 같아요). 신청이 남았거나 명단을 못 읽었으면 빼요(신청 주소와 헷갈리지 않게)
+        say("leave", lv(), f"https://gist.github.com/{me}/{gid}")
     if need_join:
         say("last_open" if opened else "last")
 

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>에이전시티 · 도시</title>
-<meta name="description" content="참가한 사람마다 총 토큰만큼 높은 건물이 나라별 구역에 서요. 순위표로도 봐요. · Everyone who joins gets a building as tall as their total tokens, in their country's zone.">
+<title>에이전시티 · AI 토큰 순위</title>
+<meta name="description" content="Claude Code·Codex·Gemini CLI에서 쓴 AI 토큰을 세계·나라별 순위로 봐요. 터미널 한 줄로, 설치 없이 내 토큰을 세어 보고 참가해요. · World and country rankings of AI tokens used in Claude Code, Codex and Gemini CLI. Count yours with one terminal line, no install.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://min-heee.github.io/agencity/">
-<meta property="og:title" content="에이전시티 도시 · Agencity City">
-<meta property="og:description" content="AI 토큰 쓴 만큼 건물이 올라가는 도시 · A city where buildings grow with AI token usage.">
+<meta property="og:title" content="에이전시티 AI 토큰 순위 · Agencity AI token leaderboard">
+<meta property="og:description" content="Claude Code·Codex·Gemini CLI에서 쓴 AI 토큰의 세계·나라별 순위예요. 터미널 한 줄로 내 토큰을 세어 봐요. · World and country rankings of AI tokens used in Claude Code, Codex and Gemini CLI. Count yours with one terminal line.">
 <meta property="og:image" content="https://min-heee.github.io/agencity/city.jpg">
 <meta property="og:image:width" content="800">
 <meta property="og:image:height" content="500">
@@ -24,13 +24,13 @@ if (!(location.protocol.startsWith('http') && /^(127\.0\.0\.1|localhost)$/.test(
 <style>
 /* 에이전시티 도시: 등록한 사람마다 건물 하나. 높이는 총 토큰(로그 눈금)이라 가장 높은 건물이 1등이에요. 금빛 띠는 공개한 층(팀).
    건물은 본인이 고른 나라의 구역에 서요(agencity.json의 profile.country, 안 골랐으면 맨 끝 '나라 안 고름' 구역).
-   [빌딩]/[숫자] 보기: 숫자 보기는 총 토큰 순위표(순위·아이디·나라·총 토큰). 숫자가 서로 맞지 않으면 '확인 안 됨'으로 순위에서 빼요.
+   [순위]/[빌딩] 보기: 순위 보기는 총 토큰 순위표(순위·아이디·나라·총 토큰). 공개 도시는 순위 보기로, 내 컴퓨터의 앱(127.0.0.1)은 빌딩 보기로 열려요(주소의 ?view=가 앞서요). 숫자가 서로 맞지 않으면 '확인 안 됨'으로 순위에서 빼요.
    [한국어 | English]로 화면 글을 바꿔요.
    숫자는 token-meter 공개 gist(token-meter.json), 공개한 사무실 요약과 나라는 같은 gist의 agencity.json에서 읽어요
    (그 파일이 없으면 예전 이름 때 올린 claude-office.json). 나라 코드 목록은 city/countries.json(앱·설치 없이 올리는 명령과 같은 파일).
    이 페이지는 열쇠가 없는 보기 전용 페이지예요(사무실 API를 부르지 않아요).
    공개 도시 https://min-heee.github.io/agencity/ 도 이 파일이에요(.github/workflows/city.yml이 올려요).
-   주소: ?view=buildings|numbers  ?country=all|KR|none  ?lang=ko|en  ?who=<아이디>  ?demo=1
+   주소: ?view=buildings|numbers(없으면 공개 도시는 numbers, 앱은 buildings)  ?country=all|KR|none  ?lang=ko|en  ?who=<아이디>  ?demo=1
    ?who=<아이디>#me: 참가 명령이 여는 주소에만 붙어요. 그 아이디를 이 브라우저의 '나'로 기억하고 #me는 바로 지워요(공유 주소에는 없어요). */
 :root{
   --sky-1:#0B1222; --sky-2:#1B2742; --ground:#121A2B; --street:#1A2438;
@@ -82,7 +82,7 @@ button.chip{cursor:pointer; font-family:inherit}
 .pick::after{content:""; position:absolute; right:12px; top:50%; width:7px; height:7px; margin-top:-6px; border-right:1.6px solid #C8D0DC; border-bottom:1.6px solid #C8D0DC; transform:rotate(45deg); pointer-events:none}
 .pick select option{color:#172030; background:#FFFFFF}
 /* 빌딩 보기 */
-#stage{position:fixed; inset:0; background:linear-gradient(var(--sky-1), var(--sky-2) 60%, var(--ground)); touch-action:none; cursor:grab; -webkit-user-select:none; user-select:none}   /* 끌어 고르기가 지도 이름판·건물 이름까지 번지지 않게(숫자 보기에서는 지도가 뒤에 숨어 있어요) */
+#stage{position:fixed; inset:0; background:linear-gradient(var(--sky-1), var(--sky-2) 60%, var(--ground)); touch-action:none; cursor:grab; -webkit-user-select:none; user-select:none}   /* 끌어 고르기가 지도 이름판·건물 이름까지 번지지 않게(순위 보기에서는 지도가 뒤에 숨어 있어요) */
 #stage.drag{cursor:grabbing}
 #city{width:100%; height:100%; display:block}
 .bld{cursor:pointer}
@@ -113,15 +113,17 @@ button.chip{cursor:pointer; font-family:inherit}
 .zoom button{width:38px; height:38px; border-radius:8px; border:1px solid #3A4659; background:rgba(10,14,20,.85); color:#E4E8EE; font-size:18px; cursor:pointer}
 .msg{position:fixed; z-index:4; left:50%; top:46%; transform:translate(-50%,-50%); color:#C8D0DC; text-align:center; max-width:min(520px, calc(100% - 32px))}
 .msg[hidden]{display:none}
-.msg h2{font:400 24px var(--font-display); margin:0 0 6px; color:#F3F5F8}
+.msg h2{font:400 24px var(--font-display); margin:0 0 6px; color:#F3F5F8; word-break:keep-all; overflow-wrap:anywhere}
 .msg p{margin:0}
-/* 숫자 보기: 같은 하늘 위에 순위표 한 장. 도시 지도의 글자 대안이기도 해요.
+/* 순위 보기: 같은 하늘 위에 순위표 한 장. 도시 지도의 글자 대안이기도 해요.
    순위표는 위 막대 아래에서 스크롤해요(줄이 막대 칸 사이로 지나가지 않게). 막대 자리는 불투명 띠로 덮어요(body.numview) */
 .numbers{position:fixed; z-index:4; inset:var(--top) 0 0 0; overflow:auto; padding:8px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); background:rgba(11,18,34,.78); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px)}
 .numbers[hidden]{display:none}
 body.numview .top{background:var(--sky-1); box-shadow:0 1px 0 #2A3443; pointer-events:auto; -webkit-user-select:none; user-select:none}   /* 띠의 빈 곳을 눌러도 뒤의 지도(건물 카드·끌기·휠)에 닿지 않게, 끌어도 막대 글자가 골라지지 않게 */
 body.numview .top input{-webkit-user-select:text; user-select:text}
+body.numview .msg{display:none}   /* 순위 보기에서는 불러오기 알림을 순위표 안에 보여요(지도 가운데 알림은 순위표 뒤에 가려져요) */
 @media (min-width:761px){ body.carded .numbers{padding-right:412px} }   /* 카드가 열리면 순위표가 왼쪽으로 비켜요 */
+@media (min-width:761px){ body.carded .zoom{right:calc(max(16px, env(safe-area-inset-right)) + min(380px, 100% - 32px) + 12px)} }   /* 확대 단추도 카드 왼쪽으로(카드 맨 아래 '도시에서 나가기' 글을 가리지 않게) */
 .num-box{max-width:880px; margin:0 auto; background:var(--panel); color:var(--ink); border-radius:14px; padding:18px 20px 16px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6)}
 .num-head h2{margin:0; font:400 26px/1.1 var(--font-display)}
 .num-head h2:focus{outline:none}
@@ -134,7 +136,7 @@ body.numview .top input{-webkit-user-select:text; user-select:text}
 .num-foot a{color:inherit}
 .tiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(0,1fr)); gap:8px; margin-top:14px}
 .tiles[hidden]{display:none}
-.tile{background:var(--panel-2); border-radius:8px; padding:8px 12px}
+.tile{background:var(--panel-2); border-radius:8px; padding:8px 12px; display:flex; flex-direction:column; justify-content:space-between}   /* 이름이 두 줄이 돼도 숫자는 아래에 나란히 */
 .tile span{display:block; font-size:12px; color:var(--ink-2)}
 .tile b{font:600 18px var(--font-body); font-variant-numeric:tabular-nums}
 .tile small{color:var(--ink-2); font-size:12px; margin-left:4px}
@@ -165,7 +167,8 @@ body.numview .top input{-webkit-user-select:text; user-select:text}
 .tbar i{display:block; height:100%; background:var(--bar)}
 .none{color:var(--ink-3)}
 .empty{margin:14px 0 0; padding:22px 14px; border:1px dashed var(--line); border-radius:10px; text-align:center; color:var(--ink-2)}
-.empty b{display:block; margin-bottom:4px; color:var(--ink); font:400 20px var(--font-display)}
+.empty b{display:block; margin-bottom:4px; color:var(--ink); font:400 20px var(--font-display); word-break:keep-all; overflow-wrap:anywhere}   /* 한국어는 낱말 중간에서 줄을 바꾸지 않아요 */
+.empty .note{word-break:keep-all; overflow-wrap:anywhere}
 .morebox{margin-top:10px; text-align:center}
 /* 카드 */
 .card{position:fixed; z-index:6; top:calc(var(--top) + 6px); right:max(16px, env(safe-area-inset-right)); width:min(380px, calc(100% - 32px)); max-height:calc(100% - var(--top) - 22px); overflow:auto; background:var(--panel); color:var(--ink); border-radius:12px; box-shadow:0 18px 50px -20px rgba(0,0,0,.6); padding:16px 18px 18px}
@@ -235,9 +238,18 @@ body.numview .top input{-webkit-user-select:text; user-select:text}
 .cmd .btn{flex:none; align-self:flex-start}
 .join-box .note a{color:inherit; white-space:nowrap}
 .join-box details{margin-top:12px; font-size:13px}
+.join-box .note,.join-box details{word-break:keep-all; overflow-wrap:anywhere}
 .join-box details summary{cursor:pointer; color:var(--ink-2)}
 .join-box ol{margin:8px 0 0; padding-left:20px}
 .join-box ol li{margin-top:4px}
+/* '나' 카드의 도시에서 나가기(U-41): 접어 두고, 펼치면 두 주소와 앱 안내 */
+.card details.leave{margin-top:12px; font-size:12.5px; color:var(--ink-2)}
+.card details.leave summary{cursor:pointer; width:max-content; max-width:100%; padding:6px 0}
+.card details.leave p{margin:2px 0 0}
+.card details.leave ol{margin:6px 0 0; padding-left:20px}
+.card details.leave p,.card details.leave li{word-break:keep-all; overflow-wrap:anywhere}
+.card details.leave li{margin-top:6px}
+.card details.leave a{color:var(--ink); font-weight:600}
 @media (max-width:760px){
   .top{padding-top:10px}
   /* 첫 줄 [보기][언어], 둘째 줄 [나라][아이디 찾기] */
@@ -291,8 +303,8 @@ body.numview .top input{-webkit-user-select:text; user-select:text}
   <button type="button" class="chip cta visit-only" data-act="join" data-t="countMine">내 토큰 세어 보기</button>
   <div class="ctl">
     <div class="seg" role="group" id="viewGroup">
-      <button type="button" data-view="buildings" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V7l3-2v9M7 14V2l4 2v10M13 14V8h1v6M1 14.5h14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-t="viewCity">빌딩</span></button>
-      <button type="button" data-view="numbers" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h2M6 3h8M2 8h2M6 8h6M2 13h2M6 13h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span data-t="viewNum">숫자</span></button>
+      <button type="button" data-view="numbers" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h2M6 3h8M2 8h2M6 8h6M2 13h2M6 13h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span data-t="viewNum">순위</span></button>
+      <button type="button" data-view="buildings" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V7l3-2v9M7 14V2l4 2v10M13 14V8h1v6M1 14.5h14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-t="viewCity">빌딩</span></button>
     </div>
     <label class="pick"><span class="sr" data-t="country">나라</span><select id="ctry"></select></label>
     <form class="find" id="find" role="search" autocomplete="off"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><label class="sr" for="findQ" data-t="findL">아이디 찾기</label><input type="search" id="findQ" list="findList" enterkeyhint="search" spellcheck="false" autocapitalize="off" autocorrect="off" maxlength="40"><datalist id="findList"></datalist></form>
@@ -368,20 +380,20 @@ const JOIN_SOURCE = `https://github.com/Min-heee/agencity/blob/${JOIN_REF}/bin/c
 /* ---------- 말(한국어 / English): 마케팅 U-13 문구 ---------- */
 const T = {
   ko: {
-    docTitle: '에이전시티 · 도시', title: '에이전시티 도시', home: '← 내 사무실', build: '내 건물 세우기 →', install: '에이전시티 설치 ↗', rules: '도시 규칙',
+    docTitle: '에이전시티 · AI 토큰 순위', title: '에이전시티 도시', home: '← 내 사무실', build: '내 건물 세우기 →', install: '에이전시티 설치 ↗', rules: '도시 규칙',
     countMine: '내 토큰 세어 보기', findL: '아이디 찾기', findPh: '아이디 찾기',
-    loading: '불러오는 중', count: n => `건물 <b>${n}</b>채`, countC: c => ` · 나라 <b>${c}</b>곳`, loadingTail: ' · 불러오는 중',
+    loading: '불러오는 중', count: n => `<b>${n}</b>명`, countC: c => ` · 나라 <b>${c}</b>곳`, loadingTail: ' · 불러오는 중',
     failedN: n => `${n}명 못 불러옴`, cutN: n => `${n}명은 시간이 걸려 뺐어요`, demo: '예시', loadFail: '불러오지 못함',
-    viewGroup: '보기 바꾸기', viewCity: '빌딩', viewNum: '숫자', country: '나라', all: '모든 나라', noCountry: '나라 안 고름', langGroup: '언어 바꾸기',
+    viewGroup: '보기 바꾸기', viewCity: '빌딩', viewNum: '순위', country: '나라', all: '모든 나라', noCountry: '나라 안 고름', langGroup: '언어 바꾸기',
     map: '에이전시티 도시 지도', zin: '가까이', zout: '멀리', zfit: '전체 보기',
     hint: '끌어서 둘러보고, 건물이나 이름을 누르면 그 사람이 공개한 것만 보여요', hintZone: '나라 이름판을 누르면 그 나라로 가요', join: '내 토큰 세어 보기 →',
     noInstall: '설치 없이 터미널 한 줄로 내 토큰을 세어 봐요.',
     few: n => `아직 ${n}명이에요`, people: n => `${n}명`, goZone: cn => `${cn} 구역으로 가기`,
     bld: (p, cn, f, ok) => ok ? `${p}, ${cn}, ${f}층` : `${p}, ${cn}, 확인 안 됨`,
-    numTitle: '순위', numSub: (scope, n, bad) => `${scope} · ${n}명${bad ? ` · 확인 안 됨 ${bad}명` : ''}`,
-    numRule: '순위는 총 토큰 기준이에요. 올린 숫자가 서로 맞지 않으면 ‘확인 안 됨’으로 따로 둬요.',
+    numTitle: 'AI 토큰 순위', numSub: (scope, n, bad) => `${scope} · ${n}명${bad ? ` · 확인 안 됨 ${bad}명` : ''}`,
+    numRule: 'Claude Code·Codex·Gemini CLI에서 쓴 총 토큰으로 매긴 세계·나라별 순위예요. 올린 숫자가 서로 맞지 않으면 ‘확인 안 됨’으로 따로 둬요.',
     selfNote: '스스로 올린 숫자(자기 신고) · 각자 컴퓨터에 남은 기록 기준',
-    emptyC: '아직 이 나라에는 건물이 없어요', firstB: '첫 건물 세우기 →',
+    emptyC: '아직 이 나라에는 참가한 사람이 없어요', firstB: '첫 건물 세우기 →',
     tPeople: '참가', tCountries: '나라', tSum: '총 토큰 합',
     colRank: '순위', colName: '아이디', colCountry: '나라', colTotal: '총 토큰', byTotal: '총 토큰 순으로 봐요',
     you: '나', rankAll: n => `전체 ${n}위`, rankWorld: '세계 순위', more: n => `${n}명 더 보기`, gap: '⋯',
@@ -394,9 +406,15 @@ const T = {
     pubFloors: '공개한 층(팀)', asOf: d => `${d} 기준`, posted: d => `${d}에 올린 숫자`, made: d => `만든 날 ${d}`, floorN: n => `${n}층`, unnamed: '이름 없는 층', tourBtn: '사무실 둘러보기',
     myOffice: '내 사무실 열기', toCity: '빌딩에서 보기', toNum: '순위에서 보기',
     share: '공유 글 복사', copied: '복사했어요', notMe: '내가 아니에요', notMeDone: '이 브라우저에서 ‘나’를 지웠어요',
-    shareText: (total, line, url) => `에이전시티 도시에 내 건물이 섰어요 · 총 토큰 ${total} · ${line} · 나도 세어 보기 → ${url}`,
+    shareText: (total, line, url) => `에이전시티 AI 토큰 순위에 올랐어요 · 총 토큰 ${total} · ${line} · 나도 세어 보기 → ${url}`,
     saveCard: '카드 저장', saving: '카드 만드는 중', saved: '저장했어요', saveFail: '카드를 만들지 못했어요',
     cardNote: '대화·경로·세션 id는 올리지 않아요.',
+    // 도시에서 나가기(U-41): '나' 카드에만 보여요. 신청 화면에는 명단 저장소 이름이 보여요(참가 신청과 같아요).
+    leaveH: '도시에서 나가기', leave1: '탈퇴 신청 열기 ↗', leave1N: '도시 명단을 맡은 저장소에서 탈퇴 신청(leave 양식)을 열어요.',
+    leave1B: '참가한 GitHub 계정으로 열어 확인 칸에 체크하고 Submit new issue를 눌러요. 신청한 계정만 명단에서 빠지고, 몇 분 뒤 도시에서도 사라져요.',
+    leave2: '내 gist 열기 ↗', leave2N: 'gist.github.com에서 내 gist(도시에 올린 숫자 파일)를 열어요.',
+    leave2B: '그 페이지에서 Delete를 눌러 지워요. 지우기 전까지는 gist와 지난 수정 기록이 모두 공개로 남아요.',
+    leave3: '에이전시티 앱에서 자동으로 올리기를 켰다면 먼저 꺼요(설정 → 도시). 명단에서 빠지면 그 칸이 안 보여서 끌 수 없어요.',
     // 참가 처리 중: '나'(참가 명령이 연 주소로 온 브라우저)에게만 2인칭으로 말해요. 남의 링크로 온 방문자에게는 3인칭이에요.
     waitTag: '참가 처리 중', waitT: '참가 처리 중이에요 · 잠시 뒤 저절로 다시 볼게요',
     waitHow: 'GitHub 신청 화면에서 Submit new issue를 누르면 보통 몇 분 안에 들어와요. 이 화면은 30초마다 저절로 다시 봐요.',
@@ -407,10 +425,10 @@ const T = {
     unknown: '모름', justNow: '방금',
     tourTitle: p => `${p}의 사무실`, tourNote: d => `주인이 둘러보기를 허락한 층만, 직접 고른 내용만 보여요(읽기 전용). ${d} 기준이라 지금과 다를 수 있어요.`,
     states: { '일하는 중': '일하는 중', '대기': '대기', '회의 중': '회의 중', '막힘': '막힘' },
-    noLoad: '건물을 불러오지 못했어요', noLoadB: n => `명단의 ${n}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`,
+    noLoad: '참가한 사람을 불러오지 못했어요', noLoadB: n => `명단의 ${n}명 중 아무도 불러오지 못했어요. 인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.`,
     none: '아직 건물이 없어요', noneB: '내 숫자를 올리고 참가하면 첫 건물이 서요.', noneLocal: '설정 → 도시에서 내 건물을 세우면 첫 건물이 서요.',
     listFail: '명단을 불러오지 못했어요', listFailB: '인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.',
-    toldCity: '빌딩 보기로 바꿨어요', toldNum: n => `숫자 보기로 바꿨어요 · ${n}명`, toldZone: (cn, all) => all ? '모든 나라를 보여 줘요' : `${cn} 구역을 보여 줘요`,
+    toldCity: '빌딩 보기로 바꿨어요', toldNum: n => `순위 보기로 바꿨어요 · ${n}명`, toldZone: (cn, all) => all ? '모든 나라를 보여 줘요' : `${cn} 구역을 보여 줘요`,
     joinH: '내 토큰 세어 보기', joinSub: '터미널 한 줄 · 설치 없이', joinCountry: '나라', joinOpt: '(안 골라도 돼요 · 안 고르면 터미널에서 물어봐요)', joinNone: '고르지 않음', joinRemove: '나라 빼기 (이미 고른 나라를 지워요)',
     joinSearch: '나라 찾기', joinSearchPh: '나라 찾기 · 예: 대한민국, KR',
     joinCountryNote: '나라는 직접 골라요. 시간대로 짐작하지 않아요. 고른 나라는 공개 gist에 올라가 누구나 봐요. 시간대는 나라와 따로, 나라를 안 골라도 공개돼요. 나라는 언제든 바꾸거나 뺄 수 있어요(gist 수정 기록에는 예전 값이 남아요).',
@@ -420,6 +438,7 @@ const T = {
     joinAgain: '숫자를 새로 올리려면 같은 줄을 다시 실행해요. 저절로 올라가지는 않아요.',
     joinSrc: '스크립트 먼저 읽어 보기 ↗',
     joinMore: '자세히',
+    joinLeave: '도시에서 나가려면 참가한 GitHub 계정으로 탈퇴 신청을 열어 확인 칸에 체크하고 Submit new issue를 눌러요. 그다음 내 gist를 지워요. 터미널에 나온 ‘내 도시 주소’로 내 카드를 열면 맨 아래 ‘도시에서 나가기’에 두 주소가 다 있어요.',
     joinSteps: [
       '나라를 고르면(안 골라도 돼요) 위 명령에 그 나라가 들어가요.',
       '그 줄을 복사해 터미널에 붙여 넣어요. 로그인 없이 내 컴퓨터에서 먼저 세고 내 총 토큰을 바로 보여 줘요. 나라를 안 골랐으면 한 번 물어요(KR처럼 적거나 엔터). 맥에서 python3를 처음 쓰면 명령어 도구 설치 창이 떠요. 설치가 끝나면 같은 줄을 다시 붙여 넣어요.',
@@ -429,9 +448,9 @@ const T = {
     districts: { app: '앱', web: '웹', data: '데이터', content: '콘텐츠', tool: '개발 도구', game: '게임', etc: '기타' }
   },
   en: {
-    docTitle: 'Agencity · City', title: 'Agencity City', home: '← My office', build: 'Add my building →', install: 'Install Agencity ↗', rules: 'How it works',
+    docTitle: 'Agencity · AI token leaderboard', title: 'Agencity City', home: '← My office', build: 'Add my building →', install: 'Install Agencity ↗', rules: 'How it works',
     countMine: 'Count my tokens', findL: 'Find a user', findPh: 'Find a user',
-    loading: 'Loading…', count: n => `<b>${n}</b> ${n === 1 ? 'building' : 'buildings'}`, countC: c => ` · <b>${c}</b> ${c === 1 ? 'country' : 'countries'}`, loadingTail: ' · loading',
+    loading: 'Loading…', count: n => `<b>${n}</b> ${n === 1 ? 'person' : 'people'}`, countC: c => ` · <b>${c}</b> ${c === 1 ? 'country' : 'countries'}`, loadingTail: ' · loading',
     failedN: n => `couldn't load ${n}`, cutN: n => `skipped ${n} (too slow)`, demo: 'demo', loadFail: "Couldn't load",
     viewGroup: 'Switch view', viewCity: 'City', viewNum: 'Leaderboard', country: 'Country', all: 'All countries', noCountry: 'No country', langGroup: 'Change language',
     map: 'Map of Agencity City', zin: 'Zoom in', zout: 'Zoom out', zfit: 'Show all',
@@ -439,10 +458,10 @@ const T = {
     noInstall: 'No install: one terminal line counts your tokens.',
     few: n => n === 1 ? 'Only 1 person so far' : `Only ${n} people so far`, people: n => `${n} ${n === 1 ? 'person' : 'people'}`, goZone: cn => `Go to ${cn}`,
     bld: (p, cn, f, ok) => ok ? `${p}, ${cn}, ${f} floors` : `${p}, ${cn}, unverified`,
-    numTitle: 'Leaderboard', numSub: (scope, n, bad) => `${scope} · ${n} ${n === 1 ? 'person' : 'people'}${bad ? ` · ${bad} unverified` : ''}`,
-    numRule: 'Rank is based on total tokens. If someone’s numbers don’t add up, they’re listed separately as “unverified”.',
+    numTitle: 'AI token leaderboard', numSub: (scope, n, bad) => `${scope} · ${n} ${n === 1 ? 'person' : 'people'}${bad ? ` · ${bad} unverified` : ''}`,
+    numRule: 'World and country rankings by total tokens used in Claude Code, Codex and Gemini CLI. If someone’s numbers don’t add up, they’re listed separately as “unverified”.',
     selfNote: 'Self-reported numbers · based on the logs left on each person’s computer',
-    emptyC: 'No buildings in this country yet', firstB: 'Raise the first one →',
+    emptyC: 'No one from this country has joined yet', firstB: 'Raise the first building →',
     tPeople: 'People', tCountries: 'Countries', tSum: 'Total tokens, combined',
     colRank: 'Rank', colName: 'User', colCountry: 'Country', colTotal: 'Total tokens', byTotal: 'Sorted by total tokens',
     you: 'You', rankAll: n => `#${n} overall`, rankWorld: 'World rank', more: n => `Show ${n} more`, gap: '⋯',
@@ -455,9 +474,14 @@ const T = {
     pubFloors: 'Public floors (teams)', asOf: d => `as of ${d}`, posted: d => `Posted ${d}`, made: d => `Made ${d}`, floorN: n => `Floor ${n}`, unnamed: 'Unnamed floor', tourBtn: 'Tour the office',
     myOffice: 'Open my office', toCity: 'Show in city', toNum: 'Show on leaderboard',
     share: 'Copy share text', copied: 'Copied', notMe: 'This isn’t me', notMeDone: 'Cleared “you” in this browser',
-    shareText: (total, line, url) => `My building is up in Agencity City · ${total} total tokens · ${line} · Count yours → ${url}`,
+    shareText: (total, line, url) => `I’m on the Agencity AI token leaderboard · ${total} total tokens · ${line} · Count yours → ${url}`,
     saveCard: 'Save card', saving: 'Making card…', saved: 'Saved', saveFail: 'Couldn’t make the card',
     cardNote: 'No chats, file paths or session ids are uploaded.',
+    leaveH: 'Leave the city', leave1: 'Open the leave request ↗', leave1N: 'Open the leave form in the repo that runs the member list.',
+    leave1B: 'While signed in to GitHub as the account you joined with, tick the confirm box and click Submit new issue. Only the account that submits it is removed, and a few minutes later you’re gone from the city.',
+    leave2: 'Open my gist ↗', leave2N: 'Open your gist (the numbers file you posted) at gist.github.com.',
+    leave2B: 'Click Delete on that page. Until you do, the gist and all its past revisions stay public.',
+    leave3: 'If you turned on 자동으로 올리기 (auto upload) in the Agencity app, turn it off first (설정 → 도시, Settings → City). Once you’re off the list, that box is hidden and you can’t turn it off.',
     waitTag: 'Joining', waitT: 'Your join is being processed · this page checks again on its own',
     waitHow: 'Click Submit new issue on the GitHub request page; it usually takes a few minutes. This page checks every 30 seconds.',
     waitLate: 'Please check that you submitted the join request', waitLateHow: 'Still not on the list after 10 minutes. Open the “Join the city” link from your terminal and click Submit new issue.',
@@ -467,7 +491,7 @@ const T = {
     unknown: 'unknown', justNow: 'just now',
     tourTitle: p => `${p}'s office`, tourNote: d => `Read-only. You see only the floors the owner opened for touring, and only what they chose to share. As of ${d}, so things may have changed.`,
     states: { '일하는 중': 'Working', '대기': 'Idle', '회의 중': 'In a meeting', '막힘': 'Blocked' },
-    noLoad: "Couldn't load any buildings", noLoadB: n => `None of the ${n} people on the list could be loaded. Check your connection or try again in a bit.`,
+    noLoad: "Couldn't load anyone who joined", noLoadB: n => `None of the ${n} people on the list could be loaded. Check your connection or try again in a bit.`,
     none: 'No buildings yet', noneB: 'Post your numbers and join to raise the first building.', noneLocal: 'Add your building in Settings → City to raise the first one.',
     listFail: "Couldn't load the member list", listFailB: 'Check your connection or try again in a bit.',
     toldCity: 'Switched to city', toldNum: n => `Switched to leaderboard · ${n} ${n === 1 ? 'person' : 'people'}`, toldZone: (cn, all) => all ? 'Showing all countries' : `Showing ${cn}`,
@@ -480,6 +504,7 @@ const T = {
     joinAgain: 'To post new numbers, run the same line again. Nothing uploads on its own.',
     joinSrc: 'Read the script first ↗',
     joinMore: 'More details',
+    joinLeave: 'To leave the city, open the leave request while signed in to GitHub as the account you joined with, tick the confirm box and click Submit new issue. Then delete your gist. Open your card from the “Your city page” link in your terminal; “Leave the city” at the bottom has both links.',
     joinSteps: [
       'If you pick a country (optional), it’s added to the command above.',
       'Copy it into your terminal. It counts first, on your own machine and without signing in, and shows your total tokens right away. If you didn’t pick a country, it asks once (type a code like KR, or press Enter to skip). On a Mac, the first python3 run may ask to install the command line tools. Once they’re installed, paste the same line again.',
@@ -781,7 +806,10 @@ function meChanged(v) {
 const shareURL = login => `${PUBLIC_URL}?who=${encodeURIComponent(login)}${lang === 'en' ? '&lang=en' : ''}`;
 
 /* ---------- 나라 구역 ---------- */
-let people = [], ZONES = [], zone = 'ALL', view = params.get('view') === 'numbers' ? 'numbers' : 'buildings', shown = PAGE;
+// 첫 보기: 주소의 ?view=가 앞서요. 없으면 공개 도시는 순위 보기, 내 컴퓨터의 앱(127.0.0.1)은 지금처럼 빌딩 보기예요(U-42 가).
+const HOME_VIEW = LOCAL ? 'buildings' : 'numbers';
+const firstView = q => q.get('view') === 'numbers' || q.get('view') === 'buildings' ? q.get('view') : HOME_VIEW;
+let people = [], ZONES = [], zone = 'ALL', view = firstView(params), shown = PAGE;
 let okN = 0, okIn = new Map();   // 확인된 사람 수(전체, 나라마다)
 const inZone = p => zone === 'ALL' || p.c === zone;
 // 순위(전체·나라 안)와 구역: 총 토큰 합이 큰 나라부터(뒤쪽). '나라 안 고름'은 늘 맨 끝(가장자리)이고, 사람이 있는 나라만 구역이 생겨요.
@@ -1138,7 +1166,7 @@ function bringIntoView(p) {
   pan.x += W / 2 - midX; pan.y += freeY(p, H) - midY; moved = true; applyView();
 }
 
-/* ---------- 숫자 보기 ---------- */
+/* ---------- 순위 보기 ---------- */
 // 내 건물 세우기: 공개 도시는 설치 없이 올리는 패널, 내 컴퓨터의 앱은 설정의 도시 묶음으로(내 건물이 이미 서 있으면 보여 주지 않아요)
 let meMissing = false;
 const canJoin = () => !LOCAL || meMissing;
@@ -1161,9 +1189,22 @@ function drawNumbers() {
   // 세계 순위를 그대로 보일 때(5명 전 나라·'나라 안 고름')는 순위 칸마다 작게 '세계 순위'를 붙여요(폰의 카드형 줄에서도 보이게).
   const inC = zone !== 'ALL' && !!zone, byC = inC && (okIn.get(zone) || 0) >= COUNTRY_FROM;
   // 사람 수는 확인된 사람(카드의 'N명 중'·나라 5명 규칙과 같은 수), 확인 안 됨은 따로 세요
-  $('#numSub').textContent = t().numSub(scopeName(), ok.length, bad.length) + (inC && !byC ? ' · ' + t().ctryFrom(COUNTRY_FROM) : '');
+  $('#numSub').textContent = !loaded && !people.length ? scopeName() + t().loadingTail : t().numSub(scopeName(), ok.length, bad.length) + (inC && !byC ? ' · ' + t().ctryFrom(COUNTRY_FROM) : '');
   $('#numRule').textContent = t().numRule;
   $('#numSelf').textContent = t().selfNote;
+  $('#numFoot').innerHTML = `<a href="${VISION_URL}" target="_blank" rel="noopener">${esc(t().rules)}</a> · <a href="${INSTALL_URL}" target="_blank" rel="noopener">${esc(t().install)}</a>`;
+  // 명단을 못 읽었거나 아무도 없으면 지도 가운데 알림(#msg, 순위 보기에서는 숨겨요)과 같은 말을 순위표 안에 보여요
+  if (msgArgs && !people.length) {
+    const k = msgArgs.k;
+    if (k !== 'none') $('#numSub').textContent = scopeName() + ' · ' + t().loadFail;   // 못 읽었으면 '0명'이라고 하지 않아요(모르는 수예요)
+    $('#few').hidden = true;
+    $('#tiles').hidden = true;
+    // 공개 도시에서 아무도 없으면 지도 가운데 알림과 같은 말과 단추(설치 없이 터미널 한 줄 · 내 토큰 세어 보기)
+    const body = k === 'noLoad' ? esc(t().noLoadB(msgArgs.n)) : k === 'listFail' ? esc(t().listFailB) : LOCAL ? esc(t().noneLocal) : esc(t().noInstall);
+    const act = k !== 'none' ? '' : joinBtn('btn ghost', LOCAL ? t().firstB : t().join);
+    $('#table').innerHTML = `<div class="empty"><b>${esc(k === 'noLoad' ? t().noLoad : k === 'listFail' ? t().listFail : t().none)}</b><p class="note" style="margin:0 0 10px">${body}</p>${act}</div>`;
+    return;
+  }
   // 사람이 적을 때는 표 위에 크게 '아직 n명이에요 · 내 토큰 세어 보기 →'
   const few = $('#few');
   few.hidden = !(loaded && people.length <= FEW);
@@ -1172,7 +1213,7 @@ function drawNumbers() {
   $('#tiles').innerHTML = `<div class="tile"><span>${esc(t().tPeople)}</span><b>${list.length}</b></div>
     ${zone === 'ALL' ? `<div class="tile"><span>${esc(t().tCountries)}</span><b>${new Set(list.map(p => p.c).filter(Boolean)).size}</b></div>` : ''}
     <div class="tile"><span>${esc(t().tSum)}</span><b>${esc(fmt(ok.reduce((a, p) => a + p.total, 0)))}</b></div>`;
-  if (!list.length) { $('#table').innerHTML = loaded ? `<div class="empty"><b>${esc(t().emptyC)}</b>${joinBtn('btn ghost', t().firstB)}</div>` : ''; return; }
+  if (!list.length) { $('#table').innerHTML = loaded ? `<div class="empty"><b>${esc(t().emptyC)}</b>${joinBtn('btn ghost', LOCAL ? t().firstB : t().join)}</div>` : ''; return; }
   const rows = [...ok].sort((a, b) => b.total - a.total || a.login.localeCompare(b.login)).map(p => ({ p, r: byC ? p.rankIn : p.rankAll }));
   const max = Math.max(1, ...ok.map(p => p.total)), sub = x => byC ? t().rankAll(x.p.rankAll) : zone !== 'ALL' ? t().rankWorld : '';
   const page = rows.slice(0, shown), mine = rows.find(x => isMe(x.p)), extra = mine && !page.includes(mine) ? mine : null;
@@ -1183,7 +1224,6 @@ function drawNumbers() {
     <tbody>${page.map(row).join('')}${extra ? `<tr class="gap"><td colspan="4">${esc(t().gap)}</td></tr>${row(extra)}` : ''}
     ${offs.length ? `<tr class="sep"><td colspan="4"><b>${esc(t().unverifiedN(offs.length))}</b> · ${esc(t().unverifiedB)}</td></tr>${offs.map(p => rowHTML(p, 0, '', max)).join('')}` : ''}</tbody></table>
     ${rows.length > shown ? `<div class="morebox"><button type="button" class="btn ghost" data-act="more">${esc(t().more(Math.min(PAGE, rows.length - shown)))}</button></div>` : ''}`;
-  $('#numFoot').innerHTML = `<a href="${VISION_URL}" target="_blank" rel="noopener">${esc(t().rules)}</a> · <a href="${INSTALL_URL}" target="_blank" rel="noopener">${esc(t().install)}</a>`;
 }
 
 /* ---------- 카드·둘러보기 ---------- */
@@ -1203,6 +1243,9 @@ function showCard(kind, html, focus) {
 // 카드: 총 토큰을 가장 크게, 그 아래 '그중 캐시 읽기 x%', 순위 줄(R2), 자기 신고 줄. 작업량·Lv·높이 안내는 없어요(U-40).
 // move가 false면 건물 자리를 옮기지 않고 글만 새로 그려요(순위가 바뀌었을 때).
 function card(p, focus = true, move = true) {
+  // 같은 사람을 다시 그릴 때(언어·보기 바꾸기 등) 펼쳐 둔 '도시에서 나가기'와 그 포커스를 지켜요
+  const lo = selected === p ? $('#card details.leave') : null, keepLeave = !!(lo && lo.open);
+  const leaveFocus = keepLeave && typeof document !== 'undefined' && document.activeElement === lo.querySelector('summary');
   selected = p; applySel();
   const m = p.meter, o = p.office;
   const tools = Object.keys(m.tools).map(k => [k, m.tools[k].total]).filter(([, v]) => v > 0);
@@ -1229,7 +1272,9 @@ function card(p, focus = true, move = true) {
     <ul class="floors">${floors.map(f => `<li><b>${esc(t().floorN(f.floor))}</b><span class="u">${esc(f.name || t().unnamed)}</span>${f.district ? ` <small>· ${esc(t().districts[f.district])}</small>` : ''}${f.summary ? `<p class="u">${esc(f.summary)}</p>` : ''}</li>`).join('')}</ul>
       ${floors.some(f => f.level === 'tour') ? `<button type="button" class="btn" id="tourBtn" style="margin-top:12px">${esc(t().tourBtn)}</button>` : ''}` : ''}
     <p class="note">${esc(t().selfNote)}</p>
-    <p class="note" style="margin-top:4px">${esc(t().cardNote)}</p>`, focus);
+    <p class="note" style="margin-top:4px">${esc(t().cardNote)}</p>
+    ${me && !p.demo ? leaveBlock(p) : ''}`, focus);
+  if (keepLeave) { const d = $('#card details.leave'); if (d) { d.open = true; if (leaveFocus) d.querySelector('summary').focus({ preventScroll: true }); } }
   $('#cardSwap').addEventListener('click', () => setView(view === 'buildings' ? 'numbers' : 'buildings'));
   const sh = $('#cardShare'), sv = $('#cardSave');
   if (mine && sh) sh.addEventListener('click', () => copy(shareText(p), sh, t().share));
@@ -1243,7 +1288,7 @@ function closeCard() {
   $('#card').hidden = true; $('#card').dataset.kind = ''; document.body.classList.remove('carded');
   selected = null; applySel();
   if (view === 'numbers') drawNumbers();
-  if (lastFocus && lastFocus.isConnected) lastFocus.focus({ preventScroll: true });
+  if (lastFocus && lastFocus.isConnected) (lastFocus.closest('[inert]') ? $('#numH') : lastFocus).focus({ preventScroll: true });   // 건물에서 열고 순위로 바꿨으면 순위표 제목으로
 }
 // '내가 아니에요'를 누르면: 기억을 지우고 카드·순위표를 다시 그려요
 function notMe() {
@@ -1251,6 +1296,25 @@ function notMe() {
   if (selected) card(selected);
   else if (view === 'numbers') drawNumbers();
   $('#live').textContent = t().notMeDone;
+}
+// 도시에서 나가기(U-41). 탈퇴 신청은 명단 저장소의 leave 양식이에요: 명단(CONFIG.registry)이 https://<owner>.github.io/<repo>/일 때
+// github.com/<owner>/<repo>에서 열어요(참가 신청과 같은 저장소라 이름을 옮겨도 함께 바뀌어요). 이슈를 연 계정만 명단에서 빠져요.
+// 명단이 GitHub Pages가 아니면(시험용 서버 등) ''이고, 그때는 주소 없이 글만 보여요.
+function leaveURL() {
+  try {
+    const u = new URL(CONFIG.registry), m = /^([A-Za-z0-9-]+)\.github\.io$/i.exec(u.hostname), repo = u.pathname.split('/').filter(Boolean)[0] || '';
+    return u.protocol === 'https:' && m && /^[A-Za-z0-9._-]{1,100}$/.test(repo) ? `https://github.com/${m[1]}/${repo}/issues/new?template=leave.yml&title=leave` : '';
+  } catch (e) { return ''; }
+}
+// 그 사람의 gist 페이지(지우는 곳). 명단에서 읽은 아이디·gist 값이 꼴에 맞을 때만이에요.
+function gistURL(p) { return p && typeof p.gist === 'string' && GIST_RE.test(p.gist) && LOGIN_RE.test(p.login) ? `https://gist.github.com/${p.login}/${p.gist}` : ''; }
+function outLink(href, label) { return `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)}</a>`; }
+// '나' 카드 맨 아래에 접어 둬요. 확인 안 됨이어도 보여요. 앱 안내(자동으로 올리기 끄기)가 먼저예요: 명단에서 빠지면 그 칸이 안 보여요.
+function leaveBlock(p) {
+  const lv = leaveURL(), g = gistURL(p);
+  return `<details class="leave"><summary>${esc(t().leaveH)}</summary><p>${esc(t().leave3)}</p><ol>
+    <li>${lv ? outLink(lv, t().leave1) : esc(t().leave1N)} ${esc(t().leave1B)}</li>
+    <li>${g ? outLink(g, t().leave2) : esc(t().leave2N)} ${esc(t().leave2B)}</li></ol></details>`;
 }
 
 /* ---------- 결과 카드 그림(U-40 5-3 ②): '나'의 카드에서 1080×1080 PNG ---------- */
@@ -1590,7 +1654,7 @@ function openJoin() {
       <input type="search" id="joinQ" value="${esc(joinQ)}" placeholder="${esc(t().joinSearchPh)}" aria-label="${esc(t().joinSearch)}" autocomplete="off" spellcheck="false" aria-controls="joinC">
       <select id="joinC">${joinOpts()}</select></div>
     <p class="note" style="margin-top:8px">${esc(t().joinWhat)} <a href="${esc(JOIN_SOURCE)}" target="_blank" rel="noopener">${esc(t().joinSrc)}</a></p>
-    <details><summary>${esc(t().joinMore)}</summary><p class="note">${esc(t().joinAgain)}</p><p class="note">${esc(t().joinCountryNote)}</p><p class="note">${esc(t().joinNeed)}</p><ol>${t().joinSteps.map(s => `<li>${esc(s)}</li>`).join('')}</ol></details>`;
+    <details><summary>${esc(t().joinMore)}</summary><p class="note">${esc(t().joinAgain)}</p><p class="note">${esc(t().joinCountryNote)}</p><p class="note">${esc(t().joinNeed)}</p><ol>${t().joinSteps.map(s => `<li>${esc(s)}</li>`).join('')}</ol><p class="note">${esc(t().joinLeave)}${leaveURL() ? ' ' + outLink(leaveURL(), t().leave1) : ''}</p></details>`;
   $('#join').hidden = false;
   $('#joinC').addEventListener('change', e => { joinCountry = e.target.value; $('#joinCode').textContent = joinCmd(); });
   $('#joinQ').addEventListener('input', e => { joinQ = e.target.value; $('#joinC').innerHTML = joinOpts(); });   // 사파리는 option을 숨기지 못해서 목록을 다시 만들어요
@@ -1604,7 +1668,7 @@ let loaded = false, loadState = { failed: 0, cut: 0, error: false };
 function syncURL() {
   try {
     const q = new URLSearchParams(location.search);
-    if (view === 'numbers') q.set('view', 'numbers'); else q.delete('view');
+    if (view === HOME_VIEW) q.delete('view'); else q.set('view', view);
     if (zone === 'ALL') q.delete('country'); else q.set('country', zone || 'none');
     const s = q.toString();
     history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash);
@@ -1614,8 +1678,9 @@ function setView(v, announce = true) {
   view = v;
   $$('#viewGroup button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
   $('#numbers').hidden = v !== 'numbers';
-  document.body.classList.toggle('numview', v === 'numbers');   // 숫자 보기에서는 위 막대 자리에 불투명 띠
+  document.body.classList.toggle('numview', v === 'numbers');   // 순위 보기에서는 위 막대 자리에 불투명 띠
   $('#stage').setAttribute('aria-hidden', String(v === 'numbers'));
+  $('#stage').inert = v === 'numbers';   // 순위 보기에서는 숨은 지도(건물·이름판)에 Tab·누름이 닿지 않아요(순위표 전에 안 보이는 칸을 거치지 않게)
   refreshChrome();
   scheduleTags();   // 빌딩 보기로 오면 안내 줄·확대 단추가 다시 보여요: 이름판 자리를 그에 맞춰 다시 잡아요
   if (v === 'numbers') drawNumbers();
@@ -1629,7 +1694,7 @@ function setZone(c, announce = true) {
   shown = PAGE;
   ctryOptions();
   applySel();
-  fit();   // 숫자 보기에서 바꿔도 지도를 그 나라에 맞춰 둬요(빌딩 보기로 돌아오면 고른 나라가 보이게)
+  fit();   // 순위 보기에서 바꿔도 지도를 그 나라에 맞춰 둬요(빌딩 보기로 돌아오면 고른 나라가 보이게)
   if (view === 'numbers') drawNumbers();
   refreshChrome();
   syncURL();
@@ -1689,6 +1754,7 @@ function message(kind) {
     : [t().none, '', LOCAL ? (kind.missing ? `<a class="go" href="./?setup=city">${esc(t().noneLocal)}</a>` : '') : `${esc(t().noInstall)} ${joinBtn('go', t().join)}`];
   m.innerHTML = `<h2>${esc(title)}</h2><p>${html || esc(body || t().noneB)}</p>`;
   m.hidden = false;
+  if (view === 'numbers') drawNumbers();   // 순위 보기에서는 같은 알림을 순위표 안에(#msg는 CSS로 숨겨요)
 }
 function setLang(l) {
   lang = l;
@@ -1803,7 +1869,9 @@ document.addEventListener('click', e => {
 $('#join').addEventListener('click', e => { if (e.target.id === 'join') closeJoin(); });
 // 창 안에서만 Tab이 돌아요(둘러보기·내 토큰 세어 보기)
 function trap(box, e) {
-  const f = [...box.querySelectorAll('button, a[href], select, input, summary')].filter(x => !x.disabled && x.offsetParent !== null);
+  // 접힌 <details> 안의 것은 빼요(그 details의 summary만 남겨요). 크롬은 접힌 링크도 offsetParent가 있어서 목록 끝에 들어오면 Tab이 창 밖으로 새요.
+  const shut = x => { const d = x.closest('details:not([open])'); return !!d && !(x.tagName === 'SUMMARY' && x.parentElement === d); };
+  const f = [...box.querySelectorAll('button, a[href], select, input, summary')].filter(x => !x.disabled && x.offsetParent !== null && !shut(x));
   if (!f.length) return;
   const i = f.indexOf(document.activeElement);
   if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); } else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
@@ -1850,7 +1918,7 @@ function addPerson(m) {
     size: Math.max(2, Math.min(4, 2 + Math.floor(activeDays(m.meter) / 120))), hsl: ok ? [h % 360, 22 + (h >>> 9) % 18, 42 + (h >>> 17) % 12] : [h % 360, 4, 34] }));
   scheduleDraw();   // 순위표도 거기서(순위를 다시 매긴 뒤에) 그려요
 }
-// 주소의 나라: ?country=all|none|KR (목록에 없는 코드여도 '아직 이 나라에는 건물이 없어요'를 보여 줘요)
+// 주소의 나라: ?country=all|none|KR (목록에 없는 코드여도 '아직 이 나라에는 참가한 사람이 없어요'를 보여 줘요)
 const qc = (params.get('country') || '').toUpperCase();
 const askedZone = !!qc;
 if (qc) zone = qc === 'ALL' ? 'ALL' : qc === 'NONE' ? '' : COUNTRY_RE.test(qc) ? qc : 'ALL';
@@ -1898,10 +1966,11 @@ refreshChrome();
       if (pending) waitFor(want);
       return;
     }
-    // 휴대폰은 도시 전체가 너무 작아서 내 나라 구역부터 열어요(나라를 고르지 않은 방문자는 전체). 위의 나라 고르기로 '모든 나라'를 볼 수 있어요.
+    // 휴대폰에서 빌딩 보기로 열면(앱, 또는 ?view=buildings 주소) 도시 전체가 너무 작아서 내 나라 구역부터 열어요(나라를 고르지 않은 방문자는 전체).
+    // 순위 보기로 열면 모든 나라부터예요(앞문은 세계 순위). 열린 뒤 보기를 바꾸면 그때 고른 나라 그대로예요. 위의 나라 고르기로 '모든 나라'를 볼 수 있어요.
     // 주소에 ?who=가 있으면(남의 공유 링크) 그 사람을 보러 온 거라 내 나라로 바꾸지 않아요.
     const mine = people.find(isMe);
-    if (!askedZone && !want && narrow() && people.length > FEW && mine && mine.c) zone = mine.c;
+    if (view === 'buildings' && !askedZone && !want && narrow() && people.length > FEW && mine && mine.c) zone = mine.c;
     layout(); draw();
     ctryOptions();
     refreshChrome();

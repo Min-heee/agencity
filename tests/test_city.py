@@ -743,6 +743,8 @@ class CityJoin(unittest.TestCase):
         self.assertIn("참가 처리 중", out)
         self.assertNotIn("공유 주소: ", out)                                       # 명단에 들어오기 전에는 공유 주소가 없어요
         self.assertEqual(out.strip().splitlines()[-1].strip(), "남은 일 하나: 열린 GitHub 신청 화면에서 Submit new issue를 눌러요. 몇 분 뒤 내 도시 주소에 내 카드가 열려요.")
+        self.assertNotIn("도시에서 나가려면", out)                                # 신청이 남았으면 나가기 줄은 빼요(신청 주소와 헷갈리지 않게)
+        self.assertNotIn("https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave", urls)                                            # 탈퇴 신청 화면은 열지 않아요
         # 명단에 들어온 뒤: 내 도시 주소만 열어요(신청 화면은 열지 않아요). 공유 주소에는 #me가 없어요.
         self.gh.members = [{"login": ME, "gist": gid}]
         code, out = run_tty(cmd + ["--country", "KR"], self.env, "y")
@@ -753,6 +755,11 @@ class CityJoin(unittest.TestCase):
         self.assertNotIn("참가 처리 중", out)
         self.assertNotIn("도시 참가 신청", out)
         self.assertNotIn("남은 일 하나", out)
+        tail = [x.strip() for x in out.strip().splitlines()[-3:]]                   # 명단에 있으면 끝이 나가는 방법(주소는 줄 끝에)
+        self.assertEqual(tail, ["나중에 도시에서 나가려면 참가한 GitHub 계정으로 두 가지를 해요.",
+                                "1) 탈퇴 신청을 열어 확인 칸에 체크하고 Submit new issue를 눌러요: https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave",
+                                f"2) 그다음 내 gist를 열어 Delete를 눌러요: https://gist.github.com/{ME}/{gid}"])
+        self.assertNotIn("https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave", self.opened_urls())
         share = re.search(r"공유 주소: (\S+)", out).group(1)
         self.assertEqual(share, f"{PAGE_URL}?who={ME}")
         self.assertNotIn("#", share)
@@ -776,6 +783,7 @@ class CityJoin(unittest.TestCase):
         code, out = run_tty(self.cmd + ["--country", "KR"], self.env, "y")
         self.assertEqual(code, 0, out)
         self.assertRegex(out, "공유 주소: " + re.escape(f"{PAGE_URL}?who={ME}") + r"\r?\n")
+        self.assertIn("Submit new issue를 눌러요: https://github.com/Min-heee/token-meter/issues/new?template=leave.yml&title=leave", out)                      # --no-open이어도 나가는 방법은 글로 보여요
 
     def test_members_unknown_hides_share(self):
         """명단을 못 읽으면(들어왔는지 몰라요) 신청 주소와 내 도시 주소만 보여 주고 공유 주소는 보여 주지 않아요."""
@@ -785,6 +793,7 @@ class CityJoin(unittest.TestCase):
         self.assertIn("도시 명단을 확인하지 못했어요", out)
         self.assertIn(f"내 도시 주소: {PAGE_URL}?who={ME}#me", out)
         self.assertNotIn("공유 주소: ", out)
+        self.assertNotIn("도시에서 나가려면", out)                                  # 들어왔는지 모르면 나가는 방법도 빼요(신청 주소와 헷갈리지 않게)
         self.assertIn(("GET", "/nope/members.json", None), self.gh.calls)
 
     def test_page_and_command_agree(self):
@@ -1430,7 +1439,7 @@ console.log(JSON.stringify(out));
     TABLE = RANK_SETUP + city_js("PAGE", "FEW", "OLD_DAYS", "VISION_URL", "INSTALL_URL", "avatar", "inZone", "canJoin", "joinBtn", "scopeName", "isMe",
                                  "rowHTML", "drawNumbers") + """
 const LOCAL = false, CONFIG = { me: 'kr-b' };
-let zone = 'ALL', shown = PAGE, selected = null, loaded = true, meMissing = false;
+let zone = 'ALL', shown = PAGE, selected = null, loaded = true, meMissing = false, msgArgs = null;
 const els = {}, $ = s => els[s] || (els[s] = { textContent: '', innerHTML: '', hidden: false });
 people = [P('kr-a', 'KR', 4e8), P('kr-b', 'KR', 3e8), P('kr-c', 'KR', 2e8), P('kr-d', 'KR', 1e8), P('kr-x', 'KR', 9e14, false),
   P('jp-a', 'JP', 5e8), P('jp-b', 'JP', 5e7), P('no-a', '', 6e8)];
@@ -1487,15 +1496,15 @@ console.log(JSON.stringify(res));""")
 
     def test_card_one_number(self):
         code = RANK_SETUP + city_js("OLD_DAYS", "TOOLS", "cacheOf", "isMe", "avatarBig", "letterAv", "hash", "dayKey", "PUBLIC_URL", "SITE", "shareURL",
-                                    "cardArt", "shareText", "card") + """
-const LOCAL = false, CONFIG = { me: 'kr-b' }, now = () => new Date('2026-10-21T09:00:00+09:00');
+                                    "cardArt", "shareText", "card", "LOGIN_RE", "GIST_RE", "leaveURL", "gistURL", "outLink", "leaveBlock") + """
+const LOCAL = false, CONFIG = { me: 'kr-b', registry: 'https://min-heee.github.io/token-meter/' }, now = () => new Date('2026-10-21T09:00:00+09:00');
 let meFrom = 'browser', view = 'numbers', selected = null, html = '';
 const els = {}, $ = s => els[s] || (els[s] = { addEventListener(ev, fn) { this.fn = fn; } });
 const showCard = (kind, h) => { html = h; }, applySel = () => {}, drawNumbers = () => {}, bringIntoView = () => {}, rel = () => '방금', dayRel = () => '오늘';
 const prepped = [], copied = [], prepArt = p => { prepped.push(p.login); }, saveCard = () => {}, copy = s => { copied.push(s); };
 const M = (total, ok = true) => ({ tools: { claude: { total, cacheRead: total * 0.86 } }, models: { Opus: total }, days: { '2026-10-01': total }, updatedAt: '', ok });
 people = [{ login: 'kr-a', c: 'KR', total: 4e8, ok: true, meter: M(4e8), office: null },
-  { login: 'kr-b', c: 'KR', total: 3e8, ok: true, meter: M(3e8), office: { intro: '', district: '', floors: [], updatedAt: '' } },
+  { login: 'kr-b', gist: 'abc123', c: 'KR', total: 3e8, ok: true, meter: M(3e8), office: { intro: '', district: '', floors: [], updatedAt: '' } },
   { login: 'kr-b2', c: 'KR', total: 9e14, ok: false, meter: M(9e14, false), office: null }];
 setCitizens(people);
 rerank();
@@ -1517,7 +1526,7 @@ console.log(JSON.stringify(out));
         self.assertNotIn('id="cardSave"', r["bad"])                            # 확인 안 됨이면 단추가 없어요
         self.assertEqual(r["prepped"], ["kr-b", "kr-b"])                       # 그림은 '나'의 카드를 열 때만 미리 만들어요
         # 공유 글: 순위 줄의 등수·'N명 중'은 그대로, 규칙 안내('나라 순위는 5명부터')만 빼요
-        self.assertEqual(r["share"], "에이전시티 도시에 내 건물이 섰어요 · 총 토큰 3억 · 2번째 시민 · 가장 많이 쓴 날 3억 토큰 · 활동한 날 1일"
+        self.assertEqual(r["share"], "에이전시티 AI 토큰 순위에 올랐어요 · 총 토큰 3억 · 2번째 시민 · 가장 많이 쓴 날 3억 토큰 · 활동한 날 1일"
                                      " · 세계 2등 · 2명 중 · 나도 세어 보기 → https://min-heee.github.io/agencity/?who=kr-b")
         self.assertIn("나라 순위는 5명부터", me)                                 # 화면 카드에는 규칙 안내가 있어요
         self.assertIn('<div class="cbig"><span>총 토큰</span><b>3억</b><small>그중 캐시 읽기 86%</small>', me)    # 총 토큰을 가장 크게, 캐시 읽기는 작게
@@ -1535,6 +1544,22 @@ console.log(JSON.stringify(out));
         self.assertNotIn('class="rl"', bad)
         self.assertIn("같은 명령을 다시 실행해 이 컴퓨터에서 새로 세어 올리면 다시 확인해요.", bad)   # '나'의 확인 안 됨: 다음에 할 일
         self.assertNotIn("같은 명령을 다시 실행해", r["badOther"])                                   # 남의 카드에는 없어요
+        # 도시에서 나가기(U-41): '나' 카드에만, 접어 둔 채로(확인 안 됨이어도, 앱의 '나'여도). 탈퇴 신청과 내 gist 주소
+        for k in ("me", "local", "bad"):
+            self.assertIn('<details class="leave"><summary>도시에서 나가기</summary>', r[k], k)
+        for k in ("other", "badOther"):
+            self.assertNotIn('class="leave"', r[k], k)
+        self.assertIn('href="https://github.com/min-heee/token-meter/issues/new?template=leave.yml&amp;title=leave"', me)
+        self.assertIn('href="https://gist.github.com/kr-b/abc123"', me)
+        self.assertIn("탈퇴 신청 열기 ↗", me)
+        self.assertIn("확인 칸에 체크하고 Submit new issue", me)              # 탈퇴 양식의 필수 확인 칸
+        self.assertIn("Delete를 눌러 지워요", me)
+        self.assertNotIn("다시 올라가요", me)                                # 앱은 명단에 있을 때만 올려요(빠진 뒤에는 안 올려요)
+        lead = me.index('<summary>도시에서 나가기</summary><p>에이전시티 앱에서 자동으로 올리기를 켰다면 먼저 꺼요')
+        self.assertLess(lead, me.index("탈퇴 신청 열기"))                     # 앱 안내가 먼저(빠지면 그 칸이 안 보여요)
+        self.assertLess(me.index("각자 컴퓨터에 남은 기록 기준"), me.index('class="leave"'))   # 카드 맨 아래
+        self.assertNotIn('href="https://gist.github.com', bad)               # gist 값을 모르면 주소 없이 글만
+        self.assertIn("gist.github.com에서 내 gist(도시에 올린 숫자 파일)를 열어요.", bad)
 
     def test_height_follows_total(self):
         code = city_js("totalOf", "heightOf", "hash", "activeDays", "addPerson") + """
@@ -1552,7 +1577,8 @@ console.log(JSON.stringify({ byH, z: [people[4].height, people[4].ok], ab: peopl
         self.assertEqual(r["floors"], [20, 20, 33, 7, 1])
 
     def test_join_panel_folds_details(self):
-        code = city_js("T", "esc", "t", "cname", "flag", "JOIN_REF", "JOIN_SCRIPT", "JOIN_SOURCE", "joinCountry", "joinCmd", "joinOpts", "openJoin") + """
+        code = city_js("T", "esc", "t", "cname", "flag", "JOIN_REF", "JOIN_SCRIPT", "JOIN_SOURCE", "joinCountry", "joinCmd", "joinOpts", "openJoin",
+                       "CONFIG", "leaveURL", "outLink") + """
 let lang = 'ko', COUNTRIES = new Set(['KR', 'JP']);
 const document = { activeElement: null };
 const els = {}, $ = s => els[s] || (els[s] = { innerHTML: '', hidden: true, textContent: '', contains: () => false, addEventListener() {}, focus() {} });
@@ -1577,9 +1603,50 @@ console.log(JSON.stringify({ html: els['#joinBox'].innerHTML, T: T.ko }));
         self.assertIn("한 번 더 물어봐요", ko["joinFirst"])
         self.assertEqual(ko["joinH"], "내 토큰 세어 보기")                             # 제목은 짧게, '터미널 한 줄'은 작은 부제
         self.assertIn(ko["joinSub"], shown)
-        for s in [ko["joinCountryNote"], ko["joinNeed"], ko["joinAgain"]] + ko["joinSteps"]:   # 나라 안내·준비물·다시 올리기·단계는 '자세히'로
+        for s in [ko["joinCountryNote"], ko["joinNeed"], ko["joinAgain"], ko["joinLeave"]] + ko["joinSteps"]:   # 나라 안내·준비물·다시 올리기·단계·나가기는 '자세히'로
             self.assertNotIn(s, shown)
             self.assertIn(s, folded)
+        self.assertIn('href="https://github.com/min-heee/token-meter/issues/new?template=leave.yml&amp;title=leave"', folded)
+
+    def test_trap_skips_closed_details(self):
+        """참가 창의 Tab 가두기는 접힌 '자세히' 안의 링크(탈퇴 신청)를 빼요. 크롬은 접힌 링크도 offsetParent가 있어서
+        목록 끝에 남으면 summary에서 Tab이 창 밖으로 새고, 닫기에서 Shift+Tab은 그 링크로 가지 못해 멈춰요."""
+        code = city_js("trap") + """
+const d = { open: false };
+const el = (name, inside) => ({ name, tagName: name === 'summary' ? 'SUMMARY' : name === 'link' ? 'A' : 'BUTTON', disabled: false, offsetParent: {},
+  parentElement: name === 'summary' ? d : {}, closest: sel => (inside && !d.open ? d : null), focus() { document.activeElement = this; } });
+const close = el('close', false), summary = el('summary', true), link = el('link', true);
+const box = { querySelectorAll: () => [close, summary, link] };
+const document = { activeElement: null };
+const key = (from, shift) => { document.activeElement = from; let stopped = false; trap(box, { shiftKey: shift, preventDefault() { stopped = true; } });
+  return [stopped, document.activeElement.name]; };
+const out = { tabFromSummary: key(summary, false), shiftFromClose: key(close, true) };
+d.open = true; out.openTabFromSummary = key(summary, false); out.openTabFromLink = key(link, false);
+console.log(JSON.stringify(out));
+"""
+        r = run_node(code)
+        self.assertEqual(r["tabFromSummary"], [True, "close"])      # 접혔으면 summary가 끝: Tab이 닫기로 돌아요
+        self.assertEqual(r["shiftFromClose"], [True, "summary"])    # Shift+Tab은 summary로(접힌 링크가 아니라)
+        self.assertEqual(r["openTabFromSummary"], [False, "summary"])   # 펼치면 링크가 다음이라 그대로 둬요
+        self.assertEqual(r["openTabFromLink"], [True, "close"])
+
+    def test_leave_url_follows_registry(self):
+        """탈퇴 신청 주소는 명단(CONFIG.registry)이 https://<owner>.github.io/<repo>/일 때만 그 저장소의 leave 양식이에요(이름을 옮기면 함께 바뀌어요).
+        그 밖의 명단(시험용 서버, http, 저장소 없는 주소, 이상한 값)이면 ''이라 화면에 주소 없이 글만 보여요."""
+        code = city_js("leaveURL") + """
+const CONFIG = { registry: '' }, out = {};
+for (const r of ['https://min-heee.github.io/token-meter/', 'https://Someone.github.io/new-name/members/', 'http://min-heee.github.io/token-meter/',
+                 'https://min-heee.github.io/', 'http://127.0.0.1:9471/', 'https://example.com/token-meter/', 'not a url', 'https://a.github.io/bad%20name/']) {
+  CONFIG.registry = r; out[r] = leaveURL();
+}
+console.log(JSON.stringify(out));
+"""
+        r = run_node(code)
+        self.assertEqual(r, {
+            "https://min-heee.github.io/token-meter/": "https://github.com/min-heee/token-meter/issues/new?template=leave.yml&title=leave",
+            "https://Someone.github.io/new-name/members/": "https://github.com/someone/new-name/issues/new?template=leave.yml&title=leave",
+            "http://min-heee.github.io/token-meter/": "", "https://min-heee.github.io/": "", "http://127.0.0.1:9471/": "",
+            "https://example.com/token-meter/": "", "not a url": "", "https://a.github.io/bad%20name/": ""})
 
     def test_front_door(self):
         """방문자 첫 단추는 '내 토큰 세어 보기'(참가 창), 설치 링크는 위 막대에서 빼서 아래 안내 줄에. 아이디 찾기 칸은 위 막대에."""
@@ -1591,6 +1658,84 @@ console.log(JSON.stringify({ html: els['#joinBox'].innerHTML, T: T.ko }));
         self.assertEqual(len(re.findall(r'href="\$\{INSTALL_URL\}"', CITY)), 2)   # 아래 안내 줄과 순위표 아래
         self.assertIn("countMine: '내 토큰 세어 보기'", CITY)
         self.assertIn("countMine: 'Count my tokens'", CITY)
+        # U-42 가: 공개 도시는 순위표가 앞문이에요. 보기 단추는 [순위 | 빌딩] 순서, 제목·머리말이 'AI 토큰 순위'라고 바로 말해요
+        vg = re.search(r'<div class="seg" role="group" id="viewGroup">(.*?)</div>', CITY, re.S).group(1)
+        self.assertLess(vg.index('data-view="numbers"'), vg.index('data-view="buildings"'))
+        for s in ("<title>에이전시티 · AI 토큰 순위</title>", "viewNum: '순위'", "numTitle: 'AI 토큰 순위'", "numTitle: 'AI token leaderboard'",
+                  "docTitle: '에이전시티 · AI 토큰 순위'", "docTitle: 'Agencity · AI token leaderboard'",
+                  "const HOME_VIEW = LOCAL ? 'buildings' : 'numbers';", "if (view === HOME_VIEW) q.delete('view'); else q.set('view', view);",
+                  "if (view === 'buildings' && !askedZone && !want && narrow()", "body.numview .msg{display:none}",
+                  "let people = [], ZONES = [], zone = 'ALL', view = firstView(params), shown = PAGE;",
+                  "if (view === 'numbers') drawNumbers();   // 순위 보기에서는 같은 알림을 순위표 안에",
+                  "$('#stage').inert = v === 'numbers';",
+                  r"/^(127\.0\.0\.1|localhost)$/.test(location.hostname)"):           # 앱(127.0.0.1·localhost)이 아니면 공개 도시
+            self.assertIn(s, CITY)
+        self.assertNotIn("viewNum: '숫자'", CITY)
+
+    def test_first_view_and_url(self):
+        """첫 보기(U-42 가): 주소에 ?view=가 없으면 공개 도시는 순위, 앱(127.0.0.1)은 빌딩. 주소의 ?view=가 앞서고(모르는 값은 기본),
+        주소에는 그 모드의 기본이 아닌 보기만 적어요(예전 ?view=numbers 링크도 열리고 주소는 깔끔해져요)."""
+        code = """
+function make(LOCAL, search) {
+  const location = { search, pathname: '/city.html', hash: '' }, seen = [];
+  const history = { replaceState(s, t, u) { seen.push(u); const i = u.indexOf('?'); location.search = i < 0 ? '' : u.slice(i); } };
+  const params = new URLSearchParams(search);
+  let zone = 'ALL';
+""" + city_js("HOME_VIEW", "firstView", "syncURL") + """
+  let view = firstView(params); syncURL(); const a = [view, seen.pop()];
+  view = view === 'numbers' ? 'buildings' : 'numbers'; syncURL();
+  return [a, [view, seen.pop()]];
+}
+const out = {};
+for (const [k, local, s] of [['pub', false, ''], ['pubOld', false, '?view=numbers&who=a&lang=en'], ['pubB', false, '?view=buildings'],
+  ['pubJunk', false, '?view=x'], ['pubWho', false, '?who=a'], ['loc', true, ''], ['locN', true, '?view=numbers'], ['locB', true, '?view=buildings']]) out[k] = make(local, s);
+console.log(JSON.stringify(out));
+"""
+        r = run_node(code)
+        self.assertEqual(r["pub"], [["numbers", "/city.html"], ["buildings", "/city.html?view=buildings"]])
+        self.assertEqual(r["pubOld"], [["numbers", "/city.html?who=a&lang=en"], ["buildings", "/city.html?who=a&lang=en&view=buildings"]])
+        self.assertEqual(r["pubB"], [["buildings", "/city.html?view=buildings"], ["numbers", "/city.html"]])
+        self.assertEqual(r["pubJunk"][0], ["numbers", "/city.html"])
+        self.assertEqual(r["pubWho"][0], ["numbers", "/city.html?who=a"])
+        self.assertEqual(r["loc"], [["buildings", "/city.html"], ["numbers", "/city.html?view=numbers"]])   # 앱은 예전 그대로
+        self.assertEqual(r["locN"][0], ["numbers", "/city.html?view=numbers"])
+        self.assertEqual(r["locB"][0], ["buildings", "/city.html"])
+
+    def test_ranking_shows_load_notices(self):
+        """순위 보기가 첫 화면이라 불러오기 알림도 순위표 안에 보여요(지도 가운데 알림은 순위 보기에서 숨어요).
+        불러오기 전에는 '0명' 대신 '불러오는 중', 아무도 없는 나라는 '참가한 사람이 없어요'."""
+        code = self.TABLE.replace("console.log(JSON.stringify(out));", """
+const res = {};
+zone = 'FR'; drawNumbers(); res.emptyC = $('#table').innerHTML; zone = 'ALL';
+people = []; rerank(); loaded = false; drawNumbers(); res.loading = snap();
+loaded = true; $('#few').hidden = false; $('#tiles').hidden = false; msgArgs = { k: 'listFail' }; drawNumbers();
+res.fail = [snap(), $('#few').hidden, $('#tiles').hidden];
+msgArgs = { k: 'noLoad', n: 3 }; drawNumbers(); res.noLoad = snap();
+msgArgs = { k: 'none' }; drawNumbers(); res.none = snap();
+lang = 'en'; msgArgs = { k: 'listFail' }; drawNumbers(); res.failEn = snap();
+console.log(JSON.stringify(res));""")
+        r = run_node(code)
+        self.assertIn("아직 이 나라에는 참가한 사람이 없어요", r["emptyC"])
+        self.assertIn("내 토큰 세어 보기 →", r["emptyC"])                        # 공개 도시의 순위표 안 단추는 위 막대 단추와 같은 말
+        self.assertNotIn("첫 건물", r["emptyC"])
+        self.assertEqual(r["loading"]["sub"], "모든 나라 · 불러오는 중")
+        self.assertEqual(r["loading"]["table"], "")
+        fail, few_hidden, tiles_hidden = r["fail"]
+        self.assertIn("명단을 불러오지 못했어요", fail["table"])
+        self.assertIn("인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.", fail["table"])
+        self.assertNotIn('data-act="join"', fail["table"])
+        self.assertTrue(few_hidden)
+        self.assertTrue(tiles_hidden)
+        self.assertIn("에이전시티 설치", fail["foot"])
+        self.assertEqual(fail["sub"], "모든 나라 · 불러오지 못함")                 # 모르는 수라 '0명'이라고 하지 않아요
+        self.assertEqual(r["noLoad"]["sub"], "모든 나라 · 불러오지 못함")
+        self.assertIn("참가한 사람을 불러오지 못했어요", r["noLoad"]["table"])
+        self.assertIn("명단의 3명 중 아무도 불러오지 못했어요.", r["noLoad"]["table"])
+        self.assertEqual(r["none"]["sub"], "모든 나라 · 0명")                      # 아무도 없을 때는 0명이 맞아요
+        for s in ("아직 건물이 없어요", "설치 없이 터미널 한 줄로 내 토큰을 세어 봐요.", "내 토큰 세어 보기 →", 'data-act="join"'):   # 지도 가운데 알림과 같은 말·단추
+            self.assertIn(s, r["none"]["table"])
+        self.assertIn("load the member list", r["failEn"]["table"])
+        self.assertEqual(r["failEn"]["sub"], "All countries · Couldn't load")
 
     def test_hint_keeps_install_link_when_few(self):
         """사람이 적어(3명 이하) 아래 안내 줄이 크게 바뀌어도 공개 도시에는 '도시 규칙 · 에이전시티 설치 ↗'가 그 줄 끝에 작게 남아요."""
@@ -1756,7 +1901,7 @@ console.log(JSON.stringify(out));
         self.assertEqual(en["date"], "Posted October 20, 2026")
         self.assertEqual(spilled, [])
         self.assertTrue(any(s.endswith("…") or s == "a" * 39 for s in drawn if s.startswith("aaaa")))
-        self.assertEqual(share, "My building is up in Agencity City · 20B total tokens · #1 of 20 worldwide · top 5% · #1 of 6 in South Korea"
+        self.assertEqual(share, "I’m on the Agencity AI token leaderboard · 20B total tokens · #1 of 20 worldwide · top 5% · #1 of 6 in South Korea"
                                 " · Count yours → https://min-heee.github.io/agencity/?who=" + "a" * 39 + "&lang=en")
 
     def test_avatar_png_and_share(self):
@@ -1873,7 +2018,7 @@ SCREEN_DRIVER = r"""
 const { spawn } = require('child_process');
 const [CHROME, BASE, UDD, HOST, CASES] = __ARGS__;
 const ch = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-first-run', '--use-mock-keychain', '--password-store=basic', '--user-data-dir=' + UDD,
-  '--no-proxy-server', `--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP * ~NOTFOUND`, '--disable-background-networking', '--disable-component-update',
+  '--no-proxy-server', `--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP 127.0.0.1 127.0.0.1, MAP * ~NOTFOUND`, '--disable-background-networking', '--disable-component-update',
   '--disable-sync', '--disable-default-apps', '--hide-scrollbars', '--remote-debugging-pipe', 'about:blank'], { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
 let buf = Buffer.alloc(0), id = 0;
 const pend = new Map();
@@ -1908,8 +2053,11 @@ const MEASURE = `(async () => {
   const out = { zone: d.querySelector('#ctry').value, W: w.innerWidth, H: w.innerHeight,
     tags: [...d.querySelectorAll('#tags .zone-tag')].map((g, i) => ({ zone: g.dataset.zone, shown: g.style.display !== 'none' && !!g.getClientRects().length,
       tab: g.getAttribute('tabindex'), aria: g.getAttribute('aria-hidden'), r: R(g.querySelector('rect')), seen: seen(plates[i]) })),
-    top: vis('#top'), hint: vis('#hint'), zoom: vis('#zoom'), card: vis('#card'), numbers: vis('#numbers'), sel: sel ? R(sel) : null,
+    top: vis('#top'), hint: vis('#hint'), zoom: vis('#zoom'), card: vis('#card'), numbers: vis('#numbers'), sel: sel ? R(sel) : null, msg: vis('#msg'),
+    search: location.search, title: d.title, views: [...d.querySelectorAll('#viewGroup button')].map(b => b.dataset.view + ':' + b.getAttribute('aria-pressed')),
+    sub: d.querySelector('#numSub').textContent, table: d.querySelector('#table').textContent.slice(0, 600),
     active: ae && ae.closest && ae.closest('.zone-tag') ? 'zone:' + ae.closest('.zone-tag').dataset.zone : ae ? ae.tagName : '',
+    activeIn: ae && ae.closest ? (ae.closest('#numbers') ? 'numbers' : ae.closest('#stage') ? 'stage' : ae.closest('#top') ? 'top' : 'other') : '',
     cssTop: w.getComputedStyle(d.documentElement).getPropertyValue('--top').trim(), topH: d.querySelector('#top').offsetHeight,
     opened: w.__opened === undefined ? null : w.__opened, taps: w.__taps || 0, selText: String(w.getSelection() || ''),
     bg: Object.fromEntries(['#top', '#count', '#viewGroup', '#langGroup', '#ctry', '#findQ'].map(s => [s, w.getComputedStyle(d.querySelector(s)).backgroundColor])) };
@@ -1938,12 +2086,14 @@ const LOADED = `(() => { const c = document.querySelector('#count'), t = c ? c.t
   const out = [];
   for (const c of CASES) {
     try {
+      // local: 앱과 같은 127.0.0.1로 열면 내 컴퓨터의 앱 모습(LOCAL)이에요. 아니면 공개 도시(방문자) 모습
+      const base = c.local ? BASE.replace('//' + HOST + ':', '//127.0.0.1:') : BASE;
       await S('Emulation.setDeviceMetricsOverride', { width: c.w, height: c.h, deviceScaleFactor: 1, mobile: c.w < 600 });
-      await S('Page.navigate', { url: BASE + 'blank.html' });
+      await S('Page.navigate', { url: base + 'blank.html' });
       await until(`location.pathname === '/blank.html' && document.readyState === 'complete'`);
       await ev(`(() => { try { ${c.me ? `localStorage.setItem('agencity.me', ${JSON.stringify(c.me)})` : `localStorage.removeItem('agencity.me')`} } catch (e) {} return 1; })()`);
-      await S('Page.navigate', { url: BASE + 'city.html?' + c.q });
-      await until(`location.pathname === '/city.html' && ` + LOADED);
+      await S('Page.navigate', { url: base + 'city.html?' + c.q });
+      await until(`location.pathname === '/city.html' && ` + (c.until || LOADED));   // until: 명단을 못 읽는 경우처럼 다 불러온 때를 따로 알아보는 식
       await sleep(800);   // 맞춤과 이름판 자리(다음 그림 때)가 끝나게
       for (const [k, ...a] of c.steps || []) {
         const mouse = (type, x, y) => S('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 });
@@ -1967,6 +2117,10 @@ const LOADED = `(() => { const c = document.querySelector('#count'), t = c ? c.t
           await ev(`window.__taps = ${pick.length}`);
         }
         else if (k === 'js') await ev(a[0]);
+        else if (k === 'tab') {   // 진짜 Tab 키 한 번(키보드 초점이 어디로 가는지)
+          const key = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+          await S('Input.dispatchKeyEvent', Object.assign({ type: 'keyDown' }, key)); await S('Input.dispatchKeyEvent', Object.assign({ type: 'keyUp' }, key));
+        }
         await sleep(400);
       }
       out.push(Object.assign({ name: c.name }, await ev(MEASURE.replace('SCROLL', String(c.scroll || 0)))));
@@ -1996,25 +2150,26 @@ class CityScreen(unittest.TestCase):
     5명 전 나라 순위 칸에 '세계 순위'가 보여요.
     예시 도시(examples/city/demo.json)만 써요. 서버는 127.0.0.1의 9740번대 빈 포트, 브라우저는 그 밖의 이름을 모두 막아요(글꼴·아바타도 바깥에 닿지 않아요)."""
 
+    # 공개 도시는 순위 보기로 열려요(U-42 가). 지도를 재는 경우는 &view=buildings로 빌딩 보기를 열어요.
     CASES = [
-        {"name": "me390", "q": "demo=1&lang=ko", "me": "demo-hana", "w": 390, "h": 844},        # #me로 기억한 '나'(대한민국): 휴대폰은 내 나라 구역부터
-        {"name": "us390", "q": "demo=1&lang=ko&country=US", "w": 390, "h": 844},              # 나라 고름
-        {"name": "all390", "q": "demo=1&lang=en&country=all", "w": 390, "h": 844},            # 모든 나라(가장 큰 건물부터)
-        {"name": "all1280", "q": "demo=1&lang=ko", "w": 1280, "h": 860},                      # 첫 화면: 판이 모두 보여요
-        {"name": "kr1280", "q": "demo=1&lang=en&country=KR", "w": 1280, "h": 860},
+        {"name": "me390", "q": "demo=1&lang=ko&view=buildings", "me": "demo-hana", "w": 390, "h": 844},   # #me로 기억한 '나'(대한민국): 휴대폰 빌딩 보기는 내 나라 구역부터
+        {"name": "us390", "q": "demo=1&lang=ko&country=US&view=buildings", "w": 390, "h": 844},          # 나라 고름
+        {"name": "all390", "q": "demo=1&lang=en&country=all&view=buildings", "w": 390, "h": 844},        # 모든 나라(가장 큰 건물부터)
+        {"name": "all1280", "q": "demo=1&lang=ko&view=buildings", "w": 1280, "h": 860},                  # 빌딩 보기 첫 모습: 판이 모두 보여요
+        {"name": "kr1280", "q": "demo=1&lang=en&country=KR&view=buildings", "w": 1280, "h": 860},
         {"name": "num390", "q": "demo=1&lang=ko&view=numbers", "w": 390, "h": 844, "scroll": 260},
         {"name": "num1280", "q": "demo=1&lang=ko&view=numbers", "w": 1280, "h": 560, "scroll": 260},
         {"name": "jp390", "q": "demo=1&lang=ko&view=numbers&country=JP", "w": 390, "h": 844},   # 일본: 확인된 사람 1명(5명 전)
         {"name": "jp1280en", "q": "demo=1&lang=en&view=numbers&country=JP", "w": 1280, "h": 860},
         # 대한민국을 고르고 지도를 아래로 끌면 앞 꼭짓점(판 제자리)은 화면 밖이지만 바닥은 보여요: 판은 화면 안 빈자리로 옮겨 남아요
-        {"name": "drag1280", "q": "demo=1&lang=en&country=KR", "w": 1280, "h": 860, "steps": [["drag", 640, 300, 0, 330]]},
-        {"name": "drag390", "q": "demo=1&lang=ko&country=all", "w": 390, "h": 844, "steps": [["drag", 195, 500, 150, 60]]},
-        {"name": "zout390", "q": "demo=1&lang=ko&country=all", "w": 390, "h": 844, "steps": [["js", "document.querySelector('#zout').click()"]] * 6},
+        {"name": "drag1280", "q": "demo=1&lang=en&country=KR&view=buildings", "w": 1280, "h": 860, "steps": [["drag", 640, 300, 0, 330]]},
+        {"name": "drag390", "q": "demo=1&lang=ko&country=all&view=buildings", "w": 390, "h": 844, "steps": [["drag", 195, 500, 150, 60]]},
+        {"name": "zout390", "q": "demo=1&lang=ko&country=all&view=buildings", "w": 390, "h": 844, "steps": [["js", "document.querySelector('#zout').click()"]] * 6},
         # 키보드 초점이 있는 대한민국 판: 휠로 키워 구역이 화면 밖으로 가도 판과 초점이 남아요
-        {"name": "focus1280", "q": "demo=1&lang=ko&country=KR", "w": 1280, "h": 860,
+        {"name": "focus1280", "q": "demo=1&lang=ko&country=KR&view=buildings", "w": 1280, "h": 860,
          "steps": [["js", "document.querySelector('#tags .zone-tag[data-zone=\"KR\"]').focus()"], ["wheel", 60, 120, -240, 6]]},
         # 일본 빌딩 → 숫자 보기에서 대한민국으로 바꾸고 → 빌딩으로 돌아오면 지도가 대한민국에 맞춰져 있어요
-        {"name": "refit390", "q": "demo=1&lang=ko&country=JP", "w": 390, "h": 844,
+        {"name": "refit390", "q": "demo=1&lang=ko&country=JP&view=buildings", "w": 390, "h": 844,
          "steps": [["js", "document.querySelector('#viewGroup button[data-view=\"numbers\"]').click()"],
                    ["js", "(s => { s.value = 'KR'; s.dispatchEvent(new Event('change')); })(document.querySelector('#ctry'))"],
                    ["js", "document.querySelector('#viewGroup button[data-view=\"buildings\"]').click()"]]},
@@ -2025,12 +2180,26 @@ class CityScreen(unittest.TestCase):
         {"name": "band390", "q": "demo=1&lang=ko&view=numbers&country=all", "w": 390, "h": 844, "steps": [["tapband"]]},
         {"name": "band1280", "q": "demo=1&lang=ko&view=numbers&country=KR", "w": 1280, "h": 860, "steps": [["tapband"]]},
         # 폰에서 '나'의 카드를 연 때: 이름판이 카드와 카드를 연 건물을 가리지 않아요
-        {"name": "card390", "q": "demo=1&lang=ko", "me": "demo-hana", "w": 390, "h": 844,
+        {"name": "card390", "q": "demo=1&lang=ko&view=buildings", "me": "demo-hana", "w": 390, "h": 844,
          "steps": [["js", "(b => { b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); })(document.querySelector('#world .bld[data-login=\"demo-hana\"]'))"]]},
         # 숫자 보기에서 마우스로 끌어 고를 때: 띠의 빈 곳에서 끌어도, 순위표 제목에서 막대 쪽으로 끌어 올려도 막대 글자와 숨은 지도의 이름판 글자가 골라지지 않아요
         {"name": "selband1280", "q": "demo=1&lang=ko&view=numbers&country=KR", "w": 1280, "h": 860, "steps": [["drag", 400, 60, 700, 0]]},
         {"name": "selbanddown1280", "q": "demo=1&lang=ko&view=numbers&country=KR", "w": 1280, "h": 860, "steps": [["drag", 400, 60, 120, 72]]},
         {"name": "selup1280", "q": "demo=1&lang=ko&view=numbers&country=KR", "w": 1280, "h": 860, "steps": [["dragfrom", "#numH", -150, -90]]},
+        # 공개 도시 첫 화면(?view= 없음): 순위표. 폰의 '나'(대한민국)도 순위는 모든 나라부터
+        {"name": "front390", "q": "demo=1&lang=ko", "me": "demo-hana", "w": 390, "h": 844},
+        {"name": "front1280en", "q": "demo=1&lang=en", "w": 1280, "h": 860},
+        {"name": "who390", "q": "demo=1&lang=ko&who=demo-jun", "w": 390, "h": 844},                    # 남의 공유 링크: 순위표 위에 그 사람 카드
+        # 내 컴퓨터의 앱(127.0.0.1): 예전처럼 빌딩 보기부터
+        {"name": "local1280", "q": "demo=1&lang=ko", "local": True, "w": 1280, "h": 860},
+        # 명단을 못 읽으면(예시 데이터 없이, 바깥 이름은 모두 막혀요) 그 알림이 순위표 안에 보여요
+        {"name": "fail390", "q": "lang=ko", "w": 390, "h": 844, "until": "document.querySelector('#count').classList.contains('warn')"},
+        # 키보드: 위 막대 마지막 단추(English)에서 Tab을 누르면 숨은 지도의 건물·이름판을 거치지 않고 바로 순위표로 가요
+        {"name": "tab1280", "q": "demo=1&lang=ko", "w": 1280, "h": 860,
+         "steps": [["js", "document.querySelector('#langGroup button[data-lang=\"en\"]').focus()"], ["tab"]]},
+        # 폰의 '나'(대한민국)가 순위 첫 화면에서 [빌딩]을 누르면: 순위에서 고른 나라(모든 나라) 그대로예요
+        {"name": "tob390me", "q": "demo=1&lang=ko", "me": "demo-hana", "w": 390, "h": 844,
+         "steps": [["js", "document.querySelector('#viewGroup button[data-view=\"buildings\"]').click()"]]},
     ]
 
     @classmethod
@@ -2169,8 +2338,63 @@ class CityScreen(unittest.TestCase):
                 for s in ("#count", "#viewGroup", "#langGroup", "#ctry", "#findQ"):
                     self.assertEqual(css_alpha(bg[s]), 1.0, (s, bg[s]))
         self.assertEqual(css_alpha(self.case("all1280")["bg"]["#top"]), 0.0)   # 빌딩 보기에서는 막대 칸 사이로 지도가 보여요(띠 없음)
-        for name in ("num390", "num1280"):
+        for name in ("num390", "num1280", "front390"):
             self.assertEqual(css_alpha(self.case(name)["bg"]["#top"]), 1.0, name)
+
+    def test_public_opens_on_ranking(self):
+        """U-42 가: 공개 도시는 ?view= 없이 열면 순위표가 첫 화면이에요(안내 줄·확대 단추 없음, 주소에 view= 없음, [순위] 눌림).
+        폰의 '나'도 순위는 모든 나라부터. 남의 ?who= 링크는 순위표 위에 그 사람 카드. 예전 ?view=numbers 주소는 깔끔해지고, 빌딩을 고르면 ?view=buildings."""
+        for name in ("front390", "front1280en", "who390"):
+            with self.subTest(name):
+                x = self.case(name)
+                self.assertIsNotNone(x["numbers"])
+                self.assertIsNone(x["hint"])
+                self.assertIsNone(x["zoom"])
+                self.assertNotIn("view=", x["search"])
+                self.assertEqual(x["views"], ["numbers:true", "buildings:false"])
+                self.assertIsNone(x["msg"])
+        self.assertEqual(self.case("front390")["zone"], "ALL")
+        self.assertEqual(self.case("front390")["title"], "에이전시티 · AI 토큰 순위")
+        self.assertEqual(self.case("front1280en")["title"], "Agencity · AI token leaderboard")
+        who = self.case("who390")
+        self.assertIsNotNone(who["card"])
+        self.assertIn("who=demo-jun", who["search"])
+        self.assertNotIn("view=", self.case("num390")["search"])
+        b = self.case("all1280")
+        self.assertIsNone(b["numbers"])
+        self.assertIn("view=buildings", b["search"])
+        self.assertEqual(b["views"], ["numbers:false", "buildings:true"])
+        # 순위에서 [빌딩]을 누르면 주소에 ?view=buildings가 다시 붙어요(나라를 바꾼 뒤에도)
+        self.assertEqual(self.case("refit390")["search"], "?demo=1&lang=ko&country=KR&view=buildings")
+        tob = self.case("tob390me")
+        self.assertIsNone(tob["numbers"])
+        self.assertEqual(tob["zone"], "ALL")                                   # 순위에서 고른 나라(모든 나라) 그대로
+        self.assertEqual(tob["search"], "?demo=1&lang=ko&view=buildings")
+
+    def test_tab_skips_hidden_map(self):
+        """순위 보기에서 위 막대 마지막 단추에서 Tab을 누르면 숨은 지도(건물·이름판)를 거치지 않고 순위표로 가요."""
+        x = self.case("tab1280")
+        self.assertIsNotNone(x["numbers"])
+        self.assertEqual(x["activeIn"], "numbers", x["active"])
+
+    def test_local_keeps_buildings_first(self):
+        """내 컴퓨터의 앱(127.0.0.1)은 ?view= 없이 열어도 예전처럼 빌딩 보기예요(안내 줄·확대 단추, 막대 칸 사이로 지도)."""
+        x = self.case("local1280")
+        self.assertIsNone(x["numbers"])
+        self.assertIsNotNone(x["hint"])
+        self.assertIsNotNone(x["zoom"])
+        self.assertEqual(x["views"], ["numbers:false", "buildings:true"])
+        self.assertNotIn("view=", x["search"])
+        self.assertEqual(css_alpha(x["bg"]["#top"]), 0.0)
+
+    def test_ranking_shows_list_failure(self):
+        """명단을 못 읽으면 순위 보기(첫 화면)의 순위표 안에 그 알림이 보이고, 지도 가운데 알림은 순위표 뒤에 숨지 않게 감춰요."""
+        x = self.case("fail390")
+        self.assertIsNotNone(x["numbers"])
+        self.assertIsNone(x["msg"])
+        table = " ".join(x["table"].split())
+        self.assertIn("명단을 불러오지 못했어요", table)
+        self.assertIn("인터넷 연결을 확인하거나 잠시 뒤에 다시 열어 주세요.", table)
 
     def test_numbers_scroll_below_top_bar(self):
         """숫자 보기 순위표는 위 막대 아래에서 시작해 그 안에서만 스크롤돼요. 스크롤해도 줄이 막대 칸 사이·뒤로 지나가지 않아요."""
@@ -2203,7 +2427,7 @@ class CityScreen(unittest.TestCase):
                 self.assertEqual(self.case(name)["selText"], "")
         up = self.case("selup1280")["selText"]
         self.assertIn("순위", up)                                               # 정말 순위표 제목부터 골랐어요
-        for word in ("브라질", "일본", "아이디 찾기", "숫자"):                    # 대한민국 순위표에는 없는 지도 판·막대 글자
+        for word in ("브라질", "일본", "아이디 찾기", "빌딩"):                    # 대한민국 순위표에는 없는 지도 판·막대 글자
             self.assertNotIn(word, up)
         for name in ("selband1280", "selbanddown1280", "selup1280"):
             self.assertIsNotNone(self.case(name)["numbers"])                      # 숫자 보기 그대로

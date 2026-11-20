@@ -7279,7 +7279,7 @@ function visHTML() {
   const intro = pvIntro ? `<li>소개 한 줄: ${esc(pvIntro)} <small class="hint">(층 공개 범위와 상관없이 함께 나가요)</small></li>` : '';
   // 나라: 미리보기(올라갈 내용 그대로)에 있는 값. 정한 적 없으면 서버가 올릴 때 gist의 나라를 그대로 둬요(keepCountry)
   const pvCtry = pv.profile && /^[A-Z]{2}$/.test(String(pv.profile.country || '')) ? pv.profile.country : '';
-  const ctryLi = pvCtry ? `<li>나라: ${esc(ctryLabel(pvCtry))} <small class="hint">(공개 gist에 올라가 누구나 봐요. 도시의 구역·카드·숫자 보기에 아이디와 함께 보여요)</small></li>`
+  const ctryLi = pvCtry ? `<li>나라: ${esc(ctryLabel(pvCtry))} <small class="hint">(공개 gist에 올라가 누구나 봐요. 도시의 구역·카드·순위표에 아이디와 함께 보여요)</small></li>`
     : SU.preview && SU.preview.keepCountry ? '<li>나라: 이 맥에서 정한 적이 없어서, gist에 이미 있는 나라가 있으면 그대로 둬요</li>' : '<li>나라: 공개 안 함</li>';
   const wasCtry = SU.st.published && SU.st.published.country;
   const notes = Array.isArray(SU.preview && SU.preview.notes) ? SU.preview.notes : [];
